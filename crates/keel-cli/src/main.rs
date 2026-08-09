@@ -142,6 +142,12 @@ enum Command {
         /// Only count activity after this instant (RFC 3339).
         #[arg(long)]
         since: Option<String>,
+        /// How many sessions were run. The denominator.
+        ///
+        /// Not derived from the log: a session that wrote nothing leaves no
+        /// event, so the log cannot tell you it happened.
+        #[arg(long, default_value_t = 10)]
+        sessions: usize,
         /// Daemon base URL.
         #[arg(long, default_value = "http://127.0.0.1:7654")]
         daemon: String,
@@ -179,8 +185,15 @@ fn main() -> Result<()> {
         Command::Gate {
             project,
             since,
+            sessions,
             daemon,
-        } => gate::run(daemon, project.as_deref(), since.as_deref(), cli.json),
+        } => gate::run(
+            daemon,
+            project.as_deref(),
+            since.as_deref(),
+            *sessions,
+            cli.json,
+        ),
         Command::Generate {
             project,
             repo,

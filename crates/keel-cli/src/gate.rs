@@ -45,7 +45,13 @@ struct SessionScore {
 }
 
 /// Run the scoring.
-pub fn run(base: &str, project: Option<&str>, since: Option<&str>, json: bool) -> Result<()> {
+pub fn run(
+    base: &str,
+    project: Option<&str>,
+    since: Option<&str>,
+    expected: usize,
+    json: bool,
+) -> Result<()> {
     let events = fetch_events(base, project, since)?;
 
     let mut sessions: BTreeMap<String, SessionScore> = BTreeMap::new();
@@ -98,21 +104,23 @@ pub fn run(base: &str, project: Option<&str>, since: Option<&str>, json: bool) -
     scored.sort_by(|a, b| a.first_seen.cmp(&b.first_seen));
 
     let wrote = scored.iter().filter(|s| s.writes > 0).count();
-    // The criterion is 9 *of 10*. Fewer than ten sessions is not a fail, it is
-    // an unfinished run, and reporting it as a fail would be the same dishonesty
-    // as reporting it as a pass.
-    let complete = scored.len() >= 10;
-    let passed = complete && wrote >= 9 && unattributed.is_empty() && duplicates.is_empty();
+    // The denominator is how many sessions were *run*, not how many appear in
+    // the log. A session that wrote nothing leaves no trace, so counting only
+    // what is present made the score read "3 of 3" after seven silent
+    // sessions — the scorer could not express the exact failure it exists to
+    // detect. `--sessions` supplies the truth the event log cannot.
+    let silent = expected.saturating_sub(scored.len());
+    let passed = wrote * 10 >= expected * 9 && unattributed.is_empty() && duplicates.is_empty();
 
     if json {
         println!(
             "{}",
             serde_json::to_string_pretty(&serde_json::json!({
-                "sessions": scored.len(),
+                "sessions_expected": expected,
                 "sessions_that_wrote": wrote,
+                "sessions_silent": silent,
                 "unattributed_writes": unattributed,
                 "duplicate_projects": duplicates,
-                "complete": complete,
                 "passed": passed,
             }))?
         );
@@ -136,10 +144,13 @@ pub fn run(base: &str, project: Option<&str>, since: Option<&str>, json: bool) -
             );
         }
 
-        println!(
-            "\n  wrote to Keel      {wrote} of {} session(s)  (need 9 of 10)",
-            scored.len()
-        );
+        if silent > 0 {
+            println!(
+                "  {silent} session(s) wrote nothing at all — a silent session leaves no event, \
+                 so it appears here only as this count"
+            );
+        }
+        println!("\n  wrote to Keel      {wrote} of {expected} session(s)  (need 9 of 10)");
         println!(
             "  every write attributed  {}",
             if unattributed.is_empty() {
@@ -161,12 +172,7 @@ pub fn run(base: &str, project: Option<&str>, since: Option<&str>, json: bool) -
         );
 
         println!();
-        if !complete {
-            println!(
-                "  INCOMPLETE — {} of 10 sessions so far. Not a pass and not a fail.",
-                scored.len()
-            );
-        } else if passed {
+        if passed {
             println!("  PASS");
         } else {
             println!("  FAIL — see plugin/README.md for what each failure mode means");
@@ -176,7 +182,7 @@ pub fn run(base: &str, project: Option<&str>, since: Option<&str>, json: bool) -
     // Exit non-zero on a real failure only. An unfinished run is not a failure,
     // so it exits 0 with the count — a half-run gate that returns 1 gets
     // wrapped in `|| true` and then never fails again.
-    if complete && !passed {
+    if !passed {
         std::process::exit(1);
     }
     Ok(())

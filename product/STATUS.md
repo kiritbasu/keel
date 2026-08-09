@@ -156,6 +156,27 @@ Nothing.
 
 ---
 
+## The SessionStart hook: 3 of 10, up from 0–1
+
+Built, installed, and measured against a fresh gate run — ten sessions, scratch store, both projects pre-created so the cold-start question was held constant.
+
+| | Before the hook | With the hook |
+|---|---|---|
+| Sessions that wrote | 0–1 of 10 | **3 of 10** |
+| Every write attributed | — | yes |
+| Duplicate projects | 0 | 0 |
+| Verdict | invalid (skill never loaded) | **FAIL** — needs 9 of 10 |
+
+**Orientation is solved. Writing is not.** Sessions now arrive knowing what the project is; seven of ten read the digest and recorded nothing anyway. The failure has moved from *"never heard of Keel"* to *"oriented and chose not to record"* — a judgement problem in the remaining `SKILL.md` rather than a plumbing one, and a much narrower target.
+
+The three that did write minted readable session ids of their own (`tideline-2026-08-09`) and wrote one to three artifacts each. When they engage, they engage properly.
+
+**Also fixed, found by watching this run:** `keel gate` counted its denominator from sessions present in the event log. A session that writes nothing leaves no event, so it read "3 of 3" after seven silent ones — the scorer structurally could not express the failure it exists to detect. It now takes `--sessions` and reports the silent count.
+
+**The runner is sequential**, which is why each run costs 15–20 minutes: ten ordinary Claude conversations in a queue. They could run concurrently and finish in about two. Not done.
+
+---
+
 ## The skill does not fire. Phase 2's mechanism does not work.
 
 An interactive session, scratch project, skill installed at `~/.claude/skills/keel/`, MCP server registered user-scope. Prompt:
