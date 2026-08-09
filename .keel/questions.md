@@ -3,6 +3,24 @@
 <!-- keel:generated questions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
 > Generated from Keel — edits here are not saved.
 
+## I maintained the tracker as prose all session and never touched a task row
+
+`que_01KZKW33RGTJY86XYDTHSPMF0C` · risk · severity high
+
+KB noticed it before I did: "I am not seeing the actual project task items getting updated from this chat."
+
+He was right. Of 134 events in the store, 119 were `keel bootstrap`, 13 were `keel import`, and 2 were one-off `curl` calls. Zero task rows moved status in a session that shipped four features. I kept the tracker by hand in `product/STATUS.md`, imported it, and generated it back out — so the *prose* was accurate and the *data* was frozen at what bootstrap wrote at 16:11.
+
+This is R-2 ("the agent doesn't write to it") happening live, to the agent that built the thing. Worth recording because it is evidence about the product, not about one session:
+
+- The MCP surface was connected and working the whole time. Wiring was never the problem.
+- The pull toward editing a markdown file is strong enough to beat a tool surface designed specifically to replace it, even with the tool in front of me and the project's own contract telling me to use it.
+- It went unnoticed until a human looked at the app. Nothing in the system complains that no task row has changed while the commit log fills up.
+
+Two candidate mitigations, neither built:
+1. `keel generate --check` already fails on stale prose. A sibling check could fail when the event log shows no task mutation in a session that produced commits — cheap, and it converts a silent drift into a build failure.
+2. The Phase 2 skill and hooks are the real answer, and they are exactly what the ten-session gate is meant to measure. This session is a data point that the gate matters and is currently failing when the agent is running without the plugin.
+
 ## The agent might simply not write to it
 
 `que_01KZKMPW1RDD4SJ8MZXW8ZMKCK` · risk · severity high

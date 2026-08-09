@@ -15,9 +15,10 @@
 | | |
 |---|---|
 | **Current phase** | Phase 3 — Desktop (complete). Dogfooding on the real store |
-| **Phase progress** | Phase 0: **16/16** · Phase 1: **14/14** · Phase 2: **7/7** · Phase 3: **13/13** |
+| **Phase progress** | Phase 0: **16/16** · Phase 1: **14/14** · Phase 2: **7/8** · Phase 3: **13/13** |
 | **Status** | Phases 0–3 built. Keel is the source of truth; every `product/*.md` is generated from it |
 | **Blocked on** | Nothing. TQ-14 (render the tracker from task rows) is the last half-step of the dogfooding switch |
+| **Warning** | **R-2 observed live** — session 3 shipped four features and moved zero task rows. See "The session that did not write to Keel" below |
 | **Next up** | KB: run the Phase 2 ten-session gate. Then Phase 4 (GitHub) — needs your account |
 | **Last session** | 2026-08-09 |
 | **Last updated** | 2026-08-09 |
@@ -155,6 +156,26 @@ Nothing.
 
 ---
 
+## The session that did not write to Keel
+
+KB asked, part-way through session 3: *"I am not seeing the actual project task items getting updated from this chat, is it wired correctly?"*
+
+It was wired correctly. That was the problem.
+
+Of the 134 events in the store at the moment he asked, 119 came from `keel bootstrap`, 13 from `keel import`, and 2 from one-off `curl` calls. **Not one task row changed status during a session that shipped four features.** The tracker prose was accurate, because it was hand-written and imported; the task rows were frozen at what bootstrap wrote at 16:11 that morning. The app showed the truth and the markdown did not.
+
+This is R-2 — "the agent doesn't write to it" — happening to the agent building the thing, with the MCP surface connected and the project's own contract instructing otherwise. Recorded as a `risk` in Keel (`que_01KZKW33RGTJY86XYDTHSPMF0C`) because it is evidence about the product rather than about one session. Three things it says:
+
+- Wiring was never the issue. The tools worked on the first call, before and after.
+- The pull toward editing a markdown file beat a tool surface designed specifically to replace it.
+- **Nothing complained.** Commits accumulated, `--check` stayed green, and the drift was invisible until a human opened the app.
+
+The second point is the one the PRD is betting against. The third is cheap to fix and is not fixed: `keel generate --check` fails on stale *prose*, and there is no equivalent that fails when a session produces commits and no task mutations.
+
+The proper answer is the Phase 2 skill and hooks, which is exactly what the ten-session gate measures — and this session is a data point that the gate matters and would currently fail.
+
+---
+
 ## Phase gates I cannot verify
 
 KB's instruction was to substitute an automated proxy for the human-in-the-loop gates, proceed, and record honestly what is unverified. This is that record.
@@ -176,7 +197,7 @@ One entry per session. Append; never edit history.
 |---|---|---|---|
 | 2026-08-09 | — | Tracker seeded from PRD/SPEC. No code yet. | P0-1 |
 | 2026-08-09 | 1 | **Phases 0–3.** Storage spine, MCP daemon with nine tools, Claude Code plugin, Tauri desktop app. 264 Rust tests, nothing ignored. All four CI gates green. Twelve build-time decisions and five spec corrections recorded. Two gates left unrun because they need a human — see "Phase gates I cannot verify". | KB: run the Phase 2 ten-session gate. It is the one that tests the premise. |
-| 2026-08-09 | 3 | **Keel is the source of truth.** KB's call, in one line, after seeing the specs render in the app. Prose artifacts now record the repository file they are, and `keel generate keel` writes all seven `product/*.md` from Keel — verified byte-identical over the existing files, banner aside. Generation moved into the daemon, because the read-only escape hatch D-5 assumes turns out not to exist in DuckDB at all. `--check` makes drift a build failure. 291 tests. **One half-step left (TQ-14):** the tracker is authoritative in Keel but still stored prose, not rendered from the task rows — the rows have no per-task notes yet. | KB: the Phase 2 ten-session gate, still unrun. Then TQ-14. |
+| 2026-08-09 | 3 | **Keel is the source of truth.** KB's call, in one line, after seeing the specs render in the app. Prose artifacts now record the repository file they are, and `keel generate keel` writes all seven `product/*.md` from Keel — verified byte-identical over the existing files, banner aside. Generation moved into the daemon, because the read-only escape hatch D-5 assumes turns out not to exist in DuckDB at all. `--check` makes drift a build failure. 291 tests. **One half-step left (TQ-14):** the tracker is authoritative in Keel but still stored prose, not rendered from the task rows — the rows have no per-task notes yet. **Then KB caught the thing that matters more:** this session wrote nothing to the task rows all day. Fixed — the work is in Keel now, through MCP — and recorded as a high-severity risk, because it is R-2 observed live. | KB: the Phase 2 ten-session gate. This session is evidence it is not a formality. |
 | 2026-08-09 | 2 | **Made it real on KB's own machine.** `bundled` DuckDB became a feature (B-3, at KB's push); the daemon learned the legacy 2025-11-25 handshake so Claude Code actually connects (B-17); `keel bootstrap` seeded Keel's own project and archived the sample ones; roadmap ordering fixed. Then `keel import` and a real markdown reader (B-18, B-19), so all seven `product/*.md` live in the store and read whole in the app. 278 tests. **Two things want KB: TQ-12** (the CLI cannot write while the daemon is up — contradicts D-5) **and TQ-13** (do the repo files become generated outputs, or stay authoritative?). | KB: the Phase 2 ten-session gate, still. Then TQ-13, which gets more expensive the longer the two copies drift. |
 
 ---
