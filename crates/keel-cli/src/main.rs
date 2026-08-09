@@ -9,8 +9,8 @@
 //! arrives in Phase 1, with the dogfooding switch.
 
 mod bootstrap;
+mod generate;
 mod import;
-mod render_status;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -104,23 +104,33 @@ enum Command {
     /// Print a one-line summary of what is in the store.
     Status,
 
-    /// Regenerate a project's markdown mirror into its repository.
+    /// Regenerate a project's repository files from Keel.
     ///
-    /// One-directional: these files are generated from Keel and never read
-    /// back. Prose only — tasks churn and would make repo diffs noisy.
-    Mirror {
+    /// Keel is the source of truth; the markdown in the repo is an output.
+    /// This writes the adopted prose files at their recorded paths, the
+    /// `.keel/` mirror for everything born in Keel, and the tracker.
+    ///
+    /// One-directional: nothing here reads a generated file back into the
+    /// store. It goes through the running daemon, which owns the store —
+    /// falling back to opening the store directly only when no daemon is up.
+    Generate {
         /// Project id, slug or name.
         project: String,
         /// Repository root. Defaults to the project's recorded `root_path`.
         #[arg(long)]
         repo: Option<PathBuf>,
+        /// Report what would change and exit non-zero if anything would.
+        ///
+        /// For a pre-commit hook or CI: makes a hand edit to a generated file
+        /// a failure someone sees rather than work someone silently loses.
+        #[arg(long)]
+        check: bool,
+        /// Daemon base URL. Defaults to the local daemon.
+        #[arg(long, default_value = "http://127.0.0.1:7654")]
+        daemon: String,
     },
 
-    /// Regenerate a tracker file for a project from Keel.
-    ///
-    /// The dogfooding switch: once Keel holds a project, its status file is
-    /// generated rather than hand-maintained. Not the same as the markdown
-    /// mirror, which is prose-only (TQ-5) and deliberately excludes tasks.
+    /// Print the generated tracker for a project to standard output.
     RenderStatus {
         /// Project id, slug or name.
         project: String,
@@ -149,7 +159,12 @@ fn main() -> Result<()> {
         Command::Fixture => run_fixture(&home, cli.json),
         Command::Status => run_status(&home, cli.json),
         Command::RenderStatus { project, out } => run_render_status(&home, project, out.clone()),
-        Command::Mirror { project, repo } => run_mirror(&home, project, repo.clone(), cli.json),
+        Command::Generate {
+            project,
+            repo,
+            check,
+            daemon,
+        } => generate::run(&home, project, repo.clone(), *check, daemon, cli.json),
         Command::Bootstrap { repo, only } => run_bootstrap(&home, repo.clone(), *only, cli.json),
         Command::Import {
             files,
@@ -227,6 +242,7 @@ fn run_import(
                         "created": i.created,
                         "revised": i.revised,
                         "bytes": i.bytes,
+                        "mirror_path": i.mirror_path,
                     }))
                     .collect::<Vec<_>>()
             ))?
@@ -240,8 +256,15 @@ fn run_import(
             } else {
                 "unchanged"
             };
+            // Naming the adopted path is the point of the line: it is what
+            // `keel generate` will write back over, and a surprise there is
+            // the one that costs someone a file.
+            let adopted = match &i.mirror_path {
+                Some(p) => format!("  → generates {p}"),
+                None => "  → no repo path; goes to the .keel mirror".to_owned(),
+            };
             println!(
-                "{what:>9}  {}  v{}  {} bytes  {}",
+                "{what:>9}  {}  v{}  {} bytes  {}{adopted}",
                 i.title,
                 i.version,
                 i.bytes,
@@ -289,51 +312,8 @@ fn run_bootstrap(home: &PathBuf, repo: Option<String>, only: bool, json: bool) -
     Ok(())
 }
 
-fn run_mirror(home: &PathBuf, project: &str, repo: Option<PathBuf>, json: bool) -> Result<()> {
-    use keel_core::{Entity, mirror};
-    let store = open(home)?;
-    let found = resolve_project(&store, project)?;
-
-    let repo_root = match repo {
-        Some(p) => p,
-        None => match &found {
-            Entity::Project(p) => p.root_path.as_ref().map(PathBuf::from).with_context(|| {
-                format!(
-                    "{} has no root_path recorded, so there is nowhere to write the mirror.                      Pass --repo, or set root_path on the project",
-                    p.slug
-                )
-            })?,
-            _ => bail!("not a project"),
-        },
-    };
-
-    let report = mirror::generate(&store, found.id(), &repo_root)?;
-    if json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&serde_json::json!({
-                "written": report.written,
-                "unchanged": report.unchanged,
-            }))?
-        );
-    } else if report.is_noop() {
-        println!("mirror already current ({} files)", report.unchanged.len());
-    } else {
-        println!(
-            "wrote {} file(s) to {}/.keel, {} unchanged",
-            report.written.len(),
-            repo_root.display(),
-            report.unchanged.len()
-        );
-        for f in &report.written {
-            println!("  {f}");
-        }
-    }
-    Ok(())
-}
-
 /// Resolve a project by id, slug or name.
-fn resolve_project(store: &DuckStore, reference: &str) -> Result<keel_core::Entity> {
+pub(crate) fn resolve_project(store: &DuckStore, reference: &str) -> Result<keel_core::Entity> {
     use keel_core::{Entity, EntityQuery, EntityStore, EntityType};
     let projects = store.list(&EntityQuery::default().of_type(EntityType::Project))?;
     let needle = reference.to_lowercase();
@@ -355,7 +335,7 @@ fn run_render_status(home: &PathBuf, project: &str, out: Option<PathBuf>) -> Res
     let store = open(home)?;
     let found = resolve_project(&store, project)?;
 
-    let markdown = render_status::render(&store, found.id())?;
+    let markdown = keel_core::render_status::render(&store, found.id())?;
     match out {
         Some(path) => {
             std::fs::write(&path, &markdown)

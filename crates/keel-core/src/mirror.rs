@@ -91,6 +91,29 @@ pub fn generate(
     project_id: &EntityId,
     repo_root: &Path,
 ) -> Result<MirrorReport> {
+    generate_except(
+        store,
+        project_id,
+        repo_root,
+        &[],
+        crate::generate::Mode::Write,
+    )
+}
+
+/// Generate the mirror, skipping artifacts that have adopted a real repository
+/// file.
+///
+/// An adopted document is written to its own path by [`crate::generate`].
+/// Emitting it here as well would give one document two files and no answer to
+/// which is authoritative — the reconciliation failure the whole design exists
+/// to avoid.
+pub fn generate_except(
+    store: &DuckStore,
+    project_id: &EntityId,
+    repo_root: &Path,
+    skip: &[EntityId],
+    mode: crate::generate::Mode,
+) -> Result<MirrorReport> {
     let Some(Entity::Project(project)) = store.get(project_id)? else {
         return Err(Error::NotFound {
             entity_type: EntityType::Project,
@@ -99,14 +122,16 @@ pub fn generate(
     };
 
     let root = repo_root.join(".keel");
-    std::fs::create_dir_all(root.join("specs")).map_err(Error::io(format!(
-        "create {}",
-        root.join("specs").display()
-    )))?;
-    std::fs::create_dir_all(root.join("decisions")).map_err(Error::io(format!(
-        "create {}",
-        root.join("decisions").display()
-    )))?;
+    if mode == crate::generate::Mode::Write {
+        std::fs::create_dir_all(root.join("specs")).map_err(Error::io(format!(
+            "create {}",
+            root.join("specs").display()
+        )))?;
+        std::fs::create_dir_all(root.join("decisions")).map_err(Error::io(format!(
+            "create {}",
+            root.join("decisions").display()
+        )))?;
+    }
 
     let mut report = MirrorReport::default();
     let mut files: Vec<MirrorFile> = Vec::new();
@@ -134,6 +159,7 @@ pub fn generate(
         &root.join("README.md"),
         &readme,
         ".keel/README.md",
+        mode,
         &mut report,
     )?;
 
@@ -149,6 +175,9 @@ pub fn generate(
         )?;
 
         for entity in &page.items {
+            if skip.contains(entity.id()) {
+                continue;
+            }
             let doc = store.revision(entity.id(), None)?;
             let slug = slugify(entity.label());
             let relative = format!(".keel/{folder}/{slug}.md");
@@ -160,7 +189,13 @@ pub fn generate(
                 header(entity_type.as_str(), entity.id(), version),
                 render_prose(entity, body)
             );
-            write_if_changed(&repo_root.join(&relative), &content, &relative, &mut report)?;
+            write_if_changed(
+                &repo_root.join(&relative),
+                &content,
+                &relative,
+                mode,
+                &mut report,
+            )?;
 
             files.push(MirrorFile {
                 path: relative,
@@ -229,6 +264,7 @@ pub fn generate(
         &repo_root.join(".keel/questions.md"),
         &open,
         ".keel/questions.md",
+        mode,
         &mut report,
     )?;
     files.push(MirrorFile {
@@ -297,6 +333,7 @@ pub fn generate(
         &repo_root.join(".keel/glossary.md"),
         &glossary,
         ".keel/glossary.md",
+        mode,
         &mut report,
     )?;
     files.push(MirrorFile {
@@ -313,10 +350,13 @@ pub fn generate(
     let json = serde_json::to_string_pretty(&manifest)
         .map_err(Error::json("serialise the mirror manifest"))?;
     // The manifest carries a timestamp, so it always differs; written
-    // unconditionally rather than pretending to compare it.
-    std::fs::write(repo_root.join(".keel/manifest.json"), format!("{json}\n"))
-        .map_err(Error::io("write the mirror manifest"))?;
-    report.written.push(".keel/manifest.json".to_owned());
+    // unconditionally rather than pretending to compare it. It is therefore
+    // left out of the report, or every `--check` run would claim the tree is
+    // dirty because a clock moved.
+    if mode == crate::generate::Mode::Write {
+        std::fs::write(repo_root.join(".keel/manifest.json"), format!("{json}\n"))
+            .map_err(Error::io("write the mirror manifest"))?;
+    }
 
     Ok(report)
 }
@@ -364,6 +404,7 @@ fn write_if_changed(
     path: &Path,
     content: &str,
     relative: &str,
+    mode: crate::generate::Mode,
     report: &mut MirrorReport,
 ) -> Result<()> {
     // Compare ignoring the header, which carries a fresh timestamp every run
@@ -376,13 +417,16 @@ fn write_if_changed(
         return Ok(());
     }
 
+    report.written.push(relative.to_owned());
+    if mode == crate::generate::Mode::Check {
+        return Ok(());
+    }
+
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
             .map_err(Error::io(format!("create {}", parent.display())))?;
     }
-    std::fs::write(path, content).map_err(Error::io(format!("write {}", path.display())))?;
-    report.written.push(relative.to_owned());
-    Ok(())
+    std::fs::write(path, content).map_err(Error::io(format!("write {}", path.display())))
 }
 
 /// Drop the generated header comment, for change comparison.

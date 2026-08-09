@@ -1,8 +1,12 @@
+<!-- keel:generated spec spc_01KZKSMDZCHZXY4HMBCMYEVT3H
+     Keel is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
+     An edit made here is overwritten on the next `keel generate`. -->
+
 # Keel — Status
 
-> **The dogfooding switch has been thrown.** Keel now holds its own project — run `keel bootstrap` to seed a store, and `keel render-status keel` to generate a tracker from it.
+> **This file is generated.** Keel is the source of truth; `keel generate keel` writes it. Edit the prose in Keel, not here — see `product/CLAUDE.md`, "Keel is the source of truth".
 >
-> This file is kept by hand for now because it carries prose the renderer does not: the phase-gate table below, and the reasoning in the notes column. Delete it in favour of the generated version once that stops being true.
+> It is still *stored* prose rather than rendered from the task rows, because the rows carry no per-task notes and those notes are most of what makes this worth reading. Finishing that is TQ-14.
 
 ---
 
@@ -11,9 +15,9 @@
 | | |
 |---|---|
 | **Current phase** | Phase 3 — Desktop (complete). Dogfooding on the real store |
-| **Phase progress** | Phase 0: **16/16** · Phase 1: **13/13** · Phase 2: **7/7** · Phase 3: **12/12** |
-| **Status** | Phases 0–3 built. Scope agreed with KB reached. Keel now holds its own docs in full |
-| **Blocked on** | Nothing. Two questions want KB: TQ-12 (CLI write lock) and TQ-13 (do `product/*.md` become generated?) |
+| **Phase progress** | Phase 0: **16/16** · Phase 1: **14/14** · Phase 2: **7/7** · Phase 3: **13/13** |
+| **Status** | Phases 0–3 built. Keel is the source of truth; every `product/*.md` is generated from it |
+| **Blocked on** | Nothing. TQ-14 (render the tracker from task rows) is the last half-step of the dogfooding switch |
 | **Next up** | KB: run the Phase 2 ten-session gate. Then Phase 4 (GitHub) — needs your account |
 | **Last session** | 2026-08-09 |
 | **Last updated** | 2026-08-09 |
@@ -79,7 +83,8 @@
 | P1-10 | Snapshot tests for every tool response | `done` | 8 `insta` snapshots covering the tool list, discovery, the digest, creates, search, projects and every error shape. Ids and timestamps redacted so the snapshots do not churn |
 | P1-11 | `keel-cli render-status` | `done` | Renders milestones, tasks by status, open questions, decisions, and a changelog derived from the event log. One-directional, like the mirror |
 | P1-12 | Scripted UC-1 → UC-4 harness | `done` | 21 tests driving real HTTP against a real daemon. UC-1→UC-4 all pass mechanically. **The human half of the gate is still unverified** — see below |
-| P1-13 | Route CLI writes through the daemon's API | `todo` | **Found by using it:** `keel import` cannot run while the daemon holds the DuckDB write lock, which contradicts SPEC D-5 ("everything else connects read-only or goes through the daemon's API"). Correctness is fine — the lock is doing its job — but the CLI is unusable in the normal case. Raised as TQ-12; recommendation is to route through the API rather than add an `--offline` flag |
+| P1-13 | Route reads through the daemon's API | `done` | **Found by using it:** nothing could read the store while the daemon held the write lock. Tried the obvious fix first — a read-only connection — and it fails identically, because DuckDB blocks readers too. So D-5's "connect read-only" is not a thing that exists, and generation moved into the daemon as `POST /api/generate` (B-21). The CLI is a client, falling back to a direct open only when no daemon answers. Spec correction flagged as TQ-15 |
+| P1-14 | `POST /api/generate` | `done` | The daemon owns the store, so it owns generation. Resolves the read half of TQ-12; writes from the CLI still need the daemon down, which is now only `keel import` and `keel bootstrap` — both one-time migrations |
 
 ---
 
@@ -122,6 +127,7 @@
 | P3-9 | Screen 9 — Activity | `done` | Filterable by actor. Writes with no `session_id` are marked `unattributed` — that count is what Phase 2's gate is about |
 | P3-10 | Keyboard navigation | `done` | Digits switch screens, `/` jumps to search. **Found and fixed: the navigation keypress leaked into the newly-focused search input** |
 | P3-11 | `keel import` — whole markdown files into Keel | `done` | KB asked whether specs could live in the store and be read in the app. They can: SPEC.md imports at 51,695 bytes and round-trips byte-identical, searchable and diffable. Re-importable and content-addressed, so an unchanged file appends no revision (B-18). All seven `product/*.md` are now in `~/.keel` |
+| P3-13 | `keel generate` — the repo files become outputs | `done` | KB's call: Keel is the source of truth. A prose artifact records the file it *is* (`mirror_path`) and generation writes its body there verbatim under an HTML-comment banner (B-20). All seven `product/*.md` round-trip byte-identical — proved by generating over them and diffing: the only change was the banner. `--check` exits non-zero on drift, for a pre-commit hook. **Found and handled: a path claimed by both a document and the tracker** — neither is written and the conflict is reported, because letting the last writer win is how a file silently loses half its content (B-22) |
 | P3-12 | Rendered markdown in the reader | `done` | The reader was showing bodies as preformatted text, which made a real spec unreadable — the point of storing it. `react-markdown` + `remark-gfm`, no raw HTML (B-19). Verified against the imported 51 KB SPEC: headings, fenced code, blockquotes and the §3.3 direction table all render |
 
 ---
@@ -170,6 +176,7 @@ One entry per session. Append; never edit history.
 |---|---|---|---|
 | 2026-08-09 | — | Tracker seeded from PRD/SPEC. No code yet. | P0-1 |
 | 2026-08-09 | 1 | **Phases 0–3.** Storage spine, MCP daemon with nine tools, Claude Code plugin, Tauri desktop app. 264 Rust tests, nothing ignored. All four CI gates green. Twelve build-time decisions and five spec corrections recorded. Two gates left unrun because they need a human — see "Phase gates I cannot verify". | KB: run the Phase 2 ten-session gate. It is the one that tests the premise. |
+| 2026-08-09 | 3 | **Keel is the source of truth.** KB's call, in one line, after seeing the specs render in the app. Prose artifacts now record the repository file they are, and `keel generate keel` writes all seven `product/*.md` from Keel — verified byte-identical over the existing files, banner aside. Generation moved into the daemon, because the read-only escape hatch D-5 assumes turns out not to exist in DuckDB at all. `--check` makes drift a build failure. 291 tests. **One half-step left (TQ-14):** the tracker is authoritative in Keel but still stored prose, not rendered from the task rows — the rows have no per-task notes yet. | KB: the Phase 2 ten-session gate, still unrun. Then TQ-14. |
 | 2026-08-09 | 2 | **Made it real on KB's own machine.** `bundled` DuckDB became a feature (B-3, at KB's push); the daemon learned the legacy 2025-11-25 handshake so Claude Code actually connects (B-17); `keel bootstrap` seeded Keel's own project and archived the sample ones; roadmap ordering fixed. Then `keel import` and a real markdown reader (B-18, B-19), so all seven `product/*.md` live in the store and read whole in the app. 278 tests. **Two things want KB: TQ-12** (the CLI cannot write while the daemon is up — contradicts D-5) **and TQ-13** (do the repo files become generated outputs, or stay authoritative?). | KB: the Phase 2 ten-session gate, still. Then TQ-13, which gets more expensive the longer the two copies drift. |
 
 ---

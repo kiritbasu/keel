@@ -89,6 +89,11 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
     project.repo_urls = vec!["https://github.com/kb/keel".to_owned()];
     project.aliases = vec!["the project spine".to_owned(), "project spine".to_owned()];
     project.root_path = repo_path;
+    // The tracker is generated from the task and milestone rows, so the file
+    // it lands in is a property of the project rather than of any one
+    // artifact — nothing in Keel *is* `product/STATUS.md` the way the spec
+    // artifact is `product/SPEC.md`.
+    project.status_path = Some("product/STATUS.md".to_owned());
     let project_id = store.create(project.into(), &prov)?.entity.id().clone();
     entities += 1;
 

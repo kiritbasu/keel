@@ -1,3 +1,7 @@
+<!-- keel:generated spec spc_01KZKSMDY6329PQKCHC3M0YGX4
+     Keel is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
+     An edit made here is overwritten on the next `keel generate`. -->
+
 # Keel — Handoff to Claude Code
 
 > Read this once, at the start of the project. After that, `product/CLAUDE.md` is the standing contract and `product/STATUS.md` is where the work lives.

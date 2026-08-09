@@ -155,6 +155,19 @@ pub enum Error {
     },
 }
 
+/// Formatting into a `String` cannot actually fail, but `write!` returns a
+/// `Result` regardless. Converting rather than unwrapping keeps the
+/// no-unwrap-in-library-code rule honest at every one of the several hundred
+/// call sites in the renderers.
+impl From<std::fmt::Error> for Error {
+    fn from(e: std::fmt::Error) -> Self {
+        Error::Invariant {
+            operation: "render markdown into a string".to_owned(),
+            problem: e.to_string(),
+        }
+    }
+}
+
 impl Error {
     /// Wrap a DuckDB error with what the caller was trying to do.
     ///

@@ -32,9 +32,11 @@ pub mod error;
 pub mod event;
 pub mod fixture;
 pub mod fsck;
+pub mod generate;
 pub mod id;
 pub mod link;
 pub mod mirror;
+pub mod render_status;
 pub mod store;
 pub mod types;
 
@@ -53,6 +55,7 @@ pub use enums::{
 pub use error::{Error, Result};
 pub use event::{Action, Cursor, Event, NewEvent};
 pub use fsck::{Finding, FsckReport, Severity};
+pub use generate::{GenerateReport, Mode};
 pub use id::{BlobId, DocId, EntityId, EventId, LinkId};
 pub use link::{DEFAULT_DEPTH, Direction, Link, MAX_DEPTH, NewLink, Relation};
 pub use mirror::{Manifest, MirrorFile, MirrorReport};

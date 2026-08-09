@@ -80,6 +80,12 @@ pub struct Project {
     pub repo_urls: Vec<String>,
     /// Local checkout, which is where the markdown mirror is written.
     pub root_path: Option<String>,
+    /// Where the generated tracker goes, relative to `root_path`.
+    ///
+    /// Separate from the mirror because the tracker is task-shaped and the
+    /// mirror is deliberately prose-only (TQ-5), but it is still a generated
+    /// repository file. `None` means this project does not want one.
+    pub status_path: Option<String>,
     /// Other names this project goes by. The main defence against UC-8's
     /// nine-near-duplicate-projects failure.
     pub aliases: Vec<String>,
@@ -103,6 +109,7 @@ impl Project {
             status: ProjectStatus::default(),
             repo_urls: Vec::new(),
             root_path: None,
+            status_path: None,
             aliases: Vec::new(),
             audit: provisional_audit(),
         }
@@ -811,6 +818,22 @@ impl Entity {
             Entity::Metric(e) => &e.name,
             Entity::MetricObservation(e) => e.note.as_deref().unwrap_or("observation"),
             Entity::Artifact(e) => &e.name,
+        }
+    }
+
+    /// Where this artifact's prose belongs in the repository, if it has
+    /// adopted a file.
+    ///
+    /// `None` for the nine types that carry no prose, and for prose artifacts
+    /// that were born in Keel and have no natural home in a repository —
+    /// those go to the `.keel/` mirror at a generated path instead.
+    pub fn mirror_path(&self) -> Option<&str> {
+        match self {
+            Entity::Spec(e) => e.mirror_path.as_deref(),
+            Entity::Decision(e) => e.mirror_path.as_deref(),
+            Entity::Question(e) => e.mirror_path.as_deref(),
+            Entity::Term(e) => e.mirror_path.as_deref(),
+            _ => None,
         }
     }
 

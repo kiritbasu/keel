@@ -151,7 +151,15 @@ fn opening_an_existing_store_is_idempotent() {
         .connection()
         .query_row("SELECT count(*) FROM _keel_migrations", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(applied, 3, "migrations must not re-run");
+    // Counted against the migration list rather than a literal: the point is
+    // that a re-open applies each migration once, not that there are three of
+    // them, and hard-coding the number makes every new migration break a test
+    // that is not about it.
+    assert_eq!(
+        applied,
+        keel_core::store::schema::migrations().len() as i64,
+        "migrations must not re-run"
+    );
     let projects: i64 = s
         .connection()
         .query_row("SELECT count(*) FROM projects", [], |r| r.get(0))

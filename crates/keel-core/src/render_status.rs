@@ -1,4 +1,4 @@
-//! `keel render-status` — regenerate a tracker file from Keel.
+//! The tracker renderer — `product/STATUS.md` and its equivalents.
 //!
 //! The dogfooding switch. `product/STATUS.md` has been the tracker since before
 //! there was anything to track with; once Keel holds the project, that file
@@ -15,17 +15,19 @@
 //! Like the mirror, output is one-directional: this file is generated, never
 //! read back.
 
-use anyhow::Result;
-use keel_core::{
-    Cursor, DuckStore, Entity, EntityId, EntityQuery, EntityStore, EntityType, MilestoneStatus,
-    TaskStatus,
+use crate::{
+    Cursor, DuckStore, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error,
+    MilestoneStatus, Result, TaskStatus,
 };
 use std::fmt::Write as _;
 
 /// Render a tracker for one project.
 pub fn render(store: &DuckStore, project_id: &EntityId) -> Result<String> {
     let Some(Entity::Project(project)) = store.get(project_id)? else {
-        anyhow::bail!("no project with id {project_id}");
+        return Err(Error::NotFound {
+            entity_type: EntityType::Project,
+            id: project_id.to_string(),
+        });
     };
 
     let mut out = String::new();

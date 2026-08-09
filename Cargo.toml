@@ -53,6 +53,10 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 async-stream = "0.3"
 futures-util = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# Blocking HTTP for the CLI, which is synchronous and needs to talk to the
+# daemon. `reqwest` would drag a tokio runtime into a process that has no other
+# use for one.
+ureq = { version = "2", default-features = false, features = ["json"] }
 
 # CLI
 clap = { version = "4", features = ["derive"] }

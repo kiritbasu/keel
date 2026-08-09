@@ -37,6 +37,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/document/{id}", get(api_document))
         .route("/api/graph/{id}", get(api_graph))
         .route("/api/events", get(api_events_stream))
+        // Generation writes files into the user's repository, so it is a POST:
+        // it is not a safe, cacheable read even though it only reads the store.
+        .route("/api/generate", post(api_generate))
         // The Tauri webview is served from `tauri://localhost`, so every call
         // to the daemon is cross-origin and needs CORS. Scoped to the local
         // API: the MCP endpoint is not called from a browser, and giving it
@@ -286,6 +289,85 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
 }
 
 /// Turn a tool call into an HTTP response, for the REST surface.
+/// Regenerate a project's repository files from Keel.
+///
+/// Lives here rather than in the CLI because the daemon holds the store's
+/// write lock, and DuckDB will not open a second connection — read-only or
+/// otherwise — while it does. D-5 says non-daemon processes go through this
+/// API; for generation that is not merely the tidy option, it is the only one.
+async fn api_generate(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
+    use keel_core::{Entity, EntityQuery, EntityStore, EntityType, Mode, generate};
+
+    let reference = body
+        .get("project")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    if reference.is_empty() {
+        return bad_request("`project` is required — pass a project id, slug or name");
+    }
+    let check = body.get("check").and_then(Value::as_bool).unwrap_or(false);
+
+    let store = state.store();
+
+    let projects = match store.list(&EntityQuery::default().of_type(EntityType::Project)) {
+        Ok(page) => page,
+        Err(e) => return internal_error(&format!("list projects: {e}")),
+    };
+    let needle = reference.to_lowercase();
+    let Some(Entity::Project(project)) = projects.items.into_iter().find(|p| match p {
+        Entity::Project(pr) => {
+            pr.id.as_str() == reference
+                || pr.slug.eq_ignore_ascii_case(&reference)
+                || pr.name.to_lowercase() == needle
+        }
+        _ => false,
+    }) else {
+        return bad_request(&format!("no project matches `{reference}`"));
+    };
+
+    let repo_root = match body.get("repo").and_then(Value::as_str) {
+        Some(path) => std::path::PathBuf::from(path),
+        None => match project.root_path.as_deref() {
+            Some(path) => std::path::PathBuf::from(path),
+            None => {
+                return bad_request(&format!(
+                    "{} has no root_path recorded, so there is nowhere to write. Pass `repo`, or \
+                     set root_path on the project",
+                    project.slug
+                ));
+            }
+        },
+    };
+
+    let mode = if check { Mode::Check } else { Mode::Write };
+    match generate::all(&store, &project.id, &repo_root, mode) {
+        Ok(report) => (
+            StatusCode::OK,
+            Json(json!({ "data": {
+                "written": report.written,
+                "unchanged": report.unchanged,
+                "unrepresented": report.unrepresented,
+                "checked": check,
+            }})),
+        )
+            .into_response(),
+        Err(e) => internal_error(&format!("generate {}: {e}", project.slug)),
+    }
+}
+
+fn bad_request(message: &str) -> Response {
+    (StatusCode::BAD_REQUEST, Json(json!({ "error": message }))).into_response()
+}
+
+fn internal_error(message: &str) -> Response {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "error": message })),
+    )
+        .into_response()
+}
+
 fn as_api(result: Result<Value, RpcError>) -> Response {
     match result {
         // The REST surface wants the data, not the MCP content envelope.

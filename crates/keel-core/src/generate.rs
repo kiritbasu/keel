@@ -1,0 +1,308 @@
+//! Generating a project's repository files from Keel.
+//!
+//! Keel is the source of truth; the markdown in the repository is an output.
+//! This module is the one place that turns the former into the latter.
+//!
+//! # Two kinds of generated file
+//!
+//! **Adopted files** are prose artifacts that declare a `mirror_path` — a path
+//! relative to the repository root where that document belongs. `product/SPEC.md`
+//! is a spec artifact whose `mirror_path` is `product/SPEC.md`. Its body *is*
+//! the file, written verbatim under a generated banner, because the body
+//! already carries its own heading and front matter and injecting more would
+//! corrupt a document someone wrote to be read as a whole.
+//!
+//! **The `.keel/` mirror** ([`crate::mirror`]) covers everything else: one file
+//! per spec and decision at a slugged path, plus the aggregated questions and
+//! glossary. That is the SPEC §8 export, and it is for artifacts that were born
+//! in Keel and have no natural home in the repository.
+//!
+//! On top of both sits the **tracker** ([`crate::render_status`]), written to
+//! the project's `status_path`. It is task-shaped and therefore excluded from
+//! the mirror by TQ-5, but it is still a generated repository file, so it
+//! belongs to the same command.
+//!
+//! # Still one-directional
+//!
+//! Nothing here reads a generated file except to compare it against what would
+//! be written, which is what [`Mode::Check`] is for and what keeps an accidental
+//! hand edit visible instead of silently overwritten. D-3 is intact: no content
+//! ever flows from a file back into the store.
+
+use crate::{
+    DocumentStore, DuckStore, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error,
+    Result, mirror, render_status,
+};
+use std::path::{Path, PathBuf};
+
+/// Whether to write the files or only report what would change.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    /// Write every file that differs.
+    Write,
+    /// Touch nothing; report what a write would change.
+    ///
+    /// This is what makes a hand edit to a generated file an error someone
+    /// sees rather than work someone silently loses. Run it in CI or a
+    /// pre-commit hook and drift cannot survive a commit.
+    Check,
+}
+
+/// What one generation run did, or would do.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct GenerateReport {
+    /// Repo-relative paths written, or that would be written.
+    pub written: Vec<String>,
+    /// Repo-relative paths already correct.
+    pub unchanged: Vec<String>,
+    /// Artifacts represented in the store that no generated file mentions.
+    ///
+    /// Not fatal, and not a file operation — a warning that the store holds
+    /// something the repository cannot see.
+    pub unrepresented: Vec<String>,
+}
+
+impl GenerateReport {
+    /// Whether the repository already matches the store.
+    pub fn is_current(&self) -> bool {
+        self.written.is_empty()
+    }
+}
+
+/// Regenerate every repository file for a project.
+pub fn all(
+    store: &DuckStore,
+    project_id: &EntityId,
+    repo_root: &Path,
+    mode: Mode,
+) -> Result<GenerateReport> {
+    let Some(Entity::Project(project)) = store.get(project_id)? else {
+        return Err(Error::NotFound {
+            entity_type: EntityType::Project,
+            id: project_id.to_string(),
+        });
+    };
+
+    let mut report = GenerateReport::default();
+
+    // --- Adopted prose files ---------------------------------------------
+    //
+    // Done before the mirror so that an artifact with an explicit home is
+    // written there and *not* also into `.keel/`, which would give one
+    // document two files and no answer to which is authoritative.
+    let mut adopted: Vec<EntityId> = Vec::new();
+    let mut adopted_paths: Vec<String> = Vec::new();
+    for entity_type in [
+        EntityType::Spec,
+        EntityType::Decision,
+        EntityType::Question,
+        EntityType::Design,
+    ] {
+        let page = store.list(
+            &EntityQuery::in_project(project_id.clone())
+                .of_type(entity_type)
+                .limited(5_000),
+        )?;
+        for entity in &page.items {
+            let Some(relative) = entity.mirror_path() else {
+                continue;
+            };
+            if !is_adopted(relative) {
+                continue;
+            }
+            let Some(doc) = store.revision(entity.id(), None)? else {
+                // An artifact can name a path before anything has been
+                // written into it. Generating an empty file there would
+                // destroy whatever the repository still has.
+                report
+                    .unrepresented
+                    .push(format!("{relative} — no revision to write yet"));
+                continue;
+            };
+            let content = adopted_file(entity, &doc.body);
+            write_or_check(
+                &repo_root.join(relative),
+                &content,
+                relative,
+                mode,
+                &mut report,
+            )?;
+            adopted.push(entity.id().clone());
+            adopted_paths.push(relative.to_owned());
+        }
+    }
+
+    // --- The `.keel/` mirror ---------------------------------------------
+    let mirror_report = mirror::generate_except(store, project_id, repo_root, &adopted, mode)?;
+    report.written.extend(mirror_report.written);
+    report.unchanged.extend(mirror_report.unchanged);
+
+    // --- The tracker ------------------------------------------------------
+    if let Some(status_path) = project.status_path.as_deref() {
+        // A document may already have adopted this path. Writing both would
+        // make the last one to run the winner, which is how a file silently
+        // loses half its content — so neither wins and the conflict is
+        // reported instead. The tracker is derived and can be regenerated;
+        // the prose is not, so it is the one that must not be clobbered.
+        if adopted_paths.iter().any(|p| p == status_path) {
+            report.unrepresented.push(format!(
+                "{status_path} — the tracker was not written: a document has already adopted \
+                 this path. Point the project's status_path somewhere else, or archive the \
+                 document, so one thing owns the file"
+            ));
+        } else {
+            let markdown = render_status::render(store, project_id)?;
+            write_or_check(
+                &repo_root.join(status_path),
+                &markdown,
+                status_path,
+                mode,
+                &mut report,
+            )?;
+        }
+    }
+
+    Ok(report)
+}
+
+/// Whether a recorded `mirror_path` means "adopt this file" or "put it in the
+/// mirror".
+///
+/// A path under `.keel/` is the mirror's own bookkeeping, written by the mirror
+/// and pointing at a slugged file it owns. Anything else is a real repository
+/// path the document has adopted.
+fn is_adopted(relative: &str) -> bool {
+    !relative.starts_with(".keel/") && !relative.is_empty()
+}
+
+/// Render an adopted file: the body, verbatim, under a banner.
+///
+/// The banner deliberately carries no revision number. It is excluded from the
+/// change comparison — otherwise a version bump alone would rewrite every file
+/// on every run — which would leave a number on disk that stops matching the
+/// store the first time anything else about the document changes. A stale
+/// number is worse than no number.
+///
+/// The banner is an HTML comment so it is invisible in every markdown renderer
+/// and harmless to the one reader that cannot be given a choice — Claude Code
+/// loads `product/CLAUDE.md` from disk on every session and will read whatever
+/// is at the top of it.
+fn adopted_file(entity: &Entity, body: &str) -> String {
+    format!(
+        "<!-- keel:generated {} {}\n     \
+         Keel is the source of truth for this file. Edit it there — in the app, or by asking \
+         Claude — and regenerate.\n     \
+         An edit made here is overwritten on the next `keel generate`. -->\n\n{}\n",
+        entity.entity_type().as_str(),
+        entity.id(),
+        body.trim_end()
+    )
+}
+
+/// Write when the content differs, or record what a write would do.
+fn write_or_check(
+    path: &Path,
+    content: &str,
+    relative: &str,
+    mode: Mode,
+    report: &mut GenerateReport,
+) -> Result<()> {
+    // Equal *content* is not enough: a file that has never been generated has
+    // no banner, and leaving it alone would mean the first switch-over never
+    // marks it as generated. So a missing banner is itself a difference, once.
+    let existing = std::fs::read_to_string(path).ok();
+    if let Some(old) = &existing
+        && strip_banner(old) == strip_banner(content)
+        && has_banner(old) == has_banner(content)
+    {
+        report.unchanged.push(relative.to_owned());
+        return Ok(());
+    }
+
+    report.written.push(relative.to_owned());
+    if mode == Mode::Check {
+        return Ok(());
+    }
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(Error::io(format!("create {}", parent.display())))?;
+    }
+    std::fs::write(path, content).map_err(Error::io(format!("write {}", path.display())))
+}
+
+/// Whether a file already declares itself generated.
+fn has_banner(content: &str) -> bool {
+    content.trim_start().starts_with("<!-- keel:generated")
+}
+
+/// Drop a leading generated banner, so a version bump in the comment does not
+/// by itself make a file look changed.
+pub(crate) fn strip_banner(content: &str) -> String {
+    let mut out = String::new();
+    let mut in_banner = false;
+    for line in content.lines() {
+        if line.trim_start().starts_with("<!-- keel:generated") {
+            in_banner = !line.contains("-->");
+            continue;
+        }
+        if in_banner {
+            in_banner = !line.contains("-->");
+            continue;
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    out.trim().to_owned()
+}
+
+/// Where a project's repository lives, if it has a checkout.
+pub fn repo_root(project: &crate::Project) -> Option<PathBuf> {
+    project.root_path.as_ref().map(PathBuf::from)
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_path_under_dot_keel_belongs_to_the_mirror_not_to_adoption() {
+        assert!(is_adopted("product/SPEC.md"));
+        assert!(is_adopted("docs/architecture/overview.md"));
+        assert!(!is_adopted(".keel/specs/storage.md"));
+        assert!(!is_adopted(""));
+    }
+
+    #[test]
+    fn the_banner_does_not_count_as_a_change() {
+        let a = "<!-- keel:generated spec spc_1 v1\n     blah -->\n\n# Title\n\nBody\n";
+        let b = "<!-- keel:generated spec spc_1 v9\n     different blah -->\n\n# Title\n\nBody\n";
+        assert_eq!(strip_banner(a), strip_banner(b));
+
+        let c = "<!-- keel:generated spec spc_1 v1\n     blah -->\n\n# Title\n\nEdited\n";
+        assert_ne!(strip_banner(a), strip_banner(c));
+    }
+
+    #[test]
+    fn a_file_that_has_never_been_generated_needs_writing_once() {
+        // Otherwise the switch-over is invisible: the prose already matches,
+        // so nothing is written, so nothing ever says the file is generated
+        // and the next person edits it by hand.
+        assert!(!has_banner("# Title\n\nBody\n"));
+        assert!(has_banner(
+            "<!-- keel:generated spec spc_1 v1 -->\n\n# Title\n"
+        ));
+    }
+
+    #[test]
+    fn a_file_with_no_banner_still_compares() {
+        // The first generation of an adopted file overwrites a hand-written
+        // one that has no banner at all. It must compare equal when the prose
+        // matches, or the very first run reports every file as changed.
+        assert_eq!(
+            strip_banner("# Title\n\nBody\n"),
+            strip_banner("# Title\n\nBody")
+        );
+    }
+}

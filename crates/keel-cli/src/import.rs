@@ -1,20 +1,26 @@
 //! `keel import` — put a markdown file into Keel as a versioned document.
 //!
-//! The bridge from "the specs live in the repo" to "the specs live in Keel".
+//! The one-way door from "the specs live in the repo" to "the specs live in
+//! Keel". After Keel is the source of truth this is a migration tool, run once
+//! per file, not part of the loop — `keel generate` runs the other way and is
+//! what runs from then on.
+//!
+//! Importing records where the file came from, as the artifact's
+//! `mirror_path`. That is what closes the round trip: the document remembers
+//! which repository file it *is*, so generation puts it back in the same place
+//! rather than inventing a new one and leaving the original to rot beside it.
 //!
 //! Importing the same file twice appends a revision rather than making a second
-//! artifact, and re-importing an unchanged file does nothing at all — so this
-//! is safe to re-run, and safe to put in a script. That is the property that
-//! makes it a bridge rather than a one-way door: the repo copy can stay
-//! authoritative for as long as you like, with Keel kept in step, until you
-//! decide to delete it.
+//! artifact, and re-importing an unchanged file does nothing at all — so it is
+//! safe to re-run during the migration, when a file may still be edited by hand
+//! once or twice before the switch.
 
 use anyhow::{Context, Result};
 use keel_core::{
     Actor, Decision, Document, DocumentStore, DuckStore, Entity, EntityId, EntityQuery,
     EntityStore, EntityType, Provenance, Question, Spec, SpecKind, Surface,
 };
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// What an import did to one file.
 pub struct Imported {
@@ -31,6 +37,9 @@ pub struct Imported {
     pub revised: bool,
     /// Bytes of body stored.
     pub bytes: usize,
+    /// The repository path this artifact now claims, if one could be worked
+    /// out.
+    pub mirror_path: Option<String>,
 }
 
 /// Import one markdown file.
@@ -42,7 +51,14 @@ pub fn file(
     kind: Option<SpecKind>,
     title_override: Option<String>,
 ) -> Result<Imported> {
-    let raw = std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    let mirror_path = repo_relative(store, project_id, path)?;
+    let on_disk =
+        std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    // A file that has been generated carries a banner naming the artifact it
+    // came from. That is generation's bookkeeping, not the document's content,
+    // and storing it would make every import-then-generate cycle stack another
+    // banner on the last one.
+    let raw = strip_generated_banner(&on_disk);
 
     let title = title_override
         .or_else(|| heading_of(&raw))
@@ -71,10 +87,19 @@ pub fn file(
                 EntityType::Spec => {
                     let mut s = Spec::new(project_id.clone(), &title);
                     s.kind = kind.unwrap_or_else(|| infer_kind(path, &title));
+                    s.mirror_path = mirror_path.clone();
                     s.into()
                 }
-                EntityType::Decision => Decision::new(project_id.clone(), &title).into(),
-                EntityType::Question => Question::new(project_id.clone(), &title).into(),
+                EntityType::Decision => {
+                    let mut d = Decision::new(project_id.clone(), &title);
+                    d.mirror_path = mirror_path.clone();
+                    d.into()
+                }
+                EntityType::Question => {
+                    let mut q = Question::new(project_id.clone(), &title);
+                    q.mirror_path = mirror_path.clone();
+                    q.into()
+                }
                 other => anyhow::bail!(
                     "cannot import a file as a {other}. Prose-bearing types are spec, \
                      decision and question"
@@ -84,6 +109,11 @@ pub fn file(
             (created.entity.id().clone(), created.created)
         }
     };
+
+    // An artifact imported before this behaviour existed has no recorded
+    // path, and would otherwise be generated into `.keel/` at a slugged name
+    // while the file it came from sat beside it going stale.
+    adopt_path(store, &entity_id, mirror_path.as_deref(), &prov)?;
 
     let before = store.revision(&entity_id, None)?.map(|d| d.version);
     let doc = Document::first(
@@ -107,7 +137,66 @@ pub fn file(
         // existing revision rather than appending a duplicate.
         revised: before != Some(written.version),
         bytes: raw.len(),
+        mirror_path,
     })
+}
+
+/// The path of `file` relative to the project's checkout.
+///
+/// `None` when the project has no recorded checkout or the file sits outside
+/// it — in which case the artifact adopts no file and generation sends it to
+/// the `.keel/` mirror instead. Guessing would be worse: a wrong path means
+/// generation writes over something it does not own.
+fn repo_relative(store: &DuckStore, project_id: &EntityId, file: &Path) -> Result<Option<String>> {
+    let Some(Entity::Project(project)) = store.get(project_id)? else {
+        return Ok(None);
+    };
+    let Some(root) = project.root_path.as_deref() else {
+        return Ok(None);
+    };
+
+    let root = std::fs::canonicalize(root).unwrap_or_else(|_| PathBuf::from(root));
+    let absolute = std::fs::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
+    Ok(absolute
+        .strip_prefix(&root)
+        .ok()
+        .map(|p| p.to_string_lossy().replace('\\', "/")))
+}
+
+/// Record the repository file this artifact is, if it does not already say so.
+fn adopt_path(
+    store: &mut DuckStore,
+    entity_id: &EntityId,
+    path: Option<&str>,
+    prov: &Provenance,
+) -> Result<()> {
+    let Some(path) = path else { return Ok(()) };
+    let Some(entity) = store.get(entity_id)? else {
+        return Ok(());
+    };
+    if entity.mirror_path() == Some(path) {
+        return Ok(());
+    }
+
+    let mut changes = serde_json::Map::new();
+    changes.insert("mirror_path".to_owned(), serde_json::json!(path));
+    store.update(entity_id, entity.audit().version, &changes, prov)?;
+    Ok(())
+}
+
+/// Drop a leading `<!-- keel:generated … -->` banner, if there is one.
+fn strip_generated_banner(content: &str) -> String {
+    let trimmed = content.trim_start();
+    if !trimmed.starts_with("<!-- keel:generated") {
+        return content.to_owned();
+    }
+    match trimmed.find("-->") {
+        Some(end) => trimmed[end + 3..].trim_start_matches('\n').to_owned(),
+        // An unterminated banner is a damaged file, not a generated one.
+        // Storing it whole is the conservative choice: nothing is lost, and
+        // the next generate rewrites it anyway.
+        None => content.to_owned(),
+    }
 }
 
 /// The first level-one heading, which is what these files call themselves.
@@ -182,6 +271,29 @@ mod tests {
         );
         assert_eq!(heading_of("no heading here\n"), None);
         assert_eq!(heading_of("#not a heading\n"), None);
+    }
+
+    #[test]
+    fn a_generated_banner_is_not_stored_as_content() {
+        let generated =
+            "<!-- keel:generated spec spc_1 v3\n     do not edit -->\n\n# Title\n\nBody\n";
+        assert_eq!(strip_generated_banner(generated), "# Title\n\nBody\n");
+
+        // Idempotent: re-importing a file Keel generated must not slowly eat
+        // the top of the document, nor stack banner on banner.
+        assert_eq!(
+            strip_generated_banner(&strip_generated_banner(generated)),
+            "# Title\n\nBody\n"
+        );
+
+        // A hand-written file is untouched, comments and all.
+        let plain = "<!-- a normal comment -->\n\n# Title\n";
+        assert_eq!(strip_generated_banner(plain), plain);
+        assert_eq!(strip_generated_banner("# Title\n"), "# Title\n");
+
+        // A truncated banner is damage, not generation: keep everything.
+        let broken = "<!-- keel:generated spec spc_1 v3\n# Title\n";
+        assert_eq!(strip_generated_banner(broken), broken);
     }
 
     #[test]

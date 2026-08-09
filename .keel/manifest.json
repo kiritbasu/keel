@@ -1,0 +1,279 @@
+{
+  "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
+  "generated_at": "2026-08-09T18:16:24.747780+00:00",
+  "files": [
+    {
+      "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
+      "contributors": [
+        {
+          "entity_id": "spc_01KZKMPVP6MN27N10M3PPD6EVK",
+          "entity_type": "spec",
+          "version": 1,
+          "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/event-summaries-name-artifacts-not-ids.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKMPVVY4DAPXQD0H99HB27C",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "cdcbeaeff90f9e7a045cceea774231bd71aebf860f02beba4ca6699b6654a3a8"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/keel-s-local-rest-api-has-more-endpoints-than-the-mcp-surface-has-tools.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKMPVVAC6EZA35F1E87SC0C",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "84c72b1f155042c8ee06197b9f52aafa297de97f5c07fbce62e10f2d3387c5b1"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/the-desktop-app-hand-writes-its-components.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKMPVTSVQB53R5AGXMB5WZ5",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "af39d02d2fea04528d59d9373ed0cce3ec2b813dd0dba83490140e48eec31138"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/fixture-links-are-addressed-by-name-never-by-position.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKMPVT876SD8CJJPGY9ZVXY",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "be8bb7ef4169a4069bda205486c5f9516dd2bf4ab783754d0993bd2a6371318a"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/tool-responses-lift-version-to-the-top-of-the-entity.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKMPVSRVWSF4N42E9Y1M7A1",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "8a9f84db01d21a22be19a9ecfd59ca89f355fbfc8d7d23e8d5b99c2a7f72a469"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/serve-mcp-2025-11-25-alongside-2026-07-28.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKMPVS9XTWRN7303BPY0F18",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "c3daa4cd1dbe7cbdd3810a72a68cf517ce5d5083fae13919ff43b11c2385cf45"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/bm25-moves-from-lance-to-duckdb.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKMPVRTXA717P2854N17HQ5",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "b92d1fa906d90833976de2419af13ae93f1630ce53ded5a619a4c5d886a3c621"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/every-table-gets-idempotency-key-not-just-tasks.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKMPVR92GNRQXTE8836ZD1E",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "d5b7bfed8f777513604edb6295bd66be4e989dd183757425e5f4e50b5e037f6b"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/ulids-are-minted-from-a-monotonic-generator.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKMPVQWSF1TN6TYEWQ3BJ61",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "ea4753795886ff0918e1da844c6513864ad808ead3ece4b02e4d5f6d72706a99"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/bundled-duckdb-is-a-feature-not-a-requirement.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKMPVQD8N0ZYBZZBMWTCP04",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "f670fb4fd6e0c947ec87912ff6db7ed30ea3176064d2c6bc702d7b2accf93fc1"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/all-lance-access-goes-through-the-duckdb-extension.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKMPVPZ81H8PHKF8RHZK13R",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "8e645e3f34a249c0b383797c1c20d69500a6fb18b920e1b341f85988bb4858a0"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/chrono-for-time-not-jiff.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKMPVPM94XEZGCSFS73XQ9T",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "1900b53b030dcf00071b5304d594ac2ec9a035e04335196197f9b3a59efa2170"
+        }
+      ]
+    },
+    {
+      "path": ".keel/questions.md",
+      "contributors": [
+        {
+          "entity_id": "que_01KZKMPW1RDD4SJ8MZXW8ZMKCK",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "9dad6d2e2a855814965c482f8398957f22e3387baed04557222766149afaded9"
+        },
+        {
+          "entity_id": "que_01KZKMPW0CDTNEYCYDJDT5N8PT",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "03f32f5bef16df116d8e6032dc54aadac210e97f28114ee36d64a0a8ed993f8c"
+        },
+        {
+          "entity_id": "que_01KZKMPVZRBGWRH4Z7Y381B21F",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "bdaaa26dbb2ec709f592cb0fcca326de42739a152a6577b651601f27ca1ce36a"
+        },
+        {
+          "entity_id": "que_01KZKMPVZ3AQ0BNVV5BQKV3QY8",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "81f353a423e6623836d50847946fca37380fd55528cfbf007b3e47a062fae840"
+        },
+        {
+          "entity_id": "que_01KZKMPVYBQVZG4MSWFSKHCNTB",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "92f11fc94fdf7e83bd08cd7bfb9dd0ad4b29180721ad1b2b52f055f5a402b497"
+        },
+        {
+          "entity_id": "que_01KZKMPVXPKW1KXV9KMG36C6F8",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "2607d3d758158605bce7c77000f726dc9121c5b3a84fc989a4c58ff6f21edd76"
+        },
+        {
+          "entity_id": "que_01KZKMPVX3SNJ82BQ4GA3DF9S5",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "7fe92d2a95e898af2c024af809063aa42c9ea1528f53b1e5caa2ebc7c02e28ac"
+        },
+        {
+          "entity_id": "que_01KZKMPVWG2SWPNH1RPD0P9569",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "1f14a258069fa6986a8471bf159dc70a4a72f12cc90d7731910b7554f5cfc784"
+        }
+      ]
+    },
+    {
+      "path": ".keel/glossary.md",
+      "contributors": [
+        {
+          "entity_id": "trm_01KZKMPW484GJS012GN5ESMZRW",
+          "entity_type": "term",
+          "version": 0,
+          "hash": "69e6181e5f2d33b652e553c6bd3567a95a88be9f5e8b6b384950c9bb2a463dc8"
+        },
+        {
+          "entity_id": "trm_01KZKMPW3Z74SRA8KXQ8PXSTM1",
+          "entity_type": "term",
+          "version": 0,
+          "hash": "23f7bccdfc111a55d3399039e8a7ec10479ba3fad9ee4e5729d52456c9ab09c4"
+        },
+        {
+          "entity_id": "trm_01KZKMPW412KEQTG588K88F87C",
+          "entity_type": "term",
+          "version": 0,
+          "hash": "34f6d1f7142d2e58bb665120da19d87e3b40db28ad0cc6a72f05d7b178bd15f7"
+        },
+        {
+          "entity_id": "trm_01KZKMPW4J7V9K81QEP8THGRBG",
+          "entity_type": "term",
+          "version": 0,
+          "hash": "ef18e64cc90126d5611972f449dd46ad9c142533e4dc631e0a4649fc78a62602"
+        },
+        {
+          "entity_id": "trm_01KZKMPW4G5JX1ACN8DXHTZ5VS",
+          "entity_type": "term",
+          "version": 0,
+          "hash": "6aa1fde605f94da71bbcfe29513401602a1e4801463d7044d67e7147b44a4ff0"
+        },
+        {
+          "entity_id": "trm_01KZKMPW43HRXW56HQEPHGW7P9",
+          "entity_type": "term",
+          "version": 0,
+          "hash": "e9923973216423605bf4248476fe98f39f607b9923b977a115c4fc4b9fa8aa39"
+        },
+        {
+          "entity_id": "trm_01KZKMPW4MAVGPWMC78GSRMKTK",
+          "entity_type": "term",
+          "version": 0,
+          "hash": "40c0527114ffc6ea4a7094fb0811eac509da1de2e4840fe188a2bbdd6c3e0cc1"
+        },
+        {
+          "entity_id": "trm_01KZKMPW452GP4PS63BRMFMCJQ",
+          "entity_type": "term",
+          "version": 0,
+          "hash": "cafb4294271f3f66ca6554cdd5b929a712cc6ce235c41064845aa5996d4f2b38"
+        },
+        {
+          "entity_id": "trm_01KZKMPW46G504FMS7JZTZY5FR",
+          "entity_type": "term",
+          "version": 0,
+          "hash": "e80d6fab93dba56ddc2684d6317a6dcd63a329bb9665eb8f030dfa2369871877"
+        },
+        {
+          "entity_id": "trm_01KZKMPW4A63611NC6X1VDENVT",
+          "entity_type": "term",
+          "version": 0,
+          "hash": "7b7feb2ad4fadbff5d5d843d107ba87ede64656b6c7810dcb0899192936f63a3"
+        },
+        {
+          "entity_id": "trm_01KZKMPW4C67EEF3WD3M231CNR",
+          "entity_type": "term",
+          "version": 0,
+          "hash": "540f1ece93566853e3edd1e0cc75b36447b18f41fe22e7d678be41235f5a431b"
+        },
+        {
+          "entity_id": "trm_01KZKMPW4E3PHP62T5F5218865",
+          "entity_type": "term",
+          "version": 0,
+          "hash": "2800125e9c32dff897a5ffbaa9c0c598d3009f10b00c8990fc7f62a06d5311da"
+        }
+      ]
+    }
+  ]
+}

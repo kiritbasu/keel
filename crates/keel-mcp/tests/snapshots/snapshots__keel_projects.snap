@@ -31,7 +31,8 @@ expression: result
         "repo_urls": [],
         "root_path": null,
         "slug": "harbour",
-        "status": "active"
+        "status": "active",
+        "status_path": null
       }
     ]
   }

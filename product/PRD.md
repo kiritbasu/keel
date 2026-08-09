@@ -1,3 +1,7 @@
+<!-- keel:generated spec spc_01KZKSMDV8C1AHKZQ69MA06EVX
+     Keel is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
+     An edit made here is overwritten on the next `keel generate`. -->
+
 # Keel — Product Requirements Document
 
 > **Status:** Draft v1

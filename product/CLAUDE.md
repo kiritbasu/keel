@@ -1,3 +1,7 @@
+<!-- keel:generated spec spc_01KZKSME2TCPVARX9M04836XD6
+     Keel is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
+     An edit made here is overwritten on the next `keel generate`. -->
+
 # Keel — standing instructions
 
 This file is loaded automatically into every Claude Code session in this repo. It is the contract. `product/HANDOFF.md` is orientation you read once; this is what you follow every time.
@@ -15,13 +19,47 @@ This file is loaded automatically into every Claude Code session in this repo. I
 
 **At the end of every session, without exception:**
 
-1. Update `product/STATUS.md` — task statuses, the changelog entry, and the "next up" line.
-2. Add any decisions you made to `product/DECISIONS.md`.
-3. Add any new unknowns to `product/QUESTIONS.md`.
-4. Commit. Never leave the tree dirty for the next session.
-5. Close with a two-line summary: what landed, what's next.
+1. Update the tracker — task statuses, the changelog entry, and the "next up" line.
+2. Add any decisions you made to the decision log.
+3. Add any new unknowns to the open-questions log.
+4. **Regenerate**: `keel generate keel`. See "Keel is the source of truth" below — the files in `product/` are outputs, and an edit that never reaches Keel is lost on the next run.
+5. Commit. Never leave the tree dirty for the next session.
+6. Close with a two-line summary: what landed, what's next.
 
-**If you run out of context mid-task**, update `product/STATUS.md` first with enough detail for a fresh session to resume, then stop. An accurate tracker is more valuable than one more file edited.
+**If you run out of context mid-task**, update the tracker first with enough detail for a fresh session to resume, then stop. An accurate tracker is more valuable than one more file edited.
+
+---
+
+## Keel is the source of truth
+
+Every markdown file in `product/` is **generated**. Each one carries a
+`<!-- keel:generated … -->` banner naming the artifact it came from. Editing one
+directly is not wrong so much as futile: the next `keel generate keel` overwrites
+it from the store.
+
+The loop is:
+
+1. Edit the prose *in Keel* — `keel_write_doc` over MCP, or in the app.
+2. `keel generate keel` writes the files.
+3. Commit the result.
+
+An edit made to a file in a Claude Code session is recovered rather than lost:
+the plugin's `PostToolUse` hook turns it into a proper attributed revision and
+then the file is rewritten from the database (SPEC §8.1). That is the one
+permitted read, and it happens once, at the moment of the edit. Outside Claude
+Code there is no hook and the edit is simply gone.
+
+If you have edited files by hand and want them in — during a migration, say —
+`keel import <files> --project keel` writes each one back as a revision. Stop
+the daemon first: it holds DuckDB's write lock, and there is exactly one writer.
+
+`keel generate keel --check` exits non-zero when a file differs from what Keel
+would produce. Run it before committing.
+
+**One file is not generated and must not be**: the repository root's
+`CLAUDE.md`. Claude Code loads it before anything else and imports this file
+from it, so it is the bootstrap and cannot itself depend on a generation step
+having run. Everything under `product/`, this file included, is an output.
 
 ---
 
@@ -40,7 +78,13 @@ KB's primary window into this project is `product/STATUS.md`. If it is stale, he
 
 **Task IDs are stable and never reused.** `P0-7` means the same thing forever.
 
-Once Phase 1 exits, Keel becomes the tracker and `product/STATUS.md` is regenerated from it by `keel-cli render-status` (not by the §8 mirror, which is prose-only — see TQ-5). Until then, `product/STATUS.md` is authoritative and hand-maintained.
+**The dogfooding switch has been thrown.** Keel holds this project and every
+`product/*.md` is generated from it. The tracker is a half-step behind: it is
+still stored as prose rather than rendered from the task rows, because the task
+rows do not yet carry the per-task notes that make it worth reading. Finishing
+that is TQ-14. Until then the tracker's prose is edited in Keel like any other
+document, and `keel render-status keel` shows what the entity-rendered version
+would look like.
 
 ---
 
@@ -54,7 +98,7 @@ A task is not done until all of these are true:
 - [ ] Tests written **and** passing — including at least one failure case, not only the happy path. The one exception is a *forward-looking* test for behaviour a later phase delivers: mark it `#[ignore = "unblocks in Phase N — see STATUS.md P0-x"]` so CI stays green and the intent stays visible. Never `#[ignore]` a test for behaviour the current phase is supposed to deliver.
 - [ ] No `unwrap()`, `expect()`, or `panic!()` in library code (binaries and tests may, with a message)
 - [ ] Public items in `keel-core` have doc comments explaining *why*, not restating the signature
-- [ ] `product/STATUS.md` updated
+- [ ] The tracker updated **in Keel**, and `keel generate keel` run
 - [ ] Committed with a message that explains the change, not the diff
 
 If you can't tick all of them, the task is `in_progress`.
@@ -161,5 +205,6 @@ Things that look like progress and aren't:
 - Adding an artifact type because the modelling is awkward — it's almost always a field or a `kind` value.
 - Building the GitHub integration before Phase 1 exits, because it's more fun.
 - Expanding the MCP surface past nine tools. More tools means worse model selection, not more capability.
-- Refactoring for elegance while `product/STATUS.md` says something is blocked.
+- Refactoring for elegance while the tracker says something is blocked.
+- Hand-editing a file under `product/` and committing it without regenerating. It will be reverted by the next `keel generate`, and the reasoning in it is lost.
 - Marking a task done because the code exists but the tests don't.

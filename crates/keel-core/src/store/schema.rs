@@ -59,6 +59,7 @@ fn initial_schema() -> String {
   status          VARCHAR NOT NULL DEFAULT 'active',
   repo_urls       VARCHAR[],
   root_path       VARCHAR,
+  status_path     VARCHAR,
   aliases         VARCHAR[],
   idempotency_key VARCHAR NOT NULL,
   {AUDIT}
@@ -422,6 +423,15 @@ pub fn migrations() -> Vec<Migration> {
             id: 3,
             name: "unified_vertex_view",
             sql: vertices,
+        },
+        // Additive and nullable, so an existing store picks it up without
+        // touching a row. The tracker needs somewhere to be written to, and
+        // deriving it from `root_path` would hard-code `product/STATUS.md`
+        // into every project that never asked for one.
+        Migration {
+            id: 4,
+            name: "project_status_path",
+            sql: "ALTER TABLE projects ADD COLUMN IF NOT EXISTS status_path VARCHAR;",
         },
     ]
 }
