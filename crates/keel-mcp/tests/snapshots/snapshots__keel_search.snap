@@ -1,0 +1,28 @@
+---
+source: crates/keel-mcp/tests/snapshots.rs
+expression: result
+---
+{
+  "content": [
+    {
+      "text": "1 match(es) for “idempotency”:\n  [task] Dedupe usage events by idempotency key — [id]\n      Dedupe usage events by idempotency key",
+      "type": "text"
+    }
+  ],
+  "isError": false,
+  "structuredContent": {
+    "hits": [
+      {
+        "entity_id": "[id]",
+        "entity_type": "task",
+        "excerpt": "Dedupe usage events by idempotency key",
+        "project_id": "[id]",
+        "score": 0.01639344262295082,
+        "source": "keyword",
+        "title": "Dedupe usage events by idempotency key"
+      }
+    ],
+    "total": 1,
+    "truncated": false
+  }
+}

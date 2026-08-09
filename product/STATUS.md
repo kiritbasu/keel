@@ -10,10 +10,10 @@
 | | |
 |---|---|
 | **Current phase** | Phase 0 — Spine |
-| **Phase progress** | **16 / 16 — Phase 0 complete** |
-| **Status** | Phase 0 exited; Phase 1 in progress |
+| **Phase progress** | Phase 0: **16/16** · Phase 1: **12/12** |
+| **Status** | Phases 0 and 1 built; Phase 2 in progress |
 | **Blocked on** | Nothing |
-| **Next up** | Phase 1 — the daemon and the nine MCP tools |
+| **Next up** | Phase 2 — the plugin: skill, session threading, mirror hooks |
 | **Last session** | 2026-08-09 |
 | **Last updated** | 2026-08-09 |
 
@@ -66,18 +66,18 @@
 
 | ID | Task | Status | Notes |
 |---|---|---|---|
-| P1-1 | JSON-RPC + stateless Streamable HTTP transport | `todo` | Header/body validation (`Mcp-Method`, `Mcp-Name`, `MCP-Protocol-Version`), error codes `-32020/-32021/-32022`, GET/DELETE → 405, `Origin` → 403 |
-| P1-2 | `server/discover` and `tools/list` | `todo` | Both required. Deterministic tool order for prompt-cache hits; `ttlMs` long because Keel's tool list is static |
-| P1-3 | The nine tool schemas | `todo` | SPEC §6.2. Nine is the ceiling — more tools means worse model selection, not more capability |
-| P1-4 | `keel_context` — the digest | `todo` | SPEC §6.3. 3–4k tokens at `standard`. Questions and terms **never** truncated; `budget_exceeded` rather than trimming them |
-| P1-5 | Read tools: `keel_search`, `keel_get`, `keel_activity`, `keel_projects` | `todo` | `keel_get` takes `version` and `diff_against` — REQ-2 wants diffs at the API layer, not only in the UI |
-| P1-6 | Write tools: `keel_create`, `keel_update`, `keel_write_doc`, `keel_link` | `todo` | Every write returns the resulting entity. 409 carries `latest_version`, current state and `events_since` |
-| P1-7 | Shared single write path | `todo` | D-5. One store behind one lock; this is what makes the concurrency test meaningful |
-| P1-8 | Local REST + SSE for the desktop app | `todo` | Keel's own API, not MCP. Same shape as a remote daemon so the web build is one bundle |
-| P1-9 | Un-ignore the concurrency test | `todo` | Phase 1's exit criterion. Zero duplicates, zero lost updates |
-| P1-10 | Snapshot tests for every tool response | `todo` | `insta`. They are an API contract and drift should show up in a diff |
-| P1-11 | `keel-cli render-status` | `todo` | The dogfooding switch. The §8 mirror is prose-only (TQ-5), so `product/STATUS.md` needs its own renderer |
-| P1-12 | Scripted UC-1 → UC-4 harness | `todo` | The automated proxy for the human gate, per KB's instruction. Drives a real MCP client against a real daemon |
+| P1-1 | JSON-RPC + stateless Streamable HTTP transport | `done` | Header/body validation with the renumbered codes (`-32020/21/22`, not the draft `-3200{1,3,4}`). GET/DELETE → 405 so an older client can tell "wrong protocol" from "no endpoint". **Found and fixed: the `Origin` check used `starts_with`, so `https://localhost.evil.example` passed it** |
+| P1-2 | `server/discover` and `tools/list` | `done` | `server/discover` is required in this revision and is implemented. `tools/list` carries `ttlMs` and `cacheScope`, and the order is deterministic for prompt-cache hits |
+| P1-3 | The nine tool schemas | `done` | Nine tools. The descriptions say *when to reach for this*, not just what it does — a test enforces that, because a description that reads like a signature produces an agent that calls the wrong tool confidently |
+| P1-4 | `keel_context` — the digest | `done` | Budgeted to 3–4k tokens; trims in order of what an agent can most cheaply re-fetch. Questions and terms are **never** trimmed — verified with 60 of each, which returns them in full and sets `budget_exceeded` |
+| P1-5 | Read tools: `keel_search`, `keel_get`, `keel_activity`, `keel_projects` | `done` | Including `version` + `diff_against` on `keel_get` (REQ-2 at the API layer) and fuzzy project matching with `requires_confirmation` (REQ-8) |
+| P1-6 | Write tools: `keel_create`, `keel_update`, `keel_write_doc`, `keel_link` | `done` | 409 carries `latest_version`, current state and `events_since`. **Found and fixed: `version` was nested inside `audit` on read but asked for at the top level on write** — an agent had to hunt for it (B-13) |
+| P1-7 | Shared single write path | `done` | One store, one mutex, whole process. Held across synchronous work, never across an await |
+| P1-8 | Local REST + SSE for the desktop app | `done` | REST + SSE under `/api`, dispatching through the same tool layer as MCP so the two cannot drift |
+| P1-9 | Un-ignore the concurrency test | `done` | **Phase 1 exit criterion met (mechanical half).** 16 concurrent sessions: exactly one create wins, all 16 updates land under retry, the event log is gapless and strictly ordered, concurrent identical links produce one edge |
+| P1-10 | Snapshot tests for every tool response | `done` | 8 `insta` snapshots covering the tool list, discovery, the digest, creates, search, projects and every error shape. Ids and timestamps redacted so the snapshots do not churn |
+| P1-11 | `keel-cli render-status` | `done` | Renders milestones, tasks by status, open questions, decisions, and a changelog derived from the event log. One-directional, like the mirror |
+| P1-12 | Scripted UC-1 → UC-4 harness | `done` | 21 tests driving real HTTP against a real daemon. UC-1→UC-4 all pass mechanically. **The human half of the gate is still unverified** — see below |
 
 ---
 
@@ -99,9 +99,22 @@ Not broken down yet. Decompose at the start of each phase, not before — earlie
 
 ## Blocked
 
-Nothing yet.
+Nothing.
 
 *(Format: task ID — what's blocking — who or what unblocks it — since when.)*
+
+---
+
+## Phase gates I cannot verify
+
+KB's instruction was to substitute an automated proxy for the human-in-the-loop gates, proceed, and record honestly what is unverified. This is that record.
+
+| Gate | Mechanical proxy — **passing** | What remains unverified |
+|---|---|---|
+| **Phase 1** — "a live Claude session completes UC-1 → UC-4" | `keel-daemon/tests/use_cases.rs`: 21 tests driving real HTTP, real headers, real JSON-RPC against a real daemon and a real store. All four use cases complete. | That the *tool descriptions* lead a model to pick the right tool unprompted. A scripted client is told which tool to call; an agent is not. This is the half that matters and only KB can run it. |
+| **Phase 1** — "two concurrent sessions, zero duplicates, zero lost updates" | `keel-daemon/tests/concurrency.rs`: 16 concurrent sessions. **Fully verified** — this gate needs no human. | Nothing. |
+| **Phase 2** — "≥9 of 10 unprompted sessions write to Keel; 0 duplicate projects" | Not substitutable. "Unprompted" is the entire claim, and a test that calls the tool has prompted it. | All of it. See `plugin/README.md` for how to run the ten sessions. |
+| **Phase 3** — "UC-6 completes in under 30s" | The Sunday-review data all comes from one `keel_context` roll-up call, which returns in milliseconds against the fixture. | Whether *a human* can absorb it in 30 seconds. That is a question about the UI, not the query. |
 
 ---
 

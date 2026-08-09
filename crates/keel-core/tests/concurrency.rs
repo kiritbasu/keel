@@ -503,22 +503,13 @@ fn an_event_page_reports_its_total() {
 }
 
 // --- Concurrency (Phase 1's exit criterion) ------------------------------
-
-/// Two simultaneous writers must produce zero duplicates and zero lost
-/// updates.
-///
-/// Written now so the target exists from the start, and ignored so CI stays
-/// green: `DuckStore` holds a single connection and is not `Sync`, because
-/// D-5 says the daemon owns the single write path. Until the daemon exists
-/// there is nothing to run two writers *through* — driving two `DuckStore`s at
-/// one directory would test DuckDB's file locking, which is not the claim
-/// being made.
-#[test]
-#[ignore = "unblocks in Phase 1 — needs the daemon's shared write path. See STATUS.md P0-15"]
-fn two_concurrent_writers_produce_no_duplicates_and_no_lost_updates() {
-    panic!(
-        "Phase 1: drive N threads at one daemon. Assert (a) N identical creates \
-         yield one entity with created:true exactly once, and (b) N increments \
-         under optimistic concurrency, each retrying on 409, all land."
-    )
-}
+//
+// The placeholder that lived here through Phase 0 has been replaced by the
+// real thing, in `keel-daemon/tests/concurrency.rs`. It could not stay in this
+// crate: a `DuckStore` is one connection and deliberately not `Sync`, because
+// D-5 makes the daemon the single write path. Driving two stores at one
+// directory would have tested DuckDB's file locking rather than the claim.
+//
+// Sixteen concurrent sessions through the daemon now assert zero duplicates,
+// zero lost updates, a gapless event log, and one edge from concurrent
+// identical links.

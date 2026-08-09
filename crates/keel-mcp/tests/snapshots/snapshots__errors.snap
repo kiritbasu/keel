@@ -1,0 +1,36 @@
+---
+source: crates/keel-mcp/tests/snapshots.rs
+expression: cases
+---
+{
+  "bad_timestamp": {
+    "error": {
+      "code": -32602,
+      "message": "argument `since`: `last tuesday` is not a timestamp. Expected: an RFC 3339 timestamp such as [timestamp]"
+    }
+  },
+  "missing_argument": {
+    "error": {
+      "code": -32602,
+      "message": "argument `query`: missing or not a string. Expected: a string"
+    }
+  },
+  "unknown_field": {
+    "error": {
+      "code": -32602,
+      "message": "no task with id `[id]`"
+    }
+  },
+  "unknown_project": {
+    "error": {
+      "code": -32602,
+      "message": "argument `project`: no project matches `does-not-exist`. Expected: one of: harbour. Call keel_projects to list them"
+    }
+  },
+  "unknown_tool": {
+    "error": {
+      "code": -32601,
+      "message": "no tool named `keel_delete`. Available: keel_context, keel_search, keel_get, keel_projects, keel_activity, keel_create, keel_update, keel_write_doc, keel_link"
+    }
+  }
+}

@@ -8,6 +8,8 @@
 //! Phase 0 gives it `fsck`, `backup`, `restore` and `fixture`. `render-status`
 //! arrives in Phase 1, with the dogfooding switch.
 
+mod render_status;
+
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use keel_core::{DuckStore, backup, fixture, fsck};
@@ -60,6 +62,19 @@ enum Command {
 
     /// Print a one-line summary of what is in the store.
     Status,
+
+    /// Regenerate a tracker file for a project from Keel.
+    ///
+    /// The dogfooding switch: once Keel holds a project, its status file is
+    /// generated rather than hand-maintained. Not the same as the markdown
+    /// mirror, which is prose-only (TQ-5) and deliberately excludes tasks.
+    RenderStatus {
+        /// Project id, slug or name.
+        project: String,
+        /// Write here instead of standard output.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -80,7 +95,52 @@ fn main() -> Result<()> {
         Command::Restore { source, target } => run_restore(source, target, cli.json),
         Command::Fixture => run_fixture(&home, cli.json),
         Command::Status => run_status(&home, cli.json),
+        Command::RenderStatus { project, out } => run_render_status(&home, project, out.clone()),
     }
+}
+
+fn run_render_status(home: &PathBuf, project: &str, out: Option<PathBuf>) -> Result<()> {
+    use keel_core::{Entity, EntityQuery, EntityStore, EntityType};
+    let store = open(home)?;
+
+    let projects = store.list(&EntityQuery::default().of_type(EntityType::Project))?;
+    let needle = project.to_lowercase();
+    let found = projects
+        .items
+        .iter()
+        .find(|p| match p {
+            Entity::Project(pr) => {
+                pr.id.as_str() == project
+                    || pr.slug.eq_ignore_ascii_case(project)
+                    || pr.name.to_lowercase() == needle
+            }
+            _ => false,
+        })
+        .with_context(|| {
+            format!(
+                "no project matches `{project}`. Known: {}",
+                projects
+                    .items
+                    .iter()
+                    .filter_map(|p| match p {
+                        Entity::Project(pr) => Some(pr.slug.clone()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })?;
+
+    let markdown = render_status::render(&store, found.id())?;
+    match out {
+        Some(path) => {
+            std::fs::write(&path, &markdown)
+                .with_context(|| format!("write {}", path.display()))?;
+            println!("wrote {} ({} bytes)", path.display(), markdown.len());
+        }
+        None => print!("{markdown}"),
+    }
+    Ok(())
 }
 
 /// Resolve the store directory.

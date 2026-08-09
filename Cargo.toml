@@ -56,7 +56,7 @@ keel-core = { path = "crates/keel-core", version = "0.1.0" }
 keel-mcp = { path = "crates/keel-mcp", version = "0.1.0" }
 
 # Test-only
-insta = { version = "1", features = ["json", "redactions"] }
+insta = { version = "1", features = ["json", "redactions", "filters"] }
 proptest = "1"
 tempfile = "3"
 

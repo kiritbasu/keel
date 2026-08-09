@@ -21,3 +21,4 @@ chrono.workspace = true
 [dev-dependencies]
 insta.workspace = true
 tempfile.workspace = true
+keel-core.workspace = true
