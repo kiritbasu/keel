@@ -11,9 +11,13 @@ expression: "keel_mcp::list_result()"
         "idempotentHint": true,
         "readOnlyHint": true
       },
-      "description": "START HERE in any new conversation about a project. Returns a compact digest: what the project is, the active milestone, urgent and blocked work, recent decisions, every unresolved question, the glossary, what is deployed, and a suggested next action.\n\nCall this before reading files or asking the human what is going on — it is one call and roughly 3–4k tokens. With no `project`, returns a one-line roll-up of every project plus anything at risk.\n\nOpen questions and glossary terms are never truncated. A missing open question makes you re-litigate something already settled; a missing glossary term makes you use the wrong word for a domain concept. Everything else degrades and the response reports what it dropped.",
+      "description": "START HERE in any new conversation about a project. Returns a compact digest: what the project is, the active milestone, urgent and blocked work, recent decisions, every unresolved question, the glossary, what is deployed, and a suggested next action.\n\nCall this before reading files or asking the human what is going on — it is one call and roughly 3–4k tokens. With no `project`, returns a one-line roll-up of every project plus anything at risk.\n\nPass `cwd` when you are in a repository. It scopes the digest to whichever project owns that checkout, and if none does it tells you so directly — rather than returning other projects and leaving you to conclude that yours is missing.\n\nOpen questions and glossary terms are never truncated. A missing open question makes you re-litigate something already settled; a missing glossary term makes you use the wrong word for a domain concept. Everything else degrades and the response reports what it dropped.",
       "inputSchema": {
         "properties": {
+          "cwd": {
+            "description": "The absolute directory you are working in. Resolves to the project whose checkout contains it, and — when nothing matches — says so plainly instead of leaving you to infer it from a list of other projects. Always pass this when you are working in a repository.",
+            "type": "string"
+          },
           "depth": {
             "default": "standard",
             "description": "How much to include. `brief` is a few hundred tokens; `full` drops most limits.",

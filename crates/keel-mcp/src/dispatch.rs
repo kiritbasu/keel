@@ -248,9 +248,17 @@ pub fn dispatch(store: &mut DuckStore, call: ToolCall<'_>) -> Result<Value, RpcE
 }
 
 fn keel_context(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
+    // `cwd` resolves to a project by its recorded `root_path`, and — more
+    // importantly — says plainly when nothing matches. TQ-17: nine of ten gate
+    // sessions called this, saw a roll-up listing some *other* project, and
+    // had to work out for themselves that the thing they were working on was
+    // simply absent. One of them said so outright and wrote nothing.
+    let cwd = opt_str(args, "cwd");
+    let matched_by_cwd = cwd.as_deref().and_then(|d| project_for_directory(store, d));
+
     let project = match opt_str(args, "project") {
         Some(p) => Some(resolve_project(store, &p)?),
-        None => None,
+        None => matched_by_cwd.clone(),
     };
     let depth = context::Depth::parse(opt_str(args, "depth").as_deref().unwrap_or("standard"))
         .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e))?;
@@ -259,7 +267,21 @@ fn keel_context(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
     let digest = context::build(store, project.as_ref(), depth, since)
         .map_err(|e| to_rpc_error(store, e))?;
 
-    let summary = digest.to_prose();
+    let unmatched = cwd.as_deref().filter(|_| matched_by_cwd.is_none());
+
+    let mut summary = digest.to_prose();
+    if let Some(dir) = unmatched {
+        // Stated before the digest, not after: an agent that reads "here is
+        // project X" first has already decided what it is looking at.
+        summary = format!(
+            "**No project in Keel matches `{dir}`.** If you are working on something \
+             that belongs here, create it — `keel_create(type: \"project\", title: …, \
+             fields: {{\"root_path\": \"{dir}\"}})` — and say that you did. Creating the \
+             *first* project for a directory is not the duplicate-project failure; \
+             creating a second one for something already listed below is.\n\n{summary}"
+        );
+    }
+
     let mut structured = serde_json::to_value(&digest)
         .map_err(|e| RpcError::new(codes::INTERNAL_ERROR, e.to_string()))?;
 
@@ -272,8 +294,46 @@ fn keel_context(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
                 .map(Value::String)
                 .unwrap_or(Value::Null),
         );
+        if let Some(dir) = cwd.as_deref() {
+            obj.insert(
+                "directory".to_owned(),
+                json!({
+                    "path": dir,
+                    "matched_project": matched_by_cwd.as_ref().map(|p| p.to_string()),
+                }),
+            );
+        }
     }
     Ok(tool_result(summary, structured))
+}
+
+/// The project whose checkout contains `dir`, if any.
+///
+/// Longest `root_path` wins, so a project nested inside another checkout
+/// resolves to the inner one rather than whichever happened to be listed first.
+fn project_for_directory(store: &DuckStore, dir: &str) -> Option<EntityId> {
+    let page = store
+        .list(
+            &EntityQuery::default()
+                .of_type(EntityType::Project)
+                .limited(500),
+        )
+        .ok()?;
+    let mut best: Option<(usize, EntityId)> = None;
+    for entity in page.items {
+        let Entity::Project(p) = entity else { continue };
+        let Some(root) = p.root_path.as_deref() else {
+            continue;
+        };
+        let root_trimmed = root.trim_end_matches('/');
+        if dir == root_trimmed || dir.starts_with(&format!("{root_trimmed}/")) {
+            let len = root_trimmed.len();
+            if best.as_ref().is_none_or(|(best_len, _)| len > *best_len) {
+                best = Some((len, p.id));
+            }
+        }
+    }
+    best.map(|(_, id)| id)
 }
 
 fn keel_search(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {

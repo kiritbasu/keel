@@ -16,10 +16,16 @@ for reading. If you do not write to Keel, nothing does.
 
 ## Start every project conversation by orienting
 
-**Call `keel_context` before anything else.** One call, roughly 3–4k tokens, and
-you know: what the project is, the active milestone, what is urgent and what is
-blocked, recent decisions, every unresolved question, the glossary, what is
-deployed.
+**Call `keel_context` before anything else, and pass `cwd`.** One call, roughly
+3–4k tokens, and you know: what the project is, the active milestone, what is
+urgent and what is blocked, recent decisions, every unresolved question, the
+glossary, what is deployed.
+
+`cwd` is the directory you are working in. It scopes the digest to whichever
+project owns that checkout — and when none does, it says so in the first line
+rather than handing you a list of other projects and letting you conclude that
+yours is missing. See "But do not stall on an empty store" below for what to do
+about it, which is not "ask and wait".
 
 Do this *before* reading files, *before* asking the human what is going on, and
 *before* proposing anything. Two specific failures it prevents:
@@ -107,16 +113,35 @@ the whole point of writing it down.
 **Always call `keel_projects` first.** It fuzzy-matches on name, slug, aliases
 and repository URL.
 
-If it comes back with `requires_confirmation: true`, **stop and ask the human**:
+If it comes back with `requires_confirmation: true` — meaning something that
+*looks like* this project already exists — **stop and ask the human**:
 
-> I don't see an existing project for this. There is "Harbour" (`harbour`) which
-> looks close — is this the same thing, or should I create a new project called
+> I don't see an exact match. There is "Harbour" (`harbour`) which looks close —
+> is this the same thing, or should I create a new project called
 > *Harbour Billing*?
 
 Nine near-identical projects is the failure that quietly ruins the cross-project
 view, and merging them afterwards is far more work than asking now.
 
-This is the one place where you must not just get on with it.
+### But do not stall on an empty store
+
+**If nothing resembles it at all, create the project and get on with it.** Say
+that you did, in one line, and carry on:
+
+> Nothing in Keel matched this repository, so I've created the project
+> **Tideline** and recorded the decision under it.
+
+The rule above exists to stop you creating a *second* project for something that
+already exists. Creating the *first* one for a directory Keel has never seen is
+not that failure, and treating it as though it were has a cost that was measured
+rather than guessed: in the ten-session gate, **nine sessions understood exactly
+what should be recorded, said so, and wrote nothing** — because there was no
+project to write into and they were waiting for permission that a working
+session never pauses to give.
+
+Pass `cwd` to `keel_context` and it will tell you outright whether any project
+owns the directory you are in. "No project matches this directory" means create
+one. It does not mean stop.
 
 ---
 

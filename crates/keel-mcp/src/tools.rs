@@ -134,6 +134,10 @@ pub fn all() -> Vec<Tool> {
                  Call this before reading files or asking the human what is going on — it is \
                  one call and roughly 3–4k tokens. With no `project`, returns a one-line \
                  roll-up of every project plus anything at risk.\n\n\
+                 Pass `cwd` when you are in a repository. It scopes the digest to whichever \
+                 project owns that checkout, and if none does it tells you so directly — \
+                 rather than returning other projects and leaving you to conclude that yours \
+                 is missing.\n\n\
                  Open questions and glossary terms are never truncated. A missing open question \
                  makes you re-litigate something already settled; a missing glossary term makes \
                  you use the wrong word for a domain concept. Everything else degrades and the \
@@ -147,6 +151,14 @@ pub fn all() -> Vec<Tool> {
                         "project": {
                             "type": "string",
                             "description": "Project id, slug or name. Omit for a cross-project roll-up."
+                        },
+                        "cwd": {
+                            "type": "string",
+                            "description": "The absolute directory you are working in. Resolves to \
+                                            the project whose checkout contains it, and — when \
+                                            nothing matches — says so plainly instead of leaving \
+                                            you to infer it from a list of other projects. Always \
+                                            pass this when you are working in a repository."
                         },
                         "depth": {
                             "type": "string",
