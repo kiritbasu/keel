@@ -278,7 +278,7 @@ fn keel_context(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
              that belongs here, create it — `keel_create(type: \"project\", title: …, \
              fields: {{\"root_path\": \"{dir}\"}})` — and say that you did. Creating the \
              *first* project for a directory is not the duplicate-project failure; \
-             creating a second one for something already listed below is.\n\n{summary}"
+             creating a second one for a project that already exists is.\n\n{summary}"
         );
     }
 

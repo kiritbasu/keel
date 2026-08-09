@@ -14,30 +14,32 @@ for reading. If you do not write to Keel, nothing does.
 
 ---
 
-## Start every project conversation by orienting
+## You are already oriented
 
-**Call `keel_context` before anything else, and pass `cwd`.** One call, roughly
-3–4k tokens, and you know: what the project is, the active milestone, what is
-urgent and what is blocked, recent decisions, every unresolved question, the
-glossary, what is deployed.
+A `SessionStart` hook has put Keel's digest into this conversation before you
+read anything — what the project is, the active milestone, what is urgent and
+what is blocked, recent decisions, every open question, the glossary.
 
-`cwd` is the directory you are working in. It scopes the digest to whichever
-project owns that checkout — and when none does, it says so in the first line
-rather than handing you a list of other projects and letting you conclude that
-yours is missing. See "But do not stall on an empty store" below for what to do
-about it, which is not "ask and wait".
+You did not have to ask for it and you do not have to fetch it. This exists
+because relying on the model to load a skill did not work: across thirty
+headless sessions and an interactive one, this file was never opened, so
+everything in it was advice nobody read (TQ-19).
 
-Do this *before* reading files, *before* asking the human what is going on, and
-*before* proposing anything. Two specific failures it prevents:
+Two things follow:
 
-- **Re-litigating a settled decision.** If SQLite was rejected three sessions
-  ago, `keel_context` tells you. Proposing it again wastes the human's patience
-  and makes the store look like it is not working.
-- **Drifting on vocabulary.** The glossary says what the words mean *in this
-  project*. "Digest", "meter", "period", "anchor" all mean something specific.
+- **Do not re-litigate what the digest already settles.** If a decision is
+  listed, it is decided. If a question is open, it is open — do not answer it
+  as though it were new.
+- **Use the glossary's words.** The digest carries them because a project's
+  vocabulary is the cheapest thing to get wrong and the most annoying.
 
-With no `project` argument you get a one-line roll-up of every project. Use that
-when you do not yet know which project the human means.
+Call `keel_context` yourself only when the conversation moves to a *different*
+project, or when you need `depth: "full"` because the digest reported that it
+trimmed something you need. Pass `cwd` when you do.
+
+If the digest said no project matches this directory, read
+"Before creating a project" below — the short version is that you create the
+first one and say so.
 
 ---
 
