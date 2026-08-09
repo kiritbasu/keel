@@ -165,6 +165,7 @@ One entry per session. Append; never edit history.
 | Date | Session | Landed | Next |
 |---|---|---|---|
 | 2026-08-09 | — | Tracker seeded from PRD/SPEC. No code yet. | P0-1 |
+| 2026-08-09 | 1 | **Phases 0–3.** Storage spine, MCP daemon with nine tools, Claude Code plugin, Tauri desktop app. 264 Rust tests, nothing ignored. All four CI gates green. Twelve build-time decisions and five spec corrections recorded. Two gates left unrun because they need a human — see "Phase gates I cannot verify". | KB: run the Phase 2 ten-session gate. It is the one that tests the premise. |
 
 ---
 
