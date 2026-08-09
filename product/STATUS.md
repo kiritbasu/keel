@@ -156,6 +156,26 @@ Nothing.
 
 ---
 
+## The roadmap does not say what is next
+
+KB, after the logs were fixed: *"I don't understand what's next to build in the project, it just doesn't make sense looking at the roadmap or board. Is that a problem just because we are building this as we go along, or is it something we need to fix?"*
+
+Mostly the product. Recorded as **TQ-16** (`que_01KZKX1PEJ3M0N4MYHRNB1JKKC`) with three options and a recommendation. In short:
+
+| Finding | Product, or us? |
+|---|---|
+| `keel_context.next` returns counts and advice, never a named task | **Product.** The one question a spine exists to answer |
+| `blocked` had no referent — 3 blocked tasks, 0 `blocks` edges, and the digest advised a query returning nothing | **Product.** Data fixed; nothing prevents the state recurring |
+| No ordering anywhere; "ready" and "waiting on a human" share a board column | **Product** |
+| Six of ten open tasks parked in whichever milestone was `active` | **Mine** — but nothing discourages it, and a busy human will do the same |
+| Every phase target date is today | **Us.** A real project has real dates |
+
+Fixed in the data this session: the ten-session gate now `blocks` all three Phase 4/5 tasks, TQ-6 blocks the design work, and two tasks moved to the milestone they actually belong to. "What is blocking this" and "what does this unblock" both answer now — the ten-session gate releases three.
+
+Still open: `next` itself. That changes `keel_context`'s output, which is SPEC §6 and therefore KB's call.
+
+---
+
 ## The prose blob problem
 
 KB, later the same session: *"How come I'm not seeing TQ-15 or any of the other upcoming tasks on the boards, what's missing?"*
