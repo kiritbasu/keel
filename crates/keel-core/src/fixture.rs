@@ -865,7 +865,7 @@ pub fn load(store: &mut DuckStore) -> Result<FixtureSummary> {
         } else {
             &claude
         };
-        task_ids.push(make(store, t.into(), prov, &mut s)?);
+        task_ids.push((title.to_owned(), make(store, t.into(), prov, &mut s)?));
     }
 
     // --- Specs, with bodies ----------------------------------------------
@@ -969,7 +969,7 @@ pub fn load(store: &mut DuckStore) -> Result<FixtureSummary> {
         ));
         let id = make(store, sp.into(), &chat, &mut s)?;
         write_doc(store, &id, project, title, body, &chat, &mut s)?;
-        spec_ids.push(id);
+        spec_ids.push((title.to_owned(), id));
     }
 
     // --- Decisions -------------------------------------------------------
@@ -1059,7 +1059,7 @@ pub fn load(store: &mut DuckStore) -> Result<FixtureSummary> {
         ));
         let id = make(store, d.into(), &chat, &mut s)?;
         write_doc(store, &id, project, title, body, &chat, &mut s)?;
-        decision_ids.push(id);
+        decision_ids.push((title.to_owned(), id));
     }
 
     // --- Questions and risks ---------------------------------------------
@@ -1173,7 +1173,7 @@ pub fn load(store: &mut DuckStore) -> Result<FixtureSummary> {
         q.mirror_path = Some(".keel/questions.md".to_owned());
         let id = make(store, q.into(), &chat, &mut s)?;
         write_doc(store, &id, project, title, body, &chat, &mut s)?;
-        question_ids.push(id);
+        question_ids.push((title.to_owned(), id));
     }
 
     // --- Glossary --------------------------------------------------------
@@ -1483,7 +1483,7 @@ pub fn load(store: &mut DuckStore) -> Result<FixtureSummary> {
         f.triaged = matches!(kind, FeedbackKind::Support | FeedbackKind::Interview);
         let id = make(store, f.into(), &human, &mut s)?;
         write_doc(store, &id, project, summary, body, &human, &mut s)?;
-        feedback_ids.push(id);
+        feedback_ids.push((summary.to_owned(), id));
     }
 
     // --- Design artifacts -------------------------------------------------
@@ -1532,7 +1532,7 @@ pub fn load(store: &mut DuckStore) -> Result<FixtureSummary> {
         d.figma_ref = Some(format!("figma:node/{}", name.len() * 37));
         let id = make(store, d.into(), &human, &mut s)?;
         write_doc(store, &id, project, name, caption, &human, &mut s)?;
-        design_ids.push(id);
+        design_ids.push((name.to_owned(), id));
     }
 
     // --- Environments -----------------------------------------------------
@@ -1749,282 +1749,343 @@ pub fn load(store: &mut DuckStore) -> Result<FixtureSummary> {
     }
 
     // --- Links, covering every relation ----------------------------------
-    // implements — tasks to spec requirements, with anchors.
+    //
+    // Addressed by name, never by position. Positional indices into the
+    // lists above are a trap: inserting a row near the top silently rewires
+    // every edge below it, which is exactly how two Harbour feedback items
+    // ended up linked to a Keel spec. `by_label` fails loudly instead.
     link(
         store,
-        &task_ids[1],
+        by_label(&task_ids, "Forward-only DuckDB migrations")?,
         Relation::Implements,
-        &spec_ids[0],
+        by_label(&spec_ids, "Keel storage specification")?,
         Some("REQ-1"),
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &task_ids[3],
+        by_label(
+            &task_ids,
+            "Document revisions with content-addressed dedupe",
+        )?,
         Relation::Implements,
-        &spec_ids[0],
+        by_label(&spec_ids, "Keel storage specification")?,
         Some("REQ-2"),
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &task_ids[6],
+        by_label(&task_ids, "fsck for cross-engine referential integrity")?,
         Relation::Implements,
-        &spec_ids[0],
+        by_label(&spec_ids, "Keel storage specification")?,
         Some("REQ-3"),
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &task_ids[7],
+        by_label(&task_ids, "axum server with the stateless MCP transport")?,
         Relation::Implements,
-        &spec_ids[1],
+        by_label(&spec_ids, "MCP tool surface")?,
         Some("REQ-4"),
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &task_ids[9],
+        by_label(&task_ids, "keel_context digest within a 4k token budget")?,
         Relation::Implements,
-        &spec_ids[1],
+        by_label(&spec_ids, "MCP tool surface")?,
         Some("REQ-6"),
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &task_ids[9],
+        by_label(&task_ids, "keel_context digest within a 4k token budget")?,
         Relation::Implements,
-        &spec_ids[2],
+        by_label(&spec_ids, "Agent orientation digest")?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &task_ids[15],
+        by_label(&task_ids, "Dedupe usage events by idempotency key")?,
         Relation::Implements,
-        &spec_ids[3],
+        by_label(&spec_ids, "Usage metering")?,
         Some("REQ-1"),
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &task_ids[16],
+        by_label(&task_ids, "Aggregate meter readings into hourly buckets")?,
         Relation::Implements,
-        &spec_ids[3],
+        by_label(&spec_ids, "Usage metering")?,
         Some("REQ-3"),
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &task_ids[18],
+        by_label(&task_ids, "Reconcile against Stripe webhooks")?,
         Relation::Implements,
-        &spec_ids[4],
+        by_label(&spec_ids, "Invoice reconciliation")?,
         None,
         &claude,
         &mut s,
     )?;
-
-    // blocks and depends_on — the latter normalises to the former.
     link(
         store,
-        &task_ids[0],
+        by_label(
+            &task_ids,
+            "Verify the Lance DuckDB extension against running code",
+        )?,
         Relation::Blocks,
-        &task_ids[1],
+        by_label(&task_ids, "Forward-only DuckDB migrations")?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &task_ids[1],
+        by_label(&task_ids, "Forward-only DuckDB migrations")?,
         Relation::Blocks,
-        &task_ids[3],
+        by_label(
+            &task_ids,
+            "Document revisions with content-addressed dedupe",
+        )?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &task_ids[5],
+        by_label(
+            &task_ids,
+            "Backup including the Lance datasets, not just DuckDB",
+        )?,
         Relation::Blocks,
-        &task_ids[7],
+        by_label(&task_ids, "axum server with the stateless MCP transport")?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &task_ids[21],
+        by_label(&task_ids, "Self-serve plan picker UI")?,
         Relation::DependsOn,
-        &task_ids[20],
+        by_label(&task_ids, "Plan change proration")?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &task_ids[20],
+        by_label(&task_ids, "Plan change proration")?,
         Relation::DependsOn,
-        &question_ids[7],
+        by_label(
+            &question_ids,
+            "Does a downgrade take effect immediately or at period end?",
+        )?,
         None,
         &claude,
         &mut s,
     )?;
-
-    // resolves — decisions answer questions.
     link(
         store,
-        &decision_ids[0],
+        by_label(&decision_ids, "DuckDB and Lance, not SQLite")?,
         Relation::Resolves,
-        &question_ids[5],
+        by_label(&question_ids, "Lance is the one unhedged dependency")?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &decision_ids[1],
+        by_label(&decision_ids, "The daemon owns the single write path")?,
         Relation::Resolves,
-        &question_ids[6],
+        by_label(&question_ids, "Attribution is cooperative, not enforced")?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &decision_ids[5],
+        by_label(&decision_ids, "Aggregate hourly, not per-minute")?,
         Relation::Resolves,
-        &question_ids[9],
+        by_label(
+            &question_ids,
+            "Are hourly buckets fine enough for enterprise customers?",
+        )?,
         None,
         &claude,
         &mut s,
     )?;
-
-    // supersedes — a newer decision replaces an older one.
     link(
         store,
-        &decision_ids[5],
+        by_label(&decision_ids, "Aggregate hourly, not per-minute")?,
         Relation::Supersedes,
-        &decision_ids[7],
+        by_label(&decision_ids, "Store raw events for 90 days")?,
         None,
         &claude,
         &mut s,
     )?;
-
-    // derived_from and informs — the feedback-to-spec loop.
     link(
         store,
-        &spec_ids[5],
+        by_label(&spec_ids, "Why invoices round wrong on partial periods")?,
         Relation::DerivedFrom,
-        &feedback_ids[0],
+        by_label(&feedback_ids, "Invoices do not match our own metering")?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &feedback_ids[0],
+        by_label(&feedback_ids, "Invoices do not match our own metering")?,
         Relation::Informs,
-        &spec_ids[4],
+        by_label(&spec_ids, "Invoice reconciliation")?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &feedback_ids[1],
+        by_label(&feedback_ids, "Changing plan needs a support ticket")?,
         Relation::Informs,
-        &spec_ids[4],
+        by_label(&spec_ids, "Invoice reconciliation")?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &feedback_ids[6],
+        by_label(&feedback_ids, "Webhook retries would have saved us a week")?,
         Relation::Informs,
-        &spec_ids[2],
+        by_label(&spec_ids, "Invoice reconciliation")?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &feedback_ids[7],
+        by_label(
+            &feedback_ids,
+            "We generate a new idempotency key on every retry",
+        )?,
         Relation::Informs,
-        &spec_ids[2],
+        by_label(&spec_ids, "Usage metering")?,
         None,
         &claude,
         &mut s,
     )?;
-
-    // duplicates — the same bug reported twice.
     link(
         store,
-        &task_ids[24],
+        by_label(
+            &feedback_ids,
+            "Reading a folder of markdown files is not a status view",
+        )?,
+        Relation::Informs,
+        by_label(&spec_ids, "Agent orientation digest")?,
+        None,
+        &claude,
+        &mut s,
+    )?;
+    link(
+        store,
+        by_label(&feedback_ids, "Every new session starts cold")?,
+        Relation::Informs,
+        by_label(&spec_ids, "Agent orientation digest")?,
+        None,
+        &claude,
+        &mut s,
+    )?;
+    link(
+        store,
+        by_label(&task_ids, "Handle traces larger than memory")?,
         Relation::Duplicates,
-        &task_ids[23],
-        None,
-        &claude,
-        &mut s,
-    )?;
-
-    // references — anything to anything.
-    link(
-        store,
-        &spec_ids[0],
-        Relation::References,
-        &decision_ids[0],
+        by_label(
+            &task_ids,
+            "Span index that fits in memory for a million spans",
+        )?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &spec_ids[1],
+        by_label(&spec_ids, "Keel storage specification")?,
         Relation::References,
-        &decision_ids[3],
+        by_label(&decision_ids, "DuckDB and Lance, not SQLite")?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &design_ids[0],
+        by_label(&spec_ids, "MCP tool surface")?,
         Relation::References,
-        &spec_ids[2],
+        by_label(
+            &decision_ids,
+            "Propose task closure on PR merge, never auto-close",
+        )?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &design_ids[4],
+        by_label(&design_ids, "Home — all projects at a glance")?,
         Relation::References,
-        &task_ids[21],
+        by_label(&spec_ids, "Agent orientation digest")?,
         None,
         &claude,
         &mut s,
     )?;
     link(
         store,
-        &task_ids[19],
+        by_label(&design_ids, "Self-serve plan picker")?,
         Relation::References,
-        &feedback_ids[0],
+        by_label(&task_ids, "Self-serve plan picker UI")?,
+        None,
+        &claude,
+        &mut s,
+    )?;
+    link(
+        store,
+        by_label(
+            &task_ids,
+            "Invoices round to the wrong cent on partial periods",
+        )?,
+        Relation::References,
+        by_label(&feedback_ids, "Invoices do not match our own metering")?,
         None,
         &claude,
         &mut s,
     )?;
 
     Ok(s)
+}
+
+/// Find an artifact the fixture created, by the label it was created with.
+///
+/// Returns an error rather than silently skipping, so a renamed artifact
+/// breaks the fixture loudly instead of quietly dropping an edge — a missing
+/// edge is invisible, which is the whole reason graph bugs are dangerous here.
+fn by_label<'a>(items: &'a [(String, EntityId)], label: &str) -> Result<&'a EntityId> {
+    items
+        .iter()
+        .find(|(name, _)| name == label)
+        .map(|(_, id)| id)
+        .ok_or_else(|| crate::Error::Invariant {
+            operation: format!("link the fixture artifact “{label}”"),
+            problem: "no artifact with that label was created; a title changed but the \
+                      link that names it did not"
+                .to_owned(),
+        })
 }
 
 /// Create an entity through the ordinary write path and count it.

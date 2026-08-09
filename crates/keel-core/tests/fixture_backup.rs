@@ -135,6 +135,48 @@ fn the_fixture_stores_depends_on_as_blocks() {
 }
 
 #[test]
+fn the_fixture_creates_no_accidental_cross_project_links() {
+    // Links may legitimately span projects — the column is nullable, and REQ-19
+    // wants cross-project dependencies eventually. But none of *these* were
+    // meant to, and two crept in when appending rows shifted the positional
+    // indices the link section used. The links are addressed by name now; this
+    // is the assertion that keeps them honest.
+    let (store, _d, _) = loaded_store();
+    let mut stmt = store
+        .connection()
+        .prepare(
+            "SELECT vf.label, pf.slug, l.rel, vt.label, pt.slug
+             FROM links l
+             JOIN v_entities vf ON vf.id = l.from_id
+             JOIN v_entities vt ON vt.id = l.to_id
+             LEFT JOIN projects pf ON pf.id = vf.project_id
+             LEFT JOIN projects pt ON pt.id = vt.project_id
+             WHERE pf.slug IS DISTINCT FROM pt.slug",
+        )
+        .unwrap();
+    let rows: Vec<String> = stmt
+        .query_map([], |r| {
+            Ok(format!(
+                "{} ({}) --{}--> {} ({})",
+                r.get::<_, String>(0)?,
+                r.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, Option<String>>(4)?.unwrap_or_default(),
+            ))
+        })
+        .unwrap()
+        .filter_map(std::result::Result::ok)
+        .collect();
+
+    assert!(
+        rows.is_empty(),
+        "the fixture linked artifacts across projects:\n  {}",
+        rows.join("\n  ")
+    );
+}
+
+#[test]
 fn the_fixture_records_more_than_one_actor() {
     // The activity feed and "what did Claude do today" are meaningless
     // otherwise.
