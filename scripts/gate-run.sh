@@ -67,26 +67,29 @@ if ! printf '%s' "$probe" | grep -qi 'ready'; then
   printf '  %s\n' "$probe"
   echo
   case "$probe" in
-    *401*|*[Aa]uthenticat*|*"not logged in"*|*"User not found"*)
+    *401*|*[Aa]uthenticat*|*"not logged in"*|*"User not found"*|*"Invalid bearer token"*)
       echo "  This is authentication, not Keel."
+      echo
+      echo "  The rule: log in and run against the SAME endpoint."
       if [ -n "${ANTHROPIC_BASE_URL:-}" ]; then
-        echo
-        echo "  ANTHROPIC_BASE_URL is set in your environment (\$HOME/.zshrc)."
-        echo "  \`claude -p\` will send its credential there, and a 401 means that"
-        echo "  endpoint does not recognise it. To run the gate against the default"
-        echo "  API without changing your shell configuration:"
-        echo
-        echo "      env -u ANTHROPIC_BASE_URL ./scripts/gate-run.sh"
+        echo "  ANTHROPIC_BASE_URL is set here, so a login done in this shell stores a"
+        echo "  token for that endpoint. Running with it unset sends that token to the"
+        echo "  default API, which rejects it as an invalid bearer token. Do not strip"
+        echo "  the variable unless you also logged in with it stripped."
+      else
+        echo "  ANTHROPIC_BASE_URL is NOT set in this shell, but it is exported from"
+        echo "  ~/.zshrc. If you logged in with it set, the stored token belongs to"
+        echo "  that endpoint and will be rejected here. Run without \`env -u\`."
       fi
+      echo
+      echo "  The npm CLI ($(command -v claude || echo claude)) keeps its own login,"
+      echo "  separate from the desktop app. Logging the app in does not log it in:"
+      echo "      claude      then  /login"
       ;;
   esac
   echo
-  echo "  The npm CLI (\$(command -v claude)) keeps its own login, separate from"
-  echo "  the desktop app. Logging the app in does not log the CLI in. In a"
-  echo "  terminal:  claude   then  /login"
-  echo
-  echo "  Or skip the CLI entirely and run the ten sessions by hand — which is"
-  echo "  the better test anyway, since these are single-turn:"
+  echo "  Or skip the CLI entirely and run the ten sessions by hand, which is the"
+  echo "  better test anyway since these are single-turn:"
   echo "      scripts/gate-prompts.md"
   exit 1
 fi
