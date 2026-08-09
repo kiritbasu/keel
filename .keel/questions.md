@@ -3,34 +3,6 @@
 <!-- keel:generated questions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
 > Generated from Keel — edits here are not saved.
 
-## TQ-16 — Nothing in Keel answers "what should I do next"
-
-`que_01KZKX1PEJ3M0N4MYHRNB1JKKC` · question · severity high
-
-KB, looking at the finished app: *"I don't understand what's next to build in the project, it just doesn't make sense looking at the roadmap or board."*
-
-He is right, and it is mostly the product rather than the fact that we are building as we go. Four findings, in order of how much they matter.
-
-**1. `keel_context.next` never names a task.** It returns counts and generic advice — "3 task(s) are blocked, check what is blocking them", "21 question(s) are unresolved". That is a restatement of the problem, not an answer. This is the single question a project spine exists to answer and the digest does not answer it. PRD UC-6 (the Sunday review) depends on it.
-
-**2. `blocked` was a status with no referent.** Three tasks were `blocked`; none had a single `blocks` edge. Worse, the digest advised running `keel_get(inbound, blocks)` — a query that returned an empty set. The product told you to ask a question it had already made unanswerable. Fixed in the data (the ten-session gate now blocks all three, and TQ-6 blocks the design work), but nothing *prevented* the state: a task can be set `blocked` with no blocker and nothing objects.
-
-**3. There is no ordering anywhere.** Priority is a label, not a queue. Milestones group but do not sequence. Nothing distinguishes "ready to pick up" from "waiting on a human decision" — three `Decide TQ-x` tasks sit in the same board column, at the same priorities, as build work.
-
-**4. Milestones drift toward whichever one is active.** Six of ten open tasks had been filed under "Phase 2 — Plugin" simply because it was the `active` milestone, including work that belonged to Phase 1. That was my sloppiness, but nothing discourages it, and a human under time pressure will do exactly the same. The roadmap then reads "Phase 2 is 5/9" when the remaining four have nothing to do with the plugin.
-
-Only one part is genuinely an artifact of dogfooding: every phase target date is today, so the roadmap has no time axis. A real project would have real dates.
-
-**Options for 1, which is KB's call because it changes the MCP surface (§6):**
-
-a. **Compute `next` properly.** Rank open tasks by: unblocked, then what-they-unblock (outbound `blocks` count), then priority, then milestone order. Return the top three *by name and id*, each with one line of why. No schema change, no new tool — `next` becomes an answer instead of advice. This is the recommendation.
-
-b. **Add a `next_action` field to the project.** Someone writes it. Honest and always right when maintained, always stale when not. Rejected: it is the STATUS.md problem again.
-
-c. **Sequence milestones explicitly** with `sort_order` (already exists) plus a `ready` computed state on tasks. More faithful, more machinery, and it does not help until (a) exists to read it.
-
-Option (a) also fixes the board, because the same ranking gives the UI a "Next" column or a sorted first column, and the Roadmap can show "N ready, M waiting on you" per milestone rather than a bare fraction.
-
 ## TQ-8 — SPEC §3.1's audit block lists four surface values; §6.5 names a fifth (cli).
 
 `que_01KZKWMSM71GGZHJA3156QBXKS` · question
