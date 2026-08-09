@@ -156,6 +156,27 @@ Nothing.
 
 ---
 
+## What the seven silent sessions actually did
+
+Read all ten transcripts. **The silent seven were not unaware of Keel. Five of them worked out exactly what to record, drafted it, and stopped to ask.**
+
+> *"This looks like a real open risk for Tideline and it isn't tracked yet — want me to log it as an open question in Keel? I'll hold off until you say so."*
+
+> *"Want me to log the open design question so it's not lost? I'll hold off until you say go."*
+
+Eleven separate offers to write across the ten transcripts. The session that asked about the chart-datum risk had done the hard part — identified a genuine safety issue and drafted the question. Only the write was missing.
+
+**Why it survives every instruction:** the offer looks like good manners. But the human is mid-conversation about code; they do not want a second decision about bookkeeping, they want the thing not lost. Asking turns a free write into an interruption, and an ignored interruption into a lost record. Now addressed in both the skill and the hook's preamble, with the measurement attached — the test is *"did something become true?"*, not *"have I been authorised?"*
+
+**Two real bugs the transcripts exposed, which is why reading them was worth more than rerunning:**
+
+- **A redundant slash defeated project matching.** A session reported `matched_project: null` for a directory that had a project — `cwd` had `T//keel-gate`, `root_path` had `T/keel-gate`, and a naive prefix comparison called them different. So some sessions started *unoriented* despite a project existing, and 3 of 10 understates the hook. Fixed with normalisation and two tests. Caught only because one session mentioned the null in passing.
+- **Session ids collide.** Sessions minted `tideline-2026-08-09` — date-based, not conversation-based — so two sessions in a day merge into one row and the gate undercounts.
+
+**An evidence gap I created:** one session said "Logged as an open question on Pellet" and I had already torn down the scratch store, so I cannot tell whether that write landed or was only claimed. A session reporting a write it did not make is worse than a silent one, and I destroyed the record that would say which. Next run keeps the store until the transcripts are read.
+
+---
+
 ## The SessionStart hook: 3 of 10, up from 0–1
 
 Built, installed, and measured against a fresh gate run — ten sessions, scratch store, both projects pre-created so the cold-start question was held constant.

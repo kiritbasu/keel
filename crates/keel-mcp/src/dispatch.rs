@@ -307,11 +307,46 @@ fn keel_context(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
     Ok(tool_result(summary, structured))
 }
 
+/// Normalise a filesystem path for comparison.
+///
+/// Collapses repeated separators and drops a trailing one. Found by a gate
+/// session, which reported `matched_project: null` for a directory that plainly
+/// had a project: the caller's `cwd` contained `T//keel-gate` and the stored
+/// `root_path` contained `T/keel-gate`. A naive prefix comparison called those
+/// different directories, so the session started unoriented and said so — and
+/// the only reason anyone noticed is that it mentioned the null in its reply.
+///
+/// Not canonicalisation: this must not touch the filesystem. `cwd` may name a
+/// directory this process cannot see, and a lookup that silently returns
+/// nothing for an unreadable path would be the same class of quiet wrong
+/// answer.
+fn normalise_path(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    let mut last_was_sep = false;
+    for c in path.chars() {
+        if c == '/' {
+            if !last_was_sep {
+                out.push(c);
+            }
+            last_was_sep = true;
+        } else {
+            out.push(c);
+            last_was_sep = false;
+        }
+    }
+    while out.len() > 1 && out.ends_with('/') {
+        out.pop();
+    }
+    out
+}
+
 /// The project whose checkout contains `dir`, if any.
 ///
 /// Longest `root_path` wins, so a project nested inside another checkout
 /// resolves to the inner one rather than whichever happened to be listed first.
 fn project_for_directory(store: &DuckStore, dir: &str) -> Option<EntityId> {
+    let dir = normalise_path(dir);
+    let dir = dir.as_str();
     let page = store
         .list(
             &EntityQuery::default()
@@ -325,7 +360,8 @@ fn project_for_directory(store: &DuckStore, dir: &str) -> Option<EntityId> {
         let Some(root) = p.root_path.as_deref() else {
             continue;
         };
-        let root_trimmed = root.trim_end_matches('/');
+        let root_trimmed = normalise_path(root);
+        let root_trimmed = root_trimmed.as_str();
         if dir == root_trimmed || dir.starts_with(&format!("{root_trimmed}/")) {
             let len = root_trimmed.len();
             if best.as_ref().is_none_or(|(best_len, _)| len > *best_len) {
@@ -1126,5 +1162,42 @@ mod tests {
         assert!(parse_types(Some(&json!(["task", "spec"]))).is_ok());
         assert!(parse_rels(Some(&json!(["relates_to"]))).is_err());
         assert!(parse_rels(Some(&json!(["implements"]))).is_ok());
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod path_tests {
+    use super::normalise_path;
+
+    #[test]
+    fn redundant_separators_do_not_make_two_paths_different() {
+        // The live failure: a session reported `matched_project: null` for a
+        // directory that had a project, because `cwd` carried a doubled
+        // separator and the stored root_path did not. It started unoriented,
+        // and only mentioned it in passing.
+        assert_eq!(
+            normalise_path("/tmp//keel-gate"),
+            normalise_path("/tmp/keel-gate")
+        );
+        assert_eq!(normalise_path("/a///b//c"), "/a/b/c");
+        assert_eq!(normalise_path("/a/b/"), "/a/b");
+        assert_eq!(normalise_path("/a/b///"), "/a/b");
+        // Root itself survives, rather than normalising to the empty string.
+        assert_eq!(normalise_path("/"), "/");
+    }
+
+    #[test]
+    fn a_sibling_with_a_shared_prefix_is_not_inside_the_project() {
+        // `/a/bee` must not resolve to a project rooted at `/a/b`. The match
+        // appends a separator for exactly this, and normalisation must not
+        // undo it.
+        let root = normalise_path("/a/b");
+        let sibling = normalise_path("/a/bee");
+        assert_ne!(sibling, root);
+        assert!(!sibling.starts_with(&format!("{root}/")));
+
+        let child = normalise_path("/a/b//c");
+        assert!(child.starts_with(&format!("{root}/")));
     }
 }

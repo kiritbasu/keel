@@ -3,6 +3,30 @@
 <!-- keel:generated questions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
 > Generated from Keel — edits here are not saved.
 
+## TQ-20 — the silent sessions were not unaware, they asked permission and stopped
+
+`que_01KZM9G7NR161YNBD192R4FES5` · risk · severity high
+
+Read all ten transcripts from the post-hook run. The seven that wrote nothing were not confused about Keel and were not unaware of it. **Five of the seven had worked out exactly what should be recorded, drafted it, and then stopped to ask.**
+
+> *"This looks like a real open risk for Tideline and it isn't tracked yet — want me to log it as an open question in Keel (something like "How do we validate that each station's chart datum — value and type — matches its authoritative source?"), or capture the mitigations as tasks? I'll hold off until you say so."*
+
+> *"Want me to log the open design question (recency-tracking approach + pin-aware eviction) so it's not lost? I'll hold off until you say go."*
+
+Grepping the ten for the pattern returns eleven separate offers to write, across most of the run.
+
+**Why this is the whole problem.** The offer is indistinguishable from good manners, which is why it survives every instruction that reads like etiquette. But the human is mid-conversation about code. They do not want a second decision about bookkeeping — they want the thing not to be lost. Asking converts a free write into an interruption, and an ignored interruption into a lost record. The session that asked about the chart-datum risk had done the hard part: it identified a real safety issue and drafted the question. All that was missing was the write.
+
+Addressed in two places, because the hook reaches every session and the skill reaches the ones that load it: a new "Do not ask permission to record" section in `SKILL.md`, and the same instruction in the hook's injected preamble with the measurement attached. Reasoning to apply is *"did something become true?"*, not *"have I been authorised?"* — recording describes the conversation, it does not act on the human's behalf.
+
+**Two real bugs the transcripts exposed, which is why reading them mattered:**
+
+1. **Path matching was defeated by a redundant separator.** A session reported `matched_project: null` for a directory that plainly had a project — `cwd` carried `T//keel-gate`, the stored `root_path` carried `T/keel-gate`, and a naive prefix comparison called them different directories. So some sessions in the run started *unoriented* despite a project existing, meaning 3 of 10 understates the hook. Fixed with normalisation and two tests. Only noticed because a session mentioned the null in passing.
+
+2. **Session ids collide.** Sessions minted `tideline-2026-08-09` and `pellet-2026-08-09` — date-based, not conversation-based — so two sessions sharing a day merge into one row in the event log and the gate undercounts. `SKILL.md` asks for a ULID-shaped `ses_` id and is being ignored; the hook now states the requirement directly.
+
+**An evidence gap I created:** one session said "Logged as an open question on Pellet" and I had already torn down the scratch store, so I cannot verify whether that write landed or whether it only claimed to. A session that reports a write it did not make is a worse failure than a silent one, and I destroyed the only record that could tell the difference. Next run: keep the store until the transcripts have been read.
+
 ## TQ-19 — the skill does not fire, in headless or interactive sessions. Phase 2's mechanism does not work.
 
 `que_01KZM7JS9Y06FFT7KWFJW7RR6C` · risk · severity high

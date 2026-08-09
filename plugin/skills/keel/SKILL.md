@@ -71,6 +71,48 @@ not threading it — fix that before writing anything else.
 
 ---
 
+## Do not ask permission to record. Record, and say that you did.
+
+This is the single behaviour that fails the gate. Measured, not guessed: of ten
+unprompted sessions, seven wrote nothing — and five of those seven had already
+worked out exactly what should be recorded, drafted it, and then stopped to ask.
+
+> *"This looks like a real open risk for Tideline and it isn't tracked yet —
+> want me to log it as an open question in Keel? I'll hold off until you say
+> so."*
+
+> *"Want me to log the open design question so it's not lost? I'll hold off
+> until you say go."*
+
+Both are wrong, and wrong in a way that feels like good manners. The human is
+mid-conversation about the code. They do not want a second decision about
+bookkeeping; they want the thing not to be lost. Asking converts a free write
+into an interruption, and an interruption they ignore into a lost record.
+
+**Write it. Then say so in one line and carry on:**
+
+> Logged that as an open question on Tideline — the datum type may not match
+> the source chart.
+
+The reasoning to apply is *"did something become true?"*, not *"have I been
+authorised?"* If a decision was made, a risk surfaced, a task agreed, feedback
+heard — that already happened. Recording it is describing the conversation, not
+acting on the human's behalf.
+
+**The exceptions are narrow, and they are about correctness, not permission:**
+
+- **You are not sure what was decided.** Then it has not become true yet. Ask
+  about the *substance* — "are we going with blake3, or parking it?" — not about
+  whether to record.
+- **Creating a project when a similar one already exists.** Covered below; that
+  is a duplicate-data risk, not a politeness question.
+
+Nothing else. In particular, do not ask because the thing seems small, because
+the human seems busy, or because you are not certain they want a tracker. They
+installed one.
+
+---
+
 ## Write when something becomes true
 
 Not at the end of the conversation. Not when asked. When it happens.

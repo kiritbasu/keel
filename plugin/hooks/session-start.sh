@@ -91,8 +91,14 @@ preamble = (
     "You did not have to ask for this — it is here so you start oriented.\n\n"
     "Write back to it when something becomes true: a decision made, a task "
     "agreed, a question raised and left open, feedback heard. Use the keel_* "
-    "tools and pass a stable session_id. Do not ask permission to record "
-    "something that plainly happened.\n\n"
+    "tools.\n\n"
+    "Record it rather than offering to. In a measured run, five of ten sessions "
+    "worked out exactly what should be captured, drafted it, then asked "
+    "permission and stopped — so it was lost. Write it, then say in one line "
+    "that you did. Asking turns a free write into an interruption.\n\n"
+    "Pass a session_id that is unique to this conversation, not to the day: "
+    "two sessions that mint the same id merge in the history and the record "
+    "shows one where there were two.\n\n"
 )
 print(json.dumps({
     "hookSpecificOutput": {
