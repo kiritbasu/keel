@@ -84,8 +84,15 @@ claude mcp list 2>/dev/null | grep -q '^keel:.*Connected' || {
 # because nothing checked that a session could start at all. A gate that cannot
 # distinguish "Claude declined to write" from "Claude never ran" is worse than
 # no gate: both look like a row of empty logs.
-probe="$(cd "${TMPDIR:-/tmp}" && claude -p "reply with the single word: ready" \
-  --mcp-config "$mcp_config" --strict-mcp-config --allowedTools "" </dev/null 2>&1)"
+# Output goes through tee, never into a variable. Capturing it hid an
+# interactive prompt twice: the process sat in the foreground process group
+# using no CPU, waiting on a question nobody could see. `</dev/null` does not
+# help — prompts read /dev/tty directly, which a stdin redirect does not touch.
+probe_log="$work/probe.log"
+( cd "${TMPDIR:-/tmp}" && claude -p "reply with the single word: ready" \
+  --mcp-config "$mcp_config" --strict-mcp-config --allowedTools "" </dev/null 2>&1 ) \
+  | tee "$probe_log"
+probe="$(cat "$probe_log" 2>/dev/null)"
 if ! printf '%s' "$probe" | grep -qi 'ready'; then
   echo "A session could not start, so the gate was not run. Claude said:"
   echo
@@ -227,9 +234,11 @@ EOF
 run() {
   local project="$1" prompt="$2" n="$3"
   printf '\n\033[1m[%2d/10] %s\033[0m\n  %s\n' "$n" "$project" "$prompt"
+  # tee, not a plain redirect: each project directory is new to Claude Code and
+  # may ask about it once. A hidden question is indistinguishable from a hang.
   ( cd "$work/$project" && claude -p "$prompt" \
       --mcp-config "$mcp_config" --strict-mcp-config --allowedTools "$tools" \
-      </dev/null ) > "$work/session-$n.log" 2>&1
+      </dev/null 2>&1 ) | tee "$work/session-$n.log" | sed 's/^/  | /' 
   printf '  → %s\n' "$work/session-$n.log"
 }
 
