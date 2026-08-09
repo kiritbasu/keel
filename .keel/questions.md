@@ -3,6 +3,32 @@
 <!-- keel:generated questions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
 > Generated from Keel — edits here are not saved.
 
+## TQ-19 — the skill does not fire, in headless or interactive sessions. Phase 2's mechanism does not work.
+
+`que_01KZM7JS9Y06FFT7KWFJW7RR6C` · risk · severity high
+
+**The finding the whole gate exercise was for, and it is worse than a failed score.**
+
+An interactive session, started in a scratch project with the skill installed at `~/.claude/skills/keel/` and the MCP server registered user-scope, was given:
+
+> `we should cache the constituent lookup, it gets recomputed on every height() call`
+
+"we should" is listed verbatim in `SKILL.md`'s own trigger description. The session searched one pattern, read one file, gave an excellent technical answer, and **never called `keel_context`, never invoked the skill, never mentioned Keel.**
+
+Combined with TQ-18 (thirty headless sessions, zero `Skill` invocations), that is both surfaces. The skill is discoverable — a probe listing available skills returns `keel` — and simply not reached for.
+
+**Why this is the important one.** PRD R-2 is "the agent doesn't write to it", and the mitigation on record is "Phase 2 is a real phase; skill and hooks are the product". The measurement now says the skill half of that mitigation does not work. Not "needs better wording" — it is never read, so its wording is not yet in play at all.
+
+**Why rewording will not fix it.** A skill is model-invoked: something has to make the model decide to load it, and on ordinary engineering prompts that decision is not happening. Strengthening the text inside a file nobody opens changes nothing. The three sessions across earlier runs that *did* reach `keel_context` did so because the MCP tool was in their tool list, not because of anything in `SKILL.md`.
+
+**The mechanism that would work: a SessionStart hook.** The plugin already ships a `PostToolUse` hook, so the machinery and the precedent exist. A `SessionStart` hook can call `keel_context` and put the digest into context unconditionally — no model decision required. That inverts the dependency: orientation becomes something that happens *to* the session rather than something the session must choose. Writing still depends on judgement, but the digest arriving means the agent knows Keel exists, which is the step currently failing.
+
+Worth pairing with a much shorter skill. Most of `SKILL.md` is orientation instructions that the hook would render unnecessary; what remains is the part about *when to write*, which is the genuinely hard judgement and the only part worth spending model attention on.
+
+**Cost of being wrong about this:** the desktop app, the daemon, the search, the graph are all built and working, and every one of them is downstream of something writing to Keel. If nothing writes, the rest is scaffolding around an empty store — which is exactly what the PRD called the real test of the premise.
+
+Recommended next step is to build the `SessionStart` hook and re-run the gate against it. That is a Phase 2 task, not a rewording, and it should be sized as one.
+
 ## TQ-18 — headless `claude -p` never loads the skill, so it cannot run Phase 2's gate
 
 `que_01KZM6XPTV6GC2R12N75B9JQ5X` · risk · severity high

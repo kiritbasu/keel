@@ -156,6 +156,24 @@ Nothing.
 
 ---
 
+## The skill does not fire. Phase 2's mechanism does not work.
+
+An interactive session, scratch project, skill installed at `~/.claude/skills/keel/`, MCP server registered user-scope. Prompt:
+
+> `we should cache the constituent lookup, it gets recomputed on every height() call`
+
+"we should" is listed verbatim in `SKILL.md`'s own trigger description. The session searched one pattern, read one file, gave a good technical answer, and **never called `keel_context`, never invoked the skill, never mentioned Keel.**
+
+With TQ-18 — thirty headless sessions, zero `Skill` invocations — that is both surfaces. The skill is discoverable and simply not reached for.
+
+**This is the finding the whole evening was for.** PRD R-2 is "the agent doesn't write to it" and the mitigation on record is "skill and hooks are the product". The skill half does not work, and not in a way rewording fixes: a skill is model-invoked, so the text inside a file nobody opens is not yet in play.
+
+**The mechanism that would work is a `SessionStart` hook** that calls `keel_context` and injects the digest unconditionally — orientation as something that happens *to* the session rather than something it must choose. The plugin already ships a `PostToolUse` hook, so the machinery exists. Pair it with a much shorter skill: the orientation half becomes unnecessary, and what remains is *when to write*, which is the real judgement.
+
+Recorded as **TQ-19** with a p0 task. Until that exists, Phase 2's criterion cannot pass — and everything built on top of Keel is scaffolding around an empty store.
+
+---
+
 ## Phase 2's gate: three runs, all invalid
 
 **Retracting what the section below says.** Thirty sessions across three runs, and none of them loaded the skill. Proven with `--output-format stream-json`, which lists the tools a session actually invoked:
