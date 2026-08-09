@@ -33,7 +33,24 @@ pub fn router(state: AppState) -> Router {
         .route("/api/search", get(api_search))
         .route("/api/activity", get(api_activity))
         .route("/api/entity/{id}", get(api_entity))
+        .route("/api/entities", get(api_entities))
+        .route("/api/document/{id}", get(api_document))
+        .route("/api/graph/{id}", get(api_graph))
         .route("/api/events", get(api_events_stream))
+        // The Tauri webview is served from `tauri://localhost`, so every call
+        // to the daemon is cross-origin and needs CORS. Scoped to the local
+        // API: the MCP endpoint is not called from a browser, and giving it
+        // CORS headers would only widen what a hostile page can reach.
+        .layer(
+            tower_http::cors::CorsLayer::new()
+                .allow_origin(tower_http::cors::AllowOrigin::predicate(|origin, _| {
+                    origin
+                        .to_str()
+                        .is_ok_and(|o| is_local_origin(&o.to_ascii_lowercase()))
+                }))
+                .allow_methods([axum::http::Method::GET])
+                .allow_headers(tower_http::cors::Any),
+        )
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .with_state(state)
 }
@@ -85,7 +102,11 @@ fn origin_ok(headers: &HeaderMap) -> bool {
     if normalised == "null" {
         return true;
     }
+    is_local_origin(&normalised)
+}
 
+/// Whether a lowercased origin string names this machine.
+fn is_local_origin(normalised: &str) -> bool {
     // The host is compared exactly, never by prefix. `starts_with("https://
     // localhost")` accepts `https://localhost.evil.example`, which is a
     // domain an attacker can simply register — the check would then wave
@@ -371,6 +392,171 @@ async fn api_entity(
             arguments: &args,
         },
     ))
+}
+
+/// List entities with filters.
+///
+/// Part of Keel's own API, not MCP. The tool surface is capped at nine because
+/// more tools makes a model choose worse (SPEC §6.1) — that reasoning does not
+/// apply to a UI, which knows exactly what it wants and would otherwise have to
+/// fetch everything and filter client-side.
+async fn api_entities(
+    State(state): State<AppState>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    use keel_core::{EntityQuery, EntityStore, EntityType};
+
+    let store = state.store();
+    let mut query = EntityQuery::default();
+
+    if let Some(project) = params.get("project") {
+        match keel_mcp::dispatch::resolve_project(&store, project) {
+            Ok(id) => query.project_id = Some(id),
+            Err(e) => {
+                return (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))).into_response();
+            }
+        }
+    }
+    if let Some(types) = params.get("type") {
+        let parsed: Result<Vec<EntityType>, _> = types.split(',').map(EntityType::parse).collect();
+        match parsed {
+            Ok(t) => query.entity_types = t,
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "error": { "message": e.to_string() } })),
+                )
+                    .into_response();
+            }
+        }
+    }
+    if let Some(status) = params.get("status") {
+        query.statuses = status.split(',').map(str::to_owned).collect();
+    }
+    query.include_archived = params.get("include_archived").is_some_and(|v| v == "true");
+    query.limit = params.get("limit").and_then(|l| l.parse().ok());
+
+    match store.list(&query) {
+        Ok(page) => (
+            StatusCode::OK,
+            Json(json!({
+                "data": { "items": page.items, "total": page.total, "truncated": page.truncated }
+            })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": { "message": e.to_string() } })),
+        )
+            .into_response(),
+    }
+}
+
+/// A document's full revision history, and optionally a diff.
+async fn api_document(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    use keel_core::{DocumentStore, EntityId};
+
+    let store = state.store();
+    let entity_id = match EntityId::parse(&id) {
+        Ok(i) => i,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": { "message": e.to_string() } })),
+            )
+                .into_response();
+        }
+    };
+
+    let history = store.revisions(&entity_id).unwrap_or_default();
+    let current = params
+        .get("version")
+        .and_then(|v| v.parse::<i32>().ok())
+        .or_else(|| history.last().map(|d| d.version));
+
+    let body = current.and_then(|v| history.iter().find(|d| d.version == v).cloned());
+
+    let diff = match (
+        params
+            .get("diff_against")
+            .and_then(|v| v.parse::<i32>().ok()),
+        current,
+    ) {
+        (Some(other), Some(v)) => store
+            .diff(&entity_id, other.min(v), other.max(v))
+            .ok()
+            .map(|d| serde_json::to_value(d).unwrap_or(Value::Null)),
+        _ => None,
+    };
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "data": {
+                "revisions": history.iter().map(|d| json!({
+                    "version": d.version,
+                    "title": d.title,
+                    "author": d.author,
+                    "session_id": d.session_id,
+                    "surface": d.surface,
+                    "created_at": d.created_at,
+                    "status": d.status,
+                })).collect::<Vec<_>>(),
+                "document": body,
+                "diff": diff,
+            }
+        })),
+    )
+        .into_response()
+}
+
+/// The graph around an entity.
+async fn api_graph(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    use keel_core::{DEFAULT_DEPTH, Direction, EntityId, GraphStore};
+
+    let store = state.store();
+    let entity_id = match EntityId::parse(&id) {
+        Ok(i) => i,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": { "message": e.to_string() } })),
+            )
+                .into_response();
+        }
+    };
+    let direction = params
+        .get("direction")
+        .and_then(|d| Direction::parse(d).ok())
+        .unwrap_or(Direction::Both);
+    let depth = params
+        .get("depth")
+        .and_then(|d| d.parse::<u8>().ok())
+        .unwrap_or(DEFAULT_DEPTH);
+
+    match store.neighbours(&entity_id, direction, &[], depth) {
+        Ok(neighbours) => {
+            let links = store.links_of(&entity_id, direction).unwrap_or_default();
+            (
+                StatusCode::OK,
+                Json(json!({ "data": { "neighbours": neighbours, "links": links } })),
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": { "message": e.to_string() } })),
+        )
+            .into_response(),
+    }
 }
 
 /// Live change notifications for the desktop app.

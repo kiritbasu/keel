@@ -319,6 +319,23 @@ pub fn build(
             // conversation that started in project B.
             digest.questions = open_questions(store, None)?;
             digest.terms = glossary(store, None)?;
+
+            // UC-6 asks "what shipped this week" across every project, so the
+            // roll-up needs activity too. Leaving it empty made the Sunday
+            // review say "no activity yet" against a store with hundreds of
+            // events, which is worse than saying nothing.
+            digest.recent = recent_activity(store, None, since, limit * 2)?;
+
+            // Milestones in flight, across everything — the other half of
+            // "what is happening right now".
+            let mut active = Vec::new();
+            for line in &digest.projects {
+                if line.active_milestone.is_some() {
+                    active.extend(active_milestones(store, &line.id, 2)?);
+                }
+            }
+            digest.active = active;
+
             digest.next = rollup_suggestions(&digest.projects);
         }
         Some(project_id) => {
@@ -365,7 +382,7 @@ pub fn build(
             }
 
             digest.environments = environments(store, project_id)?;
-            digest.recent = recent_activity(store, project_id, since, limit)?;
+            digest.recent = recent_activity(store, Some(project_id), since, limit)?;
             digest.next = suggestions(&line, &digest);
             digest.project = Some(line);
         }
@@ -679,9 +696,10 @@ fn environments(store: &DuckStore, project: &EntityId) -> Result<Vec<Item>> {
         .collect())
 }
 
+/// Recent activity. `project` of `None` spans every project.
 fn recent_activity(
     store: &DuckStore,
-    project: &EntityId,
+    project: Option<&EntityId>,
     since: Option<chrono::DateTime<chrono::Utc>>,
     limit: usize,
 ) -> Result<Vec<String>> {
@@ -691,7 +709,7 @@ fn recent_activity(
     };
     // Read generously and keep the tail: `events` returns oldest-first so a
     // cursor caller sees no gaps, but "recently" wants the newest.
-    let page = store.events(&cursor, Some(project), 500)?;
+    let page = store.events(&cursor, project, 2_000)?;
     Ok(page
         .items
         .iter()

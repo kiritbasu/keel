@@ -5,7 +5,7 @@ expression: result
 {
   "content": [
     {
-      "text": "# All projects\n- Harbour (harbour) — active · 1 open, 0 urgent, 0 blocked · 0 question(s)\n",
+      "text": "# All projects\n- Harbour (harbour) — active · 1 open, 0 urgent, 0 blocked · 0 question(s)\n\n## Recently\n- [date] — created task “Dedupe usage events by idempotency key” (claude)\n- [date] — created spec “Usage metering” (claude)\n- [date] — created project “Harbour” (claude)\n",
       "type": "text"
     }
   ],
@@ -16,7 +16,7 @@ expression: result
     "budget_exceeded": false,
     "decisions": [],
     "environments": [],
-    "estimated_tokens": 24,
+    "estimated_tokens": 77,
     "next": [],
     "project": null,
     "projects": [
@@ -33,7 +33,11 @@ expression: result
       }
     ],
     "questions": [],
-    "recent": [],
+    "recent": [
+      "[date] — created task “Dedupe usage events by idempotency key” (claude)",
+      "[date] — created spec “Usage metering” (claude)",
+      "[date] — created project “Harbour” (claude)"
+    ],
     "session_id": null,
     "specs": [],
     "terms": [],

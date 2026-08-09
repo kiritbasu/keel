@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/* Keel's palette. Dark by default because that is where the work happens, with
+   a light scheme for anyone who prefers it. Everything else in the app uses
+   these tokens rather than raw colours, so a change here changes the app. */
+@theme {
+  --color-surface: oklch(0.17 0.012 265);
+  --color-surface-raised: oklch(0.21 0.014 265);
+  --color-surface-hover: oklch(0.25 0.016 265);
+  --color-border-subtle: oklch(0.30 0.016 265);
+  --color-ink: oklch(0.95 0.005 265);
+  --color-ink-muted: oklch(0.72 0.012 265);
+  --color-ink-faint: oklch(0.56 0.014 265);
+  --color-accent: oklch(0.72 0.15 235);
+  --color-good: oklch(0.74 0.16 155);
+  --color-warn: oklch(0.80 0.15 85);
+  --color-bad: oklch(0.68 0.19 25);
+  --font-sans: ui-sans-serif, -apple-system, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  @theme {
+    --color-surface: oklch(0.99 0.002 265);
+    --color-surface-raised: oklch(0.97 0.004 265);
+    --color-surface-hover: oklch(0.94 0.006 265);
+    --color-border-subtle: oklch(0.88 0.008 265);
+    --color-ink: oklch(0.24 0.012 265);
+    --color-ink-muted: oklch(0.45 0.014 265);
+    --color-ink-faint: oklch(0.60 0.012 265);
+    --color-accent: oklch(0.52 0.16 245);
+  }
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tauri: the window is the app, so nothing should rubber-band or be selectable
+   by accident. Text inside content areas opts back in. */
+* { -webkit-user-select: none; user-select: none; }
+.selectable, .selectable * { -webkit-user-select: text; user-select: text; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-subtle);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-track { background: transparent; }

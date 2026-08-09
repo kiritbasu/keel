@@ -853,16 +853,22 @@ impl EntityStore for DuckStore {
                 "create the link {from_id} {rel} {to_id}"
             )))?;
 
-        // The summary states the *stored* direction. When a caller asked for
+        // Summaries name the artifacts, not their ids. This text is what the
+        // activity feed and the Sunday-review digest actually show a human, and
+        // "linked tsk_01KZK163THQG7 references fbk_01KZK16505G3J" is not a
+        // sentence anyone can read. The ids are still on the event.
+        //
+        // The direction stated is the *stored* one. When a caller asked for
         // `depends_on`, saying so as well is what stops the next reader
         // thinking the endpoints were recorded backwards.
+        let from_label = truncate(from.label(), 60);
+        let to_label = truncate(to.label(), 60);
         let summary = if requested_rel == Relation::DependsOn {
             format!(
-                "linked {} depends_on {} (stored as {from_id} blocks {to_id})",
-                to_id, from_id
+                "“{to_label}” depends on “{from_label}” (stored as “{from_label}” blocks                  “{to_label}”)"
             )
         } else {
-            format!("linked {from_id} {rel} {to_id}")
+            format!("“{from_label}” {rel} “{to_label}”")
         };
         self.append_event_inner(
             NewEvent::new(from_id, Action::Linked, summary)
@@ -910,14 +916,18 @@ impl EntityStore for DuckStore {
             )
             .map_err(Error::storage(format!("archive the link {}", existing.id)))?;
 
+        let label_of = |id: &EntityId| {
+            self.get(id)
+                .ok()
+                .flatten()
+                .map(|e| truncate(e.label(), 60))
+                .unwrap_or_else(|| id.to_string())
+        };
+        let summary = format!("unlinked “{}” {rel} “{}”", label_of(&from), label_of(&to));
         self.append_event_inner(
-            NewEvent::new(
-                from.clone(),
-                Action::Linked,
-                format!("unlinked {from} {rel} {to}"),
-            )
-            .in_project(existing.project_id.clone())
-            .with_meta(serde_json::json!({ "removed": true, "rel": rel.as_str() })),
+            NewEvent::new(from.clone(), Action::Linked, summary)
+                .in_project(existing.project_id.clone())
+                .with_meta(serde_json::json!({ "removed": true, "rel": rel.as_str() })),
             provenance,
             now,
         )?;
@@ -1297,6 +1307,18 @@ fn read_event(row: &Row<'_>) -> Result<Event> {
             .get::<_, DateTime<Utc>>("created_at")
             .map_err(e("created_at"))?,
     })
+}
+
+/// Shorten a label for a one-line summary, on a word boundary where possible.
+fn truncate(text: &str, max: usize) -> String {
+    if text.chars().count() <= max {
+        return text.to_owned();
+    }
+    let cut: String = text.chars().take(max).collect();
+    match cut.rsplit_once(' ') {
+        Some((head, _)) if head.len() > max / 2 => format!("{head}…"),
+        _ => format!("{cut}…"),
+    }
 }
 
 /// Render a JSON value for an event summary, without the quotes a raw

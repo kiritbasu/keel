@@ -1,0 +1,23 @@
+[package]
+name = "keel-desktop"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Keel — the read surface"
+authors = ["KB"]
+publish = false
+
+# Deliberately outside the main workspace. Tauri drags in a large native
+# dependency tree, and having `cargo test --workspace` build a webview every
+# time would make the fast feedback loop slow for no benefit.
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde_json = "1"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

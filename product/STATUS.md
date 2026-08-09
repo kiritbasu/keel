@@ -10,10 +10,10 @@
 | | |
 |---|---|
 | **Current phase** | Phase 0 — Spine |
-| **Phase progress** | Phase 0: **16/16** · Phase 1: **12/12** · Phase 2: **7/7 built** |
-| **Status** | Phases 0–2 built; Phase 3 in progress |
+| **Phase progress** | Phase 0: **16/16** · Phase 1: **12/12** · Phase 2: **7/7** · Phase 3: **10/10** |
+| **Status** | Phases 0–3 built. Scope agreed with KB reached |
 | **Blocked on** | Nothing |
-| **Next up** | Phase 3 — the Tauri desktop app |
+| **Next up** | KB: run the Phase 2 ten-session gate. Then Phase 4 (GitHub) — needs your account |
 | **Last session** | 2026-08-09 |
 | **Last updated** | 2026-08-09 |
 
@@ -101,6 +101,27 @@
 
 ---
 
+## Phase 3 — Desktop
+
+**Goal:** the Sunday review works.
+
+**Exit criterion:** UC-6 completes in under 30 seconds.
+
+| ID | Task | Status | Notes |
+|---|---|---|---|
+| P3-1 | Tauri v2 shell, daemon as a sidecar | `done` | Starts the daemon only if one is not already running, and only kills what it started — terminating someone else's daemon on window close would take out whatever they had pointed at it |
+| P3-2 | Typed API client + live refresh | `done` | Relative paths in dev (Vite proxies), absolute baked in at build time for the webview. One bundle, different base URL, as SPEC §10 wants. SSE `lagged` is surfaced rather than swallowed |
+| P3-3 | Screen 1 — Home | `done` | At-risk projects sort first; every number visible without a click. **Found and fixed: the cross-project roll-up never populated `recent`**, so the Sunday review said "no activity yet" against a store with 500 events |
+| P3-4 | Screen 2 — Project dashboard | `done` | The same data `keel_context` gives an agent. If a human and a model see different summaries of one project, one is wrong and nobody knows which |
+| P3-5 | Screen 3 — Roadmap | `done` | Built from milestones. Dated first in date order, undated after — a milestone with no target is unplanned, not far-future |
+| P3-6 | Screen 4 — Board | `done` | **Found and fixed: a six-column grid with per-column min-widths overflows its tracks rather than scrolling**, so each column's cards landed on top of the next column's heading |
+| P3-7 | Screen 5 — Documents | `done` | Reader, revision picker, side-by-side diff, and the link graph. The diff is why this screen exists rather than being a markdown viewer |
+| P3-8 | Screen 6 — Search | `done` | Faceted by type, scoped by project. Hits say which index found them, so "is the semantic half earning its keep" stays answerable (R-3) |
+| P3-9 | Screen 9 — Activity | `done` | Filterable by actor. Writes with no `session_id` are marked `unattributed` — that count is what Phase 2's gate is about |
+| P3-10 | Keyboard navigation | `done` | Digits switch screens, `/` jumps to search. **Found and fixed: the navigation keypress leaked into the newly-focused search input** |
+
+---
+
 ## Later phases
 
 Not broken down yet. Decompose at the start of each phase, not before — earlier phases will change what the later ones need.
@@ -109,7 +130,6 @@ Not broken down yet. Decompose at the start of each phase, not before — earlie
 |---|---|---|
 | 1 — Daemon | axum, 9 MCP tools, `keel_context`, concurrency safety, `keel-cli render-status` for the dogfooding switch | Live Claude session completes UC-1→UC-4; 2 concurrent sessions, 0 duplicates, 0 lost updates |
 | 2 — Plugin | Skill, session-ID threading, project confirmation, mirror hooks | ≥9 of 10 unprompted sessions write to Keel; 0 duplicate projects |
-| 3 — Desktop | Tauri shell, sidecar, screens 1–6 and 9 | UC-6 in under 30s |
 | 4 — Integrations | GitHub App, design artifacts, metrics, screens 7–8 | PR merge proposes closure |
 | 5 — Remote | Deployable daemon, auth, mobile client | Status readable from phone |
 
