@@ -50,23 +50,43 @@ Do ten ordinary sessions of real work across at least two projects. Do not
 mention Keel. Do not say "remember to record that". Just work — talk through a
 feature, fix a bug, decide something, take a customer call.
 
-After each session, from a different terminal:
+Then score it:
 
 ```bash
-keel activity --since <when the session started>
+keel gate --since <the moment you started>
 ```
 
-Record three things per session:
+That reports, per session: whether it wrote, whether every write carried a
+`session_id`, and whether any near-duplicate projects appeared. It excludes the
+sentinel writers (`ses_bootstrap`, `ses_import`, …) — they write and they thread
+an id, so counting them would make `keel import` ten times a passing grade. Under
+ten sessions it reports `INCOMPLETE` and exits 0: not a pass, and not a fail
+either.
 
-1. **Did Claude write anything at all?** (target: 9 of 10)
-2. **Did every write carry a `session_id`?** — check for nulls:
-   ```bash
-   keel fsck | grep event_without_session
-   ```
-3. **Were any duplicate projects created?** (target: 0)
-   ```bash
-   keel --json status
-   ```
+*(The three commands previously documented here did not work. `keel activity`
+was never a command, and `keel fsck` and `keel status` open the store directly,
+so they fail while the daemon holds the write lock. The gate that mattered most
+had no instrument — see TQ-15.)*
+
+### Two things that will make it fail for the wrong reason
+
+**Run the sessions somewhere other than the Keel repo.** `CLAUDE.md` here is
+four hundred lines telling Claude what Keel is and to keep it updated. A session
+started in this repository is about as prompted as a session gets.
+
+**Install the skill and register the server for every project**, or the sessions
+have nothing to fire:
+
+```bash
+cp -r plugin/skills/keel ~/.claude/skills/keel
+claude mcp add --scope user --transport http keel http://127.0.0.1:7654/mcp
+```
+
+`scripts/gate-run.sh` does all of this: it checks the preconditions, builds two
+throwaway projects that mention Keel nowhere, runs ten ordinary-sounding
+sessions across them, and scores the result. **Run it from your own terminal** —
+`claude -p` reports "Not logged in" when spawned from inside a Claude Code
+session, so this is not something the agent can run for you.
 
 ### What the failure modes look like
 
