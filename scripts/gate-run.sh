@@ -80,6 +80,14 @@ if ! printf '%s' "$probe" | grep -qi 'ready'; then
       fi
       ;;
   esac
+  echo
+  echo "  The npm CLI (\$(command -v claude)) keeps its own login, separate from"
+  echo "  the desktop app. Logging the app in does not log the CLI in. In a"
+  echo "  terminal:  claude   then  /login"
+  echo
+  echo "  Or skip the CLI entirely and run the ten sessions by hand — which is"
+  echo "  the better test anyway, since these are single-turn:"
+  echo "      scripts/gate-prompts.md"
   exit 1
 fi
 
