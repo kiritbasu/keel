@@ -1,7 +1,8 @@
 # Keel — Status
 
-> **Maintained by Claude Code. Updated at the end of every session, without exception.**
-> This file is the tracker until Keel can track itself (Phase 1 exit). Its shape mirrors Keel's own data model on purpose — importing it will be the first real end-to-end test.
+> **The dogfooding switch has been thrown.** Keel now holds its own project — run `keel bootstrap` to seed a store, and `keel render-status keel` to generate a tracker from it.
+>
+> This file is kept by hand for now because it carries prose the renderer does not: the phase-gate table below, and the reasoning in the notes column. Delete it in favour of the generated version once that stops being true.
 
 ---
 

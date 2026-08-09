@@ -8,6 +8,7 @@
 //! Phase 0 gives it `fsck`, `backup`, `restore` and `fixture`. `render-status`
 //! arrives in Phase 1, with the dogfooding switch.
 
+mod bootstrap;
 mod render_status;
 
 use anyhow::{Context, Result, bail};
@@ -60,6 +61,23 @@ enum Command {
     /// Load the realistic fixture corpus into an empty store.
     Fixture,
 
+    /// Seed Keel's own project — the dogfooding switch.
+    ///
+    /// Imports the real state from the product docs: phases as milestones,
+    /// the actual task list, the decision log, the open questions and the
+    /// glossary. After this, `keel render-status keel` generates
+    /// `product/STATUS.md` rather than a human maintaining it.
+    Bootstrap {
+        /// Repository path to record on the project, for the markdown mirror.
+        #[arg(long)]
+        repo: Option<String>,
+        /// Archive every other project, leaving only Keel visible.
+        ///
+        /// Soft delete — the rows stay on disk, they just stop appearing.
+        #[arg(long)]
+        only: bool,
+    },
+
     /// Print a one-line summary of what is in the store.
     Status,
 
@@ -109,7 +127,45 @@ fn main() -> Result<()> {
         Command::Status => run_status(&home, cli.json),
         Command::RenderStatus { project, out } => run_render_status(&home, project, out.clone()),
         Command::Mirror { project, repo } => run_mirror(&home, project, repo.clone(), cli.json),
+        Command::Bootstrap { repo, only } => run_bootstrap(&home, repo.clone(), *only, cli.json),
     }
+}
+
+fn run_bootstrap(home: &PathBuf, repo: Option<String>, only: bool, json: bool) -> Result<()> {
+    let mut store = open(home)?;
+    let summary = bootstrap::run(&mut store, repo)?;
+
+    let archived = if only {
+        bootstrap::archive_other_projects(&mut store, &summary.project_id)?
+    } else {
+        0
+    };
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "project_id": summary.project_id.as_str(),
+                "entities": summary.entities,
+                "links": summary.links,
+                "revisions": summary.revisions,
+                "archived": archived,
+            }))?
+        );
+    } else {
+        println!(
+            "seeded Keel: {} entities, {} links, {} document revisions",
+            summary.entities, summary.links, summary.revisions
+        );
+        println!("  project {}", summary.project_id);
+        if only {
+            println!("  archived {archived} artifact(s) belonging to other projects");
+        }
+        println!();
+        println!("Keel now tracks itself. Regenerate the tracker with:");
+        println!("  keel render-status keel --out product/STATUS.md");
+    }
+    Ok(())
 }
 
 fn run_mirror(home: &PathBuf, project: &str, repo: Option<PathBuf>, json: bool) -> Result<()> {

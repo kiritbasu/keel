@@ -27,14 +27,27 @@ export function RoadmapScreen({ project, generation }: ScreenProps) {
   }
 
   const milestones = (data?.items ?? []).slice().sort((a, b) => {
-    // Dated first, in date order; undated after, since a milestone with no
-    // target is not "far future", it is unplanned.
+    // `sort_order` first, because SPEC §3.2 gives milestones that column
+    // specifically for "manual ordering for the roadmap view" — a human who
+    // has said what order they want should get it.
+    const ao = a.sort_order as number | null;
+    const bo = b.sort_order as number | null;
+    if (ao != null && bo != null && ao !== bo) return ao - bo;
+    if (ao != null && bo == null) return -1;
+    if (ao == null && bo != null) return 1;
+
+    // Then by target date. Dated before undated, since a milestone with no
+    // target is unplanned rather than far-future.
     const at = a.target_date as string | null;
     const bt = b.target_date as string | null;
-    if (at && bt) return at.localeCompare(bt);
-    if (at) return -1;
-    if (bt) return 1;
-    return String(a.name).localeCompare(String(b.name));
+    if (at && bt && at !== bt) return at.localeCompare(bt);
+    if (at && !bt) return -1;
+    if (!at && bt) return 1;
+
+    // Finally by name, so ties never fall back to insertion order. Without
+    // this the four phases that shipped on the same day came back newest
+    // first, so the roadmap read 3, 2, 1, 0.
+    return String(a.name).localeCompare(String(b.name), undefined, { numeric: true });
   });
 
   return (
