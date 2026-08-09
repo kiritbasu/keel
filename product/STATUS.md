@@ -156,6 +156,34 @@ Nothing.
 
 ---
 
+## Phase 2's gate: run, and failed 1 of 10
+
+Run 2026-08-09, headless, ten sessions across two scratch projects that mention Keel nowhere, against real Claude with the skill loaded.
+
+| Criterion | Required | Result |
+|---|---|---|
+| Sessions that wrote | 9 of 10 | **1 of 10 — fails** |
+| Every write attributed | yes | yes |
+| Duplicate projects | 0 | 0 |
+
+**The skill is not the problem — it fires.** Sessions called `keel_context`, understood what Keel was for, and said so:
+
+> Session 3: *"There's no Keel project for `tideline`. `keel_context` only knows the 'Keel' project, so I've recorded nothing there. Tell me which project to file it under and I'll create it."*
+
+> Session 8: *"Want me to log this…? I held off writing since you haven't actually decided — just say the word."*
+
+Session 6 created the Tideline project and a task, unprompted. The write path works.
+
+**The cause is the duplicate-project defence deadlocking a cold start.** `SKILL.md` says confirm with the human before creating a project, because nine projects for one thing ruins the cross-project view (UC-8). In an existing project that is right; in a new one there is nothing to write into, so the sessions stop and ask. The two rules are each correct and jointly produce silence — and the 0 duplicates is the *same instruction* succeeding at its own job while blocking the one being measured.
+
+**Instrument caveat:** headless single-turn sessions. Several ended by asking permission; a real conversation would have answered and the write would have followed. **1/10 is a lower bound.** The cold-start deadlock is real regardless, because it fires before any answer is possible.
+
+Full write-up and three options in **TQ-17** (`que_01KZM3Y941G7MB1BW0KKZ5M3P4`). Recommendation: let a session create the *first* project for the directory it is working in without asking, and have `keel_context` say plainly that no project matches. Neither touches the case UC-8 protects.
+
+Getting the gate to run at all took four attempts — a stale CLI login, then advice of mine that sent an OpenRouter token to api.anthropic.com, then unrelated MCP servers taking a minute to boot per session, then a hidden prompt swallowed by command substitution. Root cause of the middle two: `~/.zshrc` routes Claude Code through OpenRouter, and the desktop app overrides that for the shell the agent gets — so identical commands behaved differently on each side and the agent's probes proved nothing. `scripts/gate-run.sh` now refuses to start in that shell.
+
+---
+
 ## The roadmap does not say what is next
 
 KB, after the logs were fixed: *"I don't understand what's next to build in the project, it just doesn't make sense looking at the roadmap or board. Is that a problem just because we are building this as we go along, or is it something we need to fix?"*
