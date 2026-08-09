@@ -39,6 +39,30 @@ tools="$tools,mcp__keel__keel_projects,mcp__keel__keel_activity,mcp__keel__keel_
 
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
+# Only the Keel MCP server, for two reasons.
+#
+# Speed: `claude -p` starts every configured server before it does anything.
+# On this machine that means `npx firebase-tools` and a Vercel server that
+# needs authentication — a minute of startup per session at best, and a wedged
+# session at worst. Ten sessions pay it ten times. The first attempt at this
+# script appeared to hang; it was waiting on firebase-tools.
+#
+# Validity: the gate asks whether Claude reaches for Keel. Tools for unrelated
+# services are noise in that measurement, and one of them failing to start is
+# noise that looks like a Keel failure.
+mcp_config="$work/mcp.json"
+write_mcp_config() {
+  mkdir -p "$work"
+  cat > "$mcp_config" <<'JSON'
+{
+  "mcpServers": {
+    "keel": { "type": "http", "url": "http://127.0.0.1:7654/mcp" }
+  }
+}
+JSON
+}
+write_mcp_config
+
 # --- preconditions ---------------------------------------------------------
 curl -sf http://127.0.0.1:7654/api/health >/dev/null || {
   echo "The daemon is not answering on 127.0.0.1:7654. Start it with: keel-daemon"
@@ -60,7 +84,8 @@ claude mcp list 2>/dev/null | grep -q '^keel:.*Connected' || {
 # because nothing checked that a session could start at all. A gate that cannot
 # distinguish "Claude declined to write" from "Claude never ran" is worse than
 # no gate: both look like a row of empty logs.
-probe="$(cd "${TMPDIR:-/tmp}" && claude -p "reply with the single word: ready" --allowedTools "" 2>&1)"
+probe="$(cd "${TMPDIR:-/tmp}" && claude -p "reply with the single word: ready" \
+  --mcp-config "$mcp_config" --strict-mcp-config --allowedTools "" </dev/null 2>&1)"
 if ! printf '%s' "$probe" | grep -qi 'ready'; then
   echo "A session could not start, so the gate was not run. Claude said:"
   echo
@@ -98,6 +123,7 @@ fi
 say "Setting up scratch projects in $work"
 rm -rf "$work"
 mkdir -p "$work/tideline/src" "$work/pellet/src"
+write_mcp_config
 
 cat > "$work/tideline/README.md" <<'EOF'
 # Tideline
@@ -201,8 +227,9 @@ EOF
 run() {
   local project="$1" prompt="$2" n="$3"
   printf '\n\033[1m[%2d/10] %s\033[0m\n  %s\n' "$n" "$project" "$prompt"
-  ( cd "$work/$project" && claude -p "$prompt" --allowedTools "$tools" ) \
-    > "$work/session-$n.log" 2>&1
+  ( cd "$work/$project" && claude -p "$prompt" \
+      --mcp-config "$mcp_config" --strict-mcp-config --allowedTools "$tools" \
+      </dev/null ) > "$work/session-$n.log" 2>&1
   printf '  → %s\n' "$work/session-$n.log"
 }
 
