@@ -156,6 +156,31 @@ Nothing.
 
 ---
 
+## The prose blob problem
+
+KB, later the same session: *"How come I'm not seeing TQ-15 or any of the other upcoming tasks on the boards, what's missing?"*
+
+TQ-15 did not exist. It was a row in a markdown table inside a document body — and a document body is one artifact, however many things are written in it. Counted properly:
+
+| | In the prose | As artifacts | Missing |
+|---|---|---|---|
+| Decisions | 22 | 12 | 10 |
+| Questions and risks | 28 | 12 | 16 |
+
+The twelve of each were what `keel bootstrap` seeded that morning. **Everything written since — five decisions, four questions, one risk — went into a markdown table and nowhere else.** Invisible to the board, unrankable by search, unlinkable, absent from `keel_context`. The same failure as the task one, one layer up, and with the same cause: `keel import` stores a document *whole*, which is right for a spec and wrong for a log of numbered rows.
+
+Fixed by decomposing both tables into artifacts through MCP. Now 28 questions and 23 decisions, each question titled with its canonical id (`TQ-15 — …`) so the two representations can be matched by eye.
+
+Three things the migration turned up, all of them the system working:
+
+- **Accepted decisions could not be retitled.** The store refused with D-6: content is immutable, supersede instead. So decisions keep their titles and carry the id in the body. The constraint was right and the plan was wrong.
+- **Fuzzy title matching proposed re-creating B-3, B-9, B-13 and B-17**, which already existed under paraphrased titles. Caught by a dry run. Replaced with a hand-checked map of twelve — the exact duplicate-artifact failure the exercise was meant to remove.
+- **One decision exists as an artifact with no row in the log at all**: "Fixture links are addressed by name, never by position". The mirror image of the gap. Left alone rather than given an invented id.
+
+**What is still not fixed:** nothing prevents this recurring. A new numbered row added to either table tomorrow will again exist only as prose. `keel generate --check` compares files to the store; there is no check that the rows *inside* a file exist as artifacts.
+
+---
+
 ## The session that did not write to Keel
 
 KB asked, part-way through session 3: *"I am not seeing the actual project task items getting updated from this chat, is it wired correctly?"*

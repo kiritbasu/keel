@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-09T18:21:51.728943+00:00",
+  "generated_at": "2026-08-09T18:32:10.717434+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,127 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/build-scope-this-stretch-is-phases-0-3-git-stays-local-with-no-remote-session-id-is-a.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKWMTFN212CPD921AY3PX6D",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "bfe8955be916eac531c586540dcc4d74fe203ee6d18950496fe4152fdeecb728"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/projects-gets-a-nullable-status-path-a-path-claimed-by-both-a-document-and-the-tracker.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKWMTDQZPZJ46PCEWATF0XY",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "ebc0e70fcdbc3af98d2186f119aca7c35c1faf4d72824222a5facfd34105535f"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/generation-runs-inside-the-daemon-exposed-as-post-api-generate.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKWMTBYP6P7B8DQTB3586G9",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "fa25f02a2bce32fdf731b12d86111148eabc2b73c20f2bdcafa4e92e79ef737e"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/keel-is-the-source-of-truth-every-product-md-is-generated.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKWMT9M8EJQM7TJDZH8KX22",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "705d1accf758c271b6af474a050393d0882f3065d5c6bb54094083571ea8347f"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/the-document-reader-renders-markdown-with-react-markdown-remark-gfm-mapping-every.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKWMT7GFNZBYEQBV44NPY4R",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "5d6a8077d521549382e67a5f5d27641fced9aa60d3d67ffb7ce7e5f32cc3adad"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/keel-import-is-a-bridge-not-a-migration-re-importable-content-addressed-and-it.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKWMT5SMKXQ07NKBKT87SXC",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "afc671645f2e99f3c86594f59323ad23baa6d21f0d10e37184283c8ce71bd495"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/dev-builds-use-debug-line-tables-only-and-debug-false-for-dependencies-the.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKWMT3ZRNB06RMYBSTAKDV6",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "f98d16df8b5b9415b775459fac17b01a9acad2a3a9a700bd5bf7b9a988d115cd"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/surface-carries-five-values-not-four-chat.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKWMT28K0HMJ1Y5JQ16TT8T",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "7bb6cfd70470f65ccecd7d236b3f05f0287e107bd97b9ca6c8f5134dc0e3344c"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/missing-docs-is-a-workspace-lint-not-just-a-keel-core-convention.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKWMT0JWXM2JGX7MZ0QZ7DV",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "ca0a79c35847616bf5a474dd6f17cb80ab7f28621150a7b69d37b0cb215cb814"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/unwrap-expect-panic-todo-unimplemented-are-workspace-clippy-lints-at-warn-promoted-to.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKWMSYT6WTETRJ6DF82A42E",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "c57d4afcc68f0ba8c76cbb6109d2312a255bea3edf984d3df8d0ed4ee9bb82dd"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/no-vector-or-fts-index-on-the-lance-dataset-initially-brute-force-scan.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZKWMSX25E73XSGB9Q9A0P5W",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "13340360c533c6a69358857e23e0e672ad1c8475f97f128a56549e24df87e60c"
         }
       ]
     },
@@ -149,58 +270,130 @@
       "path": ".keel/questions.md",
       "contributors": [
         {
+          "entity_id": "que_01KZKWMSM71GGZHJA3156QBXKS",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "e79395653919babefe77e8e9f90d661caa902a21ac3891871de34d553a7cbb2c"
+        },
+        {
+          "entity_id": "que_01KZKWMSJKWAR8TFAKGH809S8D",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "503a899e965a7c186171ada41ff469aab541ad9fae1943bf0ccd5fc4b27a9f33"
+        },
+        {
+          "entity_id": "que_01KZKWMSH3WD7345A20CDZTH7E",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "5b13eb0fb2a8574bc60ec9fc7c488092322f9cc580f5d529f66bc520e829ab5b"
+        },
+        {
+          "entity_id": "que_01KZKWMSFKG5316C06B4HNXXBR",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "a5c21bbb11947e957c278f1b21fcff1c1b1e003dd9ccd8fb8f69c6c72d815f31"
+        },
+        {
+          "entity_id": "que_01KZKWMSDVY669KEKTGDM48KKY",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "7454abffe8005c38dc620783f742b8b369320140f3dd5b885985d8128731668f"
+        },
+        {
+          "entity_id": "que_01KZKWMSCD3NRC7WJT5WMARCFW",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "f615e250fc9b528fbeaf289fcfc91550dd7ec48bf36bcad27b2ca03094331c03"
+        },
+        {
+          "entity_id": "que_01KZKWMSAXX72VVT3TV8F1ZFNP",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "3630b7ecb04307f7037311da80c95a16a1e5520879904a00de78d36affa42ac3"
+        },
+        {
+          "entity_id": "que_01KZKWMS9G6JR3B7P1FDXNNRPD",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "63d814c7abb34b10be182e0b3cb5d00dad87eb66859093ed47cfbc9108dfb590"
+        },
+        {
+          "entity_id": "que_01KZKWMS81QRF7ZNX6W9HFEVSP",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "fbbf9d60ee5b8a406b84362009da22fab655a093e2d02c0d5b9fef58b37bab72"
+        },
+        {
+          "entity_id": "que_01KZKWMS6PZRQPZQAW0HW4M9H4",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "b476208959924e85450a8a680a1fce266a50a2da5f974b0dc2d3a19511505752"
+        },
+        {
+          "entity_id": "que_01KZKWMS58WVPZ31Q10BBQ74N7",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "cbf569e2db38cdba8f02ba231f184e2f8283805176d595d24493af3110bf3dbc"
+        },
+        {
+          "entity_id": "que_01KZKWMS3TCWB0WFT0PNAHE6T8",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "9d752a634314f2df950a3cf6f4e501ed835fac6383d7cc78b905e6887296c873"
+        },
+        {
           "entity_id": "que_01KZKW33RGTJY86XYDTHSPMF0C",
           "entity_type": "question",
           "version": 1,
-          "hash": "8230017409f21d64fcd9a4d3eb27f6b093237093ca285eb5bb63300f6fc9a1a6"
+          "hash": "327dfdc35192e599e6879c43f04aefb122f4e537dd3f91548dd82e7b2d8bfb74"
         },
         {
           "entity_id": "que_01KZKMPW1RDD4SJ8MZXW8ZMKCK",
           "entity_type": "question",
           "version": 1,
-          "hash": "9dad6d2e2a855814965c482f8398957f22e3387baed04557222766149afaded9"
+          "hash": "89954d385ccfbd9665dbaf3242e06393ebc6ff614581b60e6c9eaeeabdd8ec66"
         },
         {
           "entity_id": "que_01KZKMPW0CDTNEYCYDJDT5N8PT",
           "entity_type": "question",
           "version": 1,
-          "hash": "03f32f5bef16df116d8e6032dc54aadac210e97f28114ee36d64a0a8ed993f8c"
+          "hash": "d9846f47475a367d6c0911f577fbd0feede923bb97962df685acbbe297f27784"
         },
         {
           "entity_id": "que_01KZKMPVZRBGWRH4Z7Y381B21F",
           "entity_type": "question",
           "version": 1,
-          "hash": "bdaaa26dbb2ec709f592cb0fcca326de42739a152a6577b651601f27ca1ce36a"
+          "hash": "f7232682e950391ce37f1584d11e342f9cbac0b01de99e9a0e2f20031fe59512"
         },
         {
           "entity_id": "que_01KZKMPVZ3AQ0BNVV5BQKV3QY8",
           "entity_type": "question",
           "version": 1,
-          "hash": "81f353a423e6623836d50847946fca37380fd55528cfbf007b3e47a062fae840"
+          "hash": "2b477a677e2f37f79ec0abfd1016d84665a7dc1908a82d26fc228ecf0df724bc"
         },
         {
           "entity_id": "que_01KZKMPVYBQVZG4MSWFSKHCNTB",
           "entity_type": "question",
           "version": 1,
-          "hash": "92f11fc94fdf7e83bd08cd7bfb9dd0ad4b29180721ad1b2b52f055f5a402b497"
+          "hash": "a0ee91d9fef68fd98f7998f1576732e254361c754f04687bef244ebbddca6a7c"
         },
         {
           "entity_id": "que_01KZKMPVXPKW1KXV9KMG36C6F8",
           "entity_type": "question",
           "version": 1,
-          "hash": "2607d3d758158605bce7c77000f726dc9121c5b3a84fc989a4c58ff6f21edd76"
+          "hash": "def9558b5088d292cc9b0a556bb516ca8c3c54a945fe4783bb363857153d927a"
         },
         {
           "entity_id": "que_01KZKMPVX3SNJ82BQ4GA3DF9S5",
           "entity_type": "question",
           "version": 1,
-          "hash": "7fe92d2a95e898af2c024af809063aa42c9ea1528f53b1e5caa2ebc7c02e28ac"
+          "hash": "2658bbe846f41efece327f5b14da526cabbda64653ae996e0c29a2f9fe3e8e5f"
         },
         {
           "entity_id": "que_01KZKMPVWG2SWPNH1RPD0P9569",
           "entity_type": "question",
           "version": 1,
-          "hash": "1f14a258069fa6986a8471bf159dc70a4a72f12cc90d7731910b7554f5cfc784"
+          "hash": "e6ddb424fb8722725e1ef37b6ace488717bea95b26e0efb4523ee0f73e8c712a"
         }
       ]
     },
