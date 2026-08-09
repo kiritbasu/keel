@@ -10,12 +10,14 @@
 | | |
 |---|---|
 | **Current phase** | Phase 0 — Spine |
-| **Phase progress** | 0 / 16 tasks |
-| **Status** | Not started |
+| **Phase progress** | 6 / 16 tasks done |
+| **Status** | In progress |
 | **Blocked on** | Nothing |
-| **Next up** | P0-1, then P0-2 before anything storage-related |
-| **Last session** | — |
-| **Last updated** | 2026-08-09 (seeded, pre-development) |
+| **Next up** | P0-7 (document revisions), then P0-9/P0-16 |
+| **Last session** | 2026-08-09 |
+| **Last updated** | 2026-08-09 |
+
+**Scope for this stretch:** KB confirmed Phases 0–3 before going away. Git is local-only, no remote. `session_id` is a skill-minted per-conversation ULID (Q-8 answered). Human-gated phase exits get an automated proxy plus an honest note here — see "Phase gates I cannot verify" below.
 
 ---
 
@@ -27,14 +29,14 @@
 
 | ID | Task | Status | Notes |
 |---|---|---|---|
-| P0-1 | Cargo workspace scaffold, CI, lint/fmt/deny gates | `todo` | Scaffold **all five crates** from SPEC §1.1 as empty stubs so the boundaries exist from day one; only `keel-core` and `keel-cli` get code this phase. GitHub Actions. Clippy `-D warnings` from commit 1 |
-| P0-2 | **Verify fast-moving dependencies** | `todo` | **Do before P0-4 onwards.** See HANDOFF "Where to start". Record findings in DECISIONS.md |
-| P0-3 | Domain types, ULID prefixes, the `<audit>` block | `todo` | SPEC §3.1. Pick and record the time library |
-| P0-4 | DuckDB schema + forward-only migrations | `todo` | SPEC §3.2. Migrations tested, not just written |
-| P0-5 | Lance `documents` + `blobs` datasets, ATTACH wiring | `todo` | SPEC §2.1, §5. Syntax likely needs correcting against reality |
-| P0-6 | Entity storage layer — CRUD for all 13 types | `todo` | Behind `EntityStore`. No raw SQL at call sites. SPEC §7.1's write path has a mirror-regeneration step — stub it as a no-op hook here; it's built in Phase 2 |
+| P0-1 | Cargo workspace scaffold, CI, lint/fmt/deny gates | `done` | Five crates scaffolded per SPEC §1.1. CI runs fmt, clippy `-D warnings`, tests and `cargo deny`. unwrap/expect/panic are workspace clippy lints, so the definition of done is a build failure rather than review discipline |
+| P0-2 | **Verify fast-moving dependencies** | `done` | **Verified against running code, not docs.** DuckDB 1.5.5 + Lance extension work end to end. DuckPGQ confirmed absent for 1.5.x (HTTP 404). MCP 2026-07-28 current. Two SPEC §5 syntax errors found and fixed in place. Nine MCP deltas recorded for Phase 1. Full table in DECISIONS.md |
+| P0-3 | Domain types, ULID prefixes, the `<audit>` block | `done` | Thirteen types, prefixed ULIDs, audit block, relations, events, document revisions. 54 unit tests. Found: ULIDs need a monotonic generator or the §3.4 event cursor silently skips rows (B-9) |
+| P0-4 | DuckDB schema + forward-only migrations | `done` | Forward-only migrations in `_keel_migrations`. `v_entities` built now rather than deferred (resolves TQ-4). PROVISIONAL: `idempotency_key` on all thirteen tables, not just tasks — see TQ-9 |
+| P0-5 | Lance `documents` + `blobs` datasets, ATTACH wiring | `done` | Lance `documents` + `blobs` created through the DuckDB extension; no `lance` Rust crate needed (B-2). Found: Lance `CREATE TABLE` rejects all column constraints, so nullability is application-level — consistent with §2.1 |
+| P0-6 | Entity storage layer — CRUD for all 13 types | `done` | CRUD for all 13 types behind `EntityStore`. Field patching goes through serde round-trip, so enum errors already name the valid values. 8 round-trip integration tests against real storage |
 | P0-7 | Document revisions — append, fetch by version, diff | `todo` | `similar` crate for diffs. SPEC §2.1 |
-| P0-8 | Links, `GraphStore` trait, CTE implementation | `todo` | **Direction tests are part of this task, not a follow-up.** SPEC §3.3, §4 |
+| P0-8 | Links, `GraphStore` trait, CTE implementation | `done` | **21 tests, all 9 relations, both directions, plus both inversions.** `depends_on` normalises to `blocks` with swapped endpoints and never reaches the table. Cycle guard, depth clamp and shortest-path dedup all covered |
 | P0-9 | Event log — append, query since cursor | `todo` | Append-only. SPEC §3.4 |
 | P0-10 | Embeddings via fastembed | `todo` | Store `embedding_model` + `embedding_version`. Note first-run download |
 | P0-11 | Hybrid search — Lance + DuckDB FTS, RRF fusion | `todo` | SPEC §5. `k_inner = k_outer * 4` |
