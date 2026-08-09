@@ -9,6 +9,7 @@
 //! arrives in Phase 1, with the dogfooding switch.
 
 mod bootstrap;
+mod gate;
 mod generate;
 mod import;
 
@@ -130,6 +131,22 @@ enum Command {
         daemon: String,
     },
 
+    /// Score Phase 2's exit criterion from the event log.
+    ///
+    /// Does not run the sessions — "unprompted" is the whole claim and a test
+    /// that calls the tool has prompted it. This scores what the sessions did.
+    Gate {
+        /// Restrict to one project.
+        #[arg(long)]
+        project: Option<String>,
+        /// Only count activity after this instant (RFC 3339).
+        #[arg(long)]
+        since: Option<String>,
+        /// Daemon base URL.
+        #[arg(long, default_value = "http://127.0.0.1:7654")]
+        daemon: String,
+    },
+
     /// Print the generated tracker for a project to standard output.
     RenderStatus {
         /// Project id, slug or name.
@@ -159,6 +176,11 @@ fn main() -> Result<()> {
         Command::Fixture => run_fixture(&home, cli.json),
         Command::Status => run_status(&home, cli.json),
         Command::RenderStatus { project, out } => run_render_status(&home, project, out.clone()),
+        Command::Gate {
+            project,
+            since,
+            daemon,
+        } => gate::run(daemon, project.as_deref(), since.as_deref(), cli.json),
         Command::Generate {
             project,
             repo,
