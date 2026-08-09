@@ -8,8 +8,8 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use keel_mcp::protocol::{
-    HEADER_METHOD, HEADER_NAME, HEADER_PROTOCOL_VERSION, HeaderCheck, PROTOCOL_VERSION, Request,
-    Response as RpcResponse, RpcError, check_headers, codes,
+    Era, HEADER_METHOD, HEADER_NAME, HEADER_PROTOCOL_VERSION, HeaderCheck, PROTOCOL_VERSION,
+    Request, Response as RpcResponse, RpcError, check_headers, codes, initialize_result,
 };
 use serde_json::{Value, json};
 use std::convert::Infallible;
@@ -56,9 +56,9 @@ pub fn router(state: AppState) -> Router {
 }
 
 /// Serve a JSON-RPC response with the right status.
-fn rpc(id: Value, result: Result<Value, RpcError>) -> Response {
+fn rpc(id: Value, result: Result<Value, RpcError>, era: Era) -> Response {
     match result {
-        Ok(value) => (StatusCode::OK, Json(RpcResponse::ok(id, value))).into_response(),
+        Ok(value) => (StatusCode::OK, Json(RpcResponse::ok(id, value, era))).into_response(),
         Err(err) => {
             let status = StatusCode::from_u16(err.http_status())
                 .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
@@ -76,9 +76,10 @@ async fn method_not_allowed() -> Response {
             "error": {
                 "code": codes::METHOD_NOT_FOUND,
                 "message": format!(
-                    "This endpoint speaks MCP {PROTOCOL_VERSION}, which uses POST only. The GET \
-                     stream and the DELETE session teardown were removed with protocol-level \
-                     sessions."
+                    "This endpoint uses POST only. {PROTOCOL_VERSION} removed the GET stream \
+                     and the DELETE session teardown along with protocol-level sessions; a \
+                     2025-11-25 client should treat this as a server with no server-initiated \
+                     messages and carry on."
                 )
             }
         })),
@@ -156,6 +157,7 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
                     codes::PARSE_ERROR,
                     format!("could not parse the request body as JSON-RPC: {e}"),
                 )),
+                Era::Modern,
             );
         }
     };
@@ -167,22 +169,31 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
                 codes::INVALID_REQUEST,
                 format!("`jsonrpc` must be \"2.0\", got \"{}\"", request.jsonrpc),
             )),
+            Era::Modern,
         );
     }
 
     let header_of = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
-    if let HeaderCheck::Reject(err) = check_headers(
+    let era = match check_headers(
         &request,
         header_of(HEADER_METHOD),
         header_of(HEADER_NAME),
         header_of(HEADER_PROTOCOL_VERSION),
     ) {
-        return rpc(request.id.clone().unwrap_or(Value::Null), Err(err));
-    }
+        HeaderCheck::Ok(era) => era,
+        HeaderCheck::Reject(err) => {
+            return rpc(
+                request.id.clone().unwrap_or(Value::Null),
+                Err(err),
+                Era::Modern,
+            );
+        }
+    };
 
-    // A notification gets 202 and no body. This revision defines no
-    // client-to-server notifications, so reaching here means a non-conforming
-    // client — but answering correctly costs one branch.
+    // Notifications get 202 and no body. The current revision defines none
+    // client-to-server, but 2025-11-25's `notifications/initialized` arrives
+    // here and must be accepted rather than 404'd — a client that gets an
+    // error for it treats the connection as failed.
     if request.is_notification() {
         return StatusCode::ACCEPTED.into_response();
     }
@@ -193,6 +204,12 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
     }
 
     let result = match request.method.as_str() {
+        // The 2025-11-25 handshake. Removed in the current revision, but this
+        // is what Claude Code actually opens with.
+        "initialize" => Ok(initialize_result()),
+        // Also 2025-11-25. Cheap to answer and its absence looks like a dead
+        // connection to a client that uses it as a keep-alive.
+        "ping" => Ok(json!({})),
         "server/discover" => Ok(keel_mcp::discover_result()),
         "tools/list" => Ok(keel_mcp::list_result()),
         "tools/call" => {
@@ -203,6 +220,7 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
                         codes::INVALID_PARAMS,
                         "`params.name` is required for tools/call",
                     )),
+                    era,
                 );
             };
             let mut store = state.store();
@@ -226,13 +244,13 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
         other => Err(RpcError::new(
             codes::METHOD_NOT_FOUND,
             format!(
-                "this server implements server/discover, tools/list and tools/call. \
-                 `{other}` is not one of them."
+                "this server implements initialize, ping, server/discover, tools/list \
+                 and tools/call. `{other}` is not one of them."
             ),
         )),
     };
 
-    rpc(id, result)
+    rpc(id, result, era)
 }
 
 /// The newest event id, used to detect that a call changed something.

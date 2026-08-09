@@ -16,8 +16,44 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-/// The protocol revision this daemon speaks.
+/// The current protocol revision.
 pub const PROTOCOL_VERSION: &str = "2026-07-28";
+
+/// The previous revision, still spoken by shipping clients.
+///
+/// Claude Code 2.1.185 — the primary client this whole product exists to serve
+/// — opens with `initialize` and declares `2025-11-25`. A server that speaks
+/// only the current revision is unusable with it, which would make Phase 2's
+/// gate impossible to even attempt. Supporting both is a MAY in the spec's
+/// backward-compatibility section; here it is the difference between working
+/// and not. See DECISIONS B-17.
+pub const LEGACY_PROTOCOL_VERSION: &str = "2025-11-25";
+
+/// Every revision this daemon serves, newest first.
+pub const SUPPORTED_VERSIONS: [&str; 2] = [PROTOCOL_VERSION, LEGACY_PROTOCOL_VERSION];
+
+/// Which revision a request belongs to.
+///
+/// The two differ in ways that reach the response, not just the request:
+/// `Modern` requires `resultType` on every result and mirrored headers on every
+/// POST; `Legacy` has an `initialize` handshake and neither of those.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Era {
+    /// 2026-07-28: stateless, mirrored headers, `resultType`.
+    Modern,
+    /// 2025-11-25: `initialize` handshake, no mirrored headers.
+    Legacy,
+}
+
+impl Era {
+    /// The version string to echo back.
+    pub const fn version(self) -> &'static str {
+        match self {
+            Era::Modern => PROTOCOL_VERSION,
+            Era::Legacy => LEGACY_PROTOCOL_VERSION,
+        }
+    }
+}
 
 /// `_meta` key carrying the protocol version.
 pub const META_PROTOCOL_VERSION: &str = "io.modelcontextprotocol/protocolVersion";
@@ -211,11 +247,15 @@ pub struct Response {
 impl Response {
     /// A successful response.
     ///
-    /// Stamps `resultType: "complete"` and the server identity. `resultType`
-    /// is **required** in this revision; omitting it makes a conforming client
-    /// treat the result as coming from an older server.
-    pub fn ok(id: Value, mut result: Value) -> Self {
-        if let Some(obj) = result.as_object_mut() {
+    /// For [`Era::Modern`] this stamps `resultType: "complete"` and the server
+    /// identity — `resultType` is **required** there, and omitting it makes a
+    /// conforming client treat the result as coming from an older server. A
+    /// `Legacy` client predates both fields, so they are left off rather than
+    /// sent as noise it has to ignore.
+    pub fn ok(id: Value, mut result: Value, era: Era) -> Self {
+        if era == Era::Modern
+            && let Some(obj) = result.as_object_mut()
+        {
             obj.entry("resultType").or_insert(json!("complete"));
             let meta = obj.entry("_meta").or_insert(json!({}));
             if let Some(m) = meta.as_object_mut() {
@@ -314,8 +354,8 @@ fn base64_decode(s: &str) -> Option<Vec<u8>> {
 /// The outcome of validating headers against the body.
 #[derive(Debug, Clone, PartialEq)]
 pub enum HeaderCheck {
-    /// Everything matches.
-    Ok,
+    /// Everything matches. Carries the revision the request belongs to.
+    Ok(Era),
     /// Reject with this error and HTTP 400.
     Reject(RpcError),
 }
@@ -331,29 +371,57 @@ pub fn check_headers(
     name_header: Option<&str>,
     version_header: Option<&str>,
 ) -> HeaderCheck {
-    let Some(version) = version_header else {
-        return HeaderCheck::Reject(RpcError::new(
-            codes::HEADER_MISMATCH,
-            format!("missing required header `MCP-Protocol-Version: {PROTOCOL_VERSION}`"),
-        ));
+    // Which revision is this? The header is authoritative when present. An
+    // `initialize` request declares it in the body instead, because the header
+    // did not exist when that method did. Absent everywhere means a client
+    // older than the header itself, which is legacy by definition.
+    let declared = version_header
+        .map(str::to_owned)
+        .or_else(|| {
+            request
+                .params
+                .get("protocolVersion")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+        .or_else(|| request.declared_version());
+
+    let era = match declared.as_deref() {
+        Some(PROTOCOL_VERSION) => Era::Modern,
+        // Every revision from the header's introduction up to the current one
+        // is served as legacy: the tool surface is identical and the wire
+        // differences are confined to the handshake and the result envelope.
+        Some("2025-11-25" | "2025-06-18" | "2025-03-26") | None => Era::Legacy,
+        Some(other) => {
+            return HeaderCheck::Reject(
+                RpcError::new(
+                    codes::UNSUPPORTED_PROTOCOL_VERSION,
+                    format!(
+                        "this server speaks {}, not {other}",
+                        SUPPORTED_VERSIONS.join(" and ")
+                    ),
+                )
+                .with_data(json!({ "supported": SUPPORTED_VERSIONS })),
+            );
+        }
     };
-    if version != PROTOCOL_VERSION {
-        return HeaderCheck::Reject(
-            RpcError::new(
-                codes::UNSUPPORTED_PROTOCOL_VERSION,
-                format!("this server speaks {PROTOCOL_VERSION}, not {version}"),
-            )
-            .with_data(json!({ "supported": [PROTOCOL_VERSION] })),
-        );
+
+    // The mirrored headers are required only by the current revision. A legacy
+    // client sends none of them, and demanding them is precisely how this
+    // daemon locked out the client it exists to serve.
+    if era == Era::Legacy {
+        return HeaderCheck::Ok(era);
     }
-    if let Some(declared) = request.declared_version()
-        && declared != version
+
+    if let Some(body_version) = request.declared_version()
+        && Some(body_version.as_str()) != version_header
     {
         return HeaderCheck::Reject(RpcError::new(
             codes::HEADER_MISMATCH,
             format!(
-                "MCP-Protocol-Version header value `{version}` does not match the body's \
-                 {META_PROTOCOL_VERSION} value `{declared}`"
+                "MCP-Protocol-Version header value `{}` does not match the body's \
+                 {META_PROTOCOL_VERSION} value `{body_version}`",
+                version_header.unwrap_or("(absent)")
             ),
         ));
     }
@@ -398,7 +466,21 @@ pub fn check_headers(
         }
     }
 
-    HeaderCheck::Ok
+    HeaderCheck::Ok(Era::Modern)
+}
+
+/// The `initialize` result a 2025-11-25 client expects.
+pub fn initialize_result() -> Value {
+    json!({
+        "protocolVersion": LEGACY_PROTOCOL_VERSION,
+        "capabilities": { "tools": { "listChanged": false } },
+        "serverInfo": server_info(),
+        "instructions":
+            "Keel stores everything about a software project except the code. Call \
+             `keel_context` first to orient. Pass a stable `session_id` on every call so writes \
+             are attributed to this conversation. Before creating a project, call \
+             `keel_projects` and confirm with the human."
+    })
 }
 
 #[cfg(test)]
@@ -436,17 +518,44 @@ mod tests {
                 Some("keel_context"),
                 Some(PROTOCOL_VERSION)
             ),
-            HeaderCheck::Ok
+            HeaderCheck::Ok(Era::Modern)
         );
     }
 
     #[test]
-    fn a_missing_protocol_version_header_is_rejected() {
+    fn a_legacy_client_is_served_without_mirrored_headers() {
+        // Claude Code 2.1.185 sends none of them. Requiring them locked out
+        // the client this product exists to serve — see DECISIONS B-17.
         let r = call("keel_context");
-        match check_headers(&r, Some("tools/call"), Some("keel_context"), None) {
-            HeaderCheck::Reject(e) => assert_eq!(e.code, codes::HEADER_MISMATCH),
-            HeaderCheck::Ok => panic!("should have been rejected"),
-        }
+        assert_eq!(
+            check_headers(&r, None, None, Some(LEGACY_PROTOCOL_VERSION)),
+            HeaderCheck::Ok(Era::Legacy)
+        );
+    }
+
+    #[test]
+    fn an_initialize_request_declares_its_version_in_the_body() {
+        // `initialize` predates the MCP-Protocol-Version header, so the only
+        // place the version appears is `params.protocolVersion`.
+        let r = request(
+            "initialize",
+            json!({"protocolVersion": "2025-11-25", "capabilities": {}}),
+        );
+        assert_eq!(
+            check_headers(&r, None, None, None),
+            HeaderCheck::Ok(Era::Legacy)
+        );
+    }
+
+    #[test]
+    fn a_missing_version_everywhere_is_treated_as_legacy() {
+        // A client older than the header itself. Rejecting it would be
+        // technically defensible and practically useless.
+        let r = request("tools/list", json!({}));
+        assert_eq!(
+            check_headers(&r, None, None, None),
+            HeaderCheck::Ok(Era::Legacy)
+        );
     }
 
     #[test]
@@ -456,13 +565,18 @@ mod tests {
             &r,
             Some("tools/call"),
             Some("keel_context"),
-            Some("2025-06-18"),
+            // 2024-11-05 is the HTTP+SSE era, which this daemon does not serve.
+            // Note 2025-06-18 and 2025-03-26 *are* served — they differ from
+            // 2025-11-25 only in ways the tool surface does not touch.
+            Some("2024-11-05"),
         ) {
             HeaderCheck::Reject(e) => {
                 assert_eq!(e.code, codes::UNSUPPORTED_PROTOCOL_VERSION);
-                assert_eq!(e.data.unwrap()["supported"][0], PROTOCOL_VERSION);
+                let data = e.data.unwrap();
+                assert_eq!(data["supported"][0], PROTOCOL_VERSION);
+                assert_eq!(data["supported"][1], LEGACY_PROTOCOL_VERSION);
             }
-            HeaderCheck::Ok => panic!("should have been rejected"),
+            HeaderCheck::Ok(_) => panic!("should have been rejected"),
         }
     }
 
@@ -481,7 +595,7 @@ mod tests {
                 assert_eq!(e.code, codes::HEADER_MISMATCH);
                 assert!(e.message.contains("keel_create"), "{}", e.message);
             }
-            HeaderCheck::Ok => panic!("should have been rejected"),
+            HeaderCheck::Ok(_) => panic!("should have been rejected"),
         }
     }
 
@@ -495,7 +609,7 @@ mod tests {
             Some(PROTOCOL_VERSION),
         ) {
             HeaderCheck::Reject(e) => assert_eq!(e.code, codes::HEADER_MISMATCH),
-            HeaderCheck::Ok => panic!("should have been rejected"),
+            HeaderCheck::Ok(_) => panic!("should have been rejected"),
         }
     }
 
@@ -510,7 +624,7 @@ mod tests {
                 assert_eq!(e.code, codes::HEADER_MISMATCH);
                 assert!(e.message.contains("2025-11-25"), "{}", e.message);
             }
-            HeaderCheck::Ok => panic!("should have been rejected"),
+            HeaderCheck::Ok(_) => panic!("should have been rejected"),
         }
     }
 
@@ -519,7 +633,7 @@ mod tests {
         let r = request("tools/list", json!({}));
         assert_eq!(
             check_headers(&r, Some("tools/list"), None, Some(PROTOCOL_VERSION)),
-            HeaderCheck::Ok
+            HeaderCheck::Ok(Era::Modern)
         );
     }
 
@@ -537,7 +651,7 @@ mod tests {
                 Some(encoded),
                 Some(PROTOCOL_VERSION)
             ),
-            HeaderCheck::Ok
+            HeaderCheck::Ok(Era::Modern)
         );
     }
 
@@ -559,14 +673,33 @@ mod tests {
     }
 
     #[test]
-    fn a_successful_result_carries_result_type_and_server_info() {
-        let r = Response::ok(json!(1), json!({"content": []}));
+    fn a_modern_result_carries_result_type_and_server_info() {
+        let r = Response::ok(json!(1), json!({"content": []}), Era::Modern);
         let result = r.result.unwrap();
         assert_eq!(
             result["resultType"], "complete",
             "required in this revision; omitting it makes clients treat us as an older server"
         );
         assert_eq!(result["_meta"][META_SERVER_INFO]["name"], "keel");
+    }
+
+    #[test]
+    fn a_legacy_result_carries_neither() {
+        // Both fields postdate 2025-11-25. Sending them is not harmful, but a
+        // response should not contain fields the client's revision cannot
+        // explain.
+        let r = Response::ok(json!(1), json!({"content": []}), Era::Legacy);
+        let result = r.result.unwrap();
+        assert!(result.get("resultType").is_none());
+        assert!(result.get("_meta").is_none());
+    }
+
+    #[test]
+    fn the_initialize_result_answers_the_legacy_handshake() {
+        let r = initialize_result();
+        assert_eq!(r["protocolVersion"], LEGACY_PROTOCOL_VERSION);
+        assert_eq!(r["serverInfo"]["name"], "keel");
+        assert!(r["capabilities"]["tools"].is_object());
     }
 
     #[test]

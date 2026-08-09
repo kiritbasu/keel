@@ -500,7 +500,9 @@ Together these satisfy REQ-4's "every artifact type that carries text." `metric`
 
 ## 6. MCP surface
 
-Built on the **2026-07-28 spec**: stateless request/response, no sessions or handshakes, `Mcp-Method`/`Mcp-Name` headers. This is genuinely simpler to implement than the older stateful transport, and it means the daemon can be put behind a plain load balancer later with no changes.
+Built on the **2026-07-28 spec**: stateless request/response, no sessions or handshakes, `Mcp-Method`/`Mcp-Name` headers — **and, in practice, 2025-11-25 as well.**
+
+> **Corrected 2026-08-09 against a real client.** Claude Code 2.1.185 opens with the legacy `initialize` handshake and declares `2025-11-25`. A daemon serving only the current revision reports "Failed to connect" and is unusable with the client this product exists for. Both revisions are served: the handshake is answered, the mirrored headers are required only of a 2026-07-28 caller, and `resultType` is sent only to clients whose revision defines it. See DECISIONS B-17 and QUESTIONS TQ-11. This is genuinely simpler to implement than the older stateful transport, and it means the daemon can be put behind a plain load balancer later with no changes.
 
 ### 6.1 Design principles
 

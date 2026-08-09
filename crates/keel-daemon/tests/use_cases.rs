@@ -174,28 +174,96 @@ async fn a_header_that_disagrees_with_the_body_is_rejected() {
 }
 
 #[tokio::test]
-async fn a_missing_protocol_version_header_is_rejected() {
+async fn a_client_with_no_version_header_is_served_as_legacy() {
+    // A client older than the header itself. Rejecting it would be technically
+    // defensible and practically useless — see the legacy handshake test below
+    // for why this matters.
     let d = Daemon::start().await;
     let response = d
         .client
         .post(format!("{}/mcp", d.base))
         .header("content-type", "application/json")
-        .header("Mcp-Method", "tools/list")
         .json(&json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}))
         .send()
         .await
         .unwrap();
-    assert_eq!(response.status().as_u16(), 400);
+    assert_eq!(response.status().as_u16(), 200);
+
+    let body: Value = response.json().await.unwrap();
+    assert_eq!(body["result"]["tools"].as_array().unwrap().len(), 9);
+    assert!(
+        body["result"].get("resultType").is_none(),
+        "resultType postdates this client's revision and should not be sent to it"
+    );
 }
 
 #[tokio::test]
-async fn an_older_protocol_version_is_told_what_is_supported() {
+async fn the_2025_11_25_handshake_is_answered() {
+    // The exact request Claude Code 2.1.185 opens with, captured from the
+    // wire. Before this was handled, `claude mcp list` reported "Failed to
+    // connect" and the whole product was unusable with its primary client.
     let d = Daemon::start().await;
     let response = d
         .client
         .post(format!("{}/mcp", d.base))
         .header("content-type", "application/json")
+        .header("accept", "application/json, text/event-stream")
+        .json(&json!({
+            "jsonrpc": "2.0",
+            "id": 0,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-11-25",
+                "capabilities": { "roots": {}, "elicitation": {} },
+                "clientInfo": { "name": "claude-code", "version": "2.1.185" }
+            }
+        }))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(response.status().as_u16(), 200);
+    let body: Value = response.json().await.unwrap();
+    assert_eq!(body["result"]["protocolVersion"], "2025-11-25");
+    assert_eq!(body["result"]["serverInfo"]["name"], "keel");
+    assert!(body["result"]["capabilities"]["tools"].is_object());
+
+    // The follow-up notification must be accepted, not 404'd — a client that
+    // gets an error for it treats the connection as failed.
+    let ack = d
+        .client
+        .post(format!("{}/mcp", d.base))
+        .header("content-type", "application/json")
+        .json(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(ack.status().as_u16(), 202);
+
+    // And then the tools have to actually work, with no mirrored headers.
+    let listed = d
+        .client
+        .post(format!("{}/mcp", d.base))
+        .header("content-type", "application/json")
         .header("MCP-Protocol-Version", "2025-11-25")
+        .json(&json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(listed.status().as_u16(), 200);
+    let listed: Value = listed.json().await.unwrap();
+    assert_eq!(listed["result"]["tools"].as_array().unwrap().len(), 9);
+}
+
+#[tokio::test]
+async fn a_version_this_server_does_not_speak_is_told_what_it_does() {
+    // 2024-11-05 is the HTTP+SSE era, which this daemon does not serve.
+    let d = Daemon::start().await;
+    let response = d
+        .client
+        .post(format!("{}/mcp", d.base))
+        .header("content-type", "application/json")
+        .header("MCP-Protocol-Version", "2024-11-05")
         .header("Mcp-Method", "tools/list")
         .json(&json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}))
         .send()
@@ -205,6 +273,7 @@ async fn an_older_protocol_version_is_told_what_is_supported() {
     let body: Value = response.json().await.unwrap();
     assert_eq!(body["error"]["code"], -32022, "UnsupportedProtocolVersion");
     assert_eq!(body["error"]["data"]["supported"][0], PROTOCOL_VERSION);
+    assert_eq!(body["error"]["data"]["supported"][1], "2025-11-25");
 }
 
 #[tokio::test]
