@@ -372,6 +372,8 @@ CREATE INDEX events_project_time ON events(project_id, created_at);
 
 Append-only, never updated. Because ULIDs sort chronologically, "what changed since T" is a range scan.
 
+**This is only true if the ULIDs are generated monotonically.** A plain ULID re-randomises its low 80 bits on every call, so two ids minted inside the same millisecond sort arbitrarily against each other — and a burst of writes inside one millisecond is what an agent doing normal work looks like. `keel-core` therefore mints every id from one process-wide monotonic generator (DECISIONS B-9). Without it, a cursor-based `keel_activity` query silently skips or repeats rows.
+
 ---
 
 ## 4. Graph layer
@@ -444,22 +446,38 @@ Hybrid, via the Lance DuckDB extension, over the unified `documents` dataset:
 - `lance_vector_search()` — semantic
 - `lance_hybrid_search()` — fused, reciprocal-rank
 
-The Lance datasets are attached under a namespace (`ATTACH '${KEEL_HOME}/lance/documents.lance' AS lancedb (TYPE lance)`), so `lancedb.documents` is an ordinary joinable relation, while the search functions take the dataset path. DuckDB's `?` placeholders are strictly positional; named parameters use `$name`, which is what `keel-core` binds:
+The Lance datasets are attached under a namespace. **ATTACH takes the directory that holds the datasets, not an individual dataset path** — `ATTACH '${KEEL_HOME}/lance' AS lancedb (TYPE lance)` exposes both `lancedb.documents` and `lancedb.blobs` as ordinary joinable relations, from the one attach. The search *functions*, by contrast, take the individual dataset path. Both facts were verified against DuckDB 1.5.5; an earlier draft of this section attached `…/lance/documents.lance`, which resolves to `documents.lance/documents.lance` and finds nothing.
+
+The attached relations are writable — `INSERT` and `UPDATE` both work — so `keel-core` needs no separate Lance client library. See DECISIONS B-2.
+
+DuckDB's `?` placeholders are strictly positional; named parameters use `$name`, which is what `keel-core` binds:
 
 ```sql
-SELECT d.entity_type, d.entity_id, d.title, d.body,
-       s.score, p.name AS project
-FROM lance_hybrid_search('${KEEL_HOME}/lance/documents.lance', $query, $embedding, k := $k_inner) s
-JOIN lancedb.documents d ON d.doc_id = s.doc_id
-JOIN projects p          ON p.id     = d.project_id
-WHERE d.status = 'current'
-  AND ($project_id IS NULL OR d.project_id = $project_id)
-  AND ($types      IS NULL OR list_contains($types, d.entity_type))
-  AND ($since      IS NULL OR d.created_at >= $since)
-  AND ($until      IS NULL OR d.created_at <  $until)
-ORDER BY s.score DESC
+-- lance_hybrid_search(dataset_path, vector_column, query_vector,
+--                     text_column, query_text, k := …, alpha := …, …)
+-- It returns every column of the source row, plus _distance, _score and
+-- _hybrid_score — so there is nothing to join back to. An earlier draft
+-- called it with three positional arguments and joined on doc_id; both
+-- were wrong.
+SELECT s.entity_type, s.entity_id, s.title, s.body,
+       s._hybrid_score AS score, p.name AS project
+FROM lance_hybrid_search(
+       '${KEEL_HOME}/lance/documents.lance',
+       'embedding', $embedding,
+       'body',      $query,
+       k := $k_inner
+     ) s
+JOIN projects p ON p.id = s.project_id
+WHERE s.status = 'current'
+  AND ($project_id IS NULL OR s.project_id = $project_id)
+  AND ($types      IS NULL OR list_contains($types, s.entity_type))
+  AND ($since      IS NULL OR s.created_at >= $since)
+  AND ($until      IS NULL OR s.created_at <  $until)
+ORDER BY score DESC
 LIMIT $k_outer;
 ```
+
+`lance_fts(path, text_column, query)` and `lance_vector_search(path, vector_column, query_vector)` take the same shape and return the same score columns. None of the three requires an index to be built first — they fall back to a scan, which at Keel's scale is the right default (DECISIONS B-4).
 
 `k_inner` is set to `k_outer * 4` by `keel-core` so post-filtering doesn't starve the result set — retrieving exactly `k` from the index and then filtering by project and date is a classic way to return three results when forty exist.
 

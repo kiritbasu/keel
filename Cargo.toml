@@ -1,0 +1,72 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/keel-core",
+    "crates/keel-daemon",
+    "crates/keel-mcp",
+    "crates/keel-cli",
+    "crates/keel-github",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["KB"]
+license = "UNLICENSED"
+publish = false
+
+[workspace.dependencies]
+# Storage
+duckdb = { version = "1.10505", features = ["bundled", "chrono", "serde_json"] }
+
+# Domain
+ulid = { version = "1", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Errors and logging
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Content
+similar = "2"
+sha2 = "0.10"
+fastembed = "5"
+
+# Daemon
+axum = { version = "0.8", features = ["macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Internal
+keel-core = { path = "crates/keel-core" }
+keel-mcp = { path = "crates/keel-mcp" }
+
+# Test-only
+insta = { version = "1", features = ["json", "redactions"] }
+proptest = "1"
+tempfile = "3"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+# The definition of done forbids these in library code. Making them lints rather
+# than review discipline means CI catches them, not a human reading a diff.
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
