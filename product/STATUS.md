@@ -10,10 +10,10 @@
 | | |
 |---|---|
 | **Current phase** | Phase 0 — Spine |
-| **Phase progress** | 6 / 16 tasks done |
-| **Status** | In progress |
+| **Phase progress** | **16 / 16 — Phase 0 complete** |
+| **Status** | Phase 0 exited; Phase 1 in progress |
 | **Blocked on** | Nothing |
-| **Next up** | P0-7 (document revisions), then P0-9/P0-16 |
+| **Next up** | Phase 1 — the daemon and the nine MCP tools |
 | **Last session** | 2026-08-09 |
 | **Last updated** | 2026-08-09 |
 
@@ -25,7 +25,15 @@
 
 **Goal:** `keel-core` can create, read, update and archive every entity type, with correct versioning, provenance, links and events. No network, no UI.
 
-**Exit criteria:** all 13 entity types round-trip; event log correct; 200-entity fixture loads; graph-direction tests pass in both directions for every relation; backup restores and diffs clean.
+**Exit criteria — all met, 2026-08-09:**
+
+| Criterion | Evidence |
+|---|---|
+| All 13 entity types round-trip | `tests/roundtrip.rs` — create, read, update, archive, against real storage |
+| Event log correct | `tests/concurrency.rs` — cursor paging visits every event exactly once, no gaps or repeats |
+| 200-entity fixture loads | **212 entities, 29 links, 52 revisions**, three projects |
+| Graph direction, both ways, every relation | `tests/graph_direction.rs` — 21 tests. Each asserts the correct traversal finds it *and* both inversions find nothing |
+| Backup restores and diffs clean | `keel backup` → wipe → `keel restore` → row counts verified per table on both engines, then `fsck` clean and search still working |
 
 | ID | Task | Status | Notes |
 |---|---|---|---|
@@ -35,16 +43,16 @@
 | P0-4 | DuckDB schema + forward-only migrations | `done` | Forward-only migrations in `_keel_migrations`. `v_entities` built now rather than deferred (resolves TQ-4). PROVISIONAL: `idempotency_key` on all thirteen tables, not just tasks — see TQ-9 |
 | P0-5 | Lance `documents` + `blobs` datasets, ATTACH wiring | `done` | Lance `documents` + `blobs` created through the DuckDB extension; no `lance` Rust crate needed (B-2). Found: Lance `CREATE TABLE` rejects all column constraints, so nullability is application-level — consistent with §2.1 |
 | P0-6 | Entity storage layer — CRUD for all 13 types | `done` | CRUD for all 13 types behind `EntityStore`. Field patching goes through serde round-trip, so enum errors already name the valid values. 8 round-trip integration tests against real storage |
-| P0-7 | Document revisions — append, fetch by version, diff | `todo` | `similar` crate for diffs. SPEC §2.1 |
+| P0-7 | Document revisions — append, fetch by version, diff | `done` | Append, fetch by version, unified diff via `similar`. Identical content does not grow the history — the §8.1 mirror hook regenerates and re-reads constantly |
 | P0-8 | Links, `GraphStore` trait, CTE implementation | `done` | **21 tests, all 9 relations, both directions, plus both inversions.** `depends_on` normalises to `blocks` with swapped endpoints and never reaches the table. Cycle guard, depth clamp and shortest-path dedup all covered |
-| P0-9 | Event log — append, query since cursor | `todo` | Append-only. SPEC §3.4 |
-| P0-10 | Embeddings via fastembed | `todo` | Store `embedding_model` + `embedding_version`. Note first-run download |
-| P0-11 | Hybrid search — Lance + DuckDB FTS, RRF fusion | `todo` | SPEC §5. `k_inner = k_outer * 4` |
-| P0-12 | Backup: DuckDB **and Lance** → Parquet, restore | `todo` | Lance→Parquet is easy to skip and is the whole escape hatch. PRD R-5 |
-| P0-13 | `keel-cli fsck` — cross-engine referential integrity | `todo` | SPEC §3.1. FKs can't be enforced, so this is the safety net |
-| P0-14 | 200-entity fixture across all types and relations | `todo` | Realistic, not `foo`/`bar`. It's the search-quality corpus too |
-| P0-15 | Test suite: concurrency, idempotency, OCC, round-trip | `todo` | Concurrency test written now as `#[ignore = "unblocks in Phase 1"]` so CI stays green |
-| P0-16 | Implement idempotency keys and optimistic concurrency | `todo` | SPEC §7.2, §7.3. P0-15 tests these; nothing else builds them. 409 payload uses `latest_version` |
+| P0-9 | Event log — append, query since cursor | `done` | Append-only, cursor and timestamp queries. Cursor paging test asserts every event is visited exactly once — it only holds because ULIDs are monotonic (B-9) |
+| P0-10 | Embeddings via fastembed | `done` | `fastembed` behind an `Embedder` trait, passed in rather than constructed, so tests use a deterministic hash embedder instead of downloading 130 MB. A failed embed warns and keeps the write |
+| P0-11 | Hybrid search — Lance + DuckDB FTS, RRF fusion | `done` | Lance hybrid + DuckDB BM25, fused by reciprocal rank. Found: the DuckDB FTS index is a snapshot and silently misses rows created after it was built — now rebuilt off the event-log watermark |
+| P0-12 | Backup: DuckDB **and Lance** → Parquet, restore | `done` | **Both engines.** DuckDB `EXPORT DATABASE` plus an explicit Lance→Parquet dump. Restore refuses a backup missing its Lance half, and refuses to overwrite an existing store. Verified by row count per table, not by eye |
+| P0-13 | `keel-cli fsck` — cross-engine referential integrity | `done` | 27 checks. Dangling links, stored `depends_on`, doc pointers to nowhere, duplicate idempotency keys, provenance gaps. Every finding says what it breaks and what to do |
+| P0-14 | 200-entity fixture across all types and relations | `done` | **212 entities, 29 links, 52 revisions** across three projects. Loaded through the ordinary write path, so it exercises validation, idempotency and events — not just the schema |
+| P0-15 | Test suite: concurrency, idempotency, OCC, round-trip | `done` | Round-trip, idempotency, OCC, events, graph direction, backup round-trip. Concurrency test written and `#[ignore]`d for Phase 1 with the reason on the line |
+| P0-16 | Implement idempotency keys and optimistic concurrency | `done` | Derived keys normalise whitespace and case (R-6). OCC enforced by `WHERE version = ?`, not a read-then-write. Stale updates return `latest_version` |
 
 ---
 

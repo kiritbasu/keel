@@ -1,0 +1,414 @@
+//! The fixture corpus, `fsck`, and the backup round trip.
+//!
+//! These three are Phase 0's remaining exit criteria: a 200-entity fixture
+//! loads, integrity checks pass, and a backup restores and diffs clean.
+
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+use keel_core::*;
+use std::sync::Arc;
+
+fn loaded_store() -> (DuckStore, tempfile::TempDir, fixture::FixtureSummary) {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = DuckStore::open(dir.path())
+        .unwrap()
+        .with_embedder(Arc::new(HashEmbedder::new()));
+    let summary = fixture::load(&mut store).expect("load the fixture");
+    (store, dir, summary)
+}
+
+// --- The fixture ---------------------------------------------------------
+
+#[test]
+fn the_fixture_loads_at_least_two_hundred_entities() {
+    let (_s, _d, summary) = loaded_store();
+    assert!(
+        summary.total_entities() >= 200,
+        "Phase 0's exit criterion is a 200-entity fixture; got {}",
+        summary.total_entities()
+    );
+}
+
+#[test]
+fn the_fixture_covers_every_entity_type() {
+    let (_s, _d, summary) = loaded_store();
+    for t in fixture::EXPECTED_TYPES {
+        let n = summary.entities.get(t.as_str()).copied().unwrap_or(0);
+        assert!(n > 0, "the fixture creates no {t}");
+    }
+    assert_eq!(summary.entities.len(), 13);
+}
+
+#[test]
+fn the_fixture_covers_every_relation() {
+    let (_s, _d, summary) = loaded_store();
+    for r in Relation::ALL {
+        let n = summary.links.get(r.as_str()).copied().unwrap_or(0);
+        assert!(
+            n > 0,
+            "the fixture creates no `{r}` link, so nothing exercises that direction"
+        );
+    }
+}
+
+#[test]
+fn the_fixture_spans_more_than_one_project() {
+    // G7 and UC-6: the multi-project roll-up cannot be exercised with one.
+    let (store, _d, _) = loaded_store();
+    let projects = store
+        .list(&EntityQuery::default().of_type(EntityType::Project))
+        .unwrap();
+    assert!(projects.total >= 3, "got {} project(s)", projects.total);
+}
+
+#[test]
+fn the_fixture_writes_prose_that_search_can_actually_rank() {
+    // R-3: retrieval quality must be evaluable on real queries. A corpus of
+    // `task 1`, `task 2` makes every document equidistant from every query.
+    let (store, _d, summary) = loaded_store();
+    assert!(
+        summary.revisions >= 30,
+        "got {} revisions",
+        summary.revisions
+    );
+
+    let hits = store
+        .search(&SearchQuery::new("double billing on retries"))
+        .unwrap();
+    assert!(
+        !hits.items.is_empty(),
+        "a real question must return something"
+    );
+
+    let top = &hits.items[0];
+    assert!(
+        !top.excerpt.trim().is_empty(),
+        "a hit with no excerpt is not useful to a human or a model"
+    );
+}
+
+#[test]
+fn the_fixture_produces_a_traversable_graph() {
+    let (store, _d, _) = loaded_store();
+
+    // Find a spec that something implements, and walk inbound to it — UC-7.
+    let specs = store
+        .list(&EntityQuery::default().of_type(EntityType::Spec))
+        .unwrap();
+    let mut found_any = false;
+    for spec in &specs.items {
+        let implementers = store
+            .neighbours(
+                spec.id(),
+                Direction::Inbound,
+                &[Relation::Implements],
+                DEFAULT_DEPTH,
+            )
+            .unwrap();
+        if !implementers.is_empty() {
+            found_any = true;
+            for n in &implementers {
+                assert_eq!(
+                    n.entity_type,
+                    EntityType::Task,
+                    "only tasks implement specs in this fixture"
+                );
+                assert!(!n.path.is_empty(), "a neighbour must carry its path");
+            }
+        }
+    }
+    assert!(found_any, "no spec in the fixture has an implementer");
+}
+
+#[test]
+fn the_fixture_stores_depends_on_as_blocks() {
+    let (store, _d, _) = loaded_store();
+    let stored: i64 = store
+        .connection()
+        .query_row(
+            "SELECT count(*) FROM links WHERE rel = 'depends_on'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(stored, 0, "D-11: `depends_on` must never reach the table");
+}
+
+#[test]
+fn the_fixture_records_more_than_one_actor() {
+    // The activity feed and "what did Claude do today" are meaningless
+    // otherwise.
+    let (store, _d, _) = loaded_store();
+    let actors: i64 = store
+        .connection()
+        .query_row("SELECT count(DISTINCT actor) FROM events", [], |r| r.get(0))
+        .unwrap();
+    assert!(
+        actors >= 2,
+        "only {actors} distinct actor(s) in the event log"
+    );
+}
+
+#[test]
+fn loading_the_fixture_twice_creates_nothing_new() {
+    // Because it goes through the ordinary write path, idempotency applies.
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = DuckStore::open(dir.path()).unwrap();
+    fixture::load(&mut store).unwrap();
+
+    let before: i64 = store
+        .connection()
+        .query_row("SELECT count(*) FROM tasks", [], |r| r.get(0))
+        .unwrap();
+    fixture::load(&mut store).unwrap();
+    let after: i64 = store
+        .connection()
+        .query_row("SELECT count(*) FROM tasks", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(before, after, "re-loading must not duplicate the corpus");
+}
+
+// --- fsck ----------------------------------------------------------------
+
+#[test]
+fn a_freshly_loaded_fixture_passes_fsck() {
+    let (store, _d, _) = loaded_store();
+    let report = fsck::check(&store).unwrap();
+    assert!(
+        report.is_clean(),
+        "fixture should be consistent, but: {:#?}",
+        report.errors().collect::<Vec<_>>()
+    );
+    assert!(
+        report.checks_run >= 20,
+        "only {} checks ran",
+        report.checks_run
+    );
+}
+
+#[test]
+fn fsck_notices_a_dangling_link() {
+    let (store, _d, _) = loaded_store();
+    // Corrupt the store behind keel-core's back, which is exactly the class of
+    // damage fsck exists to find — a crash between two writes, or a restore
+    // from a half-good backup.
+    store
+        .connection()
+        .execute_batch(
+            "UPDATE links SET to_id = 'tsk_01ZZZZZZZZZZZZZZZZZZZZZZZZ' \
+             WHERE id = (SELECT min(id) FROM links);",
+        )
+        .unwrap();
+
+    let report = fsck::check(&store).unwrap();
+    assert!(!report.is_clean());
+    let finding = report
+        .errors()
+        .find(|f| f.check.starts_with("dangling_link"))
+        .expect("fsck should have found the dangling link");
+    assert!(
+        finding.detail.contains("silently"),
+        "the finding must explain the consequence: {}",
+        finding.detail
+    );
+    assert!(!finding.remedy.is_empty());
+}
+
+#[test]
+fn fsck_notices_a_document_pointer_that_leads_nowhere() {
+    let (store, _d, _) = loaded_store();
+    store
+        .connection()
+        .execute_batch("UPDATE specs SET current_doc_version = 99;")
+        .unwrap();
+
+    let report = fsck::check(&store).unwrap();
+    assert!(
+        report
+            .errors()
+            .any(|f| f.check.starts_with("doc_pointer_dangling")),
+        "fsck missed a spec pointing at a revision that does not exist"
+    );
+}
+
+#[test]
+fn fsck_notices_a_depends_on_that_bypassed_normalisation() {
+    let (store, _d, _) = loaded_store();
+    store
+        .connection()
+        .execute_batch(
+            "UPDATE links SET rel = 'depends_on' WHERE id = (SELECT min(id) FROM links);",
+        )
+        .unwrap();
+
+    let report = fsck::check(&store).unwrap();
+    let finding = report
+        .errors()
+        .find(|f| f.check == "depends_on_stored")
+        .expect("fsck must catch a stored depends_on");
+    assert!(finding.detail.contains("D-11"), "{}", finding.detail);
+}
+
+#[test]
+fn fsck_reports_an_orphaned_child_as_a_warning_not_an_error() {
+    // Archiving a parent never cascades (SPEC §3.1). The orphan is expected,
+    // and treating it as an error would make fsck cry wolf.
+    let (mut store, _d, _) = loaded_store();
+    let projects = store
+        .list(&EntityQuery::default().of_type(EntityType::Project))
+        .unwrap();
+    let project = &projects.items[0];
+    store
+        .archive(
+            project.id(),
+            project.audit().version,
+            &Provenance::anonymous(Actor::Human),
+        )
+        .unwrap();
+
+    let report = fsck::check(&store).unwrap();
+    assert!(
+        report.is_clean(),
+        "an orphaned child is untidy, not broken: {:#?}",
+        report.errors().collect::<Vec<_>>()
+    );
+    assert!(
+        report.findings.iter().any(|f| f.check == "orphan_task"),
+        "but it should still be reported"
+    );
+}
+
+// --- Backup round trip ---------------------------------------------------
+
+#[test]
+fn a_backup_restores_and_diffs_clean() {
+    // Phase 0's exit criterion, stated as: back up → wipe → restore → diff.
+    // "Assert equality, don't eyeball it."
+    let (store, source_dir, summary) = loaded_store();
+
+    let backup_dir = tempfile::tempdir().unwrap();
+    let manifest = backup::backup(&store, backup_dir.path()).expect("backup");
+
+    assert!(manifest.total_rows() > 0);
+    assert!(
+        manifest.counts.contains_key("lancedb.documents"),
+        "the Lance half is the whole escape hatch (R-5) and must be in the manifest"
+    );
+    assert!(
+        manifest.counts["lancedb.documents"] >= summary.revisions as i64,
+        "every revision must be in the backup"
+    );
+
+    // Wipe: drop the original store entirely.
+    drop(store);
+    drop(source_dir);
+
+    // Restore into a fresh directory.
+    let target = tempfile::tempdir().unwrap();
+    let restored_root = target.path().join("restored");
+    let restored_manifest = backup::restore(backup_dir.path(), &restored_root).expect("restore");
+    assert_eq!(restored_manifest, manifest);
+
+    let restored = DuckStore::open(&restored_root).expect("open the restored store");
+    let problems = backup::verify_restore(&restored, &manifest).unwrap();
+    assert!(problems.is_empty(), "restore diff: {problems:#?}");
+
+    // And the restored store is not merely row-count-equal — it works.
+    let report = fsck::check(&restored).unwrap();
+    assert!(
+        report.is_clean(),
+        "restored store fails fsck: {:#?}",
+        report.errors().collect::<Vec<_>>()
+    );
+
+    let hits = restored
+        .search(&SearchQuery::new("invoice reconciliation"))
+        .unwrap();
+    assert!(!hits.items.is_empty(), "search must work after a restore");
+}
+
+#[test]
+fn a_restored_document_keeps_its_embedding() {
+    // Parquet loses DuckDB's fixed-size list type, so this is the assertion
+    // that the restore cast is actually applied.
+    let (store, _d, _) = loaded_store();
+    let backup_dir = tempfile::tempdir().unwrap();
+    backup::backup(&store, backup_dir.path()).unwrap();
+
+    let target = tempfile::tempdir().unwrap();
+    let root = target.path().join("restored");
+    backup::restore(backup_dir.path(), &root).unwrap();
+
+    let restored = DuckStore::open(&root).unwrap();
+    let with_vectors: i64 = restored
+        .connection()
+        .query_row(
+            "SELECT count(*) FROM lancedb.documents WHERE embedding IS NOT NULL",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(
+        with_vectors > 0,
+        "embeddings did not survive the round trip"
+    );
+
+    let width: i64 = restored
+        .connection()
+        .query_row(
+            "SELECT len(embedding) FROM lancedb.documents WHERE embedding IS NOT NULL LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(width, EMBEDDING_DIM as i64, "the vector width changed");
+}
+
+#[test]
+fn restoring_over_an_existing_store_is_refused() {
+    // A restore is run in a panic. "Restore over the top of the thing I was
+    // trying to recover" is the mistake that makes an incident permanent.
+    let (store, _d, _) = loaded_store();
+    let backup_dir = tempfile::tempdir().unwrap();
+    backup::backup(&store, backup_dir.path()).unwrap();
+
+    let occupied = tempfile::tempdir().unwrap();
+    DuckStore::open(occupied.path()).unwrap();
+
+    let err = backup::restore(backup_dir.path(), occupied.path()).unwrap_err();
+    assert!(
+        err.to_string().contains("already exists"),
+        "should refuse rather than overwrite: {err}"
+    );
+}
+
+#[test]
+fn a_backup_missing_its_lance_half_is_refused_at_restore() {
+    // R-5: a DuckDB-only backup would restore every task and lose every spec,
+    // decision and piece of feedback — while looking complete.
+    let (store, _d, _) = loaded_store();
+    let backup_dir = tempfile::tempdir().unwrap();
+    backup::backup(&store, backup_dir.path()).unwrap();
+
+    std::fs::remove_file(backup_dir.path().join("lance").join("documents.parquet")).unwrap();
+
+    let target = tempfile::tempdir().unwrap();
+    let err = backup::restore(backup_dir.path(), target.path().join("restored")).unwrap_err();
+    assert!(
+        err.to_string().contains("lose every spec"),
+        "the error must say what would have been lost: {err}"
+    );
+}
+
+#[test]
+fn verify_restore_notices_a_missing_table() {
+    let (store, _d, _) = loaded_store();
+    let mut manifest = backup::backup(&store, tempfile::tempdir().unwrap().path()).unwrap();
+    manifest.counts.insert("tasks".to_owned(), 99_999);
+
+    let problems = backup::verify_restore(&store, &manifest).unwrap();
+    assert!(
+        problems.iter().any(|p| p.contains("tasks")),
+        "a row-count mismatch must be reported: {problems:?}"
+    );
+}

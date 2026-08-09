@@ -23,18 +23,22 @@
 //! legitimate "nothing is linked". Everything else fails loudly.
 
 pub mod audit;
+pub mod backup;
 pub mod document;
 pub mod embed;
 pub mod entity;
 pub mod enums;
 pub mod error;
 pub mod event;
+pub mod fixture;
+pub mod fsck;
 pub mod id;
 pub mod link;
 pub mod store;
 pub mod types;
 
 pub use audit::{Audit, Provenance};
+pub use backup::{BackupManifest, backup, restore, verify_restore};
 pub use document::{
     DocStatus, Document, DocumentDiff, EMBEDDING_DIM, EMBEDDING_MODEL, EMBEDDING_VERSION, body_hash,
 };
@@ -47,6 +51,7 @@ pub use enums::{
 };
 pub use error::{Error, Result};
 pub use event::{Action, Cursor, Event, NewEvent};
+pub use fsck::{Finding, FsckReport, Severity};
 pub use id::{BlobId, DocId, EntityId, EventId, LinkId};
 pub use link::{DEFAULT_DEPTH, Direction, Link, MAX_DEPTH, NewLink, Relation};
 pub use store::{

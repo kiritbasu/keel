@@ -16,7 +16,7 @@ workspace = true
 
 [dependencies]
 keel-core.workspace = true
-clap.workspace = true
+clap = { workspace = true, features = ["env"] }
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
