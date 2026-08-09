@@ -1,0 +1,22 @@
+/target
+**/*.rs.bk
+*.pdb
+
+# Node / desktop app
+node_modules/
+apps/desktop/dist/
+apps/desktop/src-tauri/target/
+
+# Local store — never commit
+.keel-home/
+*.duckdb
+*.duckdb.wal
+*.lance/
+
+# Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Test scratch
+/tmp-test/
