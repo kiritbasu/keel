@@ -55,6 +55,34 @@ claude mcp list 2>/dev/null | grep -q '^keel:.*Connected' || {
   exit 1
 }
 
+# One throwaway session before spending ten. The first run of this script
+# produced ten identical 55-byte authentication errors over twenty-one minutes,
+# because nothing checked that a session could start at all. A gate that cannot
+# distinguish "Claude declined to write" from "Claude never ran" is worse than
+# no gate: both look like a row of empty logs.
+probe="$(cd "${TMPDIR:-/tmp}" && claude -p "reply with the single word: ready" --allowedTools "" 2>&1)"
+if ! printf '%s' "$probe" | grep -qi 'ready'; then
+  echo "A session could not start, so the gate was not run. Claude said:"
+  echo
+  printf '  %s\n' "$probe"
+  echo
+  case "$probe" in
+    *401*|*[Aa]uthenticat*|*"not logged in"*|*"User not found"*)
+      echo "  This is authentication, not Keel."
+      if [ -n "${ANTHROPIC_BASE_URL:-}" ]; then
+        echo
+        echo "  ANTHROPIC_BASE_URL is set in your environment (\$HOME/.zshrc)."
+        echo "  \`claude -p\` will send its credential there, and a 401 means that"
+        echo "  endpoint does not recognise it. To run the gate against the default"
+        echo "  API without changing your shell configuration:"
+        echo
+        echo "      env -u ANTHROPIC_BASE_URL ./scripts/gate-run.sh"
+      fi
+      ;;
+  esac
+  exit 1
+fi
+
 # --- the two scratch projects ----------------------------------------------
 say "Setting up scratch projects in $work"
 rm -rf "$work"
@@ -173,6 +201,15 @@ say "Baseline $t0 — anything written after this counts"
 
 run tideline "high_waters misses the first peak if the window starts right on one — have a look at src/harmonics.py" 1
 run tideline "we should cache the constituent lookup, it gets recomputed on every height() call" 2
+# Belt and braces: if the first two sessions both came back empty, something
+# systemic is wrong and the remaining eight will fail the same way.
+if [ ! -s "$work/session-1.log" ] && [ ! -s "$work/session-2.log" ]; then
+  echo
+  echo "The first two sessions produced no output at all. Stopping rather than"
+  echo "spending eight more. Read $work/session-1.log."
+  exit 1
+fi
+
 run tideline "let's go with 15-minute resolution as the default for the tide table rather than the current step" 3
 run tideline "what's the risk if a station's chart datum is wrong? walk me through what breaks" 4
 run tideline "a harbourmaster rang to say the 7-day table is unreadable on a phone — the times need to be local, not hours since epoch" 5
