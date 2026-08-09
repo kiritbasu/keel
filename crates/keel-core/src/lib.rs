@@ -24,6 +24,7 @@
 
 pub mod audit;
 pub mod document;
+pub mod embed;
 pub mod entity;
 pub mod enums;
 pub mod error;
@@ -37,6 +38,7 @@ pub use audit::{Audit, Provenance};
 pub use document::{
     DocStatus, Document, DocumentDiff, EMBEDDING_DIM, EMBEDDING_MODEL, EMBEDDING_VERSION, body_hash,
 };
+pub use embed::{Embedder, FastEmbedder, HashEmbedder};
 pub use entity::{Actor, EntityType, ProjectScope, Surface};
 pub use enums::{
     ArtifactKind, DecisionStatus, DesignState, EnvironmentStatus, FeedbackKind, MetricDirection,

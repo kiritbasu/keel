@@ -1,0 +1,528 @@
+//! Document revisions, diffs, blobs and hybrid search, against real storage.
+
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+use chrono::Utc;
+use keel_core::*;
+use std::sync::Arc;
+
+struct Fixture {
+    store: DuckStore,
+    project_id: EntityId,
+    _dir: tempfile::TempDir,
+}
+
+fn prov() -> Provenance {
+    Provenance::anonymous(Actor::Claude).with_session("ses_docs")
+}
+
+impl Fixture {
+    fn new() -> Self {
+        let dir = tempfile::tempdir().unwrap();
+        // A hash embedder rather than the real model: the test suite must not
+        // download 130 MB before it can assert anything. This exercises the
+        // plumbing, not retrieval quality — see embed.rs.
+        let mut store = DuckStore::open(dir.path())
+            .unwrap()
+            .with_embedder(Arc::new(HashEmbedder::new()));
+        let project_id = store
+            .create(Project::new("keel", "Keel").into(), &prov())
+            .unwrap()
+            .entity
+            .id()
+            .clone();
+        Fixture {
+            store,
+            project_id,
+            _dir: dir,
+        }
+    }
+
+    fn spec(&mut self, title: &str) -> EntityId {
+        self.store
+            .create(Spec::new(self.project_id.clone(), title).into(), &prov())
+            .unwrap()
+            .entity
+            .id()
+            .clone()
+    }
+
+    fn write(&mut self, id: &EntityId, title: &str, body: &str) -> Document {
+        let doc = Document::first(
+            id.entity_type(),
+            id.clone(),
+            Some(self.project_id.clone()),
+            title,
+            body,
+            Actor::Claude,
+            Utc::now(),
+        )
+        .unwrap();
+        self.store.write_revision(doc).unwrap()
+    }
+}
+
+#[test]
+fn a_first_revision_is_version_one_and_advances_the_header() {
+    let mut f = Fixture::new();
+    let id = f.spec("Storage specification");
+
+    let doc = f.write(
+        &id,
+        "Storage specification",
+        "DuckDB for rows, Lance for prose.",
+    );
+    assert_eq!(doc.version, 1);
+    assert_eq!(doc.parent_version, None);
+    assert_eq!(doc.status, DocStatus::Current);
+
+    // The relational half must agree with the columnar half.
+    let header = f.store.get(&id).unwrap().unwrap();
+    assert_eq!(header.current_doc_version(), Some(1));
+}
+
+#[test]
+fn revisions_accumulate_and_only_one_is_current() {
+    let mut f = Fixture::new();
+    let id = f.spec("Storage specification");
+
+    f.write(&id, "Storage specification", "First draft.");
+    f.write(&id, "Storage specification", "Second draft, with detail.");
+    let third = f.write(&id, "Storage specification", "Third draft, approved.");
+
+    assert_eq!(third.version, 3);
+    assert_eq!(third.parent_version, Some(2));
+
+    let history = f.store.revisions(&id).unwrap();
+    assert_eq!(history.len(), 3);
+    assert_eq!(
+        history.iter().map(|d| d.version).collect::<Vec<_>>(),
+        vec![1, 2, 3],
+        "history must come back oldest-first"
+    );
+
+    let current: Vec<_> = history
+        .iter()
+        .filter(|d| d.status == DocStatus::Current)
+        .collect();
+    assert_eq!(current.len(), 1, "exactly one revision may be current");
+    assert_eq!(current[0].version, 3);
+
+    assert_eq!(
+        f.store.get(&id).unwrap().unwrap().current_doc_version(),
+        Some(3)
+    );
+}
+
+#[test]
+fn an_older_revision_can_be_fetched_by_version() {
+    let mut f = Fixture::new();
+    let id = f.spec("Storage specification");
+    f.write(&id, "Storage specification", "First draft.");
+    f.write(&id, "Storage specification", "Second draft.");
+
+    let v1 = f.store.revision(&id, Some(1)).unwrap().unwrap();
+    assert_eq!(v1.body, "First draft.");
+    assert_eq!(v1.status, DocStatus::Superseded);
+
+    let current = f.store.revision(&id, None).unwrap().unwrap();
+    assert_eq!(current.body, "Second draft.");
+}
+
+#[test]
+fn rewriting_identical_content_does_not_grow_the_history() {
+    // The §8.1 mirror hook regenerates a file and re-reads it. Without this,
+    // every no-op save would add a revision.
+    let mut f = Fixture::new();
+    let id = f.spec("Storage specification");
+
+    let first = f.write(&id, "Storage specification", "Unchanged body.");
+    let second = f.write(&id, "Storage specification", "Unchanged body.");
+
+    assert_eq!(first.version, second.version);
+    assert_eq!(f.store.revisions(&id).unwrap().len(), 1);
+}
+
+#[test]
+fn a_changed_title_alone_is_a_real_revision() {
+    let mut f = Fixture::new();
+    let id = f.spec("Storage specification");
+    f.write(&id, "Storage specification", "Same body.");
+    let renamed = f.write(&id, "Storage design", "Same body.");
+    assert_eq!(renamed.version, 2, "the title is part of the content hash");
+}
+
+#[test]
+fn a_revision_for_a_nonexistent_entity_is_refused() {
+    // The cross-engine foreign key nothing can declare.
+    let mut f = Fixture::new();
+    let ghost = EntityId::generate(EntityType::Spec);
+    let doc = Document::first(
+        EntityType::Spec,
+        ghost,
+        None,
+        "Ghost",
+        "body",
+        Actor::Claude,
+        Utc::now(),
+    )
+    .unwrap();
+    let err = f.store.write_revision(doc).unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("create the entity before writing its body"),
+        "{err}"
+    );
+}
+
+#[test]
+fn provenance_survives_onto_the_revision() {
+    let mut f = Fixture::new();
+    let id = f.spec("Storage specification");
+    let doc = Document::first(
+        EntityType::Spec,
+        id.clone(),
+        Some(f.project_id.clone()),
+        "Storage specification",
+        "body",
+        Actor::Human,
+        Utc::now(),
+    )
+    .unwrap()
+    .attributed(Some("ses_abc".into()), Some(Surface::Chat));
+
+    f.store.write_revision(doc).unwrap();
+    let stored = f.store.revision(&id, None).unwrap().unwrap();
+    assert_eq!(stored.author, Actor::Human);
+    assert_eq!(stored.session_id.as_deref(), Some("ses_abc"));
+    assert_eq!(stored.surface, Some(Surface::Chat));
+}
+
+#[test]
+fn two_revisions_diff() {
+    let mut f = Fixture::new();
+    let id = f.spec("Storage specification");
+    f.write(&id, "S", "line one\nline two\nline three\n");
+    f.write(
+        &id,
+        "S",
+        "line one\nline two changed\nline three\nline four\n",
+    );
+
+    let diff = f.store.diff(&id, 1, 2).unwrap();
+    assert_eq!(diff.from_version, 1);
+    assert_eq!(diff.to_version, 2);
+    assert_eq!(diff.removed, 1);
+    assert_eq!(diff.added, 2);
+    assert!(diff.unified.contains("-line two"), "{}", diff.unified);
+    assert!(
+        diff.unified.contains("+line two changed"),
+        "{}",
+        diff.unified
+    );
+}
+
+#[test]
+fn diffing_a_missing_revision_says_which_one() {
+    let mut f = Fixture::new();
+    let id = f.spec("Storage specification");
+    f.write(&id, "S", "only one revision");
+
+    let err = f.store.diff(&id, 1, 7).unwrap_err().to_string();
+    assert!(err.contains("no revision 7"), "{err}");
+}
+
+#[test]
+fn embeddings_are_written_when_an_embedder_is_attached() {
+    let mut f = Fixture::new();
+    let id = f.spec("Storage specification");
+    f.write(&id, "Storage", "DuckDB and Lance together.");
+
+    let has_vector: i64 = f
+        .store
+        .connection()
+        .query_row(
+            "SELECT count(*) FROM lancedb.documents WHERE embedding IS NOT NULL",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(has_vector, 1);
+
+    let model: String = f
+        .store
+        .connection()
+        .query_row("SELECT embedding_model FROM lancedb.documents", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(
+        model, "test-hash-embedder",
+        "the model must travel with the row"
+    );
+}
+
+#[test]
+fn a_store_without_an_embedder_still_stores_and_searches() {
+    // G8 and R-3: no embedder must degrade search, not break the store.
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = DuckStore::open(dir.path()).unwrap();
+    let project_id = store
+        .create(Project::new("keel", "Keel").into(), &prov())
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+    let spec = store
+        .create(
+            Spec::new(project_id.clone(), "Onboarding spec").into(),
+            &prov(),
+        )
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+
+    store
+        .write_revision(
+            Document::first(
+                EntityType::Spec,
+                spec.clone(),
+                Some(project_id),
+                "Onboarding spec",
+                "The onboarding flow needs to be shorter.",
+                Actor::Claude,
+                Utc::now(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+    let hits = store.search(&SearchQuery::new("onboarding")).unwrap();
+    assert!(
+        !hits.items.is_empty(),
+        "keyword search must work with no embedder"
+    );
+}
+
+#[test]
+fn search_spans_both_indexes_and_says_where_each_hit_came_from() {
+    let mut f = Fixture::new();
+
+    // A prose-bearing type — goes to the Lance documents index.
+    let spec = f.spec("Onboarding redesign");
+    f.write(
+        &spec,
+        "Onboarding redesign",
+        "Customers report that onboarding takes too many steps.",
+    );
+
+    // A non-prose type — goes to the DuckDB entity index.
+    let task = f
+        .store
+        .create(
+            Task::new(f.project_id.clone(), "Shorten the onboarding flow").into(),
+            &prov(),
+        )
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+
+    let results = f.store.search(&SearchQuery::new("onboarding")).unwrap();
+    let ids: Vec<&EntityId> = results.items.iter().map(|h| &h.entity_id).collect();
+
+    assert!(ids.contains(&&spec), "the spec should be found: {ids:?}");
+    assert!(ids.contains(&&task), "the task should be found: {ids:?}");
+
+    let spec_hit = results.items.iter().find(|h| h.entity_id == spec).unwrap();
+    assert_eq!(spec_hit.source, SearchSource::Documents);
+    let task_hit = results.items.iter().find(|h| h.entity_id == task).unwrap();
+    assert_eq!(task_hit.source, SearchSource::Entities);
+}
+
+#[test]
+fn newly_created_entities_are_searchable_immediately() {
+    // The stale-index trap: DuckDB's FTS index is a snapshot and does not
+    // track inserts. An entity created after the last build would silently
+    // never be found.
+    let mut f = Fixture::new();
+    f.store
+        .create(
+            Task::new(f.project_id.clone(), "Investigate flaky deploys").into(),
+            &prov(),
+        )
+        .unwrap();
+    let first = f.store.search(&SearchQuery::new("flaky")).unwrap();
+    assert_eq!(first.items.len(), 1);
+
+    // Create another and search again without any explicit reindex.
+    f.store
+        .create(
+            Task::new(f.project_id.clone(), "Fix flaky integration tests").into(),
+            &prov(),
+        )
+        .unwrap();
+    let second = f.store.search(&SearchQuery::new("flaky")).unwrap();
+    assert_eq!(
+        second.items.len(),
+        2,
+        "an entity created since the last index build must still be findable"
+    );
+}
+
+#[test]
+fn archived_entities_drop_out_of_search() {
+    let mut f = Fixture::new();
+    let task = f
+        .store
+        .create(
+            Task::new(f.project_id.clone(), "Retire the legacy importer").into(),
+            &prov(),
+        )
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+    assert_eq!(
+        f.store
+            .search(&SearchQuery::new("importer"))
+            .unwrap()
+            .items
+            .len(),
+        1
+    );
+
+    f.store.archive(&task, 1, &prov()).unwrap();
+    assert_eq!(
+        f.store
+            .search(&SearchQuery::new("importer"))
+            .unwrap()
+            .items
+            .len(),
+        0,
+        "archived work should not surface in search"
+    );
+}
+
+#[test]
+fn search_can_be_filtered_by_project_and_type() {
+    let mut f = Fixture::new();
+    let other = f
+        .store
+        .create(Project::new("other", "Other").into(), &prov())
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+
+    f.store
+        .create(
+            Task::new(f.project_id.clone(), "Shared word alpha").into(),
+            &prov(),
+        )
+        .unwrap();
+    f.store
+        .create(
+            Task::new(other.clone(), "Shared word alpha").into(),
+            &prov(),
+        )
+        .unwrap();
+
+    let all = f.store.search(&SearchQuery::new("alpha")).unwrap();
+    assert_eq!(all.items.len(), 2);
+
+    let scoped = f
+        .store
+        .search(&SearchQuery {
+            project_id: Some(other.clone()),
+            ..SearchQuery::new("alpha")
+        })
+        .unwrap();
+    assert_eq!(scoped.items.len(), 1);
+    assert_eq!(scoped.items[0].project_id.as_ref(), Some(&other));
+
+    let typed = f
+        .store
+        .search(&SearchQuery {
+            entity_types: vec![EntityType::Spec],
+            ..SearchQuery::new("alpha")
+        })
+        .unwrap();
+    assert!(
+        typed.items.is_empty(),
+        "tasks must not match a spec-only filter"
+    );
+}
+
+#[test]
+fn an_empty_search_says_what_to_use_instead() {
+    let f = Fixture::new();
+    let err = f
+        .store
+        .search(&SearchQuery::new("   "))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("keel_context"), "{err}");
+}
+
+#[test]
+fn blobs_round_trip() {
+    let mut f = Fixture::new();
+    let bytes = b"\x89PNG\r\n\x1a\n fake image bytes".to_vec();
+    let blob = Blob {
+        blob_id: BlobId::generate(),
+        entity_id: None,
+        project_id: Some(f.project_id.clone()),
+        media_type: "image/png".into(),
+        sha256: "deadbeef".into(),
+        bytes: bytes.clone(),
+        created_at: Utc::now(),
+    };
+    let id = f.store.put_blob(blob).unwrap();
+
+    let fetched = f.store.get_blob(&id).unwrap().unwrap();
+    assert_eq!(fetched.bytes, bytes, "blob bytes must survive Lance intact");
+    assert_eq!(fetched.media_type, "image/png");
+    assert!(f.store.get_blob(&BlobId::generate()).unwrap().is_none());
+}
+
+#[test]
+fn a_document_survives_reopening_the_store() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project_id, spec_id) = {
+        let mut store = DuckStore::open(dir.path()).unwrap();
+        let p = store
+            .create(Project::new("keel", "Keel").into(), &prov())
+            .unwrap()
+            .entity
+            .id()
+            .clone();
+        let s = store
+            .create(Spec::new(p.clone(), "Persisted spec").into(), &prov())
+            .unwrap()
+            .entity
+            .id()
+            .clone();
+        store
+            .write_revision(
+                Document::first(
+                    EntityType::Spec,
+                    s.clone(),
+                    Some(p.clone()),
+                    "Persisted spec",
+                    "This must survive a restart.",
+                    Actor::Claude,
+                    Utc::now(),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        (p, s)
+    };
+
+    let store = DuckStore::open(dir.path()).unwrap();
+    let doc = store.revision(&spec_id, None).unwrap().unwrap();
+    assert_eq!(doc.body, "This must survive a restart.");
+    assert_eq!(doc.project_id, Some(project_id));
+}

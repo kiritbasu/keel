@@ -11,6 +11,7 @@
 //! which is the worst failure mode available, so centralising them means
 //! getting the direction right once instead of at every call site.
 
+pub mod docs;
 pub mod duck;
 pub mod patch;
 pub mod rows;

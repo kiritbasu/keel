@@ -40,6 +40,7 @@ pub const DEFAULT_LIST_LIMIT: usize = 200;
 pub struct DuckStore {
     conn: Connection,
     root: PathBuf,
+    embedder: Option<std::sync::Arc<dyn crate::Embedder>>,
 }
 
 impl std::fmt::Debug for DuckStore {
@@ -71,11 +72,36 @@ impl DuckStore {
             db_path.display()
         )))?;
 
-        let mut store = DuckStore { conn, root };
+        let mut store = DuckStore {
+            conn,
+            root,
+            embedder: None,
+        };
         store.load_extensions()?;
         store.attach_lance(&lance_dir)?;
         store.migrate()?;
         Ok(store)
+    }
+
+    /// Attach an embedder, enabling the semantic half of hybrid search.
+    ///
+    /// Optional on purpose. A store with no embedder is still fully usable and
+    /// still searchable by keyword — search degrades rather than failing.
+    /// Passing it in rather than constructing it here is what keeps `keel-core`
+    /// free of decisions about model files and network access.
+    pub fn with_embedder(mut self, embedder: std::sync::Arc<dyn crate::Embedder>) -> Self {
+        self.embedder = Some(embedder);
+        self
+    }
+
+    /// The attached embedder, if any.
+    pub fn embedder(&self) -> Option<&dyn crate::Embedder> {
+        self.embedder.as_deref()
+    }
+
+    /// Where the local embedding model is cached (SPEC §11).
+    pub fn models_dir(&self) -> PathBuf {
+        self.root.join("models")
     }
 
     /// Open a store in a temporary directory. Test helper.
