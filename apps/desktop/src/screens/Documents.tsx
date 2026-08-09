@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { api, type Entity, type Neighbour, type Page } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
 import { Badge, Empty, ErrorBox, Id, Spinner, cx, statusTone, when } from "../components/ui";
+import { Markdown } from "../components/Markdown";
 import type { ScreenProps } from "../App";
 
 /** The five prose-bearing types, in the order they are usually read. */
@@ -96,7 +97,7 @@ export function DocumentsScreen({ project, generation }: ScreenProps) {
             <ErrorBox error={doc.error} retry={doc.reload} />
           </div>
         ) : (
-          <article className="mx-auto max-w-3xl p-6">
+          <article className="mx-auto max-w-4xl p-6 pb-24">
             <header className="mb-4">
               <h1 className="text-xl font-semibold tracking-tight">
                 {doc.data?.document?.title ?? "Untitled"}
@@ -178,9 +179,7 @@ export function DocumentsScreen({ project, generation }: ScreenProps) {
             ) : null}
 
             {doc.data?.document ? (
-              <div className="selectable text-[14px] leading-relaxed whitespace-pre-wrap">
-                {doc.data.document.body}
-              </div>
+              <Markdown>{doc.data.document.body}</Markdown>
             ) : (
               <Empty
                 message="This artifact has no body yet."

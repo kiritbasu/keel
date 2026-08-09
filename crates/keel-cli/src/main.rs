@@ -9,6 +9,7 @@
 //! arrives in Phase 1, with the dogfooding switch.
 
 mod bootstrap;
+mod import;
 mod render_status;
 
 use anyhow::{Context, Result, bail};
@@ -60,6 +61,28 @@ enum Command {
 
     /// Load the realistic fixture corpus into an empty store.
     Fixture,
+
+    /// Import markdown files into Keel as versioned documents.
+    ///
+    /// Re-importing is safe: the same file lands on the same artifact, and
+    /// unchanged content appends no revision. So the repo copy can stay
+    /// authoritative for as long as you like with Keel kept in step.
+    Import {
+        /// Markdown files to import.
+        files: Vec<PathBuf>,
+        /// Project id, slug or name.
+        #[arg(long)]
+        project: String,
+        /// What to store them as.
+        #[arg(long, default_value = "spec")]
+        r#as: String,
+        /// Override the inferred spec kind: prd, spec, rfc, design-doc, note.
+        #[arg(long)]
+        kind: Option<String>,
+        /// Override the title, which otherwise comes from the first heading.
+        #[arg(long)]
+        title: Option<String>,
+    },
 
     /// Seed Keel's own project — the dogfooding switch.
     ///
@@ -128,7 +151,105 @@ fn main() -> Result<()> {
         Command::RenderStatus { project, out } => run_render_status(&home, project, out.clone()),
         Command::Mirror { project, repo } => run_mirror(&home, project, repo.clone(), cli.json),
         Command::Bootstrap { repo, only } => run_bootstrap(&home, repo.clone(), *only, cli.json),
+        Command::Import {
+            files,
+            project,
+            r#as,
+            kind,
+            title,
+        } => run_import(
+            &home,
+            files,
+            project,
+            r#as,
+            kind.clone(),
+            title.clone(),
+            cli.json,
+        ),
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_import(
+    home: &PathBuf,
+    files: &[PathBuf],
+    project: &str,
+    as_type: &str,
+    kind: Option<String>,
+    title: Option<String>,
+    json: bool,
+) -> Result<()> {
+    use keel_core::{EntityType, SpecKind};
+
+    if files.is_empty() {
+        bail!("no files given. Pass one or more markdown paths");
+    }
+    if title.is_some() && files.len() > 1 {
+        bail!(
+            "--title applies to a single file; {} were given",
+            files.len()
+        );
+    }
+
+    let entity_type = EntityType::parse(as_type)?;
+    let kind = match kind {
+        Some(k) => Some(SpecKind::parse(&k)?),
+        None => None,
+    };
+
+    let mut store = open(home)?;
+    let found = resolve_project(&store, project)?;
+    let project_id = found.id().clone();
+
+    let mut rows = Vec::new();
+    for path in files {
+        let imported = import::file(
+            &mut store,
+            path,
+            &project_id,
+            entity_type,
+            kind,
+            title.clone(),
+        )?;
+        rows.push((path.clone(), imported));
+    }
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!(
+                rows.iter()
+                    .map(|(path, i)| serde_json::json!({
+                        "file": path.display().to_string(),
+                        "id": i.entity_id.as_str(),
+                        "title": i.title,
+                        "version": i.version,
+                        "created": i.created,
+                        "revised": i.revised,
+                        "bytes": i.bytes,
+                    }))
+                    .collect::<Vec<_>>()
+            ))?
+        );
+    } else {
+        for (path, i) in &rows {
+            let what = if i.created {
+                "created"
+            } else if i.revised {
+                "revised"
+            } else {
+                "unchanged"
+            };
+            println!(
+                "{what:>9}  {}  v{}  {} bytes  {}",
+                i.title,
+                i.version,
+                i.bytes,
+                path.display()
+            );
+        }
+    }
+    Ok(())
 }
 
 fn run_bootstrap(home: &PathBuf, repo: Option<String>, only: bool, json: bool) -> Result<()> {

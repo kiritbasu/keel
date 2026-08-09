@@ -520,6 +520,74 @@ fn blobs_round_trip() {
 }
 
 #[test]
+fn a_full_size_specification_round_trips_byte_for_byte() {
+    // Keel's own SPEC.md is 51 KB. If a document that size could not go in,
+    // come back unchanged, stay searchable and still diff, then "read your
+    // specs in the app" would not be a real offer.
+    let mut f = Fixture::new();
+    let id = f.spec("Keel — Technical Specification");
+
+    // Built rather than read from disk, so the test does not depend on a path
+    // outside the crate — but shaped like the real thing: headings, prose,
+    // tables, fenced code.
+    let mut body = String::from("# Technical Specification\n\n");
+    for section in 1..=150 {
+        body.push_str(&format!(
+            "## {section}. Section {section}\n\n             Prose explaining why section {section} is the way it is, at enough length \
+             that the whole document reaches the size of a real specification rather \
+             than a toy one.\n\n             | Column | Meaning |\n|---|---|\n| a | the first |\n| b | the second |\n\n             ```sql\nSELECT {section} AS n FROM generate_series(1, 10);\n```\n\n"
+        ));
+    }
+    body.push_str("## Buried\n\nThe phrase reciprocal rank fusion appears only here.\n");
+    assert!(body.len() > 20_000, "not a realistic size: {}", body.len());
+
+    let doc = Document::first(
+        EntityType::Spec,
+        id.clone(),
+        Some(f.project_id.clone()),
+        "Keel — Technical Specification",
+        &body,
+        Actor::Claude,
+        Utc::now(),
+    )
+    .unwrap();
+    f.store.write_revision(doc).unwrap();
+
+    let back = f.store.revision(&id, None).unwrap().unwrap();
+    assert_eq!(back.body, body, "the body must come back byte-identical");
+
+    // A phrase near the end must still be findable — a document that is stored
+    // but not indexed is a document nobody will find.
+    let hits = f
+        .store
+        .search(&SearchQuery::new("reciprocal rank fusion"))
+        .unwrap();
+    assert!(
+        hits.items.iter().any(|h| h.entity_id == id),
+        "a phrase from deep inside a large document must be searchable"
+    );
+
+    // And a one-line edit produces a one-line diff, not a whole-file rewrite.
+    let edited = body.replace("## 1. Section 1", "## 1. Section 1 (revised)");
+    f.store
+        .write_revision(
+            Document::first(
+                EntityType::Spec,
+                id.clone(),
+                Some(f.project_id.clone()),
+                "Keel — Technical Specification",
+                &edited,
+                Actor::Human,
+                Utc::now(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    let diff = f.store.diff(&id, 1, 2).unwrap();
+    assert_eq!((diff.added, diff.removed), (1, 1), "{}", diff.unified);
+}
+
+#[test]
 fn a_document_survives_reopening_the_store() {
     let dir = tempfile::tempdir().unwrap();
     let (project_id, spec_id) = {

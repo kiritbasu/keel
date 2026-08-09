@@ -646,7 +646,7 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
     // --- Specs -----------------------------------------------------------
     let specs_src: [(&str, SpecKind, SpecStatus, &str); 3] = [
         (
-            "Keel — Product Requirements",
+            "Keel — Product Requirements Document",
             SpecKind::Prd,
             SpecStatus::Approved,
             "See `product/PRD.md` in the repository for the full text.\n\n\
@@ -662,7 +662,8 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
             "Keel — Technical Specification",
             SpecKind::Spec,
             SpecStatus::Approved,
-            "See `product/SPEC.md` in the repository for the full text.\n\n\
+            "*Placeholder. Run `keel import product/SPEC.md --project keel` to replace this with \
+          the real document — it lands here as a new revision because the title matches.*\n\n\
           Two corrections were made against running code during the build: §5's Lance call \
           syntax, and §6's claim that the MCP surface is built on 2026-07-28 alone. Both are \
           annotated in place.",
@@ -1053,7 +1054,7 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
             "keel_context — the digest",
             Relation::Implements,
             "spec",
-            "Keel — Product Requirements",
+            "Keel — Product Requirements Document",
             Some("REQ-3"),
         ),
         (
@@ -1061,7 +1062,7 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
             "Hybrid search — BM25 plus vectors, RRF fusion",
             Relation::Implements,
             "spec",
-            "Keel — Product Requirements",
+            "Keel — Product Requirements Document",
             Some("REQ-4"),
         ),
         (
@@ -1069,7 +1070,7 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
             "Implement idempotency keys and optimistic concurrency",
             Relation::Implements,
             "spec",
-            "Keel — Product Requirements",
+            "Keel — Product Requirements Document",
             Some("REQ-7"),
         ),
         (
@@ -1077,7 +1078,7 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
             "Backup: DuckDB and Lance to Parquet, restore",
             Relation::Implements,
             "spec",
-            "Keel — Product Requirements",
+            "Keel — Product Requirements Document",
             Some("REQ-11"),
         ),
         (

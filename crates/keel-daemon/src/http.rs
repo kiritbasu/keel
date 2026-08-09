@@ -458,7 +458,13 @@ async fn api_entities(
         Ok(page) => (
             StatusCode::OK,
             Json(json!({
-                "data": { "items": page.items, "total": page.total, "truncated": page.truncated }
+                "data": {
+                    // The same shaping every other surface uses, so `version`
+                    // is where a caller expects it regardless of endpoint.
+                    "items": page.items.iter().map(keel_mcp::entity_json).collect::<Vec<_>>(),
+                    "total": page.total,
+                    "truncated": page.truncated
+                }
             })),
         )
             .into_response(),

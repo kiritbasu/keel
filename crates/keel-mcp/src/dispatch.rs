@@ -183,8 +183,13 @@ pub fn resolve_project(store: &DuckStore, reference: &str) -> Result<EntityId, R
     }
 }
 
-/// Serialise an entity for a tool response, lifting the concurrency version
-/// to the top level.
+/// Serialise an entity for the wire, lifting the concurrency version to the
+/// top level.
+///
+/// Public because *every* surface must use it. `/api/entities` once serialised
+/// entities directly and `/api/entity/{id}` went through here, so the same
+/// field appeared in two shapes depending on which endpoint you asked — which
+/// is the kind of inconsistency a caller discovers at the worst moment.
 ///
 /// `version` lives inside the audit block in the domain model, which is right
 /// there and wrong here: `keel_update` documents a `version` argument, and an
@@ -193,7 +198,7 @@ pub fn resolve_project(store: &DuckStore, reference: &str) -> Result<EntityId, R
 /// papercut that turns into a 409 and a confused retry.
 ///
 /// The audit block is left intact — this adds a field, it does not move one.
-fn entity_json(entity: &Entity) -> Value {
+pub fn entity_json(entity: &Entity) -> Value {
     let mut value = serde_json::to_value(entity).unwrap_or(Value::Null);
     if let Some(obj) = value.as_object_mut() {
         obj.insert("version".to_owned(), json!(entity.audit().version));
