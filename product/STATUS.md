@@ -56,6 +56,31 @@
 
 ---
 
+## Phase 1 — Daemon
+
+**Goal:** a live Claude session can orient itself, search, read, write and link, over MCP.
+
+**Exit criteria:** a Claude session completes PRD UC-1 → UC-4; two concurrent sessions writing produce zero duplicates and zero lost updates.
+
+> **On the MCP surface:** §6 was written against the 2026-07-28 announcement rather than the finished specification. Nine deltas are recorded in `product/DECISIONS.md` ("MCP deltas"). None changes the nine-tool surface; all of them change the daemon's wire handling. `server/discover` is now a *required* RPC, results carry `resultType`, and `tools/list` must return `ttlMs`/`cacheScope`.
+
+| ID | Task | Status | Notes |
+|---|---|---|---|
+| P1-1 | JSON-RPC + stateless Streamable HTTP transport | `todo` | Header/body validation (`Mcp-Method`, `Mcp-Name`, `MCP-Protocol-Version`), error codes `-32020/-32021/-32022`, GET/DELETE → 405, `Origin` → 403 |
+| P1-2 | `server/discover` and `tools/list` | `todo` | Both required. Deterministic tool order for prompt-cache hits; `ttlMs` long because Keel's tool list is static |
+| P1-3 | The nine tool schemas | `todo` | SPEC §6.2. Nine is the ceiling — more tools means worse model selection, not more capability |
+| P1-4 | `keel_context` — the digest | `todo` | SPEC §6.3. 3–4k tokens at `standard`. Questions and terms **never** truncated; `budget_exceeded` rather than trimming them |
+| P1-5 | Read tools: `keel_search`, `keel_get`, `keel_activity`, `keel_projects` | `todo` | `keel_get` takes `version` and `diff_against` — REQ-2 wants diffs at the API layer, not only in the UI |
+| P1-6 | Write tools: `keel_create`, `keel_update`, `keel_write_doc`, `keel_link` | `todo` | Every write returns the resulting entity. 409 carries `latest_version`, current state and `events_since` |
+| P1-7 | Shared single write path | `todo` | D-5. One store behind one lock; this is what makes the concurrency test meaningful |
+| P1-8 | Local REST + SSE for the desktop app | `todo` | Keel's own API, not MCP. Same shape as a remote daemon so the web build is one bundle |
+| P1-9 | Un-ignore the concurrency test | `todo` | Phase 1's exit criterion. Zero duplicates, zero lost updates |
+| P1-10 | Snapshot tests for every tool response | `todo` | `insta`. They are an API contract and drift should show up in a diff |
+| P1-11 | `keel-cli render-status` | `todo` | The dogfooding switch. The §8 mirror is prose-only (TQ-5), so `product/STATUS.md` needs its own renderer |
+| P1-12 | Scripted UC-1 → UC-4 harness | `todo` | The automated proxy for the human gate, per KB's instruction. Drives a real MCP client against a real daemon |
+
+---
+
 ## Later phases
 
 Not broken down yet. Decompose at the start of each phase, not before — earlier phases will change what the later ones need.

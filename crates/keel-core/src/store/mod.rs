@@ -209,7 +209,8 @@ pub struct SearchHit {
     /// The fused relevance score. Higher is better.
     pub score: f64,
     /// Which index produced this hit, kept so retrieval quality (R-3) can be
-    /// evaluated per index rather than in aggregate.
+    /// evaluated per index rather than in aggregate — "is the semantic half
+    /// earning its keep" is otherwise unanswerable.
     pub source: SearchSource,
 }
 
@@ -217,11 +218,12 @@ pub struct SearchHit {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SearchSource {
-    /// The Lance `documents` dataset — hybrid semantic plus keyword.
-    Documents,
-    /// The DuckDB entity index — keyword over titles and short bodies.
-    Entities,
-    /// Both indexes returned it, and the scores were fused.
+    /// The DuckDB BM25 index, which covers every searchable artifact.
+    Keyword,
+    /// The Lance vector index, over prose embeddings.
+    Semantic,
+    /// Both found it. The strongest signal available here: an independent
+    /// keyword match and an independent semantic match agreeing.
     Both,
 }
 

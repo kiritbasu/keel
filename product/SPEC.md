@@ -440,11 +440,15 @@ Note `depends_on` never appears in a traversal — §3.3 normalises it to `block
 
 ## 5. Search
 
-Hybrid, via the Lance DuckDB extension, over the unified `documents` dataset:
+Hybrid: **BM25 in DuckDB, vectors in Lance, fused by reciprocal rank in `keel-core`.**
 
-- `lance_fts()` — BM25 keyword
-- `lance_vector_search()` — semantic
-- `lance_hybrid_search()` — fused, reciprocal-rank
+> **Corrected 2026-08-09 against running code.** This section originally delegated both halves to `lance_hybrid_search()`. That function's keyword half does not behave predictably on multi-term queries — `"onboarding metering"` matched a document containing only *metering*, while `"onboarding slow"` matched nothing despite a document containing *onboarding*. The extension documents only single-word examples and no way to build the index that would presumably fix it. Rather than build retrieval on a function whose semantics cannot be stated, BM25 moved to DuckDB's `fts` extension, where they can. See DECISIONS B-12 and QUESTIONS TQ-10.
+
+- `fts_entities` (DuckDB, BM25) — **every** searchable artifact. Prose titles and bodies are joined in from the Lance dataset when the index is rebuilt, so a spec and a task compete in one ranking rather than in two result sets that then have to be reconciled.
+- `lance_vector_search()` — the semantic half, over the embeddings.
+- Reciprocal-rank fusion in `keel-core` — because BM25 scores and vector distances are not on comparable scales, so fusing on *rank* is the only defensible merge. A hit found independently by both is the strongest signal available.
+
+The DuckDB FTS index is a **snapshot**: it does not track inserts. An entity created after the last build is silently unfindable, which is the same shape of failure as an inverted graph traversal. The index is therefore rebuilt whenever the event log's high-water mark has moved.
 
 The Lance datasets are attached under a namespace. **ATTACH takes the directory that holds the datasets, not an individual dataset path** — `ATTACH '${KEEL_HOME}/lance' AS lancedb (TYPE lance)` exposes both `lancedb.documents` and `lancedb.blobs` as ordinary joinable relations, from the one attach. The search *functions*, by contrast, take the individual dataset path. Both facts were verified against DuckDB 1.5.5; an earlier draft of this section attached `…/lance/documents.lance`, which resolves to `documents.lance/documents.lance` and finds nothing.
 

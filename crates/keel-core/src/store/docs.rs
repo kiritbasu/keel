@@ -1,15 +1,34 @@
 //! Document revisions, blobs, and hybrid search.
 //!
 //! The prose half of the store. Revisions are append-only rows in the single
-//! Lance `documents` dataset (D-2), and search fuses two indexes:
+//! Lance `documents` dataset (D-2), and search fuses two indexes by reciprocal
+//! rank:
 //!
-//! - **Lance `documents`** — hybrid semantic plus BM25, over every prose body.
-//! - **DuckDB `fts_entities`** — BM25 over the types that have no prose body:
-//!   task, milestone, term, environment, artifact, project.
+//! - **DuckDB `fts_entities`** — BM25 over *every* searchable artifact, prose
+//!   included. Titles and bodies of the current revision are joined in from
+//!   Lance so one index covers the whole corpus.
+//! - **Lance `documents`** — vector search over the embeddings.
 //!
 //! Together these satisfy REQ-4's "every artifact type that carries text".
 //! Metrics and observations are excluded by design — they are numeric, and
 //! reaching them is a filter rather than a query.
+//!
+//! # Why BM25 is DuckDB's job and not Lance's
+//!
+//! SPEC §5 put both halves inside `lance_hybrid_search`. Its keyword half
+//! turned out not to be characterisable: on an un-indexed dataset, multi-term
+//! queries match inconsistently — `"onboarding metering"` returns a document
+//! containing only *metering*, while `"onboarding slow"` returns nothing at all
+//! despite a document containing *onboarding*. The extension's documentation
+//! shows only single-word examples and documents no way to build the index that
+//! would presumably fix it.
+//!
+//! A search that returns plausible-but-wrong results is the same failure class
+//! as an inverted graph traversal, so it gets the same answer: do it somewhere
+//! the semantics are known. DuckDB's FTS extension is a real BM25 index with
+//! documented behaviour. Lance keeps the job it is uniquely good at — the
+//! vector index and the multimodal blobs — and `keel-core` was always doing the
+//! cross-index fusion anyway. See DECISIONS B-12.
 //!
 //! # The stale-index trap
 //!
@@ -102,9 +121,9 @@ impl DuckStore {
             return Ok(());
         }
 
-        // `label` and `body` are unioned from the six non-prose types. The
-        // column names differ per table — that is what `v_entities` exists to
-        // paper over — but FTS needs a real table, not a view.
+        // Every searchable type, prose included: the current revision's title
+        // and body are joined in from the Lance dataset so one BM25 index
+        // covers the whole corpus (DECISIONS B-12).
         //
         // These run as three separate statements, not one batch, and that is
         // load-bearing: `create_fts_index` is a macro that queries the target
@@ -129,7 +148,10 @@ impl DuckStore {
                     FROM environments WHERE archived_at IS NULL
              UNION ALL
              SELECT id, 'artifact', project_id, name, COALESCE(url, '')
-                    FROM artifacts WHERE archived_at IS NULL;";
+                    FROM artifacts WHERE archived_at IS NULL
+             UNION ALL
+             SELECT d.entity_id, d.entity_type, COALESCE(d.project_id, ''), d.title, d.body
+                    FROM lancedb.documents d WHERE d.status = 'current';";
 
         self.connection()
             .execute_batch(rebuild)
@@ -152,36 +174,25 @@ impl DuckStore {
             .map_err(Error::storage("record the entity index watermark"))
     }
 
-    /// Search the Lance `documents` dataset.
-    fn search_documents(&self, query: &SearchQuery) -> Result<Vec<SearchHit>> {
+    /// Semantic search over the Lance `documents` dataset.
+    ///
+    /// Vector only. The keyword half of document search lives in DuckDB — see
+    /// [`DuckStore::search_keyword`] and DECISIONS B-12 for why.
+    ///
+    /// Returns an empty list when there is no embedder, which is the honest
+    /// answer: without one there is no semantic half, and the keyword half
+    /// still covers everything.
+    fn search_semantic(&self, query: &SearchQuery) -> Result<Vec<SearchHit>> {
+        let Some(embedder) = self.embedder() else {
+            return Ok(Vec::new());
+        };
+        let vector = embedder.embed_one(&query.text)?;
+
         let dataset = self.root().join("lance").join("documents.lance");
         let dataset = dataset.display().to_string().replace('\'', "''");
 
-        // With an embedder, hybrid. Without, keyword only — a store with no
-        // embedder must still be searchable rather than silently returning
-        // nothing, which is why this is a fallback and not an error.
-        let embedding = match self.embedder() {
-            Some(e) => Some(e.embed_one(&query.text)?),
-            None => None,
-        };
-
-        let k = query.inner_limit();
-        let inner = match &embedding {
-            Some(v) => format!(
-                "SELECT * FROM lance_hybrid_search('{dataset}', 'embedding', {}, 'body', ?, k := {k})",
-                Self::embedding_literal(Some(v))
-            ),
-            None => format!("SELECT * FROM lance_fts('{dataset}', 'body', ?, k := {k})"),
-        };
-
-        let score_col = if embedding.is_some() {
-            "_hybrid_score"
-        } else {
-            "_score"
-        };
-
         let mut clauses = vec!["status = 'current'".to_owned()];
-        let mut params: Vec<Value> = vec![Value::Text(query.text.clone())];
+        let mut params: Vec<Value> = Vec::new();
         if let Some(p) = &query.project_id {
             clauses.push("project_id = ?".to_owned());
             params.push(Value::Text(p.as_str().to_owned()));
@@ -213,12 +224,17 @@ impl DuckStore {
             ));
         }
 
+        // Lower `_distance` is closer, so the ordering is ascending and the
+        // score is negated on the way out — RRF only uses rank, but a caller
+        // reading `score` should not see "smaller is better" without warning.
         let sql = format!(
-            "SELECT entity_type, entity_id, project_id, title, body, {score_col} AS score
-             FROM ({inner})
+            "SELECT entity_type, entity_id, project_id, title, body, _distance
+             FROM (SELECT * FROM lance_vector_search('{dataset}', 'embedding', {}, k := {}))
              WHERE {}
-             ORDER BY score DESC
+             ORDER BY _distance ASC
              LIMIT {}",
+            Self::embedding_literal(Some(&vector)),
+            query.inner_limit(),
             clauses.join(" AND "),
             query.limit
         );
@@ -226,15 +242,15 @@ impl DuckStore {
         let mut stmt = self
             .connection()
             .prepare(&sql)
-            .map_err(Error::storage("prepare the document search"))?;
+            .map_err(Error::storage("prepare the semantic search"))?;
         let mut rows = stmt
             .query(params_from_iter(params))
-            .map_err(Error::storage("run the document search"))?;
+            .map_err(Error::storage("run the semantic search"))?;
 
         let mut out = Vec::new();
         while let Some(row) = rows
             .next()
-            .map_err(Error::storage("read a document search hit"))?
+            .map_err(Error::storage("read a semantic search hit"))?
         {
             let body: String = row.get("body").unwrap_or_default();
             out.push(SearchHit {
@@ -252,19 +268,19 @@ impl DuckStore {
                 },
                 title: row.get::<_, String>("title").unwrap_or_default(),
                 excerpt: excerpt(&body, &query.text),
-                score: row
-                    .get::<_, Option<f64>>("score")
+                score: -row
+                    .get::<_, Option<f64>>("_distance")
                     .ok()
                     .flatten()
                     .unwrap_or(0.0),
-                source: SearchSource::Documents,
+                source: SearchSource::Semantic,
             });
         }
         Ok(out)
     }
 
-    /// Search the DuckDB keyword index over the non-prose types.
-    fn search_entities(&self, query: &SearchQuery) -> Result<Vec<SearchHit>> {
+    /// Keyword search over every searchable artifact, prose included.
+    fn search_keyword(&self, query: &SearchQuery) -> Result<Vec<SearchHit>> {
         self.refresh_entity_index()?;
 
         let mut clauses = vec!["score IS NOT NULL".to_owned()];
@@ -277,7 +293,7 @@ impl DuckStore {
             let list: Vec<String> = query
                 .entity_types
                 .iter()
-                .filter(|t| t.is_searchable() && !t.has_document())
+                .filter(|t| t.is_searchable())
                 .map(|t| format!("'{}'", t.as_str()))
                 .collect();
             if list.is_empty() {
@@ -297,27 +313,28 @@ impl DuckStore {
         let mut stmt = self
             .connection()
             .prepare(&sql)
-            .map_err(Error::storage("prepare the entity search"))?;
+            .map_err(Error::storage("prepare the keyword search"))?;
         let mut rows = stmt
             .query(params_from_iter(params))
-            .map_err(Error::storage("run the entity search"))?;
+            .map_err(Error::storage("run the keyword search"))?;
 
         let mut out = Vec::new();
         while let Some(row) = rows
             .next()
-            .map_err(Error::storage("read an entity search hit"))?
+            .map_err(Error::storage("read a keyword search hit"))?
         {
             let body: String = row.get("body").unwrap_or_default();
             let label: String = row.get("label").unwrap_or_default();
+            let entity_type = EntityType::parse(
+                &row.get::<_, String>("entity_type")
+                    .map_err(Error::storage("read a hit's entity_type"))?,
+            )?;
             out.push(SearchHit {
                 entity_id: EntityId::parse(
                     &row.get::<_, String>("id")
                         .map_err(Error::storage("read a hit's id"))?,
                 )?,
-                entity_type: EntityType::parse(
-                    &row.get::<_, String>("entity_type")
-                        .map_err(Error::storage("read a hit's entity_type"))?,
-                )?,
+                entity_type,
                 project_id: match row.get::<_, Option<String>>("project_id").ok().flatten() {
                     Some(p) if !p.is_empty() => EntityId::parse(&p).ok(),
                     _ => None,
@@ -329,7 +346,7 @@ impl DuckStore {
                     .ok()
                     .flatten()
                     .unwrap_or(0.0),
-                source: SearchSource::Entities,
+                source: SearchSource::Keyword,
             });
         }
         Ok(out)
@@ -727,21 +744,30 @@ impl DocumentStore for DuckStore {
             });
         }
 
-        // Either index can legitimately fail — a Lance dataset with no rows
-        // has no FTS index to consult, for instance — and one failing must not
-        // take out the other. A search that returns half the story is far more
+        // Any one index can legitimately fail — an empty Lance dataset has no
+        // FTS index to consult, for instance — and one failing must not take
+        // out the others. A search that returns part of the story is far more
         // useful than one that returns an error.
-        let documents = self.search_documents(query).unwrap_or_else(|e| {
-            tracing::warn!(error = %e, "document search failed; returning entity hits only");
+        let mut lists = Vec::new();
+        lists.push(self.search_keyword(query).unwrap_or_else(|e| {
+            tracing::warn!(error = %e, "keyword search failed; returning semantic hits only");
             Vec::new()
-        });
-        let entities = self.search_entities(query).unwrap_or_else(|e| {
-            tracing::warn!(error = %e, "entity search failed; returning document hits only");
+        }));
+        lists.push(self.search_semantic(query).unwrap_or_else(|e| {
+            tracing::warn!(error = %e, "semantic search failed; returning keyword hits only");
             Vec::new()
-        });
+        }));
 
-        let total = documents.len() + entities.len();
-        let fused = reciprocal_rank_fusion(vec![documents, entities], query.limit);
+        // `total` counts distinct artifacts, not raw hits: the same document
+        // legitimately appears in both the title and body lists, and reporting
+        // it twice would make `truncated` lie.
+        let distinct: std::collections::HashSet<_> = lists
+            .iter()
+            .flatten()
+            .map(|h| h.entity_id.clone())
+            .collect();
+        let total = distinct.len();
+        let fused = reciprocal_rank_fusion(lists, query.limit);
         Ok(Page {
             truncated: total > fused.len(),
             total,
@@ -840,10 +866,10 @@ mod tests {
         // `a` is second in one list and first in the other; `b` is first in
         // one list only. Agreement should carry `a` to the top.
         let docs = vec![
-            hit(b.as_str(), SearchSource::Documents),
-            hit(a.as_str(), SearchSource::Documents),
+            hit(b.as_str(), SearchSource::Semantic),
+            hit(a.as_str(), SearchSource::Semantic),
         ];
-        let ents = vec![hit(a.as_str(), SearchSource::Entities)];
+        let ents = vec![hit(a.as_str(), SearchSource::Keyword)];
 
         let fused = reciprocal_rank_fusion(vec![docs, ents], 10);
         assert_eq!(fused[0].entity_id, a);
@@ -861,15 +887,15 @@ mod tests {
         let b = EntityId::generate(EntityType::Task);
         let one = reciprocal_rank_fusion(
             vec![
-                vec![hit(a.as_str(), SearchSource::Documents)],
-                vec![hit(b.as_str(), SearchSource::Entities)],
+                vec![hit(a.as_str(), SearchSource::Semantic)],
+                vec![hit(b.as_str(), SearchSource::Keyword)],
             ],
             10,
         );
         let two = reciprocal_rank_fusion(
             vec![
-                vec![hit(a.as_str(), SearchSource::Documents)],
-                vec![hit(b.as_str(), SearchSource::Entities)],
+                vec![hit(a.as_str(), SearchSource::Semantic)],
+                vec![hit(b.as_str(), SearchSource::Keyword)],
             ],
             10,
         );
@@ -885,7 +911,7 @@ mod tests {
             .map(|_| {
                 hit(
                     EntityId::generate(EntityType::Task).as_str(),
-                    SearchSource::Documents,
+                    SearchSource::Semantic,
                 )
             })
             .collect();

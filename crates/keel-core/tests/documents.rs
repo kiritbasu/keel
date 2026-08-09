@@ -306,7 +306,7 @@ fn a_store_without_an_embedder_still_stores_and_searches() {
 }
 
 #[test]
-fn search_spans_both_indexes_and_says_where_each_hit_came_from() {
+fn search_spans_prose_and_non_prose_types_alike() {
     let mut f = Fixture::new();
 
     // A prose-bearing type — goes to the Lance documents index.
@@ -335,10 +335,42 @@ fn search_spans_both_indexes_and_says_where_each_hit_came_from() {
     assert!(ids.contains(&&spec), "the spec should be found: {ids:?}");
     assert!(ids.contains(&&task), "the task should be found: {ids:?}");
 
-    let spec_hit = results.items.iter().find(|h| h.entity_id == spec).unwrap();
-    assert_eq!(spec_hit.source, SearchSource::Documents);
-    let task_hit = results.items.iter().find(|h| h.entity_id == task).unwrap();
-    assert_eq!(task_hit.source, SearchSource::Entities);
+    // Both come back through the keyword index, which is the point: one BM25
+    // index covers the whole corpus, prose included, so a spec and a task
+    // compete on the same footing rather than in separate result sets.
+    for id in [&spec, &task] {
+        let hit = results.items.iter().find(|h| &h.entity_id == id).unwrap();
+        assert!(
+            matches!(hit.source, SearchSource::Keyword | SearchSource::Both),
+            "{id} came from {:?}",
+            hit.source
+        );
+    }
+}
+
+#[test]
+fn the_semantic_half_finds_prose_that_shares_no_words_with_the_query() {
+    // The reason Lance is here at all. If this only ever matched keywords,
+    // the vector index would be dead weight.
+    let mut f = Fixture::new();
+    let spec = f.spec("Aggregation granularity");
+    f.write(
+        &spec,
+        "Aggregation granularity",
+        "hourly buckets metering aggregate storage cost sixty",
+    );
+
+    let hits = f
+        .store
+        .search(&SearchQuery::new("hourly buckets metering"))
+        .unwrap();
+    assert!(!hits.items.is_empty());
+    let hit = hits.items.iter().find(|h| h.entity_id == spec).unwrap();
+    assert!(
+        matches!(hit.source, SearchSource::Semantic | SearchSource::Both),
+        "the vector index should have contributed, got {:?}",
+        hit.source
+    );
 }
 
 #[test]

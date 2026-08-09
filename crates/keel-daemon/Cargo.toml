@@ -7,6 +7,14 @@ rust-version.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+[lib]
+name = "keel_daemon"
+path = "src/lib.rs"
+
+[[bin]]
+name = "keel-daemon"
+path = "src/main.rs"
+
 [lints]
 workspace = true
 
@@ -16,13 +24,17 @@ keel-mcp.workspace = true
 axum.workspace = true
 tokio.workspace = true
 tower-http.workspace = true
+async-stream.workspace = true
+futures-util.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-clap.workspace = true
+clap = { workspace = true, features = ["env"] }
 chrono.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+insta.workspace = true
+reqwest.workspace = true

@@ -1,8 +1,28 @@
 //! The MCP protocol layer: tool schemas, argument decoding, response shaping.
 //!
-//! Split from `keel-daemon` so the tool surface can be exercised in tests
-//! without binding a port. Phase 1 fills this in; the crate exists now so the
-//! boundary is a compile error rather than a convention.
+//! Split from `keel-daemon` so the tool surface can be exercised without
+//! binding a port — which is what makes the snapshot tests possible, and they
+//! are the API contract.
+//!
+//! Three modules, in the order a request meets them:
+//!
+//! - [`protocol`] — JSON-RPC and the 2026-07-28 stateless wire contract.
+//! - [`tools`] — the nine tool definitions. These descriptions *are* the
+//!   product; they are the only documentation an agent gets.
+//! - [`dispatch`] — executing a call against `keel-core`, and turning domain
+//!   errors into something a model can act on.
+//!
+//! [`context`] builds the `keel_context` digest, which is important enough to
+//! live on its own.
 
-/// Placeholder while the crate is scaffolded. Filled in during Phase 1.
-pub fn placeholder() {}
+pub mod context;
+pub mod dispatch;
+pub mod protocol;
+pub mod tools;
+
+pub use context::{Depth, Digest};
+pub use dispatch::{ToolCall, dispatch, to_rpc_error};
+pub use protocol::{
+    HeaderCheck, PROTOCOL_VERSION, Request, Response, RpcError, check_headers, codes,
+};
+pub use tools::{Tool, all as all_tools, discover_result, find as find_tool, list_result};
