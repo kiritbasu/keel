@@ -63,6 +63,48 @@ JSON
 }
 write_mcp_config
 
+
+# --- whose API are we actually talking to? ---------------------------------
+#
+# This machine's ~/.zshrc routes Claude Code through OpenRouter:
+#
+#   ANTHROPIC_BASE_URL=https://openrouter.ai/...
+#   ANTHROPIC_AUTH_TOKEN=$OPENROUTER_API_KEY
+#   ANTHROPIC_API_KEY=""
+#
+# Three consequences, all of which cost an evening:
+#
+#  - Requests go to OpenRouter, which for this shape of call did not answer at
+#    all. The process sat in the foreground using no CPU and looked hung.
+#  - Unsetting only ANTHROPIC_BASE_URL sends the OpenRouter *token* to
+#    api.anthropic.com, which is exactly "401 Invalid bearer token".
+#  - Even when it works, the sessions run on whatever OpenRouter routes to.
+#    The gate would then measure some other model's response to SKILL.md,
+#    which is not the claim being tested.
+#
+# So: all three variables have to go together, or none of them.
+if [ -n "${ANTHROPIC_AUTH_TOKEN:-}" ] ||
+   { [ -n "${ANTHROPIC_BASE_URL:-}" ] && [ "${ANTHROPIC_BASE_URL}" != "https://api.anthropic.com" ]; }; then
+  echo "This shell points Claude Code at a third-party endpoint."
+  echo "  ANTHROPIC_BASE_URL   = ${ANTHROPIC_BASE_URL:-<unset>}"
+  if [ -n "${ANTHROPIC_AUTH_TOKEN:-}" ]; then
+    echo "  ANTHROPIC_AUTH_TOKEN = <set, ${#ANTHROPIC_AUTH_TOKEN} chars — not printed>"
+  else
+    echo "  ANTHROPIC_AUTH_TOKEN = <unset>"
+  fi
+  echo
+  echo "The gate must run against Claude, or it measures a different model's"
+  echo "response to SKILL.md. Re-run with all three unset together:"
+  echo
+  echo "    env -u ANTHROPIC_BASE_URL -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY \\"
+  echo "        ./scripts/gate-run.sh"
+  echo
+  echo "If that reports a login problem, log in the same way first:"
+  echo "    env -u ANTHROPIC_BASE_URL -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY claude"
+  echo "  then /login"
+  exit 1
+fi
+
 # --- preconditions ---------------------------------------------------------
 curl -sf http://127.0.0.1:7654/api/health >/dev/null || {
   echo "The daemon is not answering on 127.0.0.1:7654. Start it with: keel-daemon"
@@ -89,10 +131,22 @@ claude mcp list 2>/dev/null | grep -q '^keel:.*Connected' || {
 # using no CPU, waiting on a question nobody could see. `</dev/null` does not
 # help — prompts read /dev/tty directly, which a stdin redirect does not touch.
 probe_log="$work/probe.log"
+: > "$probe_log"
 ( cd "${TMPDIR:-/tmp}" && claude -p "reply with the single word: ready" \
   --mcp-config "$mcp_config" --strict-mcp-config --allowedTools "" </dev/null 2>&1 ) \
-  | tee "$probe_log"
+  | tee "$probe_log" &
+probe_pid=$!
+# macOS ships no `timeout`. Sixty seconds is ten times what a healthy probe
+# takes, and an unhealthy one previously ran until someone lost patience.
+( sleep 60; kill "$probe_pid" 2>/dev/null ) & killer=$!
+wait "$probe_pid" 2>/dev/null
+kill "$killer" 2>/dev/null
 probe="$(cat "$probe_log" 2>/dev/null)"
+if [ -z "$probe" ]; then
+  probe="No output within 60 seconds, and nothing printed. The session was not
+  refused, it never answered — which on this machine meant requests were going
+  to a third-party endpoint that did not reply."
+fi
 if ! printf '%s' "$probe" | grep -qi 'ready'; then
   echo "A session could not start, so the gate was not run. Claude said:"
   echo
