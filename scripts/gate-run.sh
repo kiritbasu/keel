@@ -31,6 +31,10 @@ set -uo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 work="${GATE_DIR:-${TMPDIR:-/tmp}/keel-gate}"
 keel="${KEEL_BIN:-$root/target/release/keel}"
+# Overridable so the gate can run against a scratch store rather than the real
+# one — a cold start is part of what is being measured, and a store that
+# already knows the projects is not one.
+daemon_url="${KEEL_DAEMON_URL:-http://127.0.0.1:7654}"
 
 tools="Read,Grep,Glob,Edit,Write,Skill"
 tools="$tools,mcp__keel__keel_context,mcp__keel__keel_create,mcp__keel__keel_update"
@@ -53,10 +57,10 @@ say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 mcp_config="$work/mcp.json"
 write_mcp_config() {
   mkdir -p "$work"
-  cat > "$mcp_config" <<'JSON'
+  cat > "$mcp_config" <<JSON
 {
   "mcpServers": {
-    "keel": { "type": "http", "url": "http://127.0.0.1:7654/mcp" }
+    "keel": { "type": "http", "url": "$daemon_url/mcp" }
   }
 }
 JSON
@@ -106,8 +110,8 @@ if [ -n "${ANTHROPIC_AUTH_TOKEN:-}" ] ||
 fi
 
 # --- preconditions ---------------------------------------------------------
-curl -sf http://127.0.0.1:7654/api/health >/dev/null || {
-  echo "The daemon is not answering on 127.0.0.1:7654. Start it with: keel-daemon"
+curl -sf "$daemon_url/api/health" >/dev/null || {
+  echo "The daemon is not answering on $daemon_url. Start it with: keel-daemon"
   exit 1
 }
 [ -f "$HOME/.claude/skills/keel/SKILL.md" ] || {

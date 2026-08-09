@@ -156,6 +156,32 @@ Nothing.
 
 ---
 
+## Phase 2's gate: three runs, all invalid
+
+**Retracting what the section below says.** Thirty sessions across three runs, and none of them loaded the skill. Proven with `--output-format stream-json`, which lists the tools a session actually invoked:
+
+```
+tools invoked: ['ToolSearch', 'mcp__keel__keel_context', 'mcp__keel__keel_search']
+```
+
+No `Skill` invocation. `SKILL.md` was installed, listed as available, and never read. So the runs measured *"will Claude reach for nine MCP tools with no instructions"* — not the claim Phase 2 makes. `plugin/README.md` said from the start that this gate cannot be automated. It was right and I built the harness anyway.
+
+| Run | Store | Result | Valid? |
+|---|---|---|---|
+| 1 | live, cold | 1 of 10 wrote | no — skill never loaded |
+| 2 | live, Tideline archived | 0 of 10 | no — plus an archived near-match I created |
+| 3 | empty scratch store | 0 of 10 | no — skill never loaded |
+
+**What the runs do establish**, and it is not nothing:
+
+- A baseline: with the tools present and no skill, ~3 in 10 sessions engage with Keel and ~0–1 in 10 write.
+- The `cwd` addition to `keel_context` works. Sessions now say "`keel_context` matched nothing for this checkout" rather than inferring absence from a list of other projects. That change was right and it landed.
+- **Even knowing no project matched, sessions asked permission instead of creating one** — three times, in three runs, with no skill text telling them to. So the binding constraint is the model's own caution, and wording in `SKILL.md` may not be enough to clear it. That is a more interesting finding than the gate score.
+
+Recorded as **TQ-18** (`que_01KZM6XPTV6GC2R12N75B9JQ5X`). Next step is one interactive session to establish whether skills load there at all, before spending ten.
+
+---
+
 ## Phase 2's gate: run, and failed 1 of 10
 
 Run 2026-08-09, headless, ten sessions across two scratch projects that mention Keel nowhere, against real Claude with the skill loaded.
@@ -165,6 +191,8 @@ Run 2026-08-09, headless, ten sessions across two scratch projects that mention 
 | Sessions that wrote | 9 of 10 | **1 of 10 — fails** |
 | Every write attributed | yes | yes |
 | Duplicate projects | 0 | 0 |
+
+> **Superseded by TQ-18 — the claim in this paragraph is wrong.** The skill never loaded; sessions were reaching for an available MCP tool, not following it.
 
 **The skill is not the problem — it fires.** Sessions called `keel_context`, understood what Keel was for, and said so:
 
