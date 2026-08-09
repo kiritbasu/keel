@@ -10,10 +10,10 @@
 | | |
 |---|---|
 | **Current phase** | Phase 0 — Spine |
-| **Phase progress** | Phase 0: **16/16** · Phase 1: **12/12** |
-| **Status** | Phases 0 and 1 built; Phase 2 in progress |
+| **Phase progress** | Phase 0: **16/16** · Phase 1: **12/12** · Phase 2: **7/7 built** |
+| **Status** | Phases 0–2 built; Phase 3 in progress |
 | **Blocked on** | Nothing |
-| **Next up** | Phase 2 — the plugin: skill, session threading, mirror hooks |
+| **Next up** | Phase 3 — the Tauri desktop app |
 | **Last session** | 2026-08-09 |
 | **Last updated** | 2026-08-09 |
 
@@ -81,6 +81,26 @@
 
 ---
 
+## Phase 2 — Plugin
+
+**Goal:** Claude writes to Keel without being told to.
+
+**Exit criterion:** across 10 unprompted sessions, Claude writes to Keel in ≥9, threads `session_id` on every write, and creates 0 duplicate projects.
+
+> **This gate cannot be automated and has not been run.** "Unprompted" is the whole claim, and a test that calls the tool has prompted it. `plugin/README.md` has the protocol for running it by hand, including what each failure mode looks like and which part of `SKILL.md` to change. Everything else in this phase is built and verified.
+
+| ID | Task | Status | Notes |
+|---|---|---|---|
+| P2-1 | Markdown mirror generator | `done` | Prose only (TQ-5). Skips unchanged files by comparing content with the timestamped header stripped, so regenerating does not dirty the tree. A test asserts this module contains **no** way to read a mirror as truth — the absence is the enforcement of D-3 |
+| P2-2 | The skill | `done` | `plugin/skills/keel/SKILL.md`. Leads with orientation, then session threading, then a when-this-happens-write-that table. Names the two most-skipped artifacts (questions, decisions) and the shredding failure explicitly |
+| P2-3 | Session-ID threading | `done` | Third section of the skill, with the self-check: `keel_context` echoes the id back, and `null` means it is not threading |
+| P2-4 | Project-confirmation behaviour | `done` | `keel_projects` returns `requires_confirmation` on a near miss; the skill makes this the one place the agent must stop and ask rather than get on with it |
+| P2-5 | `PostToolUse` hook for mirror edits | `done` | **Verified end to end against a running daemon:** an edit to a generated spec became revision 2, attributed to the session. Refuses aggregate files, unheadered files and non-mirror paths; reports a down daemon without failing the edit |
+| P2-6 | MCP config and install script | `done` | `plugin/.mcp.json`, `plugin/install.sh`. The installer prints the configuration rather than editing anyone's settings file |
+| P2-7 | The ten-session protocol | `done` | `plugin/README.md`. What to measure, how to measure it, and what each failure mode means |
+
+---
+
 ## Later phases
 
 Not broken down yet. Decompose at the start of each phase, not before — earlier phases will change what the later ones need.
@@ -113,7 +133,7 @@ KB's instruction was to substitute an automated proxy for the human-in-the-loop 
 |---|---|---|
 | **Phase 1** — "a live Claude session completes UC-1 → UC-4" | `keel-daemon/tests/use_cases.rs`: 21 tests driving real HTTP, real headers, real JSON-RPC against a real daemon and a real store. All four use cases complete. | That the *tool descriptions* lead a model to pick the right tool unprompted. A scripted client is told which tool to call; an agent is not. This is the half that matters and only KB can run it. |
 | **Phase 1** — "two concurrent sessions, zero duplicates, zero lost updates" | `keel-daemon/tests/concurrency.rs`: 16 concurrent sessions. **Fully verified** — this gate needs no human. | Nothing. |
-| **Phase 2** — "≥9 of 10 unprompted sessions write to Keel; 0 duplicate projects" | Not substitutable. "Unprompted" is the entire claim, and a test that calls the tool has prompted it. | All of it. See `plugin/README.md` for how to run the ten sessions. |
+| **Phase 2** — "≥9 of 10 unprompted sessions write to Keel; 0 duplicate projects" | Not substitutable, and not attempted. "Unprompted" is the entire claim, and a test that calls the tool has prompted it. The *mechanism* is verified: the mirror hook round-trips an edit into an attributed revision against a live daemon. | Whether the skill actually fires. This is the phase the PRD calls the real test of the premise, and it is the one thing here that only KB can run. `plugin/README.md` has the protocol. |
 | **Phase 3** — "UC-6 completes in under 30s" | The Sunday-review data all comes from one `keel_context` roll-up call, which returns in milliseconds against the fixture. | Whether *a human* can absorb it in 30 seconds. That is a question about the UI, not the query. |
 
 ---

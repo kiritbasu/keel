@@ -1,0 +1,6 @@
+{
+  "name": "keel",
+  "version": "0.1.0",
+  "description": "Keel — the local-first store for everything about a software project except the code. Adds the Keel MCP server, the skill that teaches when to write to it, and the hook that turns an edit to a generated markdown file into a proper attributed revision.",
+  "author": { "name": "KB" }
+}

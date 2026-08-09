@@ -63,6 +63,18 @@ enum Command {
     /// Print a one-line summary of what is in the store.
     Status,
 
+    /// Regenerate a project's markdown mirror into its repository.
+    ///
+    /// One-directional: these files are generated from Keel and never read
+    /// back. Prose only — tasks churn and would make repo diffs noisy.
+    Mirror {
+        /// Project id, slug or name.
+        project: String,
+        /// Repository root. Defaults to the project's recorded `root_path`.
+        #[arg(long)]
+        repo: Option<PathBuf>,
+    },
+
     /// Regenerate a tracker file for a project from Keel.
     ///
     /// The dogfooding switch: once Keel holds a project, its status file is
@@ -96,40 +108,75 @@ fn main() -> Result<()> {
         Command::Fixture => run_fixture(&home, cli.json),
         Command::Status => run_status(&home, cli.json),
         Command::RenderStatus { project, out } => run_render_status(&home, project, out.clone()),
+        Command::Mirror { project, repo } => run_mirror(&home, project, repo.clone(), cli.json),
     }
 }
 
-fn run_render_status(home: &PathBuf, project: &str, out: Option<PathBuf>) -> Result<()> {
-    use keel_core::{Entity, EntityQuery, EntityStore, EntityType};
+fn run_mirror(home: &PathBuf, project: &str, repo: Option<PathBuf>, json: bool) -> Result<()> {
+    use keel_core::{Entity, mirror};
     let store = open(home)?;
+    let found = resolve_project(&store, project)?;
 
+    let repo_root = match repo {
+        Some(p) => p,
+        None => match &found {
+            Entity::Project(p) => p.root_path.as_ref().map(PathBuf::from).with_context(|| {
+                format!(
+                    "{} has no root_path recorded, so there is nowhere to write the mirror.                      Pass --repo, or set root_path on the project",
+                    p.slug
+                )
+            })?,
+            _ => bail!("not a project"),
+        },
+    };
+
+    let report = mirror::generate(&store, found.id(), &repo_root)?;
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "written": report.written,
+                "unchanged": report.unchanged,
+            }))?
+        );
+    } else if report.is_noop() {
+        println!("mirror already current ({} files)", report.unchanged.len());
+    } else {
+        println!(
+            "wrote {} file(s) to {}/.keel, {} unchanged",
+            report.written.len(),
+            repo_root.display(),
+            report.unchanged.len()
+        );
+        for f in &report.written {
+            println!("  {f}");
+        }
+    }
+    Ok(())
+}
+
+/// Resolve a project by id, slug or name.
+fn resolve_project(store: &DuckStore, reference: &str) -> Result<keel_core::Entity> {
+    use keel_core::{Entity, EntityQuery, EntityStore, EntityType};
     let projects = store.list(&EntityQuery::default().of_type(EntityType::Project))?;
-    let needle = project.to_lowercase();
-    let found = projects
+    let needle = reference.to_lowercase();
+    projects
         .items
-        .iter()
+        .into_iter()
         .find(|p| match p {
             Entity::Project(pr) => {
-                pr.id.as_str() == project
-                    || pr.slug.eq_ignore_ascii_case(project)
+                pr.id.as_str() == reference
+                    || pr.slug.eq_ignore_ascii_case(reference)
                     || pr.name.to_lowercase() == needle
             }
             _ => false,
         })
-        .with_context(|| {
-            format!(
-                "no project matches `{project}`. Known: {}",
-                projects
-                    .items
-                    .iter()
-                    .filter_map(|p| match p {
-                        Entity::Project(pr) => Some(pr.slug.clone()),
-                        _ => None,
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-        })?;
+        .with_context(|| format!("no project matches `{reference}`"))
+}
+
+fn run_render_status(home: &PathBuf, project: &str, out: Option<PathBuf>) -> Result<()> {
+    let store = open(home)?;
+    let found = resolve_project(&store, project)?;
 
     let markdown = render_status::render(&store, found.id())?;
     match out {

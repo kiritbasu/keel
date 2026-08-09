@@ -34,6 +34,7 @@ pub mod fixture;
 pub mod fsck;
 pub mod id;
 pub mod link;
+pub mod mirror;
 pub mod store;
 pub mod types;
 
@@ -54,6 +55,7 @@ pub use event::{Action, Cursor, Event, NewEvent};
 pub use fsck::{Finding, FsckReport, Severity};
 pub use id::{BlobId, DocId, EntityId, EventId, LinkId};
 pub use link::{DEFAULT_DEPTH, Direction, Link, MAX_DEPTH, NewLink, Relation};
+pub use mirror::{Manifest, MirrorFile, MirrorReport};
 pub use store::{
     Blob, Created, DocumentStore, DuckStore, EntityQuery, EntityStore, GraphStore, Neighbour, Page,
     SearchHit, SearchQuery, SearchSource,
