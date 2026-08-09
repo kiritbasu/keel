@@ -24,11 +24,11 @@
 use anyhow::Result;
 use chrono::{NaiveDate, TimeZone, Utc};
 use keel_core::{
-    Actor, Decision, DecisionStatus, Document, DocumentStore, DuckStore, Entity, EntityId,
-    EntityStore, EntityType, Environment, EnvironmentStatus, Metric, MetricDirection,
-    MetricObservation, Milestone, MilestoneStatus, NewLink, Project, Provenance, Question,
-    QuestionKind, QuestionStatus, Relation, RiskSeverity, Spec, SpecKind, SpecStatus, Surface,
-    Task, TaskKind, TaskPriority, TaskStatus, Term,
+    Actor, Decision, DecisionStatus, Document, DocumentStore, DuckStore, EntityId, EntityStore,
+    EntityType, Environment, EnvironmentStatus, Metric, MetricDirection, MetricObservation,
+    Milestone, MilestoneStatus, NewLink, Project, Provenance, Question, QuestionKind,
+    QuestionStatus, Relation, RiskSeverity, Spec, SpecKind, SpecStatus, Surface, Task, TaskKind,
+    TaskPriority, TaskStatus, Term,
 };
 
 /// What the bootstrap created.
@@ -42,6 +42,17 @@ pub struct Summary {
     /// Document revisions written.
     pub revisions: usize,
 }
+
+/// One link in the bootstrap's edge table: source kind and label, relation,
+/// target kind and label, and an optional anchor such as `REQ-4`.
+type Edge<'a> = (
+    &'a str,
+    &'a str,
+    Relation,
+    &'a str,
+    &'a str,
+    Option<&'a str>,
+);
 
 /// One task row: milestone index, title, body, status, priority, kind, labels.
 type Row<'a> = (
@@ -1036,7 +1047,7 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
 
     // --- Links -------------------------------------------------------------
     // Addressed by name, never by position — see DECISIONS on the fixture.
-    let edges: [(&str, &str, Relation, &str, &str, Option<&str>); 10] = [
+    let edges: [Edge<'_>; 10] = [
         (
             "task",
             "keel_context — the digest",
