@@ -18,6 +18,8 @@ note() { printf '  %s\n' "$*"; }
 
 say "Building Keel"
 note "The first build compiles DuckDB from source and takes a few minutes."
+note "That keeps the installed binary self-contained. For fast *development*"
+note "builds, see README 'Faster builds' — it links a system libduckdb instead."
 cd "$repo_root"
 cargo build --release --workspace
 

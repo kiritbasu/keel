@@ -15,6 +15,12 @@ path = "src/lib.rs"
 name = "keel-daemon"
 path = "src/main.rs"
 
+[features]
+# Propagated from keel-core so `--no-default-features` at the workspace level
+# switches the whole build to a system libduckdb in one go.
+default = ["bundled"]
+bundled = ["keel-core/bundled", "keel-mcp/bundled"]
+
 [lints]
 workspace = true
 

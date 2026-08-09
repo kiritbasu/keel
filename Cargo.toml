@@ -25,7 +25,9 @@ publish = false
 
 [workspace.dependencies]
 # Storage
-duckdb = { version = "1.10505", features = ["bundled", "chrono", "serde_json"] }
+# `bundled` is not enabled here — `keel-core` owns that choice as a feature, so
+# it can be turned off in favour of a system libduckdb. See its Cargo.toml.
+duckdb = { version = "1.10505", features = ["chrono", "serde_json"] }
 
 # Domain
 ulid = { version = "1", features = ["serde"] }
@@ -56,8 +58,8 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 clap = { version = "4", features = ["derive"] }
 
 # Internal
-keel-core = { path = "crates/keel-core", version = "0.1.0" }
-keel-mcp = { path = "crates/keel-mcp", version = "0.1.0" }
+keel-core = { path = "crates/keel-core", version = "0.1.0", default-features = false }
+keel-mcp = { path = "crates/keel-mcp", version = "0.1.0", default-features = false }
 
 # Test-only
 insta = { version = "1", features = ["json", "redactions", "filters"] }

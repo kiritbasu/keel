@@ -7,6 +7,17 @@ rust-version.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+[features]
+# Compile DuckDB from source. On by default because it makes the build work on
+# any machine with no setup, and produces a binary that cannot disagree with the
+# extensions it loads. The cost is several minutes on a cold build.
+#
+# Turn it off to link a system libduckdb instead — much faster, but the library
+# has to be present at runtime and its version has to match the bindings
+# `duckdb-rs` ships. See README, "Faster builds".
+default = ["bundled"]
+bundled = ["duckdb/bundled"]
+
 [lints]
 workspace = true
 

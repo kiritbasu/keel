@@ -88,6 +88,33 @@ cargo fmt --all --check
 cargo deny check
 ```
 
-The first build compiles DuckDB from source and takes several minutes. Dev
-builds use `debug = "line-tables-only"` — full debug info for a vendored C++
-database runs to nineteen gigabytes, which is how that setting was discovered.
+Dev builds use `debug = "line-tables-only"` — full debug info for a vendored
+C++ database runs to nineteen gigabytes, which is how that setting was
+discovered.
+
+### Faster builds
+
+By default DuckDB is compiled from source, which takes several minutes the
+first time. That default exists so the build works on a fresh machine with no
+setup, and so the installed binary keeps working when Homebrew moves underneath
+it.
+
+If you already have a matching DuckDB, link it instead and the whole workspace
+builds in under a minute:
+
+```bash
+brew install duckdb   # must match the version duckdb-rs targets — currently 1.5.5
+```
+
+```bash
+export DUCKDB_LIB_DIR=/opt/homebrew/opt/duckdb/lib DUCKDB_INCLUDE_DIR=/opt/homebrew/opt/duckdb/include
+```
+
+```bash
+cargo test --workspace --no-default-features
+```
+
+All 264 tests pass either way, Lance extension included. Two caveats: the
+version has to match what `duckdb-rs` ships bindings for, and a later
+`brew upgrade duckdb` will break a binary linked this way until you rebuild —
+which is exactly why `plugin/install.sh` still bundles.

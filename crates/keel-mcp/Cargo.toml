@@ -7,6 +7,12 @@ rust-version.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+[features]
+# Propagated from keel-core so `--no-default-features` at the workspace level
+# switches the whole build to a system libduckdb in one go.
+default = ["bundled"]
+bundled = ["keel-core/bundled"]
+
 [lints]
 workspace = true
 
