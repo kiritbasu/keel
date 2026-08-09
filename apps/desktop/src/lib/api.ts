@@ -111,9 +111,25 @@ export interface Digest {
   terms: TermEntry[];
   environments: DigestItem[];
   next: string[];
+  next_up: NextUp | null;
   truncated: Truncation[];
   budget_exceeded: boolean;
   estimated_tokens: number;
+}
+
+/** The ranked answer to "what do I do next". Same ranking the digest gives an agent. */
+export interface NextUp {
+  ready: NextItem[];
+  waiting_on_you: NextItem[];
+  blocked: NextItem[];
+}
+
+export interface NextItem {
+  id: string;
+  title: string;
+  priority: string;
+  unblocks: number;
+  why: string;
 }
 
 export interface SearchHit {

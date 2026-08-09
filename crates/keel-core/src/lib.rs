@@ -36,6 +36,7 @@ pub mod generate;
 pub mod id;
 pub mod link;
 pub mod mirror;
+pub mod next;
 pub mod render_status;
 pub mod store;
 pub mod types;
@@ -59,6 +60,7 @@ pub use generate::{GenerateReport, Mode};
 pub use id::{BlobId, DocId, EntityId, EventId, LinkId};
 pub use link::{DEFAULT_DEPTH, Direction, Link, MAX_DEPTH, NewLink, Relation};
 pub use mirror::{Manifest, MirrorFile, MirrorReport};
+pub use next::{Candidate, NextUp};
 pub use store::{
     Blob, Created, DocumentStore, DuckStore, EntityQuery, EntityStore, GraphStore, Neighbour, Page,
     SearchHit, SearchQuery, SearchSource,

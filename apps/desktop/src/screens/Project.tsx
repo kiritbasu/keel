@@ -175,8 +175,62 @@ export function ProjectScreen({ project, generation, setScreen }: ScreenProps) {
         </Card>
       </div>
 
+      {data.next_up && (
+        <Card title="Next">
+          {data.next_up.ready.length > 0 ? (
+            <ol className="space-y-2">
+              {data.next_up.ready.map((item, i) => (
+                <li key={item.id} className="flex gap-2.5">
+                  <span className="mt-0.5 w-4 shrink-0 text-right text-[12px] tabular-nums text-ink-faint">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-[13px]">{item.title}</div>
+                    <div className="mt-0.5 text-[12px] text-ink-faint">{item.why}</div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <Empty
+              message="Nothing is ready to pick up."
+              hint="Everything open is blocked or waiting on a decision — unblocking one is the work."
+            />
+          )}
+
+          {data.next_up.waiting_on_you.length > 0 && (
+            <div className="mt-4 border-t border-border-subtle pt-3">
+              <h3 className="mb-1.5 text-[12px] font-semibold tracking-wide text-ink-muted uppercase">
+                Waiting on you
+              </h3>
+              <ul className="space-y-1 text-[13px] text-ink-muted">
+                {data.next_up.waiting_on_you.map((item) => (
+                  <li key={item.id}>{item.title}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {data.next_up.blocked.length > 0 && (
+            <div className="mt-4 border-t border-border-subtle pt-3">
+              <h3 className="mb-1.5 text-[12px] font-semibold tracking-wide text-ink-muted uppercase">
+                Blocked
+              </h3>
+              <ul className="space-y-1.5 text-[13px]">
+                {data.next_up.blocked.map((item) => (
+                  <li key={item.id}>
+                    <div className="text-ink-muted">{item.title}</div>
+                    <div className="text-[12px] text-ink-faint">{item.why}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
+      )}
+
       {data.next.length > 0 && (
-        <Card title="Suggested next">
+        <Card title="Also worth noticing">
           <ul className="space-y-1.5 text-[13px] text-ink-muted">
             {data.next.map((line, i) => (
               <li key={i}>{line}</li>

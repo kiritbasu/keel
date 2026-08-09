@@ -172,7 +172,20 @@ Mostly the product. Recorded as **TQ-16** (`que_01KZKX1PEJ3M0N4MYHRNB1JKKC`) wit
 
 Fixed in the data this session: the ten-session gate now `blocks` all three Phase 4/5 tasks, TQ-6 blocks the design work, and two tasks moved to the milestone they actually belong to. "What is blocking this" and "what does this unblock" both answer now — the ten-session gate releases three.
 
-Still open: `next` itself. That changes `keel_context`'s output, which is SPEC §6 and therefore KB's call.
+**KB chose option (a), and it is built.** `keel_context` now opens with a `## Next` section — at character 126 of the digest rather than 7,360, which is the part that changes an agent's behaviour — naming ranked tasks with the reason attached:
+
+```
+## Next
+- **Run the ten unprompted sessions** `tsk_…` — unblocks 3 other tasks · p0
+- **Render the tracker from the task rows** `tsk_…` — nothing is blocking it · p1
+- **Route the remaining read commands through the daemon API** `tsk_…` — nothing is blocking it · p1
+```
+
+Three buckets, because they need different responses: **ready**, **waiting on the human** (the three `Decide TQ-x` tasks, which nobody else can start), and **blocked**, each with its blocker named. Ready is ordered by what it unblocks first, then priority — a p1 releasing three tasks beats a p0 releasing none, and the count comes from edges a human drew.
+
+The ranking lives in `keel-core::next` and the desktop board reads the same call, so the app and the agent cannot disagree. The board grew a Next banner and rank badges, and columns sort by rank — a column displaying "3" above "1" was showing a ranking and contradicting it in the same breath.
+
+Nine tests cover the ordering, both blocked cases, the finished-blocker release, and the decision/work split. 300 tests total. Decisions B-23, B-24, B-25.
 
 ---
 

@@ -154,7 +154,16 @@ pub struct Digest {
     /// What is live, at what version.
     pub environments: Vec<Item>,
     /// Suggested next actions, derived from state.
+    ///
+    /// Kept alongside [`Digest::next_up`] rather than replaced by it: these
+    /// are the observations that are not about a single task ("no milestone
+    /// is active"), and they were the whole of `next` before TQ-16.
     pub next: Vec<String>,
+    /// **The answer to "what should I do next".** Ranked, named, with reasons.
+    ///
+    /// The counts in `next` restate the problem; this names the task. See
+    /// [`keel_core::next`] for the ranking.
+    pub next_up: Option<NextUpJson>,
     /// What was cut.
     pub truncated: Vec<Truncation>,
     /// Set when the unbounded sections alone exceed the budget.
@@ -212,6 +221,40 @@ impl Digest {
             }
         };
 
+        // Deliberately the first thing after the header, and above the
+        // questions and glossary: it is the section an agent should act on,
+        // and burying the answer under three screens of context is how the
+        // old digest managed to contain everything and answer nothing.
+        if let Some(n) = &self.next_up
+            && !(n.ready.is_empty() && n.waiting_on_you.is_empty() && n.blocked.is_empty())
+        {
+            out.push_str("\n## Next\n");
+            for item in &n.ready {
+                out.push_str(&format!(
+                    "- **{}** `{}` — {}\n",
+                    item.title, item.id, item.why
+                ));
+            }
+            if n.ready.is_empty() && !n.blocked.is_empty() {
+                out.push_str(
+                    "- Nothing is ready to pick up. Everything open is blocked or waiting on a \
+                     decision — unblocking one of the below is the work.\n",
+                );
+            }
+            if !n.waiting_on_you.is_empty() {
+                out.push_str("\n**Waiting on the human**\n");
+                for item in &n.waiting_on_you {
+                    out.push_str(&format!("- {} `{}`\n", item.title, item.id));
+                }
+            }
+            if !n.blocked.is_empty() {
+                out.push_str("\n**Blocked**\n");
+                for item in &n.blocked {
+                    out.push_str(&format!("- {} — {}\n", item.title, item.why));
+                }
+            }
+        }
+
         section(&mut out, "Active", &self.active);
         section(&mut out, "Needs attention", &self.attention);
         section(&mut out, "Open questions and risks", &self.questions);
@@ -239,7 +282,7 @@ impl Digest {
         }
 
         if !self.next.is_empty() {
-            out.push_str("\n## Suggested next\n");
+            out.push_str("\n## Also worth noticing\n");
             for line in &self.next {
                 out.push_str(&format!("- {line}\n"));
             }
@@ -294,6 +337,7 @@ pub fn build(
         terms: Vec::new(),
         environments: Vec::new(),
         next: Vec::new(),
+        next_up: None,
         truncated: Vec::new(),
         budget_exceeded: false,
         estimated_tokens: 0,
@@ -383,7 +427,18 @@ pub fn build(
 
             digest.environments = environments(store, project_id)?;
             digest.recent = recent_activity(store, Some(project_id), since, limit)?;
+            let ranked = keel_core::next::rank(store, project_id)?;
+            let total_ready = ranked.ready.len();
+            let next_up: NextUpJson = ranked.into();
+            if total_ready > next_up.ready.len() {
+                digest.truncated.push(Truncation {
+                    section: "next_up.ready".to_owned(),
+                    shown: next_up.ready.len(),
+                    total: total_ready,
+                });
+            }
             digest.next = suggestions(&line, &digest);
+            digest.next_up = Some(next_up);
             digest.project = Some(line);
         }
     }
@@ -726,17 +781,65 @@ fn recent_activity(
         .collect())
 }
 
+/// The ranked answer, in the shape the wire and the app want.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct NextUpJson {
+    /// Pick these up, best first.
+    pub ready: Vec<NextItem>,
+    /// Decisions a human owes the project.
+    pub waiting_on_you: Vec<NextItem>,
+    /// Stuck, each with its blocker named.
+    pub blocked: Vec<NextItem>,
+}
+
+/// One ranked task.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct NextItem {
+    /// `tsk_…`, so the caller can act on it without another lookup.
+    pub id: String,
+    /// Its title.
+    pub title: String,
+    /// `p0`…`p3`.
+    pub priority: String,
+    /// How many open tasks finishing this would release.
+    pub unblocks: usize,
+    /// Why it is here, or what is in the way.
+    pub why: String,
+}
+
+impl From<keel_core::Candidate> for NextItem {
+    fn from(c: keel_core::Candidate) -> Self {
+        NextItem {
+            id: c.id.to_string(),
+            title: c.title,
+            priority: c.priority,
+            unblocks: c.unblocks,
+            why: c.why,
+        }
+    }
+}
+
+impl From<keel_core::NextUp> for NextUpJson {
+    fn from(n: keel_core::NextUp) -> Self {
+        NextUpJson {
+            // Three is a deliberate cap on `ready`: a ranked list of thirty is
+            // the same "you work it out" the counts were. The rest is one
+            // keel_search away, and the truncation is reported like every
+            // other cut list.
+            ready: n.ready.into_iter().take(3).map(Into::into).collect(),
+            waiting_on_you: n.waiting_on_you.into_iter().map(Into::into).collect(),
+            blocked: n.blocked.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
 /// Suggested next actions, derived from state rather than invented.
 fn suggestions(line: &ProjectLine, digest: &Digest) -> Vec<String> {
     let mut out = Vec::new();
 
-    if line.blocked_tasks > 0 {
-        out.push(format!(
-            "{} task(s) are blocked. Check what is blocking them with keel_get(depth: 2, \
-             direction: \"inbound\", rels: [\"blocks\"]).",
-            line.blocked_tasks
-        ));
-    }
+    // Blocked tasks used to be reported here as a count plus a query to run.
+    // The query returned nothing, because nothing was linked. `next_up.blocked`
+    // now names the blocker instead, so this said less than nothing.
     if line.open_questions > 0 {
         out.push(format!(
             "{} question(s) are unresolved. Resolving one usually unblocks more than it costs.",
@@ -864,6 +967,7 @@ mod tests {
             }],
             environments: vec![],
             next: vec![],
+            next_up: None,
             truncated: vec![],
             budget_exceeded: false,
             estimated_tokens: 0,
@@ -891,6 +995,7 @@ mod tests {
             terms: vec![],
             environments: vec![],
             next: vec![],
+            next_up: None,
             truncated: vec![],
             budget_exceeded: false,
             estimated_tokens: 0,
