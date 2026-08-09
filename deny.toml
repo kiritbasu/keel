@@ -9,7 +9,14 @@ targets = [
 
 [advisories]
 version = 2
-ignore = []
+ignore = [
+    # `paste` is archived and unmaintained. It is a compile-time-only
+    # proc-macro that pastes identifiers together, reached transitively through
+    # the embedding stack; it executes no code at runtime and handles no
+    # untrusted input, so "unmaintained" here is a supply-chain note rather
+    # than a vulnerability. Revisit when fastembed drops it.
+    "RUSTSEC-2024-0436",
+]
 
 [licenses]
 version = 2
@@ -27,11 +34,18 @@ allow = [
     "Zlib",
     "CC0-1.0",
     "MPL-2.0",
-    "OpenSSL",
     "Unlicense",
     "BSL-1.0",
+    # The Mozilla root certificate bundle (webpki-roots), reached through the
+    # embedding model download path. A permissive data licence, not copyleft.
+    "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.9
+# Keel's own crates carry no licence — it is personal, unpublished software
+# (HANDOFF "Assumptions"). `publish = false` marks them private; this stops
+# cargo-deny demanding an SPDX expression for them. If Keel is ever published,
+# choose a licence and delete this.
+private = { ignore = true }
 
 [bans]
 multiple-versions = "allow"

@@ -48,7 +48,8 @@ Once Phase 1 exits, Keel becomes the tracker and `product/STATUS.md` is regenera
 
 A task is not done until all of these are true:
 
-- [ ] Code compiles with zero warnings: `cargo clippy --all-targets --all-features -- -D warnings`
+- [ ] Code compiles with zero warnings: `cargo clippy --workspace --all-targets -- -D warnings`
+      *(was `--all-features`; dropped 2026-08-09 — no workspace crate declares a feature, so it changed nothing except forcing a second full build of the vendored DuckDB, which filled the disk. See DECISIONS B-11.)*
 - [ ] Formatted: `cargo fmt --all --check`
 - [ ] Tests written **and** passing — including at least one failure case, not only the happy path. The one exception is a *forward-looking* test for behaviour a later phase delivers: mark it `#[ignore = "unblocks in Phase N — see STATUS.md P0-x"]` so CI stays green and the intent stays visible. Never `#[ignore]` a test for behaviour the current phase is supposed to deliver.
 - [ ] No `unwrap()`, `expect()`, or `panic!()` in library code (binaries and tests may, with a message)

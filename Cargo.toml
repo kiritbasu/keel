@@ -13,7 +13,10 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["KB"]
-license = "UNLICENSED"
+# No licence chosen — personal, unpublished software (HANDOFF "Assumptions").
+# Deliberately absent rather than "UNLICENSED", which is not valid SPDX and
+# makes `cargo deny` fail to parse it. `publish = false` plus deny.toml's
+# `private.ignore` is the supported way to say this.
 publish = false
 
 [workspace.dependencies]
@@ -46,8 +49,8 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 clap = { version = "4", features = ["derive"] }
 
 # Internal
-keel-core = { path = "crates/keel-core" }
-keel-mcp = { path = "crates/keel-mcp" }
+keel-core = { path = "crates/keel-core", version = "0.1.0" }
+keel-mcp = { path = "crates/keel-mcp", version = "0.1.0" }
 
 # Test-only
 insta = { version = "1", features = ["json", "redactions"] }
@@ -66,6 +69,19 @@ expect_used = "warn"
 panic = "warn"
 todo = "warn"
 unimplemented = "warn"
+
+[profile.dev]
+# DuckDB is vendored and compiled from source, and its full debug info runs to
+# many gigabytes — enough to fill a disk, which is how this setting was
+# discovered. Line tables keep backtraces useful (file and line for every
+# frame) while dropping the type and variable descriptions that make up the
+# bulk. Debugging Keel's own Rust is unaffected in practice; stepping through
+# DuckDB's C++ internals is not something this project does.
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+# Dependencies are debugged even less often than DuckDB is.
+debug = false
 
 [profile.release]
 lto = "thin"

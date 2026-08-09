@@ -30,10 +30,12 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        # Not --all-features: no workspace crate declares a feature, so the flag
+        # buys nothing and forces a second full build of the vendored DuckDB.
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Test
-        run: cargo test --all-features --workspace
+        run: cargo test --workspace
 
   deny:
     name: licences · advisories
