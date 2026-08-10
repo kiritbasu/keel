@@ -1,0 +1,158 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { NEEDS_PROJECT, href, navigate, parseHash, setQuery, toHash, type Route } from "./router";
+
+afterEach(() => {
+  window.location.hash = "";
+});
+
+describe("parseHash", () => {
+  it("reads the empty hash as Home", () => {
+    expect(parseHash("")).toEqual({ screen: "home", query: {} });
+    expect(parseHash("#")).toEqual({ screen: "home", query: {} });
+    expect(parseHash("#/")).toEqual({ screen: "home", query: {} });
+  });
+
+  it("reads a project", () => {
+    expect(parseHash("#/projects/keel")).toEqual({ screen: "project", project: "keel", query: {} });
+  });
+
+  it("reads a project-scoped screen", () => {
+    expect(parseHash("#/projects/keel/board")).toEqual({
+      screen: "board",
+      project: "keel",
+      query: {},
+    });
+  });
+
+  it("reads a document inside a project", () => {
+    expect(parseHash("#/projects/keel/documents/spc_01ABC")).toEqual({
+      screen: "documents",
+      project: "keel",
+      documentId: "spc_01ABC",
+      query: {},
+    });
+  });
+
+  it("distinguishes a global screen from its project-scoped form", () => {
+    expect(parseHash("#/search").project).toBeUndefined();
+    expect(parseHash("#/projects/keel/search").project).toBe("keel");
+  });
+
+  it("reads the query", () => {
+    expect(parseHash("#/search?q=why+is+billing+slow&types=spec,decision").query).toEqual({
+      q: "why is billing slow",
+      types: "spec,decision",
+    });
+  });
+
+  it("decodes a slug that needed encoding", () => {
+    expect(parseHash("#/projects/two%20words/board").project).toBe("two words");
+  });
+
+  // Failure cases. A stale bookmark or a typo must not produce a dead end, and
+  // must not be mistaken for a real route with missing parts.
+  it("falls back to Home for a path that matches nothing", () => {
+    expect(parseHash("#/nonsense/deeper/still").screen).toBe("home");
+    expect(parseHash("#/projects").screen).toBe("home");
+    expect(parseHash("#/projects/keel/board/extra").screen).toBe("home");
+  });
+
+  it("keeps the query when falling back, so a search survives a broken path", () => {
+    expect(parseHash("#/nonsense?q=hello").query).toEqual({ q: "hello" });
+  });
+});
+
+describe("toHash", () => {
+  it("omits an empty query rather than writing a bare ?", () => {
+    expect(toHash({ screen: "search", query: {} })).toBe("#/search");
+    expect(toHash({ screen: "search", query: { q: "" } })).toBe("#/search");
+  });
+
+  it("writes the query when there is one", () => {
+    expect(toHash({ screen: "search", query: { q: "billing" } })).toBe("#/search?q=billing");
+  });
+
+  // Failure case: a project-scoped screen with no project is not an address.
+  // Sending it to Home is what makes the redirect in App.tsx a correction
+  // rather than a loop.
+  it("degrades a project-scoped screen with no project to Home", () => {
+    expect(toHash({ screen: "board", query: {} })).toBe("#/");
+    expect(toHash({ screen: "documents", query: {} })).toBe("#/");
+  });
+
+  it("round-trips every shape the app can build", () => {
+    const routes: Route[] = [
+      { screen: "home", query: {} },
+      { screen: "roadmap", query: {} },
+      { screen: "project", project: "keel", query: {} },
+      { screen: "board", project: "keel", query: {} },
+      { screen: "roadmap", project: "keel", query: {} },
+      { screen: "activity", project: "keel", query: { actor: "claude" } },
+      { screen: "documents", project: "keel", documentId: "spc_1", query: { v: "3", diff: "1" } },
+      { screen: "search", query: { q: "why is billing slow", types: "spec" } },
+    ];
+    for (const route of routes) {
+      expect(parseHash(toHash(route))).toEqual(route);
+    }
+  });
+});
+
+describe("href", () => {
+  it("fills in an empty query so callers need not", () => {
+    expect(href({ screen: "board", project: "keel" })).toBe("#/projects/keel/board");
+  });
+});
+
+describe("navigate", () => {
+  it("moves the address", () => {
+    navigate({ screen: "board", project: "keel" });
+    expect(window.location.hash).toBe("#/projects/keel/board");
+  });
+
+  it("replaces without adding a history entry", () => {
+    const before = window.history.length;
+    navigate({ screen: "home" }, { replace: true });
+    expect(window.location.hash).toBe("#/");
+    expect(window.history.length).toBe(before);
+  });
+});
+
+describe("setQuery", () => {
+  const route: Route = { screen: "search", query: { q: "billing", types: "spec" } };
+
+  it("amends one key and keeps the rest", () => {
+    setQuery(route, { types: "decision" });
+    expect(parseHash(window.location.hash).query).toEqual({ q: "billing", types: "decision" });
+  });
+
+  it("removes a key set to undefined or empty", () => {
+    setQuery(route, { types: undefined });
+    expect(parseHash(window.location.hash).query).toEqual({ q: "billing" });
+
+    setQuery(route, { types: "" });
+    expect(parseHash(window.location.hash).query).toEqual({ q: "billing" });
+  });
+
+  it("keeps the path", () => {
+    setQuery({ screen: "board", project: "keel", query: {} }, { task: "tsk_1" });
+    expect(parseHash(window.location.hash)).toEqual({
+      screen: "board",
+      project: "keel",
+      query: { task: "tsk_1" },
+    });
+  });
+});
+
+describe("NEEDS_PROJECT", () => {
+  it("names exactly the screens that cannot render without one", () => {
+    expect(NEEDS_PROJECT).toEqual({
+      home: false,
+      project: true,
+      roadmap: false,
+      board: true,
+      documents: true,
+      search: false,
+      activity: false,
+    });
+  });
+});

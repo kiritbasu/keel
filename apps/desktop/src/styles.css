@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
-/* Keel's palette. Dark by default because that is where the work happens, with
-   a light scheme for anyone who prefers it. Everything else in the app uses
-   these tokens rather than raw colours, so a change here changes the app. */
+/* Keel's palette and type scale. Dark by default because that is where the
+   work happens, with a light scheme for anyone who prefers it. Everything else
+   in the app uses these tokens rather than raw colours or raw pixel sizes, so a
+   change here changes the app. */
 @theme {
   --color-surface: oklch(0.17 0.012 265);
   --color-surface-raised: oklch(0.21 0.014 265);
@@ -17,18 +18,58 @@
   --color-bad: oklch(0.68 0.19 25);
   --font-sans: ui-sans-serif, -apple-system, "SF Pro Text", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", monospace;
+
+  /* Six named sizes, and only six. The app previously used eleven ad hoc pixel
+     values with no names, which meant no two screens agreed on what "a label"
+     or "a heading" was. A name is what makes a size a decision rather than a
+     guess: `text-micro` says "this is metadata", `text-[10px]` says nothing. */
+  --text-display: 1.5rem;      /* 24px — a single number worth reading across the room */
+  --text-display--line-height: 1.1;
+  --text-title: 1.25rem;       /* 20px — the page title, one per screen */
+  --text-title--line-height: 1.2;
+  --text-heading: 0.9375rem;   /* 15px — section headings, and a row's own name */
+  --text-heading--line-height: 1.35;
+  --text-body: 0.875rem;       /* 14px — prose and inputs */
+  --text-body--line-height: 1.5;
+  --text-small: 0.8125rem;     /* 13px — dense lists, table cells, secondary prose */
+  --text-small--line-height: 1.45;
+  --text-micro: 0.6875rem;     /* 11px — badges, keycaps, timestamps, provenance */
+  --text-micro--line-height: 1.4;
+
+  /* Two more, only for rendered document bodies. A spec has its own heading
+     hierarchy and needs steps above `text-title` that the interface never uses;
+     forcing an article and a toolbar onto one scale would flatten the article.
+     They are named rather than inlined so the count stays honest: eight sizes,
+     all of them a decision, in two clearly separated scales. */
+  --text-doc-title: 1.375rem;   /* 22px — a document's own h1 */
+  --text-doc-title--line-height: 1.25;
+  --text-doc-section: 1.0625rem; /* 17px — its h2 */
+  --text-doc-section--line-height: 1.35;
 }
 
+/* The light scheme overrides the custom properties on :root rather than
+   declaring a second `@theme`. Tailwind v4 resolves every colour utility
+   through `var(--color-…)`, so an override here reaches utilities that were
+   generated once — and unlike a nested `@theme` it is not sensitive to where
+   the block sits in the cascade.
+
+   The status colours are overridden too, which they were not before. A hue
+   tuned to sit on a near-black surface at 0.74–0.80 lightness is close to
+   invisible on a near-white one: "done" and "blocked" both read as pale smudges
+   and the colour system stops carrying any information at all. */
 @media (prefers-color-scheme: light) {
-  @theme {
+  :root {
     --color-surface: oklch(0.99 0.002 265);
     --color-surface-raised: oklch(0.97 0.004 265);
     --color-surface-hover: oklch(0.94 0.006 265);
     --color-border-subtle: oklch(0.88 0.008 265);
     --color-ink: oklch(0.24 0.012 265);
     --color-ink-muted: oklch(0.45 0.014 265);
-    --color-ink-faint: oklch(0.60 0.012 265);
+    --color-ink-faint: oklch(0.58 0.012 265);
     --color-accent: oklch(0.52 0.16 245);
+    --color-good: oklch(0.52 0.14 155);
+    --color-warn: oklch(0.55 0.13 70);
+    --color-bad: oklch(0.53 0.20 25);
   }
 }
 
@@ -39,7 +80,8 @@ body {
   background: var(--color-surface);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
   -webkit-font-smoothing: antialiased;
 }
 

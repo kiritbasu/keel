@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -20,4 +21,14 @@ export default defineConfig({
     },
   },
   build: { outDir: "dist", emptyOutDir: true },
+  test: {
+    // jsdom rather than a real browser: everything under test here is routing,
+    // ranking and keyboard handling, none of which needs a compositor. The
+    // parts that do need one — layout, the light theme — are not things a unit
+    // test would catch anyway.
+    environment: "jsdom",
+    setupFiles: ["src/test-setup.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
+    restoreMocks: true,
+  },
 });

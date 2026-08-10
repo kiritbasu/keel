@@ -18,19 +18,19 @@ import type { ReactNode } from "react";
 
 export function Markdown({ children }: { children: string }) {
   return (
-    <div className="selectable text-[14px] leading-relaxed">
+    <div className="selectable text-body leading-relaxed">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          h1: (p) => <h1 className="mt-8 mb-3 text-[22px] font-semibold tracking-tight" {...p} />,
+          h1: (p) => <h1 className="mt-8 mb-3 text-doc-title font-semibold tracking-tight" {...p} />,
           h2: (p) => (
             <h2
-              className="mt-7 mb-2.5 border-b border-border-subtle pb-1.5 text-[17px] font-semibold tracking-tight"
+              className="mt-7 mb-2.5 border-b border-border-subtle pb-1.5 text-doc-section font-semibold tracking-tight"
               {...p}
             />
           ),
-          h3: (p) => <h3 className="mt-5 mb-2 text-[15px] font-semibold" {...p} />,
-          h4: (p) => <h4 className="mt-4 mb-1.5 text-[14px] font-semibold text-ink-muted" {...p} />,
+          h3: (p) => <h3 className="mt-5 mb-2 text-heading font-semibold" {...p} />,
+          h4: (p) => <h4 className="mt-4 mb-1.5 text-body font-semibold text-ink-muted" {...p} />,
           p: (p) => <p className="my-3" {...p} />,
           ul: (p) => <ul className="my-3 list-disc space-y-1 pl-5" {...p} />,
           ol: (p) => <ol className="my-3 list-decimal space-y-1 pl-5" {...p} />,
@@ -58,7 +58,7 @@ export function Markdown({ children }: { children: string }) {
             if (!fenced) {
               return (
                 <code
-                  className="rounded bg-surface-hover px-1 py-0.5 font-mono text-[12.5px] text-ink"
+                  className="rounded bg-surface-hover px-1 py-0.5 font-mono text-small text-ink"
                   {...rest}
                 >
                   {children}
@@ -66,7 +66,7 @@ export function Markdown({ children }: { children: string }) {
               );
             }
             return (
-              <code className="font-mono text-[12.5px] leading-relaxed" {...rest}>
+              <code className="font-mono text-small leading-relaxed" {...rest}>
                 {children}
               </code>
             );
@@ -82,7 +82,7 @@ export function Markdown({ children }: { children: string }) {
           // scroll container of their own rather than forcing the page wide.
           table: ({ children }: { children?: ReactNode }) => (
             <div className="my-4 overflow-x-auto rounded-lg border border-border-subtle">
-              <table className="w-full border-collapse text-[13px]">{children}</table>
+              <table className="w-full border-collapse text-small">{children}</table>
             </div>
           ),
           thead: (p) => <thead className="bg-surface-hover/60" {...p} />,

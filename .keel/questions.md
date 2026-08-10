@@ -3,10 +3,6 @@
 <!-- keel:generated questions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
 > Generated from Keel — edits here are not saved.
 
-## ZZ write probe after repair
-
-`que_01KZN2P3QJXX6GSB74900VGDFM` · question
-
 ## TQ-8 — SPEC §3.1's audit block lists four surface values; §6.5 names a fifth (cli).
 
 `que_01KZKWMSM71GGZHJA3156QBXKS` · question

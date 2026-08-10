@@ -2,23 +2,31 @@
  * Screen 4 — Board. Tasks by status, filterable, keyboard-driven.
  */
 
-import { useMemo, useState } from "react";
-import { api, type Digest, type Entity, type Note, type Page } from "../lib/api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api, type Digest, type Entity, type Note, type Page as PageOf } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
-import { Badge, Empty, ErrorBox, Id, Spinner, cx, priorityTone } from "../components/ui";
+import { Badge, Chip, Empty, ErrorBox, Id, Spinner, cx, priorityTone } from "../components/ui";
+import { Page, projectCrumbs } from "../components/Page";
 import type { ScreenProps } from "../App";
 
 /** Lifecycle order, left to right. Matches TaskStatus::ALL. */
 const COLUMNS = ["todo", "in_progress", "blocked", "review", "done", "wont_do"] as const;
 
-export function BoardScreen({ project, generation }: ScreenProps) {
+export function BoardScreen({ route, generation }: ScreenProps) {
+  const project = route.project;
   const [urgentOnly, setUrgentOnly] = useState(false);
   const [label, setLabel] = useState<string | null>(null);
   // Which cards are expanded. A note is a paragraph and a column is 240px, so
   // showing every stream at once would bury the board it is attached to.
   const [open, setOpen] = useState<Set<string>>(new Set());
 
-  const { data, error, loading, reload } = useAsync<Page<Entity>>(
+  // The command palette can name a task in the address. Until a task has a page
+  // of its own, this is how "jump to that task" lands somewhere real: the card
+  // is highlighted and scrolled to.
+  const focused = route.query.task;
+  const focusedCard = useRef<HTMLElement>(null);
+
+  const { data, error, loading, reload } = useAsync<PageOf<Entity>>(
     () => api.entities({ project, type: "task", limit: 2000 }),
     [project, generation],
   );
@@ -43,6 +51,7 @@ export function BoardScreen({ project, generation }: ScreenProps) {
     }
     return m;
   }, [notes.data]);
+
   const ranked = digest.data?.next_up ?? null;
   const rank = useMemo(() => {
     const m = new Map<string, { position: number; why: string }>();
@@ -65,182 +74,183 @@ export function BoardScreen({ project, generation }: ScreenProps) {
     return [...seen].sort();
   }, [data]);
 
+  useEffect(() => {
+    focusedCard.current?.scrollIntoView({ block: "center" });
+  }, [focused, tasks]);
+
   if (loading && !data) return <Spinner />;
   if (error) {
     return (
-      <div className="p-6">
+      <Page title="Board" crumbs={projectCrumbs(route, "Board")}>
         <ErrorBox error={error} retry={reload} />
-      </div>
+      </Page>
     );
   }
 
   return (
-    <div className="flex h-full flex-col p-6">
-      <header className="mb-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold tracking-tight">Board</h1>
-          <span className="ml-auto text-[12px] text-ink-faint">
-            {tasks.length} of {data?.total ?? 0}
-          </span>
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <button
-          onClick={() => setUrgentOnly((v) => !v)}
-          className={cx(
-            "rounded border px-2 py-1 text-[12px]",
-            urgentOnly
-              ? "border-warn/50 bg-warn/10 text-warn"
-              : "border-border-subtle text-ink-muted hover:bg-surface-hover",
-          )}
-        >
-          urgent only
-        </button>
-        {labels.map((l) => (
-          <button
-            key={l}
-            onClick={() => setLabel((v) => (v === l ? null : l))}
-            className={cx(
-              "rounded border px-2 py-1 text-[12px]",
-              label === l
-                ? "border-accent/50 bg-accent/10 text-accent"
-                : "border-border-subtle text-ink-muted hover:bg-surface-hover",
-            )}
-          >
-            {l}
-          </button>
-        ))}
-        </div>
-      </header>
-
-      {ranked && ranked.ready.length > 0 && !label && !urgentOnly && (
-        <section className="mb-4 shrink-0 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2.5">
-          <h2 className="mb-1.5 text-[12px] font-semibold tracking-wide text-accent uppercase">
-            Next
-          </h2>
-          <ol className="space-y-1">
-            {ranked.ready.map((item, i) => (
-              <li key={item.id} className="flex gap-2 text-[13px]">
-                <span className="w-3 shrink-0 text-right tabular-nums text-ink-faint">{i + 1}</span>
-                <span className="min-w-0">
-                  {item.title} <span className="text-[12px] text-ink-faint">— {item.why}</span>
-                </span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
-
-      {tasks.length === 0 ? (
-        <Empty message="No tasks match." hint={label || urgentOnly ? "Clear the filters above." : undefined} />
-      ) : (
-        // Flex with fixed-width columns and horizontal scroll, not a grid.
-        // A six-column grid with a min-width per column resolves by overflowing
-        // its tracks rather than scrolling, which puts each column's cards on
-        // top of the next column's heading.
-        <div className="flex flex-1 gap-3 overflow-x-auto pb-2">
-          {COLUMNS.map((column) => {
-            // Ranked work sorts to the top, in rank order. A column that
-            // displays "3" above "1" is showing a ranking and contradicting
-            // it in the same breath.
-            const inColumn = tasks
-              .filter((t) => String(t.status) === column)
-              .sort((a, b) => {
-                const ra = rank.get(String(a.id))?.position ?? Infinity;
-                const rb = rank.get(String(b.id))?.position ?? Infinity;
-                if (ra !== rb) return ra - rb;
-                return String(a.priority).localeCompare(String(b.priority));
-              });
-            return (
-              <div key={column} className="flex w-[240px] shrink-0 flex-col">
-                <div className="mb-2 flex items-baseline justify-between gap-2 px-1">
-                  <span className="text-[12px] font-medium tracking-wide text-ink-muted uppercase">
-                    {column.replace("_", " ")}
+    <Page
+      title="Board"
+      crumbs={projectCrumbs(route, "Board")}
+      width="full"
+      meta={
+        <span className="text-small text-ink-faint">
+          {tasks.length} of {data?.total ?? 0}
+        </span>
+      }
+      toolbar={
+        <>
+          <Chip selected={urgentOnly} onClick={() => setUrgentOnly((v) => !v)}>
+            urgent only
+          </Chip>
+          {labels.map((l) => (
+            <Chip key={l} selected={label === l} onClick={() => setLabel((v) => (v === l ? null : l))}>
+              {l}
+            </Chip>
+          ))}
+        </>
+      }
+    >
+      <div className="flex h-full flex-col p-6">
+        {ranked && ranked.ready.length > 0 && !label && !urgentOnly && (
+          <section className="mb-4 shrink-0 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2.5">
+            <h2 className="mb-1.5 text-micro font-semibold tracking-wide text-accent uppercase">Next</h2>
+            <ol className="space-y-1">
+              {ranked.ready.map((item, i) => (
+                <li key={item.id} className="flex gap-2 text-small">
+                  <span className="w-3 shrink-0 text-right tabular-nums text-ink-faint">{i + 1}</span>
+                  <span className="min-w-0">
+                    {item.title} <span className="text-ink-faint">— {item.why}</span>
                   </span>
-                  <span className="text-[11px] tabular-nums text-ink-faint">{inColumn.length}</span>
-                </div>
-                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-                  {inColumn.map((t) => (
-                    <article
-                      key={t.id}
-                      className="rounded-md border border-border-subtle bg-surface-raised p-2.5"
-                    >
-                      <p className="selectable text-[13px] leading-snug break-words">
-                        {rank.has(String(t.id)) && (
-                          <span className="mr-1.5 rounded bg-accent/15 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-accent">
-                            {rank.get(String(t.id))?.position}
-                          </span>
-                        )}
-                        {String(t.title)}
-                      </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <Badge tone={priorityTone(String(t.priority))}>{String(t.priority)}</Badge>
-                        {String(t.kind) !== "task" && <Badge>{String(t.kind)}</Badge>}
-                        {((t.labels as string[] | undefined) ?? []).map((l) => (
-                          <Badge key={l}>{l}</Badge>
-                        ))}
-                      </div>
-                      {t.external_ref ? (
-                        <a
-                          href={String(t.external_ref)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-2 block truncate text-[11px] text-accent hover:underline"
-                          title={String(t.external_ref)}
-                        >
-                          {String(t.external_ref)}
-                        </a>
-                      ) : null}
-                      <div className="mt-1.5 truncate">
-                        <Id value={t.id} />
-                      </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
 
-                      {(() => {
-                        const stream = notesByTask.get(String(t.id)) ?? [];
-                        if (stream.length === 0) return null;
-                        const isOpen = open.has(String(t.id));
-                        return (
-                          <div className="mt-2 border-t border-border-subtle pt-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setOpen((prev) => {
-                                  const next = new Set(prev);
-                                  if (next.has(String(t.id))) next.delete(String(t.id));
-                                  else next.add(String(t.id));
-                                  return next;
-                                })
-                              }
-                              className="text-[11px] text-ink-muted hover:text-ink"
-                            >
-                              {isOpen ? "▾" : "▸"} {stream.length}{" "}
-                              {stream.length === 1 ? "note" : "notes"}
-                            </button>
-                            {isOpen && (
-                              <ul className="mt-1.5 space-y-1.5">
-                                {stream.map((n) => (
-                                  <li
-                                    key={n.id}
-                                    className="selectable text-[11px] leading-snug text-ink-muted"
-                                  >
-                                    {n.body}
-                                    <span className="mt-0.5 block text-ink-faint">
-                                      {n.author} · {n.created_at.slice(0, 10)}
-                                    </span>
-                                  </li>
-                                ))}
-                              </ul>
+        {tasks.length === 0 ? (
+          <Empty
+            message="No tasks match."
+            hint={label || urgentOnly ? "Clear the filters above." : undefined}
+          />
+        ) : (
+          // Flex with fixed-width columns and horizontal scroll, not a grid.
+          // A six-column grid with a min-width per column resolves by overflowing
+          // its tracks rather than scrolling, which puts each column's cards on
+          // top of the next column's heading.
+          <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2">
+            {COLUMNS.map((column) => {
+              // Ranked work sorts to the top, in rank order. A column that
+              // displays "3" above "1" is showing a ranking and contradicting
+              // it in the same breath.
+              const inColumn = tasks
+                .filter((t) => String(t.status) === column)
+                .sort((a, b) => {
+                  const ra = rank.get(String(a.id))?.position ?? Infinity;
+                  const rb = rank.get(String(b.id))?.position ?? Infinity;
+                  if (ra !== rb) return ra - rb;
+                  return String(a.priority).localeCompare(String(b.priority));
+                });
+              return (
+                <div key={column} className="flex w-[240px] shrink-0 flex-col">
+                  <div className="mb-2 flex items-baseline justify-between gap-2 px-1">
+                    <span className="text-micro font-medium tracking-wide text-ink-muted uppercase">
+                      {column.replace("_", " ")}
+                    </span>
+                    <span className="text-micro tabular-nums text-ink-faint">{inColumn.length}</span>
+                  </div>
+                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                    {inColumn.map((t) => {
+                      const isFocused = focused === String(t.id);
+                      return (
+                        <article
+                          key={t.id}
+                          ref={isFocused ? focusedCard : undefined}
+                          className={cx(
+                            "rounded-md border bg-surface-raised p-2.5",
+                            isFocused
+                              ? "border-accent ring-1 ring-accent/40"
+                              : "border-border-subtle",
+                          )}
+                        >
+                          <p className="selectable text-small leading-snug break-words">
+                            {rank.has(String(t.id)) && (
+                              <span className="mr-1.5 rounded bg-accent/15 px-1.5 py-0.5 text-micro font-semibold tabular-nums text-accent">
+                                {rank.get(String(t.id))?.position}
+                              </span>
                             )}
+                            {String(t.title)}
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <Badge tone={priorityTone(String(t.priority))}>{String(t.priority)}</Badge>
+                            {String(t.kind) !== "task" && <Badge>{String(t.kind)}</Badge>}
+                            {((t.labels as string[] | undefined) ?? []).map((l) => (
+                              <Badge key={l}>{l}</Badge>
+                            ))}
                           </div>
-                        );
-                      })()}
-                    </article>
-                  ))}
+                          {t.external_ref ? (
+                            <a
+                              href={String(t.external_ref)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-2 block truncate text-micro text-accent hover:underline"
+                              title={String(t.external_ref)}
+                            >
+                              {String(t.external_ref)}
+                            </a>
+                          ) : null}
+                          <div className="mt-1.5 truncate">
+                            <Id value={t.id} />
+                          </div>
+
+                          {(() => {
+                            const stream = notesByTask.get(String(t.id)) ?? [];
+                            if (stream.length === 0) return null;
+                            const isOpen = open.has(String(t.id));
+                            return (
+                              <div className="mt-2 border-t border-border-subtle pt-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setOpen((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(String(t.id))) next.delete(String(t.id));
+                                      else next.add(String(t.id));
+                                      return next;
+                                    })
+                                  }
+                                  className="text-micro text-ink-muted hover:text-ink"
+                                >
+                                  {isOpen ? "▾" : "▸"} {stream.length}{" "}
+                                  {stream.length === 1 ? "note" : "notes"}
+                                </button>
+                                {isOpen && (
+                                  <ul className="mt-1.5 space-y-1.5">
+                                    {stream.map((n) => (
+                                      <li
+                                        key={n.id}
+                                        className="selectable text-micro leading-snug text-ink-muted"
+                                      >
+                                        {n.body}
+                                        <span className="mt-0.5 block text-ink-faint">
+                                          {n.author} · {n.created_at.slice(0, 10)}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </article>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </Page>
   );
 }

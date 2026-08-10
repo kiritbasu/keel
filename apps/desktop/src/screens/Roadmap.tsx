@@ -6,13 +6,15 @@
  * infers a timeline from task dates.
  */
 
-import { api, type Entity, type Page } from "../lib/api";
+import { api, type Entity, type Page as PageOf } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
 import { Badge, Empty, ErrorBox, Spinner, statusTone } from "../components/ui";
+import { Page, projectCrumbs } from "../components/Page";
 import type { ScreenProps } from "../App";
 
-export function RoadmapScreen({ project, generation }: ScreenProps) {
-  const { data, error, loading, reload } = useAsync<Page<Entity>>(
+export function RoadmapScreen({ route, generation }: ScreenProps) {
+  const project = route.project;
+  const { data, error, loading, reload } = useAsync<PageOf<Entity>>(
     () => api.entities({ project, type: "milestone" }),
     [project, generation],
   );
@@ -20,9 +22,9 @@ export function RoadmapScreen({ project, generation }: ScreenProps) {
   if (loading && !data) return <Spinner />;
   if (error) {
     return (
-      <div className="p-6">
+      <Page title="Roadmap" crumbs={project ? projectCrumbs(route, "Roadmap") : undefined}>
         <ErrorBox error={error} retry={reload} />
-      </div>
+      </Page>
     );
   }
 
@@ -51,14 +53,11 @@ export function RoadmapScreen({ project, generation }: ScreenProps) {
   });
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 p-6">
-      <header className="flex items-baseline justify-between">
-        <h1 className="text-xl font-semibold tracking-tight">Roadmap</h1>
-        <span className="text-[12px] text-ink-faint">
-          {project ? project : "all projects"}
-        </span>
-      </header>
-
+    <Page
+      title="Roadmap"
+      crumbs={project ? projectCrumbs(route, "Roadmap") : undefined}
+      meta={<span className="text-small text-ink-faint">{project ? project : "all projects"}</span>}
+    >
       {milestones.length === 0 ? (
         <Empty message="No milestones yet." hint="Milestones are what the roadmap is built from." />
       ) : (
@@ -89,7 +88,7 @@ export function RoadmapScreen({ project, generation }: ScreenProps) {
                     {String(m.kind) === "release" && m.version_string ? (
                       <Badge>v{String(m.version_string)}</Badge>
                     ) : null}
-                    <span className="ml-auto text-[12px] text-ink-faint">
+                    <span className="ml-auto text-small text-ink-faint">
                       {shipped
                         ? `shipped ${new Date(shipped).toLocaleDateString()}`
                         : date
@@ -98,7 +97,7 @@ export function RoadmapScreen({ project, generation }: ScreenProps) {
                     </span>
                   </div>
                   {m.summary ? (
-                    <p className="selectable mt-1 text-[13px] text-ink-muted">{String(m.summary)}</p>
+                    <p className="selectable mt-1 text-small text-ink-muted">{String(m.summary)}</p>
                   ) : null}
                 </div>
               </li>
@@ -106,6 +105,6 @@ export function RoadmapScreen({ project, generation }: ScreenProps) {
           })}
         </ol>
       )}
-    </div>
+    </Page>
   );
 }
