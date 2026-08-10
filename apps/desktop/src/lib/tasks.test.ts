@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { compareTasks, inBoardOrder, taskRef, type RankMap } from "./tasks";
+import {
+  compareTasks,
+  groupTasks,
+  inBoardOrder,
+  sortTasks,
+  taskRef,
+  type RankMap,
+} from "./tasks";
 import type { Entity } from "./api";
 
 function task(id: string, fields: Partial<Entity> = {}): Entity {
@@ -101,5 +108,106 @@ describe("taskRef", () => {
   it("falls back to the id when the task has no number", () => {
     expect(taskRef("KEEL", task("tsk_1"))).toBe("tsk_1");
     expect(taskRef("KEEL", task("tsk_1", { number: 0 }))).toBe("tsk_1");
+  });
+});
+
+describe("groupTasks", () => {
+  const noMilestones = new Map<string, string>();
+
+  it("groups by status in lifecycle order, keeping empty columns", () => {
+    const groups = groupTasks([task("a", { status: "done" })], "status", noMilestones);
+    expect(groups.map((g) => g.key)).toEqual([
+      "todo",
+      "in_progress",
+      "blocked",
+      "review",
+      "done",
+      "wont_do",
+    ]);
+    // An empty column is information: it says nothing is in review.
+    expect(groups.find((g) => g.key === "todo")?.tasks).toEqual([]);
+  });
+
+  it("groups by priority and gathers the unprioritised at the end", () => {
+    const groups = groupTasks(
+      [task("a", { priority: "p0" }), task("b")],
+      "priority",
+      noMilestones,
+    );
+    expect(groups.at(-1)?.key).toBe("none");
+    expect(groups.at(-1)?.tasks.map((t) => t.id)).toEqual(["b"]);
+  });
+
+  it("names milestones rather than showing their ids", () => {
+    const names = new Map([["mst_1", "Phase 6"]]);
+    const groups = groupTasks([task("a", { milestone_id: "mst_1" })], "milestone", names);
+    expect(groups[0]?.label).toBe("Phase 6");
+  });
+
+  // Grouping by label is the one that behaves differently, and it is the
+  // honest behaviour: hiding a task from two of its three labels would be
+  // worse than the group sizes summing to more than the task count.
+  it("puts a multi-labelled task under every one of its labels", () => {
+    const groups = groupTasks([task("a", { labels: ["desktop", "mcp"] })], "label", noMilestones);
+    expect(groups.map((g) => g.key)).toEqual(["desktop", "mcp"]);
+    expect(groups.every((g) => g.tasks.length === 1)).toBe(true);
+  });
+
+  it("collects tasks with no value for the grouping field rather than dropping them", () => {
+    const groups = groupTasks([task("a")], "label", noMilestones);
+    expect(groups.map((g) => g.key)).toEqual(["none"]);
+    expect(groups[0]?.tasks.map((t) => t.id)).toEqual(["a"]);
+  });
+
+  it("makes one group when grouping is off", () => {
+    const groups = groupTasks([task("a"), task("b")], "none", noMilestones);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.tasks).toHaveLength(2);
+  });
+});
+
+describe("sortTasks", () => {
+  const noRank: RankMap = new Map();
+
+  it("sorts by priority with the unprioritised last, in both directions", () => {
+    const tasks = [task("none"), task("low", { priority: "p3" }), task("hot", { priority: "p0" })];
+    expect(sortTasks(tasks, "priority", "asc", noRank).map((t) => t.id)).toEqual([
+      "hot",
+      "low",
+      "none",
+    ]);
+    expect(sortTasks(tasks, "priority", "desc", noRank).map((t) => t.id)).toEqual([
+      "none",
+      "low",
+      "hot",
+    ]);
+  });
+
+  it("sorts by number, not by the string of it", () => {
+    const tasks = [task("b", { number: 9 }), task("a", { number: 10 })];
+    // A string sort would put "10" before "9".
+    expect(sortTasks(tasks, "number", "asc", noRank).map((t) => t.id)).toEqual(["b", "a"]);
+  });
+
+  it("sorts by when it was last touched", () => {
+    const tasks = [
+      task("old", { audit: { updated_at: "2026-01-01T00:00:00Z" } as Entity["audit"] }),
+      task("new", { audit: { updated_at: "2026-08-01T00:00:00Z" } as Entity["audit"] }),
+    ];
+    expect(sortTasks(tasks, "updated", "desc", noRank).map((t) => t.id)).toEqual(["new", "old"]);
+  });
+
+  it("uses the digest's ranking when asked for rank, so the app and the model agree", () => {
+    const rank: RankMap = new Map([["second", { position: 1, why: "" }]]);
+    const tasks = [task("first", { priority: "p0" }), task("second", { priority: "p3" })];
+    expect(sortTasks(tasks, "rank", "asc", rank).map((t) => t.id)).toEqual(["second", "first"]);
+  });
+
+  // Failure case: sorting must not mutate its input, or the board reorders
+  // whatever else is holding the same array.
+  it("leaves the array it was given alone", () => {
+    const tasks = [task("b", { priority: "p3" }), task("a", { priority: "p0" })];
+    sortTasks(tasks, "priority", "asc", noRank);
+    expect(tasks.map((t) => t.id)).toEqual(["b", "a"]);
   });
 });

@@ -163,7 +163,7 @@ describe("addresses", () => {
     window.location.hash = "#/projects/keel/board";
     render(<App />);
     await settle();
-    await waitFor(() => expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Board"));
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Tasks"));
   });
 
   // Failure case: an address that names a project-scoped screen without a

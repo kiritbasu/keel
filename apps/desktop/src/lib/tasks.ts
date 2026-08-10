@@ -54,7 +54,7 @@ export function compareTasks(rank: RankMap) {
   };
 }
 
-/** p0 first, anything unrecognised last. */
+/** p0 first, anything unrecognised last. Never a string comparison. */
 function priorityIndex(priority: unknown): number {
   const at = ["p0", "p1", "p2", "p3"].indexOf(String(priority));
   return at === -1 ? 99 : at;
@@ -70,4 +70,149 @@ export function inBoardOrder(tasks: Entity[], rank: RankMap): Entity[] {
   return COLUMNS.flatMap((column) =>
     tasks.filter((t) => String(t.status) === column).sort(compare),
   );
+}
+
+// --- Grouping and sorting ------------------------------------------------
+
+/** What the columns, or the list's section headings, are cut by. */
+export type GroupBy = "status" | "priority" | "milestone" | "label" | "none";
+
+/** What orders tasks inside a group. */
+export type SortBy = "rank" | "priority" | "status" | "updated" | "title" | "number";
+
+export type SortDir = "asc" | "desc";
+
+export const GROUP_BY: GroupBy[] = ["status", "priority", "milestone", "label", "none"];
+export const SORT_BY: SortBy[] = ["rank", "priority", "status", "updated", "title", "number"];
+
+/** One column, or one section of the list. */
+export interface Group {
+  /** Stable identity — a status name, a priority, a milestone id, a label. */
+  key: string;
+  /** What to print at the top of it. */
+  label: string;
+  tasks: Entity[];
+}
+
+const PRIORITIES = ["p0", "p1", "p2", "p3"];
+
+/**
+ * Cut a task list into groups.
+ *
+ * Grouping by label is the one that behaves differently: a task with three
+ * labels appears under all three. That is the honest rendering — the
+ * alternative is picking one of its labels arbitrarily and hiding it from the
+ * other two — but it does mean the group sizes sum to more than the task count,
+ * which is why the header says how many *tasks* match rather than adding the
+ * columns up.
+ *
+ * Everything ends with a "none" bucket rather than dropping the tasks that have
+ * no value for the grouping field. A task with no milestone is not nothing; it
+ * is a task nobody has scheduled, which is usually the interesting group.
+ */
+export function groupTasks(
+  tasks: Entity[],
+  by: GroupBy,
+  milestoneNames: ReadonlyMap<string, string>,
+): Group[] {
+  if (by === "none") {
+    return [{ key: "all", label: "All", tasks }];
+  }
+
+  if (by === "status") {
+    return COLUMNS.map((status) => ({
+      key: status,
+      label: status.replace("_", " "),
+      tasks: tasks.filter((t) => String(t.status) === status),
+    }));
+  }
+
+  if (by === "priority") {
+    const groups = PRIORITIES.map((priority) => ({
+      key: priority,
+      label: priority,
+      tasks: tasks.filter((t) => String(t.priority) === priority),
+    }));
+    const rest = tasks.filter((t) => !PRIORITIES.includes(String(t.priority)));
+    if (rest.length) groups.push({ key: "none", label: "no priority", tasks: rest });
+    return groups;
+  }
+
+  if (by === "milestone") {
+    const ids = [...new Set(tasks.map((t) => (t.milestone_id ? String(t.milestone_id) : "")))]
+      .filter(Boolean)
+      .sort((a, b) => (milestoneNames.get(a) ?? a).localeCompare(milestoneNames.get(b) ?? b));
+    const groups = ids.map((id) => ({
+      key: id,
+      label: milestoneNames.get(id) ?? id,
+      tasks: tasks.filter((t) => String(t.milestone_id) === id),
+    }));
+    const rest = tasks.filter((t) => !t.milestone_id);
+    if (rest.length) groups.push({ key: "none", label: "no milestone", tasks: rest });
+    return groups;
+  }
+
+  const labels = [
+    ...new Set(tasks.flatMap((t) => ((t.labels as string[] | undefined) ?? []) as string[])),
+  ].sort();
+  const groups = labels.map((label) => ({
+    key: label,
+    label,
+    tasks: tasks.filter((t) => ((t.labels as string[] | undefined) ?? []).includes(label)),
+  }));
+  const unlabelled = tasks.filter((t) => (((t.labels as string[] | undefined) ?? []).length === 0));
+  if (unlabelled.length) groups.push({ key: "none", label: "no label", tasks: unlabelled });
+  return groups;
+}
+
+const STATUS_INDEX = new Map(COLUMNS.map((status, i) => [status as string, i]));
+
+/**
+ * Order tasks within a group.
+ *
+ * `rank` is the default and means the ranking the digest gives an agent, so the
+ * board and the model agree about what to do next. Every other option is a
+ * property of the row.
+ *
+ * Comparison is always on a typed key rather than on the stringified value.
+ * The old board compared priorities as text, which sorted a task with no
+ * priority under the literal word "undefined" — visible only as a column whose
+ * order looked arbitrary.
+ */
+export function sortTasks(
+  tasks: Entity[],
+  by: SortBy,
+  dir: SortDir,
+  rank: RankMap,
+): Entity[] {
+  const sign = dir === "desc" ? -1 : 1;
+  const sorted = [...tasks];
+
+  if (by === "rank") {
+    sorted.sort(compareTasks(rank));
+    return dir === "desc" ? sorted.reverse() : sorted;
+  }
+
+  sorted.sort((a, b) => {
+    switch (by) {
+      case "priority":
+        return sign * (priorityIndex(a.priority) - priorityIndex(b.priority));
+      case "status":
+        return (
+          sign *
+          ((STATUS_INDEX.get(String(a.status)) ?? 99) - (STATUS_INDEX.get(String(b.status)) ?? 99))
+        );
+      case "number":
+        return sign * (Number(a.number ?? 0) - Number(b.number ?? 0));
+      case "updated":
+        return (
+          sign *
+          (Date.parse(String(a.audit?.updated_at ?? 0)) -
+            Date.parse(String(b.audit?.updated_at ?? 0)))
+        );
+      default:
+        return sign * String(a.title ?? "").localeCompare(String(b.title ?? ""));
+    }
+  });
+  return sorted;
 }

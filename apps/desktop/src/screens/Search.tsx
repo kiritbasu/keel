@@ -12,7 +12,7 @@ import { api, type Entity, type SearchHit } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
 import { Badge, Chip, Empty, ErrorBox, Input, Menu, MenuItem, Spinner, Tooltip } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
-import { navigate, setQuery } from "../lib/router";
+import { href, navigate, setQuery } from "../lib/router";
 import type { ScreenProps } from "../App";
 
 const FACETS = [
@@ -154,13 +154,17 @@ export function SearchScreen({ route, generation }: ScreenProps) {
             </p>
             <ul className="space-y-2">
               {data.hits.map((hit) => (
-                <li
-                  key={hit.entity_id}
-                  className="rounded-lg border border-border-subtle bg-surface-raised px-4 py-3"
-                >
+                <li key={hit.entity_id}>
+                  {/* A hit is a link. It used to be dead text: the search told
+                      you what it had found and gave you no way to reach it,
+                      which is most of a search engine missing. */}
+                  <a
+                    href={destination(hit, projectOf(hit, projects.data?.projects))}
+                    className="block rounded-lg border border-border-subtle bg-surface-raised px-4 py-3 transition-colors hover:border-accent/50 hover:bg-surface-hover"
+                  >
                   <div className="flex items-center gap-2">
                     <Badge>{hit.entity_type}</Badge>
-                    <span className="selectable truncate text-body font-medium">{hit.title}</span>
+                    <span className="truncate text-body font-medium">{hit.title}</span>
                     <Tooltip align="right" text={SOURCE_EXPLANATION[hit.source] ?? hit.source}>
                       <Badge
                         tone={hit.source === "both" ? "border-good/40 text-good bg-good/10" : undefined}
@@ -170,10 +174,11 @@ export function SearchScreen({ route, generation }: ScreenProps) {
                     </Tooltip>
                   </div>
                   {hit.excerpt && (
-                    <p className="selectable mt-1.5 text-small leading-relaxed text-ink-muted">
+                    <p className="mt-1.5 text-small leading-relaxed text-ink-muted">
                       {hit.excerpt}
                     </p>
                   )}
+                  </a>
                 </li>
               ))}
             </ul>
@@ -182,4 +187,38 @@ export function SearchScreen({ route, generation }: ScreenProps) {
       </div>
     </Page>
   );
+}
+
+/** The slug of the project a hit belongs to, or `undefined` if it names none. */
+function projectOf(hit: SearchHit, projects: Entity[] | undefined): string | undefined {
+  // A project hit is its own project; everything else points at one.
+  const id = hit.entity_type === "project" ? hit.entity_id : hit.project_id;
+  const match = (projects ?? []).find((p) => p.id === id);
+  return match ? String(match.slug) : undefined;
+}
+
+/**
+ * Where a hit goes.
+ *
+ * Five of the thirteen types have a page of their own; the rest are rendered
+ * only as part of a project, so that is where they lead. Landing on the right
+ * project is a worse answer than landing on the row, and a better one than
+ * landing nowhere — which is what a hit used to do.
+ */
+function destination(hit: SearchHit, project: string | undefined): string {
+  if (!project) return href({ screen: "home" });
+  switch (hit.entity_type) {
+    case "task":
+      return href({ screen: "task", project, taskId: hit.entity_id });
+    case "spec":
+    case "decision":
+    case "question":
+    case "feedback":
+    case "design":
+      return href({ screen: "documents", project, documentId: hit.entity_id });
+    case "milestone":
+      return href({ screen: "roadmap", project });
+    default:
+      return href({ screen: "project", project });
+  }
 }
