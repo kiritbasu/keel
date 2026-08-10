@@ -1328,6 +1328,24 @@ impl EntityStore for DuckStore {
         })
     }
 
+    fn latest_event_id(&self) -> Result<Option<crate::EventId>> {
+        // ULIDs are minted monotonically (B-9), so the largest id *is* the
+        // most recent event. That is what makes this one indexed row rather
+        // than an ordering over the whole table.
+        let found: std::result::Result<String, _> =
+            self.conn
+                .query_row("SELECT max(id) FROM events", [], |row| {
+                    row.get::<_, Option<String>>(0)
+                        .map(|v| v.unwrap_or_default())
+                });
+        match found {
+            Ok(id) if id.is_empty() => Ok(None),
+            Ok(id) => Ok(Some(crate::EventId::parse(&id)?)),
+            Err(duckdb::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(Error::storage("read the latest event id")(e)),
+        }
+    }
+
     fn events_for(&self, entity_id: &EntityId, limit: usize) -> Result<Page<Event>> {
         let params = vec![Value::Text(entity_id.as_str().to_owned())];
         let total = self.count(

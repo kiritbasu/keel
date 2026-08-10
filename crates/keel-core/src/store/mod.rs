@@ -344,6 +344,16 @@ pub trait EntityStore {
     /// A project key that no other project holds, starting from `base`.
     fn unique_project_key(&self, base: &str) -> Result<String>;
 
+    /// The id of the most recent event, if there is one.
+    ///
+    /// One row, not a scan. The daemon reads this twice per tool call to notice
+    /// that something changed, and it used to do so by fetching up to 100,000
+    /// events and taking the last — twice, per call, while holding the global
+    /// write lock. On a store of a few hundred events that was merely wasteful;
+    /// it is quadratic in the wrong direction and the lock made it everyone's
+    /// problem.
+    fn latest_event_id(&self) -> Result<Option<crate::EventId>>;
+
     /// One entity's history, oldest first.
     ///
     /// Separate from [`EntityStore::events`] rather than another parameter on

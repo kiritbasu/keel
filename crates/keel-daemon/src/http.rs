@@ -52,7 +52,11 @@ pub fn router(state: AppState) -> Router {
                         .to_str()
                         .is_ok_and(|o| is_local_origin(&o.to_ascii_lowercase()))
                 }))
-                .allow_methods([axum::http::Method::GET])
+                // POST as well as GET. `/api/generate` is a POST and was
+                // unreachable from the desktop app for as long as this said
+                // GET only — the one endpoint the app needs to *do* anything
+                // rather than read.
+                .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
                 .allow_headers(tower_http::cors::Any),
         )
         .layer(tower_http::trace::TraceLayer::new_for_http())
@@ -260,10 +264,7 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
 /// The newest event id, used to detect that a call changed something.
 fn latest_event(store: &keel_core::DuckStore) -> Option<keel_core::EventId> {
     use keel_core::EntityStore;
-    store
-        .events(&keel_core::Cursor::Beginning, None, 100_000)
-        .ok()
-        .and_then(|p| p.items.last().map(|e| e.id.clone()))
+    store.latest_event_id().ok().flatten()
 }
 
 // --- The local API -------------------------------------------------------
@@ -357,14 +358,31 @@ async fn api_generate(State(state): State<AppState>, Json(body): Json<Value>) ->
     }
 }
 
+/// One error shape for the whole local API.
+///
+/// There were three: a bare string, `{message}`, and the full `{code, message}`
+/// that the MCP side returns. The desktop client reads `error.message`, so the
+/// bare-string form arrived as `undefined` and the app showed "Request failed
+/// (400)" — the one case where the daemon had actually explained itself.
+///
+/// The shape is the MCP one, because that is the one a caller may already know
+/// and because the two surfaces are supposed to be the same surface.
+fn api_error(status: StatusCode, code: i32, message: impl std::fmt::Display) -> Response {
+    (
+        status,
+        Json(json!({ "error": { "code": code, "message": message.to_string() } })),
+    )
+        .into_response()
+}
+
 fn bad_request(message: &str) -> Response {
-    (StatusCode::BAD_REQUEST, Json(json!({ "error": message }))).into_response()
+    api_error(StatusCode::BAD_REQUEST, codes::INVALID_PARAMS, message)
 }
 
 fn internal_error(message: &str) -> Response {
     (
         StatusCode::INTERNAL_SERVER_ERROR,
-        Json(json!({ "error": message })),
+        Json(json!({ "error": { "code": codes::INTERNAL_ERROR, "message": message } })),
     )
         .into_response()
 }
@@ -397,21 +415,62 @@ fn as_api(result: Result<Value, RpcError>) -> Response {
     }
 }
 
-/// Query parameters are passed through to the tool layer verbatim, so the REST
-/// surface and the MCP surface can never drift apart in what they accept.
-fn params_to_json(params: std::collections::HashMap<String, String>) -> Value {
+/// Turn a query string into tool arguments, using the tool's own schema.
+///
+/// This is what makes the REST surface and the MCP surface the same surface
+/// rather than two that resemble each other. The previous version guessed from
+/// the *value*: anything that parsed as an integer became a number, "true" and
+/// "false" became booleans, everything else stayed a string. Two bugs fell out
+/// of that guess, and both were live:
+///
+///  - **`?types=spec` was silently dropped.** The schema says `types` is an
+///    array; a bare string was passed through, the tool ignored it, and the
+///    search returned every type with no error at all. A filter that is ignored
+///    without complaint is worse than one that fails.
+///  - **`?query=404` failed with "query must be a string".** It parsed as an
+///    integer, so it arrived as the number 404 and the tool rejected it. The
+///    one search term guaranteed to be numeric is an HTTP status code, which is
+///    exactly the sort of thing anyone would search a project for.
+///
+/// Reading the declared type instead of guessing fixes both, and cannot drift:
+/// the schema being consulted is the one the tool advertises.
+fn params_to_json(tool: &str, params: std::collections::HashMap<String, String>) -> Value {
+    let schema = keel_mcp::tools::all()
+        .into_iter()
+        .find(|t| t.name == tool)
+        .map(|t| t.input_schema);
+    let properties = schema
+        .as_ref()
+        .and_then(|s| s.get("properties"))
+        .and_then(Value::as_object);
+
     let mut out = serde_json::Map::new();
-    for (k, v) in params {
-        // Numbers and booleans arrive as strings over a query string; the tool
-        // layer wants them typed.
-        let value = if let Ok(n) = v.parse::<i64>() {
-            json!(n)
-        } else if v == "true" || v == "false" {
-            json!(v == "true")
-        } else {
-            json!(v)
+    for (key, raw) in params {
+        let declared = properties
+            .and_then(|p| p.get(&key))
+            .and_then(|p| p.get("type"))
+            .and_then(Value::as_str);
+
+        let value = match declared {
+            Some("array") => Value::Array(
+                raw.split(',')
+                    .map(str::trim)
+                    .filter(|part| !part.is_empty())
+                    .map(|part| Value::String(part.to_owned()))
+                    .collect(),
+            ),
+            Some("integer") | Some("number") => raw
+                .parse::<i64>()
+                .map(|n| json!(n))
+                .unwrap_or_else(|_| json!(raw)),
+            Some("boolean") => json!(raw == "true"),
+            Some("string") => json!(raw),
+            // Undeclared: pass it through untouched. Guessing is what caused
+            // both bugs above, and a parameter the schema does not mention is
+            // the last place to start guessing.
+            _ => json!(raw),
         };
-        out.insert(k, value);
+        out.insert(key, value);
     }
     Value::Object(out)
 }
@@ -420,7 +479,7 @@ async fn api_context(
     State(state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    let args = params_to_json(params);
+    let args = params_to_json("keel_context", params);
     let mut store = state.store();
     as_api(keel_mcp::dispatch(
         &mut store,
@@ -435,7 +494,7 @@ async fn api_projects(
     State(state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    let args = params_to_json(params);
+    let args = params_to_json("keel_projects", params);
     let mut store = state.store();
     as_api(keel_mcp::dispatch(
         &mut store,
@@ -450,7 +509,7 @@ async fn api_search(
     State(state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    let args = params_to_json(params);
+    let args = params_to_json("keel_search", params);
     let mut store = state.store();
     as_api(keel_mcp::dispatch(
         &mut store,
@@ -465,7 +524,7 @@ async fn api_activity(
     State(state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    let args = params_to_json(params);
+    let args = params_to_json("keel_activity", params);
     let mut store = state.store();
     as_api(keel_mcp::dispatch(
         &mut store,
@@ -493,16 +552,16 @@ fn resolve_path_id(
     use keel_core::EntityStore;
     match store.resolve_ref(raw) {
         Ok(Some(id)) => Ok(id),
-        Ok(None) => Err((
+        Ok(None) => Err(api_error(
             StatusCode::NOT_FOUND,
-            Json(json!({ "error": { "message": format!("`{raw}` does not name anything") } })),
-        )
-            .into_response()),
-        Err(e) => Err((
+            codes::INVALID_PARAMS,
+            format!("`{raw}` does not name anything"),
+        )),
+        Err(e) => Err(api_error(
             StatusCode::BAD_REQUEST,
-            Json(json!({ "error": { "message": e.to_string() } })),
-        )
-            .into_response()),
+            codes::INVALID_PARAMS,
+            e.to_string(),
+        )),
     }
 }
 
@@ -511,7 +570,7 @@ async fn api_entity(
     Path(id): Path<String>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    let mut args = params_to_json(params);
+    let mut args = params_to_json("keel_get", params);
     if let Some(obj) = args.as_object_mut() {
         obj.insert("ids".to_owned(), json!([id]));
     }
@@ -552,6 +611,9 @@ async fn api_notes(
             // `RpcError` is a wire shape, not a Display type — pass it through
             // as the structured error it already is.
             Err(e) => {
+                // `RpcError` already serialises as `{code, message}` — the
+                // same shape `api_error` builds — so it is passed through
+                // whole rather than flattened to its message.
                 return (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))).into_response();
             }
         }
@@ -567,11 +629,11 @@ async fn api_notes(
             Json(json!({ "data": { "notes": notes, "total": notes.len() } })),
         )
             .into_response(),
-        Err(e) => (
+        Err(e) => api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": { "message": e.to_string() } })),
-        )
-            .into_response(),
+            codes::INTERNAL_ERROR,
+            e.to_string(),
+        ),
     }
 }
 
@@ -594,6 +656,9 @@ async fn api_entities(
         match keel_mcp::dispatch::resolve_project(&store, project) {
             Ok(id) => query.project_id = Some(id),
             Err(e) => {
+                // `RpcError` already serialises as `{code, message}` — the
+                // same shape `api_error` builds — so it is passed through
+                // whole rather than flattened to its message.
                 return (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))).into_response();
             }
         }
@@ -603,11 +668,11 @@ async fn api_entities(
         match parsed {
             Ok(t) => query.entity_types = t,
             Err(e) => {
-                return (
+                return api_error(
                     StatusCode::BAD_REQUEST,
-                    Json(json!({ "error": { "message": e.to_string() } })),
-                )
-                    .into_response();
+                    codes::INVALID_PARAMS,
+                    e.to_string(),
+                );
             }
         }
     }
@@ -631,11 +696,11 @@ async fn api_entities(
             })),
         )
             .into_response(),
-        Err(e) => (
+        Err(e) => api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": { "message": e.to_string() } })),
-        )
-            .into_response(),
+            codes::INTERNAL_ERROR,
+            e.to_string(),
+        ),
     }
 }
 
@@ -726,11 +791,11 @@ async fn api_graph(
             )
                 .into_response()
         }
-        Err(e) => (
+        Err(e) => api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": { "message": e.to_string() } })),
-        )
-            .into_response(),
+            codes::INTERNAL_ERROR,
+            e.to_string(),
+        ),
     }
 }
 
@@ -824,12 +889,52 @@ mod tests {
     fn query_parameters_are_typed_on_the_way_in() {
         let mut params = std::collections::HashMap::new();
         params.insert("limit".to_owned(), "25".to_owned());
-        params.insert("include_archived".to_owned(), "true".to_owned());
         params.insert("query".to_owned(), "onboarding".to_owned());
 
-        let json = params_to_json(params);
+        let json = params_to_json("keel_search", params);
         assert_eq!(json["limit"], 25);
-        assert_eq!(json["include_archived"], true);
         assert_eq!(json["query"], "onboarding");
+
+        // A boolean, from the tool that actually declares one. This assertion
+        // used to name `include_archived` on `keel_search`, which does not
+        // take it — the old value-guessing conversion turned it into a boolean
+        // anyway, so the test passed while describing a parameter that was
+        // being silently discarded one layer down.
+        let mut params = std::collections::HashMap::new();
+        params.insert("include_archived".to_owned(), "true".to_owned());
+        assert_eq!(
+            params_to_json("keel_projects", params)["include_archived"],
+            true
+        );
+    }
+
+    #[test]
+    fn a_list_parameter_arrives_as_a_list() {
+        // `?types=spec` used to be passed through as the string "spec", which
+        // the tool ignored — so a search restricted to specs returned every
+        // type, with no error. A filter that is ignored without complaint is
+        // worse than one that fails.
+        let mut params = std::collections::HashMap::new();
+        params.insert("types".to_owned(), "spec,decision".to_owned());
+        let json = params_to_json("keel_search", params);
+        assert_eq!(json["types"], json!(["spec", "decision"]));
+    }
+
+    #[test]
+    fn a_numeric_looking_search_term_stays_a_string() {
+        // The one search term guaranteed to be numeric is an HTTP status code,
+        // and `?query=404` failed with "query must be a string".
+        let mut params = std::collections::HashMap::new();
+        params.insert("query".to_owned(), "404".to_owned());
+        let json = params_to_json("keel_search", params);
+        assert_eq!(json["query"], "404");
+    }
+
+    #[test]
+    fn a_number_still_arrives_as_a_number() {
+        // The schema says `limit` is an integer, so it must not become "25".
+        let mut params = std::collections::HashMap::new();
+        params.insert("limit".to_owned(), "25".to_owned());
+        assert_eq!(params_to_json("keel_search", params)["limit"], 25);
     }
 }
