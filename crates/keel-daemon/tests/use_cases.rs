@@ -174,10 +174,11 @@ async fn a_header_that_disagrees_with_the_body_is_rejected() {
 }
 
 #[tokio::test]
-async fn a_client_with_no_version_header_is_served_as_legacy() {
-    // A client older than the header itself. Rejecting it would be technically
-    // defensible and practically useless — see the legacy handshake test below
-    // for why this matters.
+async fn a_client_with_no_version_header_is_refused() {
+    // Was served as legacy until TQ-11. KB chose to remove legacy support
+    // knowing it stops Claude Code 2.1.185 connecting; this pins that the
+    // refusal is deliberate rather than a regression, and says so in the
+    // error a client will actually read.
     let d = Daemon::start().await;
     let response = d
         .client
@@ -187,21 +188,30 @@ async fn a_client_with_no_version_header_is_served_as_legacy() {
         .send()
         .await
         .unwrap();
-    assert_eq!(response.status().as_u16(), 200);
 
     let body: Value = response.json().await.unwrap();
-    assert_eq!(body["result"]["tools"].as_array().unwrap().len(), 9);
+    assert_eq!(
+        body["error"]["code"], -32022,
+        "UnsupportedProtocolVersion, not a generic failure"
+    );
+    let message = body["error"]["message"].as_str().unwrap_or_default();
     assert!(
-        body["result"].get("resultType").is_none(),
-        "resultType postdates this client's revision and should not be sent to it"
+        message.contains("TQ-11"),
+        "the refusal must name the decision that caused it, or the next person \
+         reading this error will treat it as a bug: {message}"
     );
 }
 
 #[tokio::test]
-async fn the_2025_11_25_handshake_is_answered() {
+async fn the_2025_11_25_handshake_is_refused_deliberately() {
     // The exact request Claude Code 2.1.185 opens with, captured from the
-    // wire. Before this was handled, `claude mcp list` reported "Failed to
-    // connect" and the whole product was unusable with its primary client.
+    // wire. It used to be answered (B-17) because refusing it made the product
+    // unusable with its primary client — `claude mcp list` reported "Failed to
+    // connect". KB reversed that in TQ-11 with the consequence stated.
+    //
+    // The test is kept rather than deleted: it is the record of what this
+    // costs, and it turns "Claude Code stopped working" from a mystery into a
+    // one-line git revert.
     let d = Daemon::start().await;
     let response = d
         .client
@@ -222,37 +232,12 @@ async fn the_2025_11_25_handshake_is_answered() {
         .await
         .unwrap();
 
-    assert_eq!(response.status().as_u16(), 200);
     let body: Value = response.json().await.unwrap();
-    assert_eq!(body["result"]["protocolVersion"], "2025-11-25");
-    assert_eq!(body["result"]["serverInfo"]["name"], "keel");
-    assert!(body["result"]["capabilities"]["tools"].is_object());
-
-    // The follow-up notification must be accepted, not 404'd — a client that
-    // gets an error for it treats the connection as failed.
-    let ack = d
-        .client
-        .post(format!("{}/mcp", d.base))
-        .header("content-type", "application/json")
-        .json(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"}))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(ack.status().as_u16(), 202);
-
-    // And then the tools have to actually work, with no mirrored headers.
-    let listed = d
-        .client
-        .post(format!("{}/mcp", d.base))
-        .header("content-type", "application/json")
-        .header("MCP-Protocol-Version", "2025-11-25")
-        .json(&json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(listed.status().as_u16(), 200);
-    let listed: Value = listed.json().await.unwrap();
-    assert_eq!(listed["result"]["tools"].as_array().unwrap().len(), 9);
+    assert!(
+        body.get("result").is_none(),
+        "2025-11-25 is no longer served, so this client cannot connect"
+    );
+    assert_eq!(body["error"]["code"], -32022);
 }
 
 #[tokio::test]
@@ -273,7 +258,10 @@ async fn a_version_this_server_does_not_speak_is_told_what_it_does() {
     let body: Value = response.json().await.unwrap();
     assert_eq!(body["error"]["code"], -32022, "UnsupportedProtocolVersion");
     assert_eq!(body["error"]["data"]["supported"][0], PROTOCOL_VERSION);
-    assert_eq!(body["error"]["data"]["supported"][1], "2025-11-25");
+    assert!(
+        body["error"]["data"]["supported"][1].is_null(),
+        "exactly one revision is served since TQ-11"
+    );
 }
 
 #[tokio::test]

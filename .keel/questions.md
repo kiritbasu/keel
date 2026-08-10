@@ -143,24 +143,6 @@ Row `TQ-15` of the open-questions log.
 
 **Cost of getting it wrong:** Low as built, but D-5's wording will mislead the next person who reads it and plans around a read-only connection that cannot exist. Worth one sentence of correction in the spec.
 
-## TQ-11 — How long should the 2025-11-25 handshake be carried?
-
-`que_01KZKMPW0CDTNEYCYDJDT5N8PT` · question
-
-TQ-11. Needed today, because that is what Claude Code sends. Worth revisiting once clients move on.
-
-## TQ-10 — Should BM25 live in DuckDB rather than Lance?
-
-`que_01KZKMPVZRBGWRH4Z7Y381B21F` · question
-
-TQ-10. Implemented in DuckDB because lance_hybrid_search's keyword half could not be characterised. The swap back is one module.
-
-## TQ-9 — Should idempotency_key be on all thirteen tables or only tasks?
-
-`que_01KZKMPVZ3AQ0BNVV5BQKV3QY8` · question
-
-TQ-9. Implemented on all thirteen. The one storage-format change made without KB, because the alternative silently breaks a v1 must-have for twelve types.
-
 ## TQ-6 — How does a design image get into Keel from a Claude chat session?
 
 `que_01KZKMPVYBQVZG4MSWFSKHCNTB` · question
