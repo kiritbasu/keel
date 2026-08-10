@@ -15,11 +15,11 @@
 | | |
 |---|---|
 | **Current phase** | Phase 3 — Desktop (complete). Dogfooding on the real store |
-| **Phase progress** | Phase 0: **16/16** · Phase 1: **14/14** · Phase 2: **7/8** · Phase 3: **13/13** |
+| **Phase progress** | Phase 0: **16/16** · Phase 1: **14/14** · Phase 2: **11/13** · Phase 3: **13/13** |
 | **Status** | Phases 0–3 built. Keel is the source of truth; every `product/*.md` is generated from it |
 | **Blocked on** | Nothing. TQ-14 (render the tracker from task rows) is the last half-step of the dogfooding switch |
 | **Warning** | **R-2 observed live** — session 3 shipped four features and moved zero task rows. See "The session that did not write to Keel" below |
-| **Next up** | Hand-judge Run A's writes for keep-rate (Step 10); decide whether s2/s7/s9 are L0 or misses (TQ-21) |
+| **Next up** | KB: close Phase 2 or not (TQ-22). Then Step 10's independent hand-judge of ~20 writes |
 | **Last session** | 2026-08-09 |
 | **Last updated** | 2026-08-09 |
 
@@ -153,6 +153,34 @@ Not broken down yet. Decompose at the start of each phase, not before — earlie
 Nothing.
 
 *(Format: task ID — what's blocking — who or what unblocks it — since when.)*
+
+---
+
+## Runs B and C — 9 of 10, twice. The criterion is met.
+
+Step 6's Stop hook built and measured on two independent draws. Full write-up: `product/RUN-B-C.md`.
+
+| Run | Condition | Wrote | Offers |
+|---|---|---|---|
+| 1–3 | skill only (never loaded) | 0–1 of 10 | 3 each |
+| 4 | SessionStart hook, single-turn harness | 5 of 10 | 8 |
+| A | repaired instrument, no new treatment | 7 of 10 | 1 |
+| **B** | **+ Stop hook** | **9 of 10** | 1 |
+| **C** | **confirmatory** | **9 of 10** | 1 |
+
+**Pooled 18 of 20 · 90% · 95% CI [69.9%, 97.2%].**
+
+**The hook's specificity is better evidence than the score.** In Run B it fired in sessions 2, 7 and 9 — *exactly* the three that missed in Run A — and in no others, converting two. It stays silent for sessions that already recorded, which is what stops a forcing function becoming noise someone disables. s7 is the one it could not reach: it got the nudge and answered the user's follow-up instead.
+
+**Three failures, three fixes, none of them the wording:**
+
+- **SessionStart hook** → fixed *noticing and intent*. Ceiling ~30% → 80%.
+- **Continuation turn** → fixed *execution*. Offers 8 → 1.
+- **Stop hook** → fixed the *residual*: heads-down implementation sessions where the digest is thousands of tokens back with no salience.
+
+**Precision, since a recall metric is least trustworthy when recall is high.** 19 create calls → ~15 distinct artifacts across nine sessions, typed correctly (`feedback` for the harbourmaster call, `decision` for the resolution choice). Two honest blemishes: four sessions called `create` twice with identical titles — idempotency deduplicated them, REQ-7 working on organic traffic for the first time, but the retry suggests the success response is not clearly acknowledging the write — and s6 made three tasks from a prompt about one validation, the first organic R-6 instance.
+
+**Phase 2 is not closed, and I have not closed it.** The criterion is met; the precision floor (Step 10) does not exist, the pooled lower bound is 69.9%, and chat and Cowork have neither hook and are untested. Raised as **TQ-22** — "criterion satisfied" and "phase closed" are separable, and the second is KB's.
 
 ---
 

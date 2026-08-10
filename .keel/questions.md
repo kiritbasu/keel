@@ -3,6 +3,22 @@
 <!-- keel:generated questions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
 > Generated from Keel — edits here are not saved.
 
+## TQ-22 — the criterion is met twice; closing Phase 2 is a separate decision
+
+`que_01KZMVBQMESPR0P6WFVD441ECC` · question · severity medium
+
+Runs B and C both scored 9 of 10. Pooled 18 of 20, point estimate 90%, 95% CI [69.9%, 97.2%].
+
+The criterion as written - across ten unprompted sessions Claude writes in at least nine - has been met on two independent draws. That is a fact about the runs.
+
+Whether Phase 2 closes is a different question, and it is KB's:
+
+- The pooled lower bound is 69.9%, well under 90%. Twenty sessions cannot establish a 90% rate. The panel retired 9-of-10-at-n=10 as a statistical instrument for exactly this reason, and that argument does not stop applying because the number came out well.
+- The precision floor does not exist. Step 10 requires a hand-judge before anything raising write frequency ships, and my own review is not the independent one it asks for.
+- Twenty sessions, two projects, ten fixed prompts, one surface. Chat and Cowork have neither hook and are entirely untested.
+
+My read: the mechanism is demonstrably working, and the specificity of the Stop hook - fired in exactly the three sessions that missed in Run A, silent for the seven that did not - is stronger evidence than the score itself. But 'the criterion is satisfied' and 'the phase is closed' should not be collapsed. The first is true; the second is KB's call.
+
 ## TQ-21 — Step 4 and Step 6 were designed against a baseline that no longer exists
 
 `que_01KZMJVZYDFF6PQQJBGF46DGY3` · question · severity medium
