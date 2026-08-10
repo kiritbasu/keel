@@ -14,12 +14,12 @@
 
 | | |
 |---|---|
-| **Current phase** | Phase 3 — Desktop (complete). Dogfooding on the real store |
+| **Current phase** | Phases 0–3 complete. **Phase 2 closed 2026-08-10 on 18 of 20** |
 | **Phase progress** | Phase 0: **16/16** · Phase 1: **14/14** · Phase 2: **11/13** · Phase 3: **13/13** |
 | **Status** | Phases 0–3 built. Keel is the source of truth; every `product/*.md` is generated from it |
-| **Blocked on** | Nothing. TQ-14 (render the tracker from task rows) is the last half-step of the dogfooding switch |
+| **Blocked on** | **p0: the daemon rejects every write until the FTS index is rebuilt.** Diagnosed, not fixed — see below |
 | **Warning** | **R-2 observed live** — session 3 shipped four features and moved zero task rows. See "The session that did not write to Keel" below |
-| **Next up** | KB: close Phase 2 or not (TQ-22). Then Step 10's independent hand-judge of ~20 writes |
+| **Next up** | Fix the p0 index-rebuild wedge. Then Step 10's independent hand-judge of ~20 writes |
 | **Last session** | 2026-08-09 |
 | **Last updated** | 2026-08-09 |
 
@@ -153,6 +153,30 @@ Not broken down yet. Decompose at the start of each phase, not before — earlie
 Nothing.
 
 *(Format: task ID — what's blocking — who or what unblocks it — since when.)*
+
+---
+
+## Phase 2 is closed — and the p0 daemon wedge has a mechanism
+
+**Phase 2 shipped 2026-08-10**, on KB's call, against 18 of 20 pooled. Decision recorded as `dec_01KZN24NH42AW7XQB9GNNZ0NFY`, which states plainly what is being carried rather than resolved: a 69.9% pooled lower bound, no precision floor yet, and chat/Cowork untested.
+
+**Closing it immediately hit the p0**, which is now diagnosed rather than merely observed. Four of eight question status updates failed, and after that every write failed while reads kept working:
+
+```
+keel_update → "run a question lookup"     (500)
+keel_create → "count matching rows"       (500)
+keel_search "keel" / "daemon" / "gate" → No matches
+/api/entity/… → returns the entity fine
+fsck (daemon down) → clean, 27 checks
+```
+
+**Search returning nothing for words that are certainly in the store is the tell: the FTS index is broken.** Both the create and update paths call `refresh_entity_index`, which rebuilds `fts_entities` off the event-log watermark; when that rebuild fails, every write fails with a message describing the *operation* rather than the cause, and reads — which never touch the index — keep working. That is why it looks like total corruption and why `fsck` disagrees.
+
+**This is the panel's Step 8 hypothesis, confirmed with a mechanism:** *"two write paths into one file where only the daemon path maintains derived state."* Today's session ran `keel import` many times with the daemon stopped — a direct-open CLI write path that appends events without maintaining the index the daemon later tries to rebuild from. A restart does not clear it, because the damage is in the store's derived state, not the process.
+
+Data was never at risk: `fsck` clean throughout, and the CLI reads and writes the store normally with the daemon down.
+
+The p0 (`tsk_01KZM4PA7RW6DNNMCEX125609S`) now has a specific fix rather than a symptom: make the index rebuild recover by rebuilding from scratch rather than failing, surface the real DuckDB error via `#[source]` chaining instead of a context string, and have the CLI's direct write path either maintain the index or mark it stale so the daemon rebuilds cleanly.
 
 ---
 
