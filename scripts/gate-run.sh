@@ -2,7 +2,12 @@
 #
 # Phase 2's gate: ten unprompted sessions.
 #
-# Rewritten for Step 2 of product/WAY-FORWARD.md. The previous version measured
+# FROZEN, 2026-08-10. The gate met its criterion at 18 of 20 and nobody is
+# running this any more. It is kept, and kept working, because the next time the
+# agent's orientation changes it is the only way to find out what that did.
+# What it measured and why it stopped: product/GATE.md.
+#
+# Rewritten after the validity audit. The previous version measured
 # four runs and every one of them was wrong in a different way. What changed:
 #
 #  1. **Parallel, one store per session.** Was sequential: ten Claude sessions

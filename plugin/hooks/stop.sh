@@ -2,8 +2,9 @@
 #
 # Stop — the last moment a session knows what became true.
 #
-# Step 6 of product/WAY-FORWARD.md, re-argued against the residual it actually
-# addresses (TQ-21).
+# Built as Step 6 of the gate plan, re-argued against the residual it actually
+# addresses (TQ-21). The gate itself is frozen — see product/GATE.md — but this
+# hook is not part of the instrument. It ships.
 #
 # The original justification was the closing-message boundary: an offer to
 # record is composed *after* tool-calling has ended, so no instruction to
