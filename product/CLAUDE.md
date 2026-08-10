@@ -73,7 +73,7 @@ KB's primary window into this project is the desktop app, with `product/STATUS.m
 - A task is `done` only when it meets the definition of done below. Not when the code is written.
 - If a task turns out to be bigger than one task, split it and record the split. Don't silently expand scope.
 - If you're blocked, mark it `blocked` with the reason on the same line. Never leave something `in_progress` across sessions without a note.
-- Record what you *found* as a note on the task — `keel note add <task-id> "…"` — not as a line in a markdown table. A status without the finding behind it is a colour, not information. (The MCP surface has no note tool yet; it is the obvious next thing to add when MCP returns.)
+- Record what you *found* as a note on the task — `keel_note` over MCP, or `keel note add <task-id> "…"` from a terminal — not as a line in a markdown table. A status without the finding behind it is a colour, not information.
 - The changelog is derived from the event log, so it writes itself. A session that achieved nothing still leaves a trace, which was the point of insisting on the entry.
 - Never delete a task. Mark it `dropped` with a reason.
 
@@ -216,7 +216,7 @@ Things that look like progress and aren't:
 - Writing the desktop app because the daemon is hard.
 - Adding an artifact type because the modelling is awkward — it's almost always a field or a `kind` value.
 - Building the GitHub integration before Phase 1 exits, because it's more fun.
-- Expanding the MCP surface past nine tools. More tools means worse model selection, not more capability.
+- Expanding the MCP surface past **ten** tools. More tools means worse model selection, not more capability. Nine was the cap until `keel_note` earned the tenth slot — the argument is in the doc comment on `tools::all()`, and an eleventh needs one at least as good.
 - Refactoring for elegance while the tracker says something is blocked.
 - Hand-editing a file under `product/` and committing it without regenerating. It will be reverted by the next `keel generate`, and the reasoning in it is lost.
 - Marking a task done because the code exists but the tests don't.

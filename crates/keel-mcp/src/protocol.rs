@@ -30,7 +30,7 @@ pub const PROTOCOL_VERSION: &str = "2026-07-28";
 pub const LEGACY_PROTOCOL_VERSION: &str = "2025-11-25";
 
 /// Every revision this daemon serves, newest first.
-pub const SUPPORTED_VERSIONS: [&str; 1] = [PROTOCOL_VERSION];
+pub const SUPPORTED_VERSIONS: [&str; 2] = [PROTOCOL_VERSION, LEGACY_PROTOCOL_VERSION];
 
 /// Which revision a request belongs to.
 ///
@@ -386,40 +386,40 @@ pub fn check_headers(
         })
         .or_else(|| request.declared_version());
 
-    // Legacy revisions are no longer served. KB's call, TQ-11, knowing that
-    // Claude Code 2.1.185 speaks 2025-11-25 and will therefore stop
-    // connecting. Reverting this restores it: the era machinery is still here
-    // because the *response* shape still differs, only the negotiation is
-    // closed.
-    match declared.as_deref() {
-        Some(PROTOCOL_VERSION) => {}
-        None => {
-            return HeaderCheck::Reject(RpcError::new(
-                codes::UNSUPPORTED_PROTOCOL_VERSION,
-                format!(
-                    "no protocol version declared. This server speaks {PROTOCOL_VERSION} only; \
-                     support for earlier revisions was removed deliberately (TQ-11)"
-                ),
-            ));
-        }
+    // Both revisions negotiate. TQ-11 closed legacy negotiation and the
+    // consequence was immediate and total: Claude Code 2.1.185 speaks
+    // 2025-11-25, so the daemon stopped serving the one client the product
+    // exists for. The decision is reversed rather than softened — a store an
+    // agent cannot write to is not a store, it is a filing cabinet.
+    //
+    // What made the removal safe to undo is that nothing was actually deleted:
+    // `Era` stayed, because the response envelope branches on it regardless.
+    let era = match declared.as_deref() {
+        Some(PROTOCOL_VERSION) => Era::Modern,
+        Some(LEGACY_PROTOCOL_VERSION) => Era::Legacy,
+        // Older than the version header itself. Legacy by definition — this is
+        // the arm Claude Code's very first request lands on.
+        None => Era::Legacy,
         Some(other) => {
             return HeaderCheck::Reject(
                 RpcError::new(
                     codes::UNSUPPORTED_PROTOCOL_VERSION,
                     format!(
-                        "this server speaks {PROTOCOL_VERSION}, not {other}. Support for \
-                         2025-11-25 and earlier was removed deliberately (TQ-11); a client \
-                         that needs it will not connect"
+                        "this server speaks {PROTOCOL_VERSION} and {LEGACY_PROTOCOL_VERSION}, \
+                         not {other}"
                     ),
                 )
                 .with_data(json!({ "supported": SUPPORTED_VERSIONS })),
             );
         }
-    }
+    };
 
     // The mirrored headers are required only by the current revision. A legacy
     // client sends none of them, and demanding them is precisely how this
     // daemon locked out the client it exists to serve.
+    if era == Era::Legacy {
+        return HeaderCheck::Ok(era);
+    }
 
     if let Some(body_version) = request.declared_version()
         && Some(body_version.as_str()) != version_header
@@ -474,16 +474,19 @@ pub fn check_headers(
         }
     }
 
-    // Only one revision negotiates now, so every accepted request is modern.
-    // `Era` survives because the response envelope still branches on it, and
-    // reverting TQ-11 means restoring the match arms above and nothing else.
-    HeaderCheck::Ok(Era::Modern)
+    HeaderCheck::Ok(era)
 }
 
-/// The `initialize` result a 2025-11-25 client expects.
-pub fn initialize_result() -> Value {
+/// The `initialize` result, in the caller's own revision.
+///
+/// Took an era only after the hardcoded legacy version became a live bug: a
+/// 2026-07-28 client would open the handshake correctly, pass the version
+/// check, and be told the server speaks 2025-11-25. Answering a handshake in a
+/// dialect the caller did not offer is how a connection dies at the first
+/// request with nothing useful in the log.
+pub fn initialize_result(era: Era) -> Value {
     json!({
-        "protocolVersion": LEGACY_PROTOCOL_VERSION,
+        "protocolVersion": era.version(),
         "capabilities": { "tools": { "listChanged": false } },
         "serverInfo": server_info(),
         "instructions":
@@ -534,55 +537,43 @@ mod tests {
     }
 
     #[test]
-    fn a_legacy_client_is_refused() {
+    fn a_legacy_client_is_served_again() {
         // Claude Code 2.1.185 declares 2025-11-25 and sends none of the
-        // mirrored headers. It used to be served (B-17) because refusing it
-        // locked out the client this product exists to serve. KB reversed that
-        // in TQ-11 with the consequence stated, so this now pins the refusal —
-        // deliberate, not a regression.
+        // mirrored headers. B-17 served it; TQ-11 refused it and thereby
+        // locked out the only client the product exists for; this restores it.
+        // The refusal is the regression, not the acceptance.
         let r = call("keel_context");
-        assert!(matches!(
+        assert_eq!(
             check_headers(&r, None, None, Some(LEGACY_PROTOCOL_VERSION)),
-            HeaderCheck::Reject(_)
-        ));
+            HeaderCheck::Ok(Era::Legacy),
+        );
     }
 
     #[test]
-    fn an_initialize_request_is_read_from_the_body_and_then_refused() {
+    fn an_initialize_request_is_read_from_the_body() {
         // `initialize` predates the MCP-Protocol-Version header, so the only
-        // place the version appears is `params.protocolVersion`. That parsing
-        // still works — it is what lets the refusal name the version — but a
-        // 2025-11-25 client is no longer served (TQ-11).
+        // place the version appears is `params.protocolVersion`. Reading it
+        // from there is what lets the handshake be answered in the caller's
+        // own dialect rather than the server's favourite.
         let r = request(
             "initialize",
-            json!({"protocolVersion": "2025-11-25", "capabilities": {}}),
+            json!({"protocolVersion": LEGACY_PROTOCOL_VERSION, "capabilities": {}}),
         );
-        match check_headers(&r, None, None, None) {
-            HeaderCheck::Reject(e) => {
-                assert_eq!(e.code, codes::UNSUPPORTED_PROTOCOL_VERSION);
-                assert!(
-                    e.message.contains("2025-11-25"),
-                    "the version it declared must appear, or the client cannot tell why: {}",
-                    e.message
-                );
-            }
-            other => panic!("expected a refusal, got {other:?}"),
-        }
+        assert_eq!(
+            check_headers(&r, None, None, None),
+            HeaderCheck::Ok(Era::Legacy),
+        );
     }
 
     #[test]
-    fn a_missing_version_everywhere_is_refused() {
-        // A client older than the header itself. Serving it was the
-        // practical choice until TQ-11; now the refusal has to say so, because
-        // "no version declared" is otherwise an unhelpful thing to be told.
+    fn a_missing_version_everywhere_is_treated_as_legacy() {
+        // A client older than the header itself. There is nothing else it
+        // could be, and refusing it bought nothing.
         let r = request("tools/list", json!({}));
-        match check_headers(&r, None, None, None) {
-            HeaderCheck::Reject(e) => {
-                assert_eq!(e.code, codes::UNSUPPORTED_PROTOCOL_VERSION);
-                assert!(e.message.contains("TQ-11"), "{}", e.message);
-            }
-            other => panic!("expected a refusal, got {other:?}"),
-        }
+        assert_eq!(
+            check_headers(&r, None, None, None),
+            HeaderCheck::Ok(Era::Legacy),
+        );
     }
 
     #[test]
@@ -592,18 +583,14 @@ mod tests {
             &r,
             Some("tools/call"),
             Some("keel_context"),
-            // 2024-11-05 is the HTTP+SSE era. Since TQ-11 every revision
-            // other than the current one is refused the same way.
+            // 2024-11-05 is the HTTP+SSE era, which this server never spoke.
             Some("2024-11-05"),
         ) {
             HeaderCheck::Reject(e) => {
                 assert_eq!(e.code, codes::UNSUPPORTED_PROTOCOL_VERSION);
                 let data = e.data.unwrap();
                 assert_eq!(data["supported"][0], PROTOCOL_VERSION);
-                assert!(
-                    data["supported"][1].is_null(),
-                    "exactly one revision is served since TQ-11"
-                );
+                assert_eq!(data["supported"][1], LEGACY_PROTOCOL_VERSION);
             }
             HeaderCheck::Ok(_) => panic!("should have been rejected"),
         }
@@ -724,11 +711,62 @@ mod tests {
     }
 
     #[test]
-    fn the_initialize_result_answers_the_legacy_handshake() {
-        let r = initialize_result();
-        assert_eq!(r["protocolVersion"], LEGACY_PROTOCOL_VERSION);
-        assert_eq!(r["serverInfo"]["name"], "keel");
-        assert!(r["capabilities"]["tools"].is_object());
+    fn the_initialize_result_answers_in_the_callers_own_revision() {
+        // Was hardcoded to the legacy version, which meant a 2026-07-28 client
+        // opened the handshake correctly and was told the server speaks
+        // 2025-11-25 — a connection that dies at the first request with
+        // nothing useful in the log.
+        let legacy = initialize_result(Era::Legacy);
+        assert_eq!(legacy["protocolVersion"], LEGACY_PROTOCOL_VERSION);
+        assert_eq!(legacy["serverInfo"]["name"], "keel");
+        assert!(legacy["capabilities"]["tools"].is_object());
+
+        let modern = initialize_result(Era::Modern);
+        assert_eq!(modern["protocolVersion"], PROTOCOL_VERSION);
+    }
+
+    #[test]
+    fn a_legacy_client_negotiates_without_the_mirrored_headers() {
+        // The exact shape of Claude Code's opening request: no version header,
+        // no Mcp-Method, no Mcp-Name. Demanding them is what locked it out.
+        let init = request(
+            "initialize",
+            json!({
+                "protocolVersion": LEGACY_PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": { "name": "claude-code", "version": "2.1.185" }
+            }),
+        );
+        assert_eq!(
+            check_headers(&init, None, None, None),
+            HeaderCheck::Ok(Era::Legacy),
+            "the client this product exists to serve must connect",
+        );
+    }
+
+    #[test]
+    fn a_modern_client_still_has_to_mirror_its_headers() {
+        // Restoring legacy must not relax the current revision: the mirrored
+        // headers exist because an intermediary may route on the header while
+        // the server executes on the body, and a mismatch is a security
+        // problem rather than a formatting one.
+        let c = call("keel_context");
+        assert!(matches!(
+            check_headers(&c, None, None, Some(PROTOCOL_VERSION)),
+            HeaderCheck::Reject(_),
+        ));
+    }
+
+    #[test]
+    fn an_unknown_revision_is_still_refused_and_says_what_is_served() {
+        let init = request(
+            "initialize",
+            json!({ "protocolVersion": "1999-01-01", "capabilities": {} }),
+        );
+        let HeaderCheck::Reject(err) = check_headers(&init, None, None, None) else {
+            panic!("an unknown revision must not negotiate");
+        };
+        assert_eq!(err.code, codes::UNSUPPORTED_PROTOCOL_VERSION);
     }
 
     #[test]

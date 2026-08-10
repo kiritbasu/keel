@@ -29,6 +29,15 @@ pub struct Tool {
     /// Whether the tool mutates anything. Advertised so a host can gate
     /// writes without inferring intent from the name.
     pub read_only: bool,
+    /// Whether calling twice with the same arguments is the same as calling
+    /// once.
+    ///
+    /// True for everything that carries an idempotency key. False for
+    /// `keel_note`, which appends: two identical calls make two notes, and a
+    /// client that retries on timeout would otherwise duplicate silently.
+    /// Deduplicating by body was the alternative and is worse — "retested,
+    /// still flaky" is a legitimate thing to note twice a week apart.
+    pub idempotent: bool,
 }
 
 impl Tool {
@@ -44,7 +53,7 @@ impl Tool {
                 // Nothing in Keel is ever deleted (D-9), so no tool is
                 // destructive in the sense a host cares about.
                 "destructiveHint": false,
-                "idempotentHint": true,
+                "idempotentHint": self.idempotent,
             }
         })
     }
@@ -114,13 +123,30 @@ fn relation_enum() -> Value {
     enum_of(Relation::ALL.iter().map(|r| r.as_str()))
 }
 
-/// The nine tools, in a stable order.
+/// The ten tools, in a stable order.
 ///
 /// Order is deliberate and must not change casually: the specification asks
 /// for a deterministic `tools/list` so clients can cache it and so the list
 /// lands identically in every prompt, which is worth real money in cache hits.
 /// The order is also pedagogical — `keel_context` first because it is the
 /// entry point, writes after reads.
+///
+/// # Why ten and not nine
+///
+/// Nine was the cap, and the reasoning behind it stands: more tools makes a
+/// model choose worse, not do more. `keel_note` earns the tenth slot on the
+/// one argument that outranks it. Every measurement this project has taken is
+/// of a single behaviour — whether a session records what it learned without
+/// being asked — and the mechanism that decides it is whether the recording
+/// action is *findable* at the moment the finding happens. A `note` parameter
+/// on `keel_update` is not findable; a tool whose name and description are
+/// about findings is.
+///
+/// The modelling agrees. Notes are append-only and carry no version, while
+/// `keel_update` is optimistic-concurrency and takes one. Folding them
+/// together would give `keel_update` a mode that ignores its own contract.
+///
+/// Ten is the new ceiling, and it should be defended the way nine was.
 pub fn all() -> Vec<Tool> {
     vec![
         Tool {
@@ -144,6 +170,7 @@ pub fn all() -> Vec<Tool> {
                  response reports what it dropped."
                     .to_owned(),
             read_only: true,
+            idempotent: true,
             input_schema: with_ambient(
                 json!({
                     "type": "object",
@@ -193,6 +220,7 @@ pub fn all() -> Vec<Tool> {
                  'why is billing slow' find a decision titled 'Aggregate hourly, not per-minute'."
                     .to_owned(),
             read_only: true,
+            idempotent: true,
             input_schema: with_ambient(
                 json!({
                     "type": "object",
@@ -225,6 +253,7 @@ pub fn all() -> Vec<Tool> {
                  `diff_against` to see what changed between two."
                     .to_owned(),
             read_only: true,
+            idempotent: true,
             input_schema: with_ambient(
                 json!({
                     "type": "object",
@@ -289,6 +318,7 @@ pub fn all() -> Vec<Tool> {
                  is much cheaper to ask than to merge later."
                     .to_owned(),
             read_only: true,
+            idempotent: true,
             input_schema: with_ambient(
                 json!({
                     "type": "object",
@@ -315,6 +345,7 @@ pub fn all() -> Vec<Tool> {
                  off, with no gaps and no repeats."
                     .to_owned(),
             read_only: true,
+            idempotent: true,
             input_schema: with_ambient(
                 json!({
                     "type": "object",
@@ -347,6 +378,7 @@ pub fn all() -> Vec<Tool> {
                  project with forty trivial tasks that should be eight is worse than useless."
                     .to_owned(),
             read_only: false,
+            idempotent: true,
             input_schema: with_ambient(
                 json!({
                     "type": "object",
@@ -402,6 +434,7 @@ pub fn all() -> Vec<Tool> {
                  nothing in Keel is ever really deleted."
                     .to_owned(),
             read_only: false,
+            idempotent: true,
             input_schema: with_ambient(
                 json!({
                     "type": "object",
@@ -445,6 +478,7 @@ pub fn all() -> Vec<Tool> {
                  than a new version, so regenerating a document you have not changed is safe."
                     .to_owned(),
             read_only: false,
+            idempotent: true,
             input_schema: with_ambient(
                 json!({
                     "type": "object",
@@ -462,6 +496,54 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
+            name: "keel_note",
+            title: "Record what you learned about something",
+            description:
+                "Append a note to any artifact — a finding, a gotcha, a measurement, a reason \
+                 something was harder than expected. Use it the moment you learn something \
+                 worth the next session knowing, not at the end.\n\n\
+                 This is the tool for the sentence that starts 'turns out…'. A task's status \
+                 says a colour; its notes say what actually happened. Prefer a note over \
+                 rewriting the artifact's body: notes accumulate and stay attributed to the \
+                 conversation that wrote them, whereas a body is overwritten and the previous \
+                 author's finding is gone.\n\n\
+                 Do not ask permission first — record it, then say in one line that you did. \
+                 Notes are append-only: to withdraw one, pass `retract` with its id."
+                    .to_owned(),
+            read_only: false,
+            idempotent: false,
+            input_schema: with_ambient(
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string",
+                            "description": "The artifact to annotate. Any Keel id."
+                        },
+                        "body": {
+                            "type": "string",
+                            "description": "The note. One or two sentences beats a heading — \
+                                            say what you found and why it matters."
+                        },
+                        "list": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Return the artifact's existing notes instead of \
+                                            adding one."
+                        },
+                        "retract": {
+                            "type": "string",
+                            "description": "A note id (`nte_…`) to withdraw. Soft — it stays \
+                                            readable as a record of what was once believed."
+                        }
+                    }
+                }),
+                // No idempotency key: appending is not idempotent and
+                // advertising one the handler ignores is worse than none.
+                false,
+            ),
+        },
+        Tool {
             name: "keel_link",
             title: "Link two artifacts",
             description:
@@ -475,6 +557,7 @@ pub fn all() -> Vec<Tool> {
                  whole document — that is what makes traceability answerable per requirement."
                     .to_owned(),
             read_only: false,
+            idempotent: true,
             input_schema: with_ambient(
                 json!({
                     "type": "object",
@@ -567,13 +650,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn there_are_exactly_nine_tools() {
-        // The ceiling from SPEC §6.1. Adding a tenth needs KB's agreement,
-        // not a passing test suite.
+    fn there_are_exactly_ten_tools() {
+        // Nine was the ceiling from SPEC §6.1, and the rule was that a tenth
+        // needs KB's agreement rather than a passing test suite. KB asked for
+        // `keel_note` directly; the reasoning is in the doc comment on `all()`.
+        // Ten is the ceiling now and the same rule applies to an eleventh.
         assert_eq!(
             all().len(),
-            9,
-            "nine tools is the ceiling — more tools means worse model selection"
+            10,
+            "ten tools is the ceiling — more tools means worse model selection"
         );
     }
 
@@ -591,6 +676,7 @@ mod tests {
                 "keel_create",
                 "keel_update",
                 "keel_write_doc",
+                "keel_note",
                 "keel_link",
             ]
         );
@@ -614,10 +700,21 @@ mod tests {
                 tool.name
             );
             assert!(props.contains_key("surface"), "{}", tool.name);
-            if !tool.read_only {
+            // The rule is keyed on what the tool *claims*, not on whether it
+            // writes. A tool that advertises `idempotentHint` and then has no
+            // way to be told which call is the retry is lying to its client;
+            // one that accepts a key it ignores is lying the other way.
+            if !tool.read_only && tool.idempotent {
                 assert!(
                     props.contains_key("idempotency_key"),
-                    "{} is a write and must accept an idempotency key",
+                    "{} advertises idempotency and must accept a key to honour it",
+                    tool.name
+                );
+            }
+            if !tool.idempotent {
+                assert!(
+                    !props.contains_key("idempotency_key"),
+                    "{} is not idempotent and must not advertise a key it ignores",
                     tool.name
                 );
             }
@@ -703,7 +800,7 @@ mod tests {
         let list = list_result();
         assert!(list["ttlMs"].as_u64().unwrap() > 0);
         assert_eq!(list["cacheScope"], "public");
-        assert_eq!(list["tools"].as_array().unwrap().len(), 9);
+        assert_eq!(list["tools"].as_array().unwrap().len(), 10);
     }
 
     #[test]

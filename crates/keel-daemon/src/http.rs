@@ -210,7 +210,7 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
     let result = match request.method.as_str() {
         // The 2025-11-25 handshake. Removed in the current revision, but this
         // is what Claude Code actually opens with.
-        "initialize" => Ok(initialize_result()),
+        "initialize" => Ok(initialize_result(era)),
         // Also 2025-11-25. Cheap to answer and its absence looks like a dead
         // connection to a client that uses it as a keep-alive.
         "ping" => Ok(json!({})),

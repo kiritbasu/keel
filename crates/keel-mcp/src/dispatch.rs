@@ -17,7 +17,8 @@ use crate::context;
 use crate::protocol::{RpcError, codes};
 use keel_core::{
     Actor, Cursor, Direction, DocumentStore, Entity, EntityId, EntityQuery, EntityStore,
-    EntityType, Error, EventId, GraphStore, NewLink, Provenance, Relation, SearchQuery, Surface,
+    EntityType, Error, EventId, GraphStore, NewLink, NewNote, Provenance, Relation, SearchQuery,
+    Surface,
 };
 use keel_core::{
     Artifact, Decision, Design, DuckStore, Environment, Feedback, Metric, MetricObservation,
@@ -236,6 +237,7 @@ pub fn dispatch(store: &mut DuckStore, call: ToolCall<'_>) -> Result<Value, RpcE
         "keel_update" => keel_update(store, args),
         "keel_write_doc" => keel_write_doc(store, args),
         "keel_link" => keel_link(store, args),
+        "keel_note" => keel_note(store, args),
         other => Err(RpcError::new(
             codes::METHOD_NOT_FOUND,
             format!(
@@ -996,6 +998,60 @@ fn keel_write_doc(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError
     Ok(tool_result(
         summary,
         json!({ "document": written, "created_revision": !unchanged }),
+    ))
+}
+
+/// Append to an artifact's running commentary, list it, or retract one entry.
+///
+/// Three modes on one tool rather than three tools, because listing and
+/// retracting are rare and the ceiling on the tool surface is real. Adding is
+/// the default and needs no flag: the common case should cost the model no
+/// decision at all.
+fn keel_note(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
+    let provenance = provenance_from(args)?;
+
+    if let Some(note_id) = opt_str(args, "retract") {
+        let id = keel_core::NoteId::parse(&note_id)
+            .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
+        let note = store
+            .retract_note(&id, &provenance)
+            .map_err(|e| to_rpc_error(store, e))?;
+        return Ok(tool_result(
+            format!(
+                "Retracted {}. It stays readable as a record of what was believed.",
+                note.id
+            ),
+            json!({ "note": note, "retracted": true }),
+        ));
+    }
+
+    let id = EntityId::parse(&req_str(args, "id")?)
+        .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
+
+    if opt_bool(args, "list") {
+        let notes = store
+            .notes_for(&id, false)
+            .map_err(|e| to_rpc_error(store, e))?;
+        let summary = if notes.is_empty() {
+            format!("No notes on {id} yet.")
+        } else {
+            format!("{} note(s) on {id}, oldest first.", notes.len())
+        };
+        return Ok(tool_result(summary, json!({ "notes": notes })));
+    }
+
+    let body = req_str(args, "body")?;
+    let mut new_note = NewNote::new(id.clone(), body, Actor::Claude);
+    if let Some(session) = provenance.session_id.clone() {
+        new_note = new_note.in_session(session);
+    }
+    let note = store
+        .add_note(new_note, &provenance)
+        .map_err(|e| to_rpc_error(store, e))?;
+
+    Ok(tool_result(
+        format!("Noted on {id}. {}", note.headline()),
+        json!({ "note": note }),
     ))
 }
 

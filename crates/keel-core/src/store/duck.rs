@@ -1111,12 +1111,22 @@ impl EntityStore for DuckStore {
         // its type is exactly what the view was built for.
         let Some((entity_type, project_id, archived)) = self.resolve_vertex(&note.entity_id)?
         else {
-            return Err(Error::NotFound {
+            // Deliberately not `NotFound`: its message quotes the id inside
+            // backticks, so appending an explanation there produced
+            // "no task with id `tsk_… — cannot annotate a row that does not
+            // exist`" — prose inside what reads as the identifier. A model
+            // parsing that has been handed a malformed id.
+            return Err(Error::Invalid {
                 entity_type: EntityType::Task,
-                id: format!(
-                    "{} — cannot annotate a row that does not exist",
+                field: "id".to_owned(),
+                problem: format!(
+                    "no row with id {} exists, so it cannot be annotated",
                     note.entity_id
                 ),
+                expected: "an id returned by keel_context, keel_search or keel_get — a note \
+                           cannot outlive the row it hangs off, and nothing links to a note, \
+                           so an orphaned one would never surface again"
+                    .to_owned(),
             });
         };
         if archived {

@@ -128,7 +128,14 @@ fn a_note_on_a_nonexistent_row_is_refused() {
         .expect_err("a note must not outlive the row it annotates");
     // Nothing links to a note, so there is no traversal that would ever
     // surface an orphaned one again. Failing loudly is the only option.
-    assert!(format!("{err}").contains("does not exist"), "{err}");
+    let text = format!("{err}");
+    assert!(text.contains("no row with id"), "{text}");
+    // The id must not have prose appended inside it: a model reading
+    // "`tsk_… — cannot annotate…`" has been handed a malformed identifier.
+    assert!(
+        !text.contains("— cannot annotate a row"),
+        "the explanation must not live inside the id: {text}"
+    );
 }
 
 #[test]

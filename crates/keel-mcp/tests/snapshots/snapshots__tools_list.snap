@@ -488,6 +488,53 @@ expression: "keel_mcp::list_result()"
     {
       "annotations": {
         "destructiveHint": false,
+        "idempotentHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Append a note to any artifact — a finding, a gotcha, a measurement, a reason something was harder than expected. Use it the moment you learn something worth the next session knowing, not at the end.\n\nThis is the tool for the sentence that starts 'turns out…'. A task's status says a colour; its notes say what actually happened. Prefer a note over rewriting the artifact's body: notes accumulate and stay attributed to the conversation that wrote them, whereas a body is overwritten and the previous author's finding is gone.\n\nDo not ask permission first — record it, then say in one line that you did. Notes are append-only: to withdraw one, pass `retract` with its id.",
+      "inputSchema": {
+        "properties": {
+          "body": {
+            "description": "The note. One or two sentences beats a heading — say what you found and why it matters.",
+            "type": "string"
+          },
+          "id": {
+            "description": "The artifact to annotate. Any Keel id.",
+            "type": "string"
+          },
+          "list": {
+            "default": false,
+            "description": "Return the artifact's existing notes instead of adding one.",
+            "type": "boolean"
+          },
+          "retract": {
+            "description": "A note id (`nte_…`) to withdraw. Soft — it stays readable as a record of what was once believed.",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "keel_note",
+      "title": "Record what you learned about something"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
         "idempotentHint": true,
         "readOnlyHint": false
       },

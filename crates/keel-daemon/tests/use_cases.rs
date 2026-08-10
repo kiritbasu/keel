@@ -142,11 +142,16 @@ async fn server_discover_advertises_the_protocol() {
 }
 
 #[tokio::test]
-async fn tools_list_returns_nine_tools_with_cache_hints() {
+async fn tools_list_returns_ten_tools_with_cache_hints() {
     let d = Daemon::start().await;
     let (status, body) = d.rpc("tools/list", json!({})).await;
     assert_eq!(status, 200);
-    assert_eq!(body["result"]["tools"].as_array().unwrap().len(), 9);
+    // Ten since `keel_note`. The cap is a real constraint, not a rounding
+    // error — if this needs changing again, the reason belongs in tools.rs
+    // next to the last one.
+    let tools = body["result"]["tools"].as_array().unwrap();
+    assert_eq!(tools.len(), 10);
+    assert!(tools.iter().any(|t| t["name"] == "keel_note"));
     assert!(body["result"]["ttlMs"].as_u64().unwrap() > 0);
     assert_eq!(body["result"]["cacheScope"], "public");
 }
@@ -174,11 +179,10 @@ async fn a_header_that_disagrees_with_the_body_is_rejected() {
 }
 
 #[tokio::test]
-async fn a_client_with_no_version_header_is_refused() {
-    // Was served as legacy until TQ-11. KB chose to remove legacy support
-    // knowing it stops Claude Code 2.1.185 connecting; this pins that the
-    // refusal is deliberate rather than a regression, and says so in the
-    // error a client will actually read.
+async fn a_client_with_no_version_header_is_served_as_legacy() {
+    // A client older than the version header itself. TQ-11 refused it; that
+    // refusal is what stopped Claude Code 2.1.185 connecting, so it is undone.
+    // There is nothing else such a client could be.
     let d = Daemon::start().await;
     let response = d
         .client
@@ -190,28 +194,20 @@ async fn a_client_with_no_version_header_is_refused() {
         .unwrap();
 
     let body: Value = response.json().await.unwrap();
-    assert_eq!(
-        body["error"]["code"], -32022,
-        "UnsupportedProtocolVersion, not a generic failure"
-    );
-    let message = body["error"]["message"].as_str().unwrap_or_default();
     assert!(
-        message.contains("TQ-11"),
-        "the refusal must name the decision that caused it, or the next person \
-         reading this error will treat it as a bug: {message}"
+        body.get("error").is_none(),
+        "a client with no version header must be served, not refused: {body}"
     );
+    assert!(body["result"]["tools"].is_array());
 }
 
 #[tokio::test]
-async fn the_2025_11_25_handshake_is_refused_deliberately() {
+async fn the_2025_11_25_handshake_is_answered_in_its_own_dialect() {
     // The exact request Claude Code 2.1.185 opens with, captured from the
-    // wire. It used to be answered (B-17) because refusing it made the product
-    // unusable with its primary client — `claude mcp list` reported "Failed to
-    // connect". KB reversed that in TQ-11 with the consequence stated.
-    //
-    // The test is kept rather than deleted: it is the record of what this
-    // costs, and it turns "Claude Code stopped working" from a mystery into a
-    // one-line git revert.
+    // wire. B-17 answered it; TQ-11 refused it and `claude mcp list` went to
+    // "Failed to connect"; this restores it. The reply must quote 2025-11-25
+    // back — answering a handshake in a dialect the caller did not offer kills
+    // the connection at the first request with nothing useful in the log.
     let d = Daemon::start().await;
     let response = d
         .client
@@ -234,10 +230,11 @@ async fn the_2025_11_25_handshake_is_refused_deliberately() {
 
     let body: Value = response.json().await.unwrap();
     assert!(
-        body.get("result").is_none(),
-        "2025-11-25 is no longer served, so this client cannot connect"
+        body.get("error").is_none(),
+        "the client this product exists to serve must connect: {body}"
     );
-    assert_eq!(body["error"]["code"], -32022);
+    assert_eq!(body["result"]["protocolVersion"], "2025-11-25");
+    assert_eq!(body["result"]["serverInfo"]["name"], "keel");
 }
 
 #[tokio::test]
@@ -258,10 +255,7 @@ async fn a_version_this_server_does_not_speak_is_told_what_it_does() {
     let body: Value = response.json().await.unwrap();
     assert_eq!(body["error"]["code"], -32022, "UnsupportedProtocolVersion");
     assert_eq!(body["error"]["data"]["supported"][0], PROTOCOL_VERSION);
-    assert!(
-        body["error"]["data"]["supported"][1].is_null(),
-        "exactly one revision is served since TQ-11"
-    );
+    assert_eq!(body["error"]["data"]["supported"][1], "2025-11-25");
 }
 
 #[tokio::test]
