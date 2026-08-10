@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-09T22:29:43.522857+00:00",
+  "generated_at": "2026-08-10T00:28:08.678192+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/outside-panel-the-gate-measurement-was-invalid-and-the-file-plan-is-rejected.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZMGPPJ0MM4VSGAP4KF724DQ",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "df593411347334c1e7a54fb54f15e2915794663ca482be5b1942328d39b83ce8"
         }
       ]
     },

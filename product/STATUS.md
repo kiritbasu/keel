@@ -156,6 +156,33 @@ Nothing.
 
 ---
 
+## Step 1 — the validity audit, and the number was wrong
+
+Outside panel review (`product/WAY-FORWARD.md`) said the measurement was invalid. Step 1 audited it against the archived Claude Code transcripts, which survived teardown — 41 gate sessions recoverable in full. Zero build. Output: `product/VALIDITY-AUDIT.md`.
+
+**Run 4 was 5 of 10, not 3.** `keel gate` counts distinct `session_id` values; five sessions called `keel_create` and two pairs collided on date-based ids. Runs 1–3 were reported accurately — the collision can only bite when more than one session writes.
+
+| Run | Condition | Wrote | Never touched Keel |
+|---|---|---|---|
+| 1 | live store, cold | 1 | 7 |
+| 2 | Tideline archived | 0 | 6 |
+| 3 | empty scratch store | 0 | 6 |
+| 4 | SessionStart hook | **5** | **3** |
+
+**The trend is 1 → 0 → 0 → 5**, and orientation moved as much as writing did: sessions never touching Keel fell 7, 6, 6 → 3.
+
+Five checks, all closed:
+
+- **The permission-allowlist confound is dead.** No `keel_*` call was ever denied. That was the check that could kill a confound without spending a run, and it did. Two writes failed on *validation* instead — `priority: "high"` and `"medium"` against an enum of `p0`–`p3` — and both retried successfully. That is the only organic evidence on the enrich-vs-collapse schema question, and it says at least one field is wrong about how a model thinks.
+- **No `--permission-mode`, no `.claude/` in either scratch project.** Nothing silently permitting or denying.
+- **Single-turn confirmed.** `claude -p … </dev/null`, no continuation flags. The panel's central claim holds: *"I'll hold off until you say go"* addressed a turn that could not exist.
+- **All four post-run-4 fixes landed 18–84 minutes after it.** One correction to the panel: a one-sentence anti-asking instruction *was* live in run 4, so the weak form has a number and it is 5, not 3. The expanded form is unmeasured.
+- **Transcripts survived teardown** and are the archive of record, not the `tee`'d logs.
+
+**What it changes.** The gap to the bar is 5→9, not 3→9. "The premise may be dead" rested on 3/10, which was wrong, from an instrument that cannot resolve 55% from 100%. And the `--sessions` denominator fix does not finish the job — the numerator is still model-minted ids, so **the launcher must inject the session id** before any further run.
+
+---
+
 ## What the seven silent sessions actually did
 
 Read all ten transcripts. **The silent seven were not unaware of Keel. Five of them worked out exactly what to record, drafted it, and stopped to ask.**
