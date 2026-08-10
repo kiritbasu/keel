@@ -35,19 +35,28 @@ daemon="${KEEL_DAEMON_URL:-http://127.0.0.1:7654}"
 payload="$(cat 2>/dev/null || true)"
 cwd=""
 claude_session=""
+source_kind=""
 if [ -n "$payload" ]; then
-  read -r cwd claude_session <<EOF
+  read -r cwd claude_session source_kind <<EOF
 $(printf '%s' "$payload" | python3 -c '
 import json, sys
 try:
     d = json.load(sys.stdin)
 except Exception:
     d = {}
-print(d.get("cwd", ""), d.get("session_id", ""))
+print(d.get("cwd", ""), d.get("session_id", ""), d.get("source", ""))
 ' 2>/dev/null)
 EOF
 fi
 [ -n "$cwd" ] || cwd="$PWD"
+
+# `compact` is not a session start. Claude Code fires SessionStart again after
+# every context compaction, and re-injecting the preamble and digest there spent
+# a few hundred tokens restating what the conversation already knew — on the
+# occasions when context was scarcest, which is precisely when compaction
+# happens. The session identity and the orientation both survive compaction in
+# the summary; what was being re-sent was noise.
+[ "$source_kind" = "compact" ] && exit 0
 
 # Claude Code assigns every session a UUID and hands it to this hook. Telling
 # the model to use *that* removes an entire failure class: asked to invent a
@@ -112,21 +121,27 @@ import sys
 
 digest = sys.argv[1]
 session_hint = sys.argv[2] if len(sys.argv) > 2 else ""
+# Two instructions, and no more. Both are here rather than in the skill for
+# one measured reason: a skill is model-invoked and thirty headless sessions
+# with `keel` installed invoked it zero times (TQ-19). An instruction that only
+# lives in a file nobody opens is not an instruction.
+#
+# Everything *else* about writing — what the artifact types are for, when a
+# task is really a spec, how to handle a conflict — stays in the skill, which
+# is read once the model has decided to engage. This hook does not restate any
+# of it.
 preamble = (
     "Keel holds this project's specs, decisions, tasks, questions and history. "
-    "You did not have to ask for this — it is here so you start oriented.\n\n"
-    "Write back to it when something becomes true: a decision made, a task "
-    "agreed, a question raised and left open, feedback heard. Use the keel_* "
-    "tools.\n\n"
+    "You did not have to ask for this — it is here so you start oriented. "
+    "Write back to it when something becomes true, with the keel_* tools; the "
+    "`keel` skill has the detail on what belongs where.\n\n"
     "Record it rather than offering to. In a measured run, five of ten sessions "
     "worked out exactly what should be captured, drafted it, then asked "
     "permission and stopped — so it was lost. Write it, then say in one line "
-    "that you did. Asking turns a free write into an interruption.\n\n"
+    "that you did.\n\n"
     "If you pick up one of the tasks under Next below, set it to in_progress "
-    "before you start — keel_update with the id shown, one call, no need to "
-    "ask. On a long-running project this is the only way the human can see "
-    "what is being worked on right now rather than only what has finished. "
-    "Set it back to todo if you end up not doing it.\n\n"
+    "before you start. It is one call, and it is the only way the human can see "
+    "what is being worked on now rather than only what has finished.\n\n"
 )
 preamble += session_hint
 print(json.dumps({

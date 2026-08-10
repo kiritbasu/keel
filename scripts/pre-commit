@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+#
+# Refuse a commit that carries a hand-edited generated file.
+#
+# This replaces the `PostToolUse` mirror hook, which tried to *recover* such an
+# edit by turning it into a revision. It had three moving parts and two of them
+# did not work: it called `keel mirror`, a command that does not exist, and
+# swallowed the failure with `|| true`; and it read `KEEL_SESSION_ID`, which
+# nothing anywhere sets. So every edit it claimed to capture was silently lost,
+# and the guarantee written into it and into the plugin README — "the database
+# wins unconditionally afterwards, the file is regenerated" — was false.
+#
+# A mechanism that silently does not work is worse than no mechanism, because
+# it is *relied upon*. This one fails loudly and does nothing else: it does not
+# write to the store, does not rewrite your files, and does not try to guess
+# what you meant. It tells you the edit will be reverted and where to make it
+# instead.
+#
+# Install:  ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+# Bypass:   git commit --no-verify   (for the one case below)
+
+set -uo pipefail
+
+# The project whose files this repository generates. `keel generate --check`
+# needs to know which project's outputs to compare against.
+project="${KEEL_PROJECT:-keel}"
+
+# Nothing staged under the generated tree means nothing to check. Committing a
+# code change should not pay for a store round-trip.
+staged="$(git diff --cached --name-only --diff-filter=ACM -- 'product/*.md' '.keel/**/*.md' 2>/dev/null)"
+[ -n "$staged" ] || exit 0
+
+# The repository's own build comes first, and PATH last. This machine had a
+# `keel` from an earlier day on PATH — one with a `mirror` subcommand and no
+# `generate` — which is also why the hook this replaces called `keel mirror`:
+# the command existed when it was written and was renamed underneath it. A
+# check that runs the wrong binary reports drift that is not there, which is
+# the same disease as a hook that silently does nothing.
+keel_bin=""
+for candidate in target/release/keel target/debug/keel "$(command -v keel 2>/dev/null || true)"; do
+  [ -n "$candidate" ] && [ -x "$candidate" ] || continue
+  "$candidate" generate --help >/dev/null 2>&1 || continue
+  keel_bin="$candidate"
+  break
+done
+
+# A missing or unusable binary must not block a commit — that would make the
+# check worse than the hook it replaces. Say so and get out of the way.
+if [ -z "$keel_bin" ]; then
+  echo "pre-commit: no keel build understands \`generate\`, so generated files were not checked." >&2
+  exit 0
+fi
+
+drift="$("$keel_bin" generate "$project" --check 2>&1)"
+status=$?
+[ $status -eq 0 ] && exit 0
+
+# "The check could not run" is not "the files are wrong", and reporting one as
+# the other is how a green check comes to mean nothing.
+case "$drift" in
+  *"Conflicting lock"*|*"Unknown error code"*)
+    echo "pre-commit: could not read the store (the daemon holds it). Generated files were not checked." >&2
+    exit 0
+    ;;
+esac
+
+cat >&2 <<EOF
+
+  A generated file does not match what Keel would produce.
+
+$drift
+
+  Every file under product/ is an output. An edit here is not wrong so much as
+  futile: the next \`keel generate\` overwrites it from the store, and the
+  reasoning in it is gone.
+
+  Make the change where it lives:
+
+    • prose      — ask Claude to write it, or edit it in the app
+    • the tracker— change the task rows; product/STATUS.md is rendered from them
+    • then       — keel generate $project
+
+  If you are deliberately committing a divergence, use --no-verify.
+
+EOF
+exit 1

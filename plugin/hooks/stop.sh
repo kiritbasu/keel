@@ -108,13 +108,17 @@ print("yes" if any(e.get("session_id") in (target, sys.argv[1]) for e in events)
 
 touch "$marker" 2>/dev/null
 
-# `block` sends this back into the session as a reason to continue. The wording
-# is deliberately a question about *this* conversation rather than an
-# instruction to use a tool: the failure being addressed is not reluctance, it
-# is that Keel was out of mind entirely.
+# One sentence. This hook owns exactly one instruction — the end-of-session
+# check — and it used to spend a paragraph re-teaching what to write and how to
+# say it, which the session-start hook and the skill had already covered. Three
+# statements of the same thing is how they come to disagree.
+#
+# It is a question about *this* conversation rather than an instruction to use
+# a tool: the failure being addressed is not reluctance, it is that Keel was out
+# of mind entirely.
 cat <<'JSON'
 {
   "decision": "block",
-  "reason": "Before you finish: nothing from this session has been recorded in Keel. Did anything become true here — a decision made, a bug worth remembering, a risk noticed, a question raised and left open, a task that should exist? If so, record it now with the keel_* tools; do not ask, and say in one line what you recorded. If genuinely nothing did — a routine edit, a question answered from the code — say so in one line and stop."
+  "reason": "Nothing from this session reached Keel. If anything became true here, record it now and say in one line what you recorded; if nothing did, say so and stop."
 }
 JSON

@@ -3,6 +3,38 @@
 <!-- keel:generated questions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
 > Generated from Keel — edits here are not saved.
 
+## TQ-26 — the installed plugin is a hand-copy, and it drifts silently
+
+`que_01KZP8C2BNKSN7GMJV4JSBZ29Q` · risk · severity medium
+
+**Found while fixing KEEL-86.** The hooks that actually run on this machine are not the ones in the repository.
+
+`~/.claude/settings.json` points at `~/.claude/skills/keel/session-start.sh` and `stop.sh` — copies. Before today's change they matched `plugin/hooks/` byte for byte, so nothing had gone wrong yet; they are now stale by exactly this fix, and nothing anywhere would say so.
+
+Two consequences, both live:
+
+**The fix is inert until the copies are updated.** Every session until then still gets the old preamble and the re-injection on compaction.
+
+```bash
+cp plugin/hooks/session-start.sh plugin/hooks/stop.sh plugin/skills/keel/SKILL.md ~/.claude/skills/keel/
+```
+
+I have not run it. `plugin/install.sh` says in its own header that it deliberately does not edit anyone's Claude configuration — "rewriting someone's settings from a shell script is the kind of helpfulness that is indistinguishable from damage the one time it gets it wrong" — and copying files into `~/.claude` uninvited is the same act.
+
+**The `PostToolUse` mirror hook was never installed here at all.** `settings.json` has no reference to it. It was only ever configured in `plugin/hooks/hooks.json`, which applies when Keel is loaded as a *plugin*. So the hook RESET-PLAN called broken was, on this machine, not merely broken but absent — which is why nobody noticed it failing.
+
+**Related, and worth its own look:** `~/.local/bin/keel` is a build from 9 August. It has a `mirror` subcommand and no `generate`. That is where `keel mirror` came from — the command existed when the hook was written and was renamed underneath it. Anyone running `keel generate keel` from a terminal today gets "unrecognized subcommand" unless they are inside the repo using `cargo run`.
+
+**Options.**
+
+1. **Make `install.sh` copy the hooks and the skill**, keeping its refusal to touch `settings.json`. Files under `~/.claude/skills/keel/` are Keel's own, not the user's config.
+2. **Load Keel as a plugin** and delete the hand-copies, so `hooks.json` is the only configuration.
+3. **Leave it, and add a check** that warns when the installed copies differ from the repo.
+
+**Recommendation:** (1) plus re-running the install, which also replaces the stale binary. It is the smallest change that makes "what is in the repo" and "what runs" the same thing.
+
+**Status:** open. Nothing is blocked — but every plugin change lands inert until this is settled.
+
 ## TQ-24 — keel_activity gained an `entity` parameter without asking
 
 `que_01KZNQ3KCH7JQ0Z48JKQWRX3Y0` · question

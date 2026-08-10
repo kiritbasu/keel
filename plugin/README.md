@@ -1,12 +1,25 @@
 # The Keel plugin
 
-Three pieces:
+Four pieces, and each instruction has exactly one of them as its author. Three
+files used to say the same three things in slightly different words, and two of
+them contradicted each other about the session identity — so a session could
+follow the skill, write correctly, and be told at the end that it had recorded
+nothing.
 
-| Piece | What it does |
-|---|---|
-| `.mcp.json` | Points Claude at the local daemon's MCP endpoint. |
-| `skills/keel/SKILL.md` | Teaches Claude *when* to read and write. This is the load-bearing part. |
-| `hooks/mirror-edit.sh` | Turns an edit to a generated `.keel/*.md` file into a properly attributed revision. |
+| Piece | What it does | Owns |
+|---|---|---|
+| `.mcp.json` | Points Claude at the local daemon's MCP endpoint. | — |
+| `hooks/session-start.sh` | Injects the digest before the first word. | **The session identity**, and "record it, don't offer to". |
+| `skills/keel/SKILL.md` | Teaches Claude *what* belongs where. This is the load-bearing part. | **When to write, and what to write.** |
+| `hooks/stop.sh` | Speaks only to a session that recorded nothing. | **The end-of-session check**, in one sentence. |
+
+The session identity is the hook's because Claude Code already assigns one and
+the model inventing its own produced collisions: two date-based ids landed on
+the same string and a run of ten sessions scored five as three. The two
+instructions that live in the hook rather than the skill are there because a
+skill is *model-invoked* and thirty headless sessions with `keel` installed
+invoked it zero times. An instruction in a file nobody opens is not an
+instruction.
 
 The daemon is the machinery. **The skill is the product.** If Claude has to be
 reminded to use Keel every session, the whole idea fails — which is why Phase 2
@@ -102,32 +115,31 @@ another ten sessions.
 
 ---
 
-## The mirror hook
+## Editing a generated file
 
-Claude Code writes markdown well and edits it naturally. The hook lets it do
-that against `.keel/**` without the mirror becoming a second source of truth.
+There is no hook that captures it. There used to be — `PostToolUse` intercepted
+an edit to a generated file and tried to turn it into an attributed revision —
+and it did not work: it called `keel mirror`, which had been renamed to
+`keel generate` underneath it, and swallowed the failure; and it read
+`KEEL_SESSION_ID`, which nothing sets. Every edit it claimed to capture was
+lost, and the guarantee written here — "the database wins unconditionally
+afterwards, the file is regenerated" — was untrue for as long as it was written
+down.
 
-An edit to `.keel/specs/storage.md` is intercepted, the body is sent to
-`keel_write_doc` as a new revision, and the file is regenerated from the
-database. If the write is rejected, the edit is discarded and the file reverts.
+What replaced it fails loudly instead. `scripts/pre-commit` refuses a commit
+carrying a generated file that does not match what Keel would produce, and says
+where to make the change instead:
 
-It reads a mirror file, which is worth being precise about rather than glossing.
-What makes it safe is that it is **event-triggered, not
-reconciliation-triggered**: it fires on an edit that just happened, reads once,
-and the database wins unconditionally afterwards. It never compares mirror state
-to database state — that comparison is what a sync is, and it is what D-3
-forbids.
+```bash
+ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+```
 
-Three things it deliberately refuses:
+A mechanism that silently does not work is worse than no mechanism, because it
+gets relied upon. This one does nothing except notice.
 
-- `questions.md` and `glossary.md` — many artifacts rendered into one file, so
-  an edit cannot be attributed to one without guessing.
-- `manifest.json` and `README.md` — pure machine output.
-- Any file with no `keel:generated` header — not ours.
-
-**Hooks only run in Claude Code.** An edit made from Claude chat or Cowork is
-lost on the next regeneration. Every generated file's header says so. If that
-turns out to bite, make `.keel/` read-only outside Claude Code sessions.
+Files under `product/` and `.keel/` are outputs. To change one, change what
+generates it — the prose in Keel, or the task rows — and run
+`keel generate <project>`.
 
 ### Requirements
 

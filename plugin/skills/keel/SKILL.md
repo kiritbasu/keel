@@ -45,29 +45,28 @@ first one and say so.
 
 ## Thread a session id through every call
 
-Mint one identifier at the start of the conversation and pass it as `session_id`
-on **every** Keel call, read and write.
+The session-start hook tells you which identifier to use, and it is the one
+Claude Code assigned this conversation. Use exactly that on every Keel call,
+read and write. Do not invent one, and do not derive one from the date.
 
-Use a ULID-shaped string with a `ses_` prefix — anything stable and unique is
-fine, it does not have to mean anything. Generate it once, keep it for the whole
-conversation, do not regenerate it.
-
-```
-session_id: "ses_01K7Q2X8N4RVBM3TZC9WPD5A6E"
-```
+Pass `surface` too: `code` in Claude Code, `chat` in Claude chat, `cowork` in
+Cowork.
 
 This matters more than it looks. Keel's provenance guarantee is that every
 change can be traced to the conversation that made it, and MCP has no protocol
-session to borrow — so the identifier has to come from you. Keel will accept a
-write without one rather than refuse it, but the change is then attributed only
-to "some Claude session", which is nearly useless a month later when the human
-is asking why something changed.
-
-Also pass `surface`: `code` in Claude Code, `chat` in Claude chat, `cowork` in
-Cowork.
+session to borrow — so the identifier has to come from outside the protocol.
+Keel accepts a write without one rather than refusing it, but the change is then
+attributed only to "some Claude session", which is nearly useless a month later
+when the human is asking why something changed.
 
 `keel_context` echoes the `session_id` back. If it comes back `null`, you are
 not threading it — fix that before writing anything else.
+
+If the hook did not run — no identifier appeared at the start of this
+conversation — write without one rather than making one up. An invented id looks
+like provenance and is not: it joins to no transcript, and two sessions that
+both invent a date-based one collide silently. That happened, and it made a run
+of ten sessions score five as three.
 
 ---
 
@@ -256,7 +255,8 @@ Most conflicts resolve themselves this way without troubling the human.
 
 ## Things to avoid
 
-- **Don't invent a `session_id` per call.** One per conversation.
+- **Don't invent a `session_id`.** Use the one the session-start hook gave you,
+  or none at all.
 - **Don't create a project without asking.** See above.
 - **Don't write a task for every step.** See above.
 - **Don't edit an accepted decision.** Supersede it with a new one linked by
