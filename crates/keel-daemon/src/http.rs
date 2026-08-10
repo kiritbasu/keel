@@ -577,7 +577,7 @@ async fn api_notes(
 
 /// List entities with filters.
 ///
-/// Part of Keel's own API, not MCP. The tool surface is capped at nine because
+/// Part of Keel's own API, not MCP. The tool surface is capped at ten because
 /// more tools makes a model choose worse (SPEC §6.1) — that reasoning does not
 /// apply to a UI, which knows exactly what it wants and would otherwise have to
 /// fetch everything and filter client-side.

@@ -302,8 +302,8 @@ fn the_rendered_tracker_is_byte_identical_across_runs() {
     let first = keel_core::render_status::render(&store, &project).unwrap();
     let second = keel_core::render_status::render(&store, &project).unwrap();
     assert_eq!(
-        keel_core::generate::strip_banner_for_test(&first),
-        keel_core::generate::strip_banner_for_test(&second),
+        keel_core::generate::strip_banner_public(&first),
+        keel_core::generate::strip_banner_public(&second),
         "the tracker body must not vary between renders",
     );
 }

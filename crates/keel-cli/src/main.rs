@@ -127,8 +127,8 @@ enum Command {
         /// a failure someone sees rather than work someone silently loses.
         #[arg(long)]
         check: bool,
-        /// Daemon base URL. Defaults to the local daemon.
-        #[arg(long, default_value = "http://127.0.0.1:7654")]
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
         daemon: String,
     },
 
@@ -156,8 +156,8 @@ enum Command {
         /// event, so the log cannot tell you it happened.
         #[arg(long, default_value_t = 10)]
         sessions: usize,
-        /// Daemon base URL.
-        #[arg(long, default_value = "http://127.0.0.1:7654")]
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
         daemon: String,
     },
 
@@ -538,8 +538,8 @@ fn run_render_status(
     // whether a file had changed.
     let existing = std::fs::read_to_string(&path).ok();
     if let Some(before) = &existing
-        && keel_core::generate::strip_banner_for_test(before)
-            == keel_core::generate::strip_banner_for_test(&markdown)
+        && keel_core::generate::strip_banner_public(before)
+            == keel_core::generate::strip_banner_public(&markdown)
     {
         println!("{} is already up to date", path.display());
         return Ok(());

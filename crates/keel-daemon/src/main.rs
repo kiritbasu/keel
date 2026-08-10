@@ -28,7 +28,10 @@ struct Args {
     /// daemon has no authentication, and the MCP transport requires `Origin`
     /// validation precisely because a local server is reachable from any web
     /// page the user happens to have open.
-    #[arg(long, default_value = "127.0.0.1:7654")]
+    // `KEEL_BIND` rather than `KEEL_DAEMON_URL`: this is a socket address, not
+    // a URL, and conflating the two is how a client ends up trying to connect
+    // to "127.0.0.1:7654" without a scheme. One name each, and both documented.
+    #[arg(long, env = "KEEL_BIND", default_value = "127.0.0.1:7654")]
     bind: SocketAddr,
 
     /// Load the local embedding model, enabling semantic search.

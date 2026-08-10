@@ -296,5 +296,6 @@ trivial ones.
 | `keel_update` | status, priority, fields |
 | `keel_write_doc` | the prose body of a spec, decision, question or feedback |
 | `keel_link` | connecting two artifacts |
+| `keel_note` | you learned something — a finding, a gotcha, why it was harder than expected |
 
 Each tool's own description says more. Read them.

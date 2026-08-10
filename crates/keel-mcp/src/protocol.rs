@@ -59,8 +59,6 @@ impl Era {
 pub const META_PROTOCOL_VERSION: &str = "io.modelcontextprotocol/protocolVersion";
 /// `_meta` key carrying client identity.
 pub const META_CLIENT_INFO: &str = "io.modelcontextprotocol/clientInfo";
-/// `_meta` key carrying client capabilities.
-pub const META_CLIENT_CAPABILITIES: &str = "io.modelcontextprotocol/clientCapabilities";
 /// `_meta` key carrying server identity on results.
 pub const META_SERVER_INFO: &str = "io.modelcontextprotocol/serverInfo";
 
@@ -134,18 +132,17 @@ impl Request {
 
     /// The value `Mcp-Name` must match, if the method requires one.
     ///
-    /// `params.name` for `tools/call` and `prompts/get`, `params.uri` for
-    /// `resources/read`. Any other method has no name to mirror.
+    /// `params.name` for `tools/call`. The specification also defines this for
+    /// `prompts/get` and `resources/read`, and both were handled here — but
+    /// this server advertises neither capability and routes neither method, so
+    /// the branches could only ever be reached by a client inventing a call
+    /// that would then 404. Validation for a method that does not exist reads
+    /// as support for it.
     pub fn expected_name(&self) -> Option<String> {
         match self.method.as_str() {
-            "tools/call" | "prompts/get" => self
+            "tools/call" => self
                 .params
                 .get("name")
-                .and_then(Value::as_str)
-                .map(str::to_owned),
-            "resources/read" => self
-                .params
-                .get("uri")
                 .and_then(Value::as_str)
                 .map(str::to_owned),
             _ => None,
@@ -477,6 +474,20 @@ pub fn check_headers(
     HeaderCheck::Ok(era)
 }
 
+/// What the server tells a client it is for.
+///
+/// One definition, used by both `initialize` and `server/discover`. It existed
+/// word for word in two files, so editing one made the two ways a client can
+/// ask "who are you" answer differently — and nothing would have said so.
+///
+/// The session-identity sentence is deliberately vaguer than the hook's: over
+/// MCP alone there is no session to name, and telling a client to "mint" one is
+/// what produced colliding date-based identifiers.
+pub const INSTRUCTIONS: &str = "Keel stores everything about a software project except the code. Call \
+     `keel_context` first to orient. Pass the `session_id` your host gave you on every call, so \
+     writes are attributed to this conversation. Before creating a project, call \
+     `keel_projects` and confirm with the human.";
+
 /// The `initialize` result, in the caller's own revision.
 ///
 /// Took an era only after the hardcoded legacy version became a live bug: a
@@ -489,11 +500,7 @@ pub fn initialize_result(era: Era) -> Value {
         "protocolVersion": era.version(),
         "capabilities": { "tools": { "listChanged": false } },
         "serverInfo": server_info(),
-        "instructions":
-            "Keel stores everything about a software project except the code. Call \
-             `keel_context` first to orient. Pass a stable `session_id` on every call so writes \
-             are attributed to this conversation. Before creating a project, call \
-             `keel_projects` and confirm with the human."
+        "instructions": INSTRUCTIONS,
     })
 }
 

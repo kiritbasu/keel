@@ -215,3 +215,66 @@ fn a_history_for_an_id_that_is_not_one_says_what_would_be_valid() {
         insta::assert_json_snapshot!("keel_activity_bad_entity", cases);
     });
 }
+
+#[test]
+fn every_advertised_tool_is_dispatchable_and_vice_versa() {
+    // The two lists are maintained by hand in different files: `tools::all()`
+    // is what a client is told exists, and the `match` in `dispatch` is what
+    // actually runs. Nothing tied them together, so a tool could be advertised
+    // and unimplemented, or implemented and invisible — and the only symptom
+    // would be a model calling something that answers "no tool named that".
+    //
+    // Dispatching every advertised name with empty arguments is enough to tell
+    // the two apart: a *missing* tool answers METHOD_NOT_FOUND, while a present
+    // one fails on its arguments, which is a different code.
+    let (mut store, _dir) = seeded();
+
+    for tool in keel_mcp::tools::all() {
+        let result = dispatch(
+            &mut store,
+            ToolCall {
+                name: tool.name,
+                arguments: &json!({}),
+            },
+        );
+        if let Err(e) = result {
+            assert!(
+                !e.message.contains("no tool named"),
+                "`{}` is advertised by tools::all() but dispatch has no arm for it",
+                tool.name
+            );
+        }
+    }
+
+    // And the other direction: a name dispatch does not know must not be
+    // silently tolerated.
+    let unknown = dispatch(
+        &mut store,
+        ToolCall {
+            name: "keel_teleport",
+            arguments: &json!({}),
+        },
+    )
+    .unwrap_err();
+    // A bad argument, not a missing method — so 400, not the 404 that means
+    // "there is no MCP server at this address".
+    assert_eq!(unknown.code, keel_mcp::protocol::codes::INVALID_PARAMS);
+    assert_eq!(unknown.http_status(), 400);
+    assert!(
+        unknown.message.contains("keel_context"),
+        "the error should list what does exist: {}",
+        unknown.message
+    );
+}
+
+#[test]
+fn the_tool_count_is_what_the_documentation_claims() {
+    // "Nine" was written in five places after the tenth tool landed. A number
+    // in prose drifts; a number in an assertion does not.
+    assert_eq!(
+        keel_mcp::tools::all().len(),
+        10,
+        "ten is the ceiling and the count — if this changes, every place that \
+         states it has to change with it"
+    );
+}

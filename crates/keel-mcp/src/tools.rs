@@ -1,6 +1,6 @@
-//! The nine tool definitions.
+//! The ten tool definitions.
 //!
-//! Nine, not forty. Models choose correctly among nine and badly among forty,
+//! Ten, not forty. Models choose correctly among ten and badly among forty,
 //! and `product/CLAUDE.md` names expanding this surface as an anti-pattern
 //! explicitly: more tools means worse selection, not more capability.
 //!
@@ -29,6 +29,15 @@ pub struct Tool {
     /// Whether the tool mutates anything. Advertised so a host can gate
     /// writes without inferring intent from the name.
     pub read_only: bool,
+    /// Whether the tool can change or hide something that already exists.
+    ///
+    /// Not the same as "deletes". Nothing in Keel is ever `DELETE`d, and this
+    /// used to be hardcoded `false` for every tool on that basis — but the
+    /// annotation a host gates on means "may perform non-additive updates",
+    /// and `keel_update` overwrites fields and can archive a row while
+    /// `keel_link` can remove an edge. Both are non-additive whether or not
+    /// they are recoverable.
+    pub destructive: bool,
     /// Whether calling twice with the same arguments is the same as calling
     /// once.
     ///
@@ -50,9 +59,7 @@ impl Tool {
             "inputSchema": self.input_schema,
             "annotations": {
                 "readOnlyHint": self.read_only,
-                // Nothing in Keel is ever deleted (D-9), so no tool is
-                // destructive in the sense a host cares about.
-                "destructiveHint": false,
+                "destructiveHint": self.destructive,
                 "idempotentHint": self.idempotent,
             }
         })
@@ -170,6 +177,7 @@ pub fn all() -> Vec<Tool> {
                  response reports what it dropped."
                     .to_owned(),
             read_only: true,
+            destructive: false,
             idempotent: true,
             input_schema: with_ambient(
                 json!({
@@ -220,6 +228,7 @@ pub fn all() -> Vec<Tool> {
                  'why is billing slow' find a decision titled 'Aggregate hourly, not per-minute'."
                     .to_owned(),
             read_only: true,
+            destructive: false,
             idempotent: true,
             input_schema: with_ambient(
                 json!({
@@ -247,12 +256,13 @@ pub fn all() -> Vec<Tool> {
             description:
                 "Fetch one or more artifacts by id, optionally with their prose body, their \
                  linked neighbours, or a diff between two revisions.\n\n\
-                 Use `depth` to pull in the graph around something — `keel_get(id: spec_id, \
+                 Use `depth` to pull in the graph around something — `keel_get(ids: [spec_id], \
                  depth: 2)` answers 'what implements this spec, and what do those things \
                  depend on' in one call. Use `version` to read an older revision and \
                  `diff_against` to see what changed between two."
                     .to_owned(),
             read_only: true,
+            destructive: false,
             idempotent: true,
             input_schema: with_ambient(
                 json!({
@@ -318,6 +328,7 @@ pub fn all() -> Vec<Tool> {
                  is much cheaper to ask than to merge later."
                     .to_owned(),
             read_only: true,
+            destructive: false,
             idempotent: true,
             input_schema: with_ambient(
                 json!({
@@ -349,6 +360,7 @@ pub fn all() -> Vec<Tool> {
                  older than the page is simply missing."
                     .to_owned(),
             read_only: true,
+            destructive: false,
             idempotent: true,
             input_schema: with_ambient(
                 json!({
@@ -389,6 +401,7 @@ pub fn all() -> Vec<Tool> {
                  project with forty trivial tasks that should be eight is worse than useless."
                     .to_owned(),
             read_only: false,
+            destructive: false,
             idempotent: true,
             input_schema: with_ambient(
                 json!({
@@ -410,6 +423,30 @@ pub fn all() -> Vec<Tool> {
                             "type": "string",
                             "description": "The name. Called `name` on some types and `term` on \
                                             glossary entries; `title` is accepted for all of them."
+                        },
+                        // Declared, not merely mentioned in the prose above.
+                        // These four were accepted and undeclared, so a model
+                        // reading the schema — which is most of them — could
+                        // not see that `slug` exists at all, and a project
+                        // cannot be created without one.
+                        "name": {
+                            "type": "string",
+                            "description": "An alias for `title`, for the types whose column is \
+                                            called `name`."
+                        },
+                        "term": {
+                            "type": "string",
+                            "description": "An alias for `title`, for glossary entries."
+                        },
+                        "slug": {
+                            "type": "string",
+                            "description": "Projects only, and required for them: the URL-safe \
+                                            short name, unique across the store."
+                        },
+                        "definition": {
+                            "type": "string",
+                            "description": "Glossary entries only: what the word means in this \
+                                            project. `body` is accepted for the same thing."
                         },
                         "body": {
                             "type": "string",
@@ -437,6 +474,10 @@ pub fn all() -> Vec<Tool> {
             description:
                 "Change fields on an existing artifact, including status transitions. Returns the \
                  updated artifact.\n\n\
+                 **Not for prose.** A document body belongs to `keel_write_doc`, which versions \
+                 it; this tool is for the fields around it — title, status, kind. Sending a body \
+                 here would overwrite without a revision, and the previous author's text would \
+                 be gone.\n\n\
                  Pass the `version` you read. If someone else changed it since, the call is \
                  rejected with the current state and the events that happened in between, so you \
                  can usually merge and retry without asking anyone.\n\n\
@@ -449,6 +490,7 @@ pub fn all() -> Vec<Tool> {
                  thing from `blocks`, which means \"must happen first\"."
                     .to_owned(),
             read_only: false,
+            destructive: true,
             idempotent: true,
             input_schema: with_ambient(
                 json!({
@@ -498,6 +540,7 @@ pub fn all() -> Vec<Tool> {
                  than a new version, so regenerating a document you have not changed is safe."
                     .to_owned(),
             read_only: false,
+            destructive: false,
             idempotent: true,
             input_schema: with_ambient(
                 json!({
@@ -528,13 +571,19 @@ pub fn all() -> Vec<Tool> {
                  conversation that wrote them, whereas a body is overwritten and the previous \
                  author's finding is gone.\n\n\
                  Do not ask permission first — record it, then say in one line that you did. \
-                 Notes are append-only: to withdraw one, pass `retract` with its id."
+                 Notes are append-only: to withdraw one, pass `retract` with its id.\n\n\
+                 `body` is required unless you are passing `list` or `retract`."
                     .to_owned(),
             read_only: false,
+            destructive: false,
             idempotent: false,
             input_schema: with_ambient(
                 json!({
                     "type": "object",
+                    // `id` and nothing else: `body` is required for the common
+                    // case but not when listing or retracting, and a schema
+                    // that demands it would make those two impossible to call.
+                    "required": ["id"],
                     "properties": {
                         "id": {
                             "type": "string",
@@ -577,6 +626,7 @@ pub fn all() -> Vec<Tool> {
                  whole document — that is what makes traceability answerable per requirement."
                     .to_owned(),
             read_only: false,
+            destructive: true,
             idempotent: true,
             input_schema: with_ambient(
                 json!({
@@ -629,20 +679,22 @@ pub fn list_result() -> Value {
 /// compatibility probe.
 pub fn discover_result() -> Value {
     json!({
-        "protocolVersions": [crate::protocol::PROTOCOL_VERSION],
+        // Both, because both are accepted. Advertising only the current one
+        // while the handshake happily answers 2025-11-25 is a server telling a
+        // client less than it does — and `server/discover` exists precisely so
+        // a client can pick a version without guessing. Claude Code opens with
+        // the legacy handshake today (TQ-11), so the one that was omitted is
+        // the one in daily use.
+        "protocolVersions": crate::protocol::SUPPORTED_VERSIONS,
         "serverInfo": crate::protocol::server_info(),
         "capabilities": {
             "tools": { "listChanged": false },
             // Resources, prompts, sampling, roots and logging are all
-            // deliberately absent. Keel's surface is nine tools; advertising
+            // deliberately absent. Keel's surface is ten tools; advertising
             // capabilities it does not implement would invite calls it would
             // then have to refuse.
         },
-        "instructions":
-            "Keel stores everything about a software project except the code. Call \
-             `keel_context` first to orient. Pass a stable `session_id` on every call so writes \
-             are attributed to this conversation. Before creating a project, call \
-             `keel_projects` and confirm with the human."
+        "instructions": crate::protocol::INSTRUCTIONS,
     })
 }
 

@@ -289,8 +289,14 @@ pub fn dispatch(store: &mut DuckStore, call: ToolCall<'_>) -> Result<Value, RpcE
         "keel_write_doc" => keel_write_doc(store, args),
         "keel_link" => keel_link(store, args),
         "keel_note" => keel_note(store, args),
+        // INVALID_PARAMS, not METHOD_NOT_FOUND. The JSON-RPC *method* here is
+        // `tools/call` and it exists; the tool name is one of its arguments.
+        // The distinction is not pedantry: METHOD_NOT_FOUND is served as HTTP
+        // 404, and the specification makes 404 on the MCP endpoint mean "there
+        // is no server at this address" — so a mistyped tool name looked
+        // exactly like the server having vanished.
         other => Err(RpcError::new(
-            codes::METHOD_NOT_FOUND,
+            codes::INVALID_PARAMS,
             format!(
                 "no tool named `{other}`. Available: {}",
                 crate::tools::all()

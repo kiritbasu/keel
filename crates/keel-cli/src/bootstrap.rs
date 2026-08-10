@@ -108,7 +108,7 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
         ),
         (
             "Phase 1 — Daemon",
-            "axum, the nine MCP tools, keel_context, concurrency safety, render-status.",
+            "axum, the ten MCP tools, keel_context, concurrency safety, render-status.",
             MilestoneStatus::Shipped,
             NaiveDate::from_ymd_opt(2026, 8, 9),
             1,

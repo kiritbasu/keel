@@ -1,5 +1,6 @@
 ---
 source: crates/keel-mcp/tests/snapshots.rs
+assertion_line: 86
 expression: "keel_mcp::discover_result()"
 ---
 {
@@ -8,8 +9,9 @@ expression: "keel_mcp::discover_result()"
       "listChanged": false
     }
   },
-  "instructions": "Keel stores everything about a software project except the code. Call `keel_context` first to orient. Pass a stable `session_id` on every call so writes are attributed to this conversation. Before creating a project, call `keel_projects` and confirm with the human.",
+  "instructions": "Keel stores everything about a software project except the code. Call `keel_context` first to orient. Pass the `session_id` your host gave you on every call, so writes are attributed to this conversation. Before creating a project, call `keel_projects` and confirm with the human.",
   "protocolVersions": [
+    "[date]",
     "[date]"
   ],
   "serverInfo": {

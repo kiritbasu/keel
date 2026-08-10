@@ -142,7 +142,7 @@ expression: "keel_mcp::list_result()"
         "idempotentHint": true,
         "readOnlyHint": true
       },
-      "description": "Fetch one or more artifacts by id, optionally with their prose body, their linked neighbours, or a diff between two revisions.\n\nUse `depth` to pull in the graph around something — `keel_get(id: spec_id, depth: 2)` answers 'what implements this spec, and what do those things depend on' in one call. Use `version` to read an older revision and `diff_against` to see what changed between two.",
+      "description": "Fetch one or more artifacts by id, optionally with their prose body, their linked neighbours, or a diff between two revisions.\n\nUse `depth` to pull in the graph around something — `keel_get(ids: [spec_id], depth: 2)` answers 'what implements this spec, and what do those things depend on' in one call. Use `version` to read an older revision and `diff_against` to see what changed between two.",
       "inputSchema": {
         "properties": {
           "depth": {
@@ -326,6 +326,10 @@ expression: "keel_mcp::list_result()"
             "description": "For prose-bearing types (spec, decision, question, feedback, design) this is written as the first document revision. For a task it is the short detail field — anything long-form belongs in a spec.",
             "type": "string"
           },
+          "definition": {
+            "description": "Glossary entries only: what the word means in this project. `body` is accepted for the same thing.",
+            "type": "string"
+          },
           "fields": {
             "additionalProperties": true,
             "description": "Any other column on the type: status, kind, priority, labels, target_date, severity, sentiment, url, and so on. Invalid values are rejected with the list of valid ones.",
@@ -335,12 +339,20 @@ expression: "keel_mcp::list_result()"
             "description": "Makes a retry a no-op instead of a duplicate. Derived from the project, type and normalised title when omitted, which is usually what you want — supply one only when two genuinely different things share a title.",
             "type": "string"
           },
+          "name": {
+            "description": "An alias for `title`, for the types whose column is called `name`.",
+            "type": "string"
+          },
           "project": {
             "description": "Project id or slug. Required for everything except `project` itself, and optional for `term` — omitting it there defines the term globally.",
             "type": "string"
           },
           "session_id": {
             "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "slug": {
+            "description": "Projects only, and required for them: the URL-safe short name, unique across the store.",
             "type": "string"
           },
           "surface": {
@@ -352,6 +364,10 @@ expression: "keel_mcp::list_result()"
               "ui",
               "cli"
             ],
+            "type": "string"
+          },
+          "term": {
+            "description": "An alias for `title`, for glossary entries.",
             "type": "string"
           },
           "title": {
@@ -388,11 +404,11 @@ expression: "keel_mcp::list_result()"
     },
     {
       "annotations": {
-        "destructiveHint": false,
+        "destructiveHint": true,
         "idempotentHint": true,
         "readOnlyHint": false
       },
-      "description": "Change fields on an existing artifact, including status transitions. Returns the updated artifact.\n\nPass the `version` you read. If someone else changed it since, the call is rejected with the current state and the events that happened in between, so you can usually merge and retry without asking anyone.\n\nAn accepted decision's content is immutable — supersede it with a new decision linked by `supersedes` rather than editing it. Use `archive: true` to soft-delete; nothing in Keel is ever really deleted.\n\nTo reorder a task, put `rank_after` or `rank_before` in `changes` naming another task — `{\"rank_after\": \"KEEL-12\"}` — rather than choosing a number. To make one task part of another, set `parent_id`; that is composition, and it is a different thing from `blocks`, which means \"must happen first\".",
+      "description": "Change fields on an existing artifact, including status transitions. Returns the updated artifact.\n\n**Not for prose.** A document body belongs to `keel_write_doc`, which versions it; this tool is for the fields around it — title, status, kind. Sending a body here would overwrite without a revision, and the previous author's text would be gone.\n\nPass the `version` you read. If someone else changed it since, the call is rejected with the current state and the events that happened in between, so you can usually merge and retry without asking anyone.\n\nAn accepted decision's content is immutable — supersede it with a new decision linked by `supersedes` rather than editing it. Use `archive: true` to soft-delete; nothing in Keel is ever really deleted.\n\nTo reorder a task, put `rank_after` or `rank_before` in `changes` naming another task — `{\"rank_after\": \"KEEL-12\"}` — rather than choosing a number. To make one task part of another, set `parent_id`; that is composition, and it is a different thing from `blocks`, which means \"must happen first\".",
       "inputSchema": {
         "properties": {
           "archive": {
@@ -496,7 +512,7 @@ expression: "keel_mcp::list_result()"
         "idempotentHint": false,
         "readOnlyHint": false
       },
-      "description": "Append a note to any artifact — a finding, a gotcha, a measurement, a reason something was harder than expected. Use it the moment you learn something worth the next session knowing, not at the end.\n\nThis is the tool for the sentence that starts 'turns out…'. A task's status says a colour; its notes say what actually happened. Prefer a note over rewriting the artifact's body: notes accumulate and stay attributed to the conversation that wrote them, whereas a body is overwritten and the previous author's finding is gone.\n\nDo not ask permission first — record it, then say in one line that you did. Notes are append-only: to withdraw one, pass `retract` with its id.",
+      "description": "Append a note to any artifact — a finding, a gotcha, a measurement, a reason something was harder than expected. Use it the moment you learn something worth the next session knowing, not at the end.\n\nThis is the tool for the sentence that starts 'turns out…'. A task's status says a colour; its notes say what actually happened. Prefer a note over rewriting the artifact's body: notes accumulate and stay attributed to the conversation that wrote them, whereas a body is overwritten and the previous author's finding is gone.\n\nDo not ask permission first — record it, then say in one line that you did. Notes are append-only: to withdraw one, pass `retract` with its id.\n\n`body` is required unless you are passing `list` or `retract`.",
       "inputSchema": {
         "properties": {
           "body": {
@@ -532,6 +548,9 @@ expression: "keel_mcp::list_result()"
             "type": "string"
           }
         },
+        "required": [
+          "id"
+        ],
         "type": "object"
       },
       "name": "keel_note",
@@ -539,7 +558,7 @@ expression: "keel_mcp::list_result()"
     },
     {
       "annotations": {
-        "destructiveHint": false,
+        "destructiveHint": true,
         "idempotentHint": true,
         "readOnlyHint": false
       },

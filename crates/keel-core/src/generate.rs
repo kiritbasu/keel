@@ -258,10 +258,14 @@ pub(crate) fn strip_banner(content: &str) -> String {
 
 /// `strip_banner`, exposed for the render-stability test.
 ///
-/// The invariant it guards — that a regenerated tracker is byte-identical when
-/// nothing changed — is asserted from an integration test, which cannot reach a
-/// `pub(crate)` item.
-pub fn strip_banner_for_test(content: &str) -> String {
+/// Drop a leading generated banner, for callers outside this module.
+///
+/// Was `strip_banner_for_test`, which stopped being true: the pre-commit
+/// check's "is this file already up to date" comparison needs exactly this
+/// rule, because the banner carries a generation timestamp and a byte
+/// comparison would never hold. A name that says "test only" on something the
+/// product depends on is worse than no name.
+pub fn strip_banner_public(content: &str) -> String {
     strip_banner(content)
 }
 
