@@ -2,39 +2,45 @@
 #
 # Phase 2's gate: ten unprompted sessions.
 #
-#   ≥9 of 10 sessions write to Keel · every write carries a session_id ·
-#   0 duplicate projects
+# Rewritten for Step 2 of product/WAY-FORWARD.md. The previous version measured
+# four runs and every one of them was wrong in a different way. What changed:
 #
-# Run this from a terminal where you are logged in to Claude Code. It cannot be
-# run from inside a Claude Code session: `claude -p` in a non-interactive shell
-# reports "Not logged in", because the credential lives somewhere a spawned
-# shell cannot reach.
+#  1. **Parallel, one store per session.** Was sequential: ten Claude sessions
+#     in a queue, 15-20 minutes a run, and the author watching a blank terminal
+#     asking why. Also removes DuckDB write-lock contention between sessions,
+#     which would otherwise manufacture a fake product requirement.
 #
-# ---------------------------------------------------------------------------
-# Why the sessions run in scratch projects and not in the Keel repo
+#  2. **A continuation turn.** The old harness was `claude -p … </dev/null` —
+#     one prompt, one response, exit. Five sessions ended with "I'll hold off
+#     until you say go." There was no "you" and no next turn. The write was not
+#     refused; it was scheduled for a turn the harness could not supply. This is
+#     instrument repair, not treatment: it removes an artefact.
 #
-# `keel/CLAUDE.md` is four hundred lines telling Claude what Keel is and to
-# keep it updated. A session started in this repository is about as prompted as
-# a session can be, and passing the gate there would prove nothing. So the
-# sessions run against two throwaway projects — a tide predictor and a blob
-# store — that mention Keel nowhere.
+#  3. **A manifest.** The launcher is the only thing that knows how many
+#     sessions it started. Deriving that from observations is survivorship bias,
+#     and it is the exact bug that let seven silent sessions vanish and the
+#     score read "3 of 3".
 #
-# The prompts are ordinary developer talk: a bug, a refactor, a decision, a
-# customer complaint. Several are things SKILL.md claims to trigger on ("we
-# should", "let's go with", "what's blocking", "I spoke to a customer"), which
-# is fair — they are what people actually say. What none of them do is mention
-# Keel, or ask for anything to be recorded.
-# ---------------------------------------------------------------------------
+#  4. **Transcripts archived, teardown separated.** The store was once torn down
+#     before the transcripts were read, destroying the only evidence that could
+#     distinguish a claimed write from a real one.
+#
+#  5. **Reachability asserted.** A wedged daemon makes a failed write
+#     indistinguishable from a non-write (Problem 5).
+#
+# Sessions run in throwaway projects that mention Keel nowhere. Prompts are
+# ordinary developer talk. None mentions Keel or asks for anything recorded.
 
 set -uo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-work="${GATE_DIR:-${TMPDIR:-/tmp}/keel-gate}"
+runs_dir="${GATE_RUNS:-$root/.gate-runs}"
 keel="${KEEL_BIN:-$root/target/release/keel}"
-# Overridable so the gate can run against a scratch store rather than the real
-# one — a cold start is part of what is being measured, and a store that
-# already knows the projects is not one.
-daemon_url="${KEEL_DAEMON_URL:-http://127.0.0.1:7654}"
+daemon_bin="${KEEL_DAEMON_BIN:-$root/target/release/keel-daemon}"
+run_id="${GATE_RUN_ID:-run-$(date -u +%Y%m%dT%H%M%SZ)}"
+run_dir="$runs_dir/$run_id"
+work="$run_dir/projects"
+base_port="${GATE_BASE_PORT:-7710}"
 
 tools="Read,Grep,Glob,Edit,Write,Skill"
 tools="$tools,mcp__keel__keel_context,mcp__keel__keel_create,mcp__keel__keel_update"
@@ -43,165 +49,81 @@ tools="$tools,mcp__keel__keel_projects,mcp__keel__keel_activity,mcp__keel__keel_
 
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
-# Only the Keel MCP server, for two reasons.
+# --- whose API are we talking to? ------------------------------------------
 #
-# Speed: `claude -p` starts every configured server before it does anything.
-# On this machine that means `npx firebase-tools` and a Vercel server that
-# needs authentication — a minute of startup per session at best, and a wedged
-# session at worst. Ten sessions pay it ten times. The first attempt at this
-# script appeared to hang; it was waiting on firebase-tools.
-#
-# Validity: the gate asks whether Claude reaches for Keel. Tools for unrelated
-# services are noise in that measurement, and one of them failing to start is
-# noise that looks like a Keel failure.
-mcp_config="$work/mcp.json"
-write_mcp_config() {
-  mkdir -p "$work"
-  cat > "$mcp_config" <<JSON
-{
-  "mcpServers": {
-    "keel": { "type": "http", "url": "$daemon_url/mcp" }
-  }
-}
-JSON
-}
-write_mcp_config
-
-
-# --- whose API are we actually talking to? ---------------------------------
-#
-# This machine's ~/.zshrc routes Claude Code through OpenRouter:
-#
-#   ANTHROPIC_BASE_URL=https://openrouter.ai/...
-#   ANTHROPIC_AUTH_TOKEN=$OPENROUTER_API_KEY
-#   ANTHROPIC_API_KEY=""
-#
-# Three consequences, all of which cost an evening:
-#
-#  - Requests go to OpenRouter, which for this shape of call did not answer at
-#    all. The process sat in the foreground using no CPU and looked hung.
-#  - Unsetting only ANTHROPIC_BASE_URL sends the OpenRouter *token* to
-#    api.anthropic.com, which is exactly "401 Invalid bearer token".
-#  - Even when it works, the sessions run on whatever OpenRouter routes to.
-#    The gate would then measure some other model's response to SKILL.md,
-#    which is not the claim being tested.
-#
-# So: all three variables have to go together, or none of them.
+# This machine's ~/.zshrc routes Claude Code through OpenRouter. Requests then
+# either hang or 401, and even when they work the sessions run on whatever
+# OpenRouter routes to — measuring some other model's response to SKILL.md,
+# which is not the claim. All three variables move together or none of them.
 if [ -n "${ANTHROPIC_AUTH_TOKEN:-}" ] ||
    { [ -n "${ANTHROPIC_BASE_URL:-}" ] && [ "${ANTHROPIC_BASE_URL}" != "https://api.anthropic.com" ]; }; then
   echo "This shell points Claude Code at a third-party endpoint."
   echo "  ANTHROPIC_BASE_URL   = ${ANTHROPIC_BASE_URL:-<unset>}"
   if [ -n "${ANTHROPIC_AUTH_TOKEN:-}" ]; then
     echo "  ANTHROPIC_AUTH_TOKEN = <set, ${#ANTHROPIC_AUTH_TOKEN} chars — not printed>"
-  else
-    echo "  ANTHROPIC_AUTH_TOKEN = <unset>"
   fi
   echo
-  echo "The gate must run against Claude, or it measures a different model's"
-  echo "response to SKILL.md. Re-run with all three unset together:"
-  echo
+  echo "Re-run with all three unset together:"
   echo "    env -u ANTHROPIC_BASE_URL -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY \\"
   echo "        ./scripts/gate-run.sh"
-  echo
-  echo "If that reports a login problem, log in the same way first:"
-  echo "    env -u ANTHROPIC_BASE_URL -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY claude"
-  echo "  then /login"
   exit 1
 fi
 
-# --- preconditions ---------------------------------------------------------
-curl -sf "$daemon_url/api/health" >/dev/null || {
-  echo "The daemon is not answering on $daemon_url. Start it with: keel-daemon"
-  exit 1
-}
 [ -f "$HOME/.claude/skills/keel/SKILL.md" ] || {
-  echo "The skill is not installed. It is the thing being measured:"
+  echo "The skill is not installed. It is part of what is being measured:"
   echo "  cp -r $root/plugin/skills/keel ~/.claude/skills/keel"
   exit 1
 }
-claude mcp list 2>/dev/null | grep -q '^keel:.*Connected' || {
-  echo "Claude cannot reach the Keel MCP server. Register it for every project:"
-  echo "  claude mcp add --scope user --transport http keel http://127.0.0.1:7654/mcp"
-  exit 1
-}
+[ -x "$keel" ] || { echo "keel binary not found at $keel"; exit 1; }
+[ -x "$daemon_bin" ] || { echo "keel-daemon not found at $daemon_bin"; exit 1; }
 
-# One throwaway session before spending ten. The first run of this script
-# produced ten identical 55-byte authentication errors over twenty-one minutes,
-# because nothing checked that a session could start at all. A gate that cannot
-# distinguish "Claude declined to write" from "Claude never ran" is worse than
-# no gate: both look like a row of empty logs.
-# Output goes through tee, never into a variable. Capturing it hid an
-# interactive prompt twice: the process sat in the foreground process group
-# using no CPU, waiting on a question nobody could see. `</dev/null` does not
-# help — prompts read /dev/tty directly, which a stdin redirect does not touch.
-probe_log="$work/probe.log"
-: > "$probe_log"
-( cd "${TMPDIR:-/tmp}" && claude -p "reply with the single word: ready" \
-  --mcp-config "$mcp_config" --strict-mcp-config --allowedTools "" </dev/null 2>&1 ) \
-  | tee "$probe_log" &
-probe_pid=$!
-# macOS ships no `timeout`. Sixty seconds is ten times what a healthy probe
-# takes, and an unhealthy one previously ran until someone lost patience.
-( sleep 60; kill "$probe_pid" 2>/dev/null ) & killer=$!
-wait "$probe_pid" 2>/dev/null
-kill "$killer" 2>/dev/null
-probe="$(cat "$probe_log" 2>/dev/null)"
-if [ -z "$probe" ]; then
-  probe="No output within 60 seconds, and nothing printed. The session was not
-  refused, it never answered — which on this machine meant requests were going
-  to a third-party endpoint that did not reply."
+# --- the ten sessions -------------------------------------------------------
+# project | opening prompt | neutral continuation
+#
+# The continuation must NOT answer the offer. Answering it would be treatment:
+# it would measure whether the model writes when told to, which nobody doubts.
+# It moves the conversation on, exactly as a distracted human would.
+SESSIONS=(
+"tideline|high_waters misses the first peak if the window starts right on one — have a look at src/harmonics.py|ok. separately, does the datum default look right to you?"
+"tideline|we should cache the constituent lookup, it gets recomputed on every height() call|right. what's the next most expensive thing in there?"
+"tideline|let's go with 15-minute resolution as the default for the tide table rather than the current step|fine. does that change how table.py renders?"
+"tideline|what's the risk if a station's chart datum is wrong? walk me through what breaks|understood. anything else in that file worth a second look?"
+"tideline|a harbourmaster rang to say the 7-day table is unreadable on a phone — the times need to be local, not hours since epoch|ok. what would that do to the existing callers?"
+"tideline|before I forget: constituent phases should be validated to 0-360, nothing checks that today|sure. is there anywhere else missing validation?"
+"pellet|gc() in src/store.js deletes anything not in keep. if keep comes back empty by accident that wipes the store — fix it|thanks. what else in store.js is that unforgiving?"
+"pellet|we picked sha256 early on but blake3 is a lot faster. worth switching?|ok, park it. how big are the blobs typically anyway?"
+"pellet|what's stopping put() from being atomic? a crash mid-write leaves a truncated blob under a valid-looking digest|got it. does get() have a similar hole?"
+"pellet|I want a size cap on the store with LRU eviction. roughly what's involved?|ok. which part of that would you do first?"
+)
+# Smoke-testing the harness on two sessions is cheaper than discovering a
+# mechanical fault ten sessions in, which has now happened three times.
+if [ -n "${GATE_LIMIT:-}" ]; then
+  SESSIONS=("${SESSIONS[@]:0:$GATE_LIMIT}")
 fi
-if ! printf '%s' "$probe" | grep -qi 'ready'; then
-  echo "A session could not start, so the gate was not run. Claude said:"
-  echo
-  printf '  %s\n' "$probe"
-  echo
-  case "$probe" in
-    *401*|*[Aa]uthenticat*|*"not logged in"*|*"User not found"*|*"Invalid bearer token"*)
-      echo "  This is authentication, not Keel."
-      echo
-      echo "  The rule: log in and run against the SAME endpoint."
-      if [ -n "${ANTHROPIC_BASE_URL:-}" ]; then
-        echo "  ANTHROPIC_BASE_URL is set here, so a login done in this shell stores a"
-        echo "  token for that endpoint. Running with it unset sends that token to the"
-        echo "  default API, which rejects it as an invalid bearer token. Do not strip"
-        echo "  the variable unless you also logged in with it stripped."
-      else
-        echo "  ANTHROPIC_BASE_URL is NOT set in this shell, but it is exported from"
-        echo "  ~/.zshrc. If you logged in with it set, the stored token belongs to"
-        echo "  that endpoint and will be rejected here. Run without \`env -u\`."
-      fi
-      echo
-      echo "  The npm CLI ($(command -v claude || echo claude)) keeps its own login,"
-      echo "  separate from the desktop app. Logging the app in does not log it in:"
-      echo "      claude      then  /login"
-      ;;
-  esac
-  echo
-  echo "  Or skip the CLI entirely and run the ten sessions by hand, which is the"
-  echo "  better test anyway since these are single-turn:"
-  echo "      scripts/gate-prompts.md"
-  exit 1
-fi
+launched=${#SESSIONS[@]}
 
-# --- the two scratch projects ----------------------------------------------
-say "Setting up scratch projects in $work"
-rm -rf "$work"
-mkdir -p "$work/tideline/src" "$work/pellet/src"
-write_mcp_config
+say "Run $run_id — $launched sessions, in parallel"
+rm -rf "$run_dir"; mkdir -p "$work" "$run_dir/logs" "$run_dir/transcripts" "$run_dir/stores"
 
-cat > "$work/tideline/README.md" <<'EOF'
+# Captured before anything launches, and stored. Deriving it afterwards from
+# the run directory's mtime gave a t0 *later* than the events it was meant to
+# bound, so `since=t0` filtered out every write and the run scored 0% recall
+# against a 70% ceiling.
+t0="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "$t0" > "$run_dir/t0"
+
+scaffold() {
+  mkdir -p "$1/tideline/src" "$1/pellet/src"
+  cat > "$1/tideline/README.md" <<'EOF'
 # Tideline
 
 Tide prediction for small harbours. Reads a station's harmonic constituents and
 produces a 7-day tide table.
 EOF
-
-cat > "$work/tideline/src/harmonics.py" <<'EOF'
+  cat > "$1/tideline/src/harmonics.py" <<'EOF'
 """Harmonic tide prediction."""
 import math
 
-# Amplitude in metres, phase in degrees, speed in degrees/hour.
 CONSTITUENTS = {
     "M2": (1.42, 121.0, 28.984104),
     "S2": (0.48, 158.0, 30.0),
@@ -235,8 +157,7 @@ def high_waters(start, hours=168, step=0.25):
         t += step
     return peaks
 EOF
-
-cat > "$work/tideline/src/table.py" <<'EOF'
+  cat > "$1/tideline/src/table.py" <<'EOF'
 """Render a tide table."""
 from harmonics import height, high_waters
 
@@ -247,15 +168,13 @@ def render(start, hours=168):
         rows.append(f"{t:8.2f}h  {height(t):5.2f}m")
     return "\n".join(rows)
 EOF
-
-cat > "$work/pellet/README.md" <<'EOF'
+  cat > "$1/pellet/README.md" <<'EOF'
 # Pellet
 
 A tiny content-addressed blob store. Writes go to `.pellet/<sha256>`; reads are
 by digest. Used by the build cache.
 EOF
-
-cat > "$work/pellet/src/store.js" <<'EOF'
+  cat > "$1/pellet/src/store.js" <<'EOF'
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -287,51 +206,109 @@ function gc(keep) {
 
 module.exports = { put, get, gc, digest };
 EOF
-
-# --- the ten sessions ------------------------------------------------------
-run() {
-  local project="$1" prompt="$2" n="$3"
-  printf '\n\033[1m[%2d/10] %s\033[0m\n  %s\n' "$n" "$project" "$prompt"
-  # tee, not a plain redirect: each project directory is new to Claude Code and
-  # may ask about it once. A hidden question is indistinguishable from a hang.
-  ( cd "$work/$project" && claude -p "$prompt" \
-      --mcp-config "$mcp_config" --strict-mcp-config --allowedTools "$tools" \
-      </dev/null 2>&1 ) | tee "$work/session-$n.log" | sed 's/^/  | /' 
-  printf '  → %s\n' "$work/session-$n.log"
 }
 
-t0="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-echo "$t0" > "$work/t0"
-say "Baseline $t0 — anything written after this counts"
+# --- launch -----------------------------------------------------------------
+pids=(); ports=()
+for i in $(seq 0 $((launched - 1))); do
+  n=$((i + 1))
+  IFS='|' read -r project prompt followup <<< "${SESSIONS[$i]}"
+  port=$((base_port + i))
+  ports+=("$port")
 
-run tideline "high_waters misses the first peak if the window starts right on one — have a look at src/harmonics.py" 1
-run tideline "we should cache the constituent lookup, it gets recomputed on every height() call" 2
-# Belt and braces: if the first two sessions both came back empty, something
-# systemic is wrong and the remaining eight will fail the same way.
-if [ ! -s "$work/session-1.log" ] && [ ! -s "$work/session-2.log" ]; then
-  echo
-  echo "The first two sessions produced no output at all. Stopping rather than"
-  echo "spending eight more. Read $work/session-1.log."
-  exit 1
-fi
+  # One store per session. Isolation is not tidiness: a shared store means ten
+  # sessions contend on DuckDB's single write lock, and a write that loses that
+  # race is indistinguishable in the log from a session that chose not to write.
+  home="$run_dir/stores/s$n"
+  sdir="$work/s$n"
+  mkdir -p "$home" "$sdir"
+  scaffold "$sdir"
 
-run tideline "let's go with 15-minute resolution as the default for the tide table rather than the current step" 3
-run tideline "what's the risk if a station's chart datum is wrong? walk me through what breaks" 4
-run tideline "a harbourmaster rang to say the 7-day table is unreadable on a phone — the times need to be local, not hours since epoch" 5
-run tideline "before I forget: constituent phases should be validated to 0-360, nothing checks that today" 6
-run pellet "gc() in src/store.js deletes anything not in keep. if keep comes back empty by accident that wipes the store — fix it" 7
-run pellet "we picked sha256 early on but blake3 is a lot faster. worth switching?" 8
-run pellet "what's stopping put() from being atomic? a crash mid-write leaves a truncated blob under a valid-looking digest" 9
-run pellet "I want a size cap on the store with LRU eviction. roughly what's involved?" 10
+  "$daemon_bin" --home "$home" --bind "127.0.0.1:$port" \
+    > "$run_dir/logs/daemon-$n.log" 2>&1 &
 
-# --- score -----------------------------------------------------------------
+  cat > "$sdir/mcp.json" <<JSON
+{ "mcpServers": { "keel": { "type": "http", "url": "http://127.0.0.1:$port/mcp" } } }
+JSON
+
+  (
+    for _ in $(seq 1 40); do
+      curl -sf "http://127.0.0.1:$port/api/health" >/dev/null 2>&1 && break
+      sleep 0.25
+    done
+    # Reachability is asserted before and after. A daemon that wedged mid-run
+    # (Problem 5) turns a failed write into an apparent non-write, and the two
+    # have opposite remedies.
+    curl -sf "http://127.0.0.1:$port/api/health" >/dev/null 2>&1 \
+      && echo up > "$run_dir/logs/reachable-before-$n" || echo DOWN > "$run_dir/logs/reachable-before-$n"
+
+    cd "$sdir/$project" || exit 1
+    KEEL_DAEMON_URL="http://127.0.0.1:$port" \
+      claude -p "$prompt" \
+        --mcp-config "$sdir/mcp.json" --strict-mcp-config --allowedTools "$tools" \
+        </dev/null > "$run_dir/logs/session-$n-turn1.log" 2>&1
+
+    # The continuation. The turn the old harness could not supply.
+    KEEL_DAEMON_URL="http://127.0.0.1:$port" \
+      claude -p "$followup" --continue \
+        --mcp-config "$sdir/mcp.json" --strict-mcp-config --allowedTools "$tools" \
+        </dev/null > "$run_dir/logs/session-$n-turn2.log" 2>&1
+
+    curl -sf "http://127.0.0.1:$port/api/health" >/dev/null 2>&1 \
+      && echo up > "$run_dir/logs/reachable-after-$n" || echo DOWN > "$run_dir/logs/reachable-after-$n"
+  ) &
+  pids+=($!)
+  printf '  [%2d/%d] %-9s %s\n' "$n" "$launched" "$project" "${prompt:0:58}"
+done
+
+say "All $launched launched. Waiting."
+for p in "${pids[@]}"; do wait "$p"; done
+
+# --- archive ----------------------------------------------------------------
+# Copied out before anything is torn down. The previous run destroyed its store
+# before the transcripts were read, and the only reason run 4 could be
+# re-audited at all is that Claude Code keeps its own copy.
+say "Archiving transcripts"
+manifest_sessions=""
+for i in $(seq 0 $((launched - 1))); do
+  n=$((i + 1))
+  IFS='|' read -r project _ _ <<< "${SESSIONS[$i]}"
+  # Claude Code encodes a project directory by replacing /, _ and . with -.
+  # Getting this wrong loses every transcript, which the completeness assertion
+  # catches — but only after the sessions have been spent.
+  encoded="$(printf '%s' "$work/s$n/$project" | sed 's#^/#-#; s#/#-#g; s#_#-#g; s#\.#-#g')"
+  src="$(ls -t "$HOME/.claude/projects/"*"$encoded"*/*.jsonl 2>/dev/null | head -1)"
+  dest="$run_dir/transcripts/session-$n.jsonl"
+  if [ -n "$src" ] && [ -f "$src" ]; then cp "$src" "$dest"; else dest=""; fi
+  [ -n "$manifest_sessions" ] && manifest_sessions="$manifest_sessions,"
+  sport=$((base_port + i))
+  manifest_sessions="$manifest_sessions{\"n\":$n,\"project\":\"$project\",\"transcript\":\"$dest\",\"daemon\":\"http://127.0.0.1:$sport\"}"
+done
+
+cat > "$run_dir/manifest.json" <<JSON
+{
+  "run_id": "$run_id",
+  "launched": $launched,
+  "t0": "$t0",
+  "daemon": "http://127.0.0.1:$base_port",
+  "sessions": [$manifest_sessions]
+}
+JSON
+
+wedged=0
+for n in $(seq 1 $launched); do
+  grep -q DOWN "$run_dir/logs/reachable-before-$n" 2>/dev/null && wedged=$((wedged+1))
+  grep -q DOWN "$run_dir/logs/reachable-after-$n" 2>/dev/null && wedged=$((wedged+1))
+done
+[ "$wedged" -gt 0 ] && echo "  ⚠ $wedged reachability check(s) failed — some non-writes may be wedged daemons"
+
 say "Scoring"
-"$keel" gate --since "$t0"
+"$keel" gate --run "$run_dir"
 status=$?
 
-say "Session transcripts"
-echo "  $work/session-*.log"
+say "Stores are still up, and the run is archived at:"
+echo "  $run_dir"
 echo
-echo "  If a session did not write, read its log before changing anything."
-echo "  plugin/README.md maps each failure mode to the part of SKILL.md at fault."
+echo "  Tear down when you have finished reading:"
+echo "      pkill -f 'keel-daemon --home $run_dir'"
 exit $status

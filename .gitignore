@@ -1,25 +1,22 @@
-/target
-**/*.rs.bk
-*.pdb
 
-# Node / desktop app
-node_modules/
-apps/desktop/dist/
-apps/desktop/src-tauri/target/
-
+# Editor
 # Local store — never commit
-.keel-home/
+# Node / desktop app
+# Tauri generated schemas — regenerated on every build.
+# Test scratch
+**/*.rs.bk
 *.duckdb
 *.duckdb.wal
 *.lance/
-
-# Editor
+*.pdb
 .DS_Store
+.gate-runs/
 .idea/
+.keel-home/
 .vscode/
-
-# Test scratch
+/target
 /tmp-test/
-
-# Tauri generated schemas — regenerated on every build.
+apps/desktop/dist/
 apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/target/
+node_modules/

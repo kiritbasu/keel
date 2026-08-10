@@ -19,7 +19,7 @@
 | **Status** | Phases 0–3 built. Keel is the source of truth; every `product/*.md` is generated from it |
 | **Blocked on** | Nothing. TQ-14 (render the tracker from task rows) is the last half-step of the dogfooding switch |
 | **Warning** | **R-2 observed live** — session 3 shipped four features and moved zero task rows. See "The session that did not write to Keel" below |
-| **Next up** | KB: run the Phase 2 ten-session gate. Then Phase 4 (GitHub) — needs your account |
+| **Next up** | Hand-judge Run A's writes for keep-rate (Step 10); decide whether s2/s7/s9 are L0 or misses (TQ-21) |
 | **Last session** | 2026-08-09 |
 | **Last updated** | 2026-08-09 |
 
@@ -153,6 +153,37 @@ Not broken down yet. Decompose at the start of each phase, not before — earlie
 Nothing.
 
 *(Format: task ID — what's blocking — who or what unblocks it — since when.)*
+
+---
+
+## Run A — 7 of 10, and the permission failure is gone
+
+Step 2 built, Run A executed against it. No treatment; only committed fixes and instrument repairs. Full write-up: `product/RUN-A.md`.
+
+```
+   3  L1 did not notice
+   7  L5 wrote
+
+  recall      70%    ceiling  70%    offers  1
+```
+
+| Run | Condition | Wrote |
+|---|---|---|
+| 1–3 | skill only (never loaded) | 0–1 of 10 |
+| 4 | hook, single-turn harness | 5 of 10 *(reported as 3)* |
+| **A** | **same treatment, repaired instrument** | **7 of 10** |
+
+**Recall equals ceiling** — every session that formed the intent completed it — and offers fell from eleven to **one**. The panel's central prediction is confirmed: those offers were never refusals, they were addressed to a turn the harness could not supply. Given one, they resolve into writes. Every writing session also created its project unprompted, so the TQ-17 cold-start deadlock is gone too.
+
+The writes are real, not noise — decisions, questions and tasks matching each conversation ("Tide table default resolution is 15 minutes", "Chart datum is hardcoded, not per-station", "Size cap on the store with LRU eviction").
+
+**The residual is a different problem.** The three silent sessions — s2, s7, s9 — are all pure implementation prompts. None offered; none noticed. That is orientation-in-context, not consent. Whether it is even a failure is a human judgement (TQ-21), and it moves the score between 7/10 and 7/7.
+
+**Step 2's repairs:** transcript-based scoring (one file per session, ids cannot collide) · launcher-injected session id · a neutral continuation turn · parallel with one store per session, 7 minutes not 20 · an `observed == launched` assertion · known-answer fixtures · archive before teardown.
+
+**Two bugs the repaired instrument caught in itself**, both flagged by an implausible score rather than a test: scoring checked one store for ten per-session stores (recall 0% against ceiling 70%), and `t0` came from a directory mtime that updated after the events it was meant to bound. Both were fixable without re-running because the stores were kept up.
+
+**Caution:** 7/10 at n=10 from two projects is one draw. It does not establish 70%, and it does not establish that 9 is reachable.
 
 ---
 

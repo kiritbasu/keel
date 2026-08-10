@@ -34,10 +34,35 @@ daemon="${KEEL_DAEMON_URL:-http://127.0.0.1:7654}"
 # rather than making jq a hard dependency of starting a session.
 payload="$(cat 2>/dev/null || true)"
 cwd=""
-if command -v jq >/dev/null 2>&1 && [ -n "$payload" ]; then
-  cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null || true)"
+claude_session=""
+if [ -n "$payload" ]; then
+  read -r cwd claude_session <<EOF
+$(printf '%s' "$payload" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    d = {}
+print(d.get("cwd", ""), d.get("session_id", ""))
+' 2>/dev/null)
+EOF
 fi
 [ -n "$cwd" ] || cwd="$PWD"
+
+# Claude Code assigns every session a UUID and hands it to this hook. Telling
+# the model to use *that* removes an entire failure class: asked to invent a
+# unique id, sessions minted date-based ones, two collided, and the gate scored
+# five writing sessions as three — which is the number the strategy was then
+# built on. It also makes the event log joinable to the transcript, so "what
+# the session did" and "what reached the store" can finally be compared.
+session_hint=""
+if [ -n "$claude_session" ]; then
+  session_hint="Use exactly this on every Keel call: session_id = \"ses_${claude_session}\". \
+It is this conversation's own identifier — do not invent one, and do not derive \
+one from the date.
+
+"
+fi
 
 # `--max-time` is the whole safety story: an unreachable daemon fails in two
 # seconds, and a hanging one cannot hold the session open. Silence on failure
@@ -81,11 +106,12 @@ print(summary.strip())
 # `additionalContext` is the documented way to add to a session without
 # pretending to be the user or the assistant. Printed as JSON so the payload
 # cannot be mistaken for a transcript line.
-python3 - "$digest" <<'PY' 2>/dev/null || exit 0
+python3 - "$digest" "$session_hint" <<'PY' 2>/dev/null || exit 0
 import json
 import sys
 
 digest = sys.argv[1]
+session_hint = sys.argv[2] if len(sys.argv) > 2 else ""
 preamble = (
     "Keel holds this project's specs, decisions, tasks, questions and history. "
     "You did not have to ask for this — it is here so you start oriented.\n\n"
@@ -96,10 +122,8 @@ preamble = (
     "worked out exactly what should be captured, drafted it, then asked "
     "permission and stopped — so it was lost. Write it, then say in one line "
     "that you did. Asking turns a free write into an interruption.\n\n"
-    "Pass a session_id that is unique to this conversation, not to the day: "
-    "two sessions that mint the same id merge in the history and the record "
-    "shows one where there were two.\n\n"
 )
+preamble += session_hint
 print(json.dumps({
     "hookSpecificOutput": {
         "hookEventName": "SessionStart",

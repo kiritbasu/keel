@@ -12,6 +12,7 @@ mod bootstrap;
 mod gate;
 mod generate;
 mod import;
+mod rubric;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -142,6 +143,13 @@ enum Command {
         /// Only count activity after this instant (RFC 3339).
         #[arg(long)]
         since: Option<String>,
+        /// Score from an archived run directory instead of the event log.
+        ///
+        /// Transcript-based: one file per session, so ids cannot collide, and
+        /// a session that only *offered* to write is visible. This is the mode
+        /// to use for a real run.
+        #[arg(long)]
+        run: Option<PathBuf>,
         /// How many sessions were run. The denominator.
         ///
         /// Not derived from the log: a session that wrote nothing leaves no
@@ -185,15 +193,19 @@ fn main() -> Result<()> {
         Command::Gate {
             project,
             since,
+            run,
             sessions,
             daemon,
-        } => gate::run(
-            daemon,
-            project.as_deref(),
-            since.as_deref(),
-            *sessions,
-            cli.json,
-        ),
+        } => match run {
+            Some(dir) => gate::score_run(dir, cli.json),
+            None => gate::run(
+                daemon,
+                project.as_deref(),
+                since.as_deref(),
+                *sessions,
+                cli.json,
+            ),
+        },
         Command::Generate {
             project,
             repo,

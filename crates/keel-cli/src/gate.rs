@@ -296,3 +296,173 @@ mod tests {
         assert_ne!(normalise("Keel"), normalise("Keel Desktop"));
     }
 }
+
+// ---------------------------------------------------------------------------
+// Transcript-based scoring (Step 2)
+// ---------------------------------------------------------------------------
+
+/// What the launcher recorded about a run.
+///
+/// The launcher is the only thing that knows how many sessions it started.
+/// Deriving that from observations is survivorship bias — the sessions that
+/// fail hardest are exactly the ones that might leave nothing behind — and it
+/// is the specific bug that let seven silent sessions vanish and the score read
+/// "3 of 3".
+#[derive(serde::Deserialize)]
+pub struct Manifest {
+    pub run_id: String,
+    pub launched: usize,
+    pub t0: String,
+    pub daemon: String,
+    pub sessions: Vec<ManifestSession>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct ManifestSession {
+    pub n: usize,
+    pub project: String,
+    pub transcript: String,
+    /// This session's own store.
+    ///
+    /// One daemon per session, so there is no single run-wide event log to
+    /// consult. Checking one store for ten sessions' writes reported every
+    /// write as unlanded — recall 0% against a ceiling of 70%, which is an
+    /// implausible enough gap to have caught it.
+    #[serde(default)]
+    pub daemon: Option<String>,
+}
+
+/// Score a run from its manifest and archived transcripts.
+pub fn score_run(run_dir: &std::path::Path, json: bool) -> Result<()> {
+    let manifest_path = run_dir.join("manifest.json");
+    let manifest: Manifest = serde_json::from_str(
+        &std::fs::read_to_string(&manifest_path)
+            .with_context(|| format!("read {}", manifest_path.display()))?,
+    )
+    .with_context(|| format!("parse {}", manifest_path.display()))?;
+
+    // Which session ids landed a write, per store. The event log is used *only*
+    // for this — it cannot tell you what a session did, only what reached the
+    // store.
+    let mut unreachable: Vec<String> = Vec::new();
+    let mut landed_by_store: std::collections::HashMap<String, std::collections::HashSet<String>> =
+        Default::default();
+    for url in manifest
+        .sessions
+        .iter()
+        .filter_map(|s| s.daemon.clone())
+        .chain(std::iter::once(manifest.daemon.clone()))
+        .collect::<std::collections::BTreeSet<_>>()
+    {
+        match fetch_events(&url, None, Some(&manifest.t0)) {
+            Ok(events) => {
+                landed_by_store.insert(
+                    url,
+                    events
+                        .iter()
+                        .filter_map(|e| e.get("session_id").and_then(|v| v.as_str()))
+                        .map(str::to_owned)
+                        .collect(),
+                );
+            }
+            Err(_) => unreachable.push(url),
+        }
+    }
+    if !unreachable.is_empty() {
+        eprintln!(
+            "  note: {} store(s) unreachable, so their writes cannot be confirmed as \
+             landed and will read as L3 rather than L5. Score before teardown.",
+            unreachable.len()
+        );
+    }
+
+    let mut reads = Vec::new();
+    let mut missing = Vec::new();
+    for s in &manifest.sessions {
+        let path = std::path::Path::new(&s.transcript);
+        if !path.exists() {
+            missing.push(s.n);
+            continue;
+        }
+        let mut r = crate::rubric::read_transcript(path)?;
+        let store = s.daemon.clone().unwrap_or_else(|| manifest.daemon.clone());
+        let empty = Default::default();
+        let landed = landed_by_store.get(&store).unwrap_or(&empty);
+        let did_land = landed.contains(&format!("ses_{}", r.session_id))
+            || landed.contains(&r.session_id)
+            // A session that wrote under an id it invented still wrote. The
+            // store is per-session here, so any event in it belongs to it.
+            || (r.write_attempts > 0 && !landed.is_empty());
+        r.level =
+            crate::rubric::classify(&r.keel_tools, r.write_attempts, did_land, &r.offers, true);
+        reads.push(r);
+    }
+
+    let scored = crate::rubric::score(manifest.launched, &reads);
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&scored)?);
+    } else {
+        println!(
+            "Run {} — {} sessions launched\n",
+            manifest.run_id, manifest.launched
+        );
+        for (label, n) in &scored.counts {
+            println!("  {n:>2}  {label}");
+        }
+        println!();
+        for (s, r) in manifest.sessions.iter().zip(reads.iter()) {
+            println!(
+                "   {:>2}. {:<9} {:<28} {}",
+                s.n,
+                s.project,
+                r.level.label(),
+                if r.write_attempts > 0 {
+                    format!("{} write attempt(s)", r.write_attempts)
+                } else if !r.offers.is_empty() {
+                    format!("offered: {}", r.offers.join(", "))
+                } else {
+                    String::new()
+                }
+            );
+        }
+        println!();
+        println!(
+            "  recall   {:>5.0}%   wrote and it landed",
+            scored.recall * 100.0
+        );
+        println!(
+            "  ceiling  {:>5.0}%   got as far as intending to",
+            scored.ceiling * 100.0
+        );
+        println!(
+            "  offers   {:>5}    times a session asked instead of writing",
+            scored.offers
+        );
+        if scored.permission_denials > 0 {
+            println!(
+                "\n  ⚠ {} write(s) denied at the permission layer — this is a harness \
+                 confound, not a result",
+                scored.permission_denials
+            );
+        }
+        if !missing.is_empty() {
+            println!("\n  ⚠ transcripts missing for session(s): {missing:?}");
+        }
+        println!();
+    }
+
+    // The invariant. A run that cannot account for every session it launched is
+    // not a measurement, and the failure mode it guards against — silent
+    // sessions removing themselves from observation — already happened once.
+    if !scored.complete {
+        anyhow::bail!(
+            "observed {} transcript(s) for {} launched session(s). Every launched session \
+             must be accounted for or the score is survivorship bias, which is exactly how \
+             seven silent sessions became a reported '3 of 3'.",
+            scored.observed,
+            scored.launched
+        );
+    }
+    Ok(())
+}

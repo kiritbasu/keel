@@ -3,6 +3,12 @@
 <!-- keel:generated questions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
 > Generated from Keel — edits here are not saved.
 
+## TQ-21 — Step 4 and Step 6 were designed against a baseline that no longer exists
+
+`que_01KZMJVZYDFF6PQQJBGF46DGY3` · question · severity medium
+
+Run A lands at 7 of 10 with recall equal to ceiling and one offer across ten sessions. The treatment bundle in WAY-FORWARD.md Step 4 was designed against 3 of 10 dominated by permission-refusal, and Step 6's deterministic Stop hook targets the closing-message boundary where offers are generated.\n\nThere is one offer in the entire run. Step 6 solves a problem this run does not have, and 4a, 4c and 4d were all justified by the consent prior that is no longer visible.\n\nWhat survives on its own merits: 4b, rewriting the tool description, because it is the only surface chat and Cowork read and nothing in this run tested those. 4e is already achieved in practice - every writing session created its project without asking.\n\nWhat the residual actually needs: three sessions (s2, s7, s9) never noticed Keel while heads-down on pure implementation work. A Stop hook would catch exactly those, but as a reminder to consider recording rather than as a fix for a consent failure. That is a different argument and it should be made before the thing is built.\n\nAlso unresolved and worth a human minute: whether s2, s7 and s9 are L0 (nothing worth recording) or genuine misses. A bug that would wipe a content-addressed store on an empty keep set is arguably worth a record. That single judgement moves the score between 7/10 and 7/7.
+
 ## TQ-20 — the silent sessions were not unaware, they asked permission and stopped
 
 `que_01KZM9G7NR161YNBD192R4FES5` · risk · severity high
