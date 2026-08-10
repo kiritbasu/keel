@@ -3,65 +3,9 @@
 <!-- keel:generated questions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
 > Generated from Keel — edits here are not saved.
 
-## TQ-18 — headless `claude -p` never loads the skill, so it cannot run Phase 2's gate
+## ZZ write probe after repair
 
-`que_01KZM6XPTV6GC2R12N75B9JQ5X` · risk · severity high
-
-**Three gate runs, thirty sessions, and all three are invalid.** Proven, not suspected: a session run with `--output-format stream-json` shows the tools it actually invoked —
-
-```
-tools invoked: ['ToolSearch', 'mcp__keel__keel_context', 'mcp__keel__keel_search']
-```
-
-**No `Skill` invocation.** `SKILL.md` never entered context in any of the thirty sessions. The skill was installed, listed as available, and never read.
-
-So what the runs measured was *"will Claude reach for nine MCP tools with no instructions"*, which is not the claim. The answer to that question, consistently across three runs: about 3 in 10 sessions engage with Keel at all, and 0–1 in 10 write.
-
-**This retracts an earlier claim of mine.** TQ-17 said "the skill is not the problem, it fires" — I inferred that from sessions calling `keel_context`. They were reaching for an available MCP tool, not following the skill. The cold-start deadlock TQ-17 describes is real and visible in the transcripts, but it is the *model's own* caution, not `SKILL.md`'s project-confirmation rule, because that rule was never in context.
-
-**What is still worth keeping from those runs:**
-
-- The `cwd` addition to `keel_context` works exactly as intended. Sessions now say "`keel_context` matched nothing for this checkout" instead of inferring absence from a list of other projects. That was the right change and it landed.
-- Even *knowing* no project matched, sessions asked permission rather than creating one — three times, in three different runs, unprompted by any skill text. That is a strong signal the model's default caution is the binding constraint, and that `SKILL.md` wording alone may not clear it.
-- A useful baseline: with tools and no skill, ~30% engagement, ~5% write rate.
-
-**`plugin/README.md` said this from the start** — the gate cannot be automated because "unprompted" is the whole claim. I built the harness anyway, and the harness is worth keeping for what it does verify; it just cannot answer this question.
-
-**What would actually run the gate:** ten interactive sessions, where skills are surfaced to the model. `scripts/gate-prompts.md` has them, and the scratch projects are built by `scripts/gate-run.sh`. Before spending them, it is worth establishing separately that an interactive session *does* load the skill — one session, one look at whether `keel_context` gets called unprompted.
-
-## TQ-17 — Phase 2's gate fails 1/10, and the cause is the duplicate-project defence
-
-`que_01KZM3Y941G7MB1BW0KKZ5M3P4` · risk · severity high
-
-**Result, 2026-08-09.** Ten unprompted sessions across two scratch projects that mention Keel nowhere. **1 of 10 wrote. Required: 9 of 10. The gate fails.**
-
-Every write was attributed, and there were **0 duplicate projects** — that half of the criterion passed.
-
-**The skill is not the problem. It fires.** Sessions called `keel_context`, understood what Keel was for, and said outright that they wanted to write. What stopped them was a *different* instruction working exactly as designed:
-
-> Session 3: "There's no Keel project for `tideline`. `keel_context` only knows the 'Keel' project, so I've recorded nothing there. If you'd like this decision tracked, tell me which project to file it under and I'll create it."
-
-> Session 8: "Want me to log this as an answered question…? I held off writing since you haven't actually decided — just say the word."
-
-Session 6 is the one that wrote: it created the **Tideline** project and a task, unprompted.
-
-**The finding: the UC-8 defence deadlocks the cold start.** `SKILL.md` says to call `keel_projects` and confirm with the human before creating a project — because nine projects for one thing is the failure that ruins the cross-project view. In an *existing* project that is right. In a *new* one, there is nothing to write into, so the first sessions all stop and ask. Nine sessions declined for want of a project; the tenth created one.
-
-Note the two rules are both correct in isolation and jointly produce silence. 0 duplicate projects is not an accident here — it is the same instruction, succeeding at its own job while blocking the one being measured.
-
-**A second, narrower cause.** Session 8 held off because the human had not decided yet. That is also right — recording an undecided thing as a decision is worse than not recording it — but combined with a single-turn session it means nothing gets written.
-
-**Caveat on the instrument, stated because it changes what the number means.** These were headless single-turn sessions. Several ended by *asking permission* and stopping; in a real conversation the human would have answered and the write would have followed. **1/10 is a lower bound, not the true rate.** The cold-start deadlock is real either way, because it fires before any human answer is possible.
-
-**Options, none taken:**
-
-a. Let a session create a project *for the directory it is working in* without asking, when no project matches — and tell the human it did. The duplicate risk UC-8 fears comes from creating a *second* project for something that already exists; creating the first is not that. Narrowest change, and it targets the actual failure.
-
-b. Have `keel_context` return an explicit "no project matches this directory, here is how to make one" instead of silently listing other projects. Session 3 had to work that out for itself.
-
-c. Weaken the confirmation rule generally. Rejected — it is the only reason there are 0 duplicates, and duplicates are the more damaging failure.
-
-Recommendation is (a) plus (b): (b) is free and makes the situation legible, (a) unblocks the cold start without touching the case UC-8 actually protects.
+`que_01KZN2P3QJXX6GSB74900VGDFM` · question
 
 ## TQ-8 — SPEC §3.1's audit block lists four surface values; §6.5 names a fifth (cli).
 
@@ -198,30 +142,6 @@ Row `TQ-15` of the open-questions log.
 **Working assumption:** The API is the only path; generation moved into the daemon (DECISIONS B-21)
 
 **Cost of getting it wrong:** Low as built, but D-5's wording will mislead the next person who reads it and plans around a read-only connection that cannot exist. Worth one sentence of correction in the spec.
-
-## R-2a — I maintained the tracker as prose all session and never touched a task row
-
-`que_01KZKW33RGTJY86XYDTHSPMF0C` · risk · severity high
-
-KB noticed it before I did: "I am not seeing the actual project task items getting updated from this chat."
-
-He was right. Of 134 events in the store, 119 were `keel bootstrap`, 13 were `keel import`, and 2 were one-off `curl` calls. Zero task rows moved status in a session that shipped four features. I kept the tracker by hand in `product/STATUS.md`, imported it, and generated it back out — so the *prose* was accurate and the *data* was frozen at what bootstrap wrote at 16:11.
-
-This is R-2 ("the agent doesn't write to it") happening live, to the agent that built the thing. Worth recording because it is evidence about the product, not about one session:
-
-- The MCP surface was connected and working the whole time. Wiring was never the problem.
-- The pull toward editing a markdown file is strong enough to beat a tool surface designed specifically to replace it, even with the tool in front of me and the project's own contract telling me to use it.
-- It went unnoticed until a human looked at the app. Nothing in the system complains that no task row has changed while the commit log fills up.
-
-Two candidate mitigations, neither built:
-1. `keel generate --check` already fails on stale prose. A sibling check could fail when the event log shows no task mutation in a session that produced commits — cheap, and it converts a silent drift into a build failure.
-2. The Phase 2 skill and hooks are the real answer, and they are exactly what the ten-session gate is meant to measure. This session is a data point that the gate matters and is currently failing when the agent is running without the plugin.
-
-## R-2 — The agent might simply not write to it
-
-`que_01KZKMPW1RDD4SJ8MZXW8ZMKCK` · risk · severity high
-
-If Claude has to be reminded every session, the whole thing fails. This is what Phase 2's gate measures, and it has not been run.
 
 ## TQ-11 — How long should the 2025-11-25 handshake be carried?
 

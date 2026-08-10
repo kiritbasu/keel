@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
     let state = AppState::open(&home, args.embeddings)
         .with_context(|| format!("open the Keel store at {}", home.display()))?;
 
-    let app = router(state);
+    let app = router(state.clone());
     let listener = tokio::net::TcpListener::bind(args.bind)
         .await
         .with_context(|| format!("bind {}", args.bind))?;
@@ -76,11 +76,36 @@ async fn main() -> Result<()> {
     tracing::info!("  MCP endpoint  http://{}/mcp", args.bind);
     tracing::info!("  local API     http://{}/api", args.bind);
 
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown())
-        .await
-        .context("serve")?;
+    // Graceful shutdown, but on a deadline.
+    //
+    // `with_graceful_shutdown` waits for in-flight connections, and `/api/events`
+    // is a Server-Sent Events stream that by design never ends. So the daemon
+    // would sit there after SIGTERM until someone lost patience and sent
+    // SIGKILL — which is how an ART index ends up disagreeing with its table,
+    // and how this project spent an evening chasing a store that looked
+    // corrupt while `fsck` insisted it was clean.
+    let deadline = std::time::Duration::from_secs(5);
+    let serving = axum::serve(listener, app).with_graceful_shutdown(shutdown());
+    tokio::select! {
+        result = serving => result.context("serve")?,
+        () = expire(deadline) => tracing::warn!(
+            "graceful shutdown exceeded {deadline:?} — an open SSE stream is the usual \
+             reason. Closing anyway, after a checkpoint."
+        ),
+    }
+
+    // The last thing, always. An unflushed write is the whole failure mode.
+    match state.store().checkpoint() {
+        Ok(()) => tracing::info!("checkpointed; the write handle is released cleanly"),
+        Err(e) => tracing::error!(error = %e, "checkpoint failed — the store may need a restore"),
+    }
     Ok(())
+}
+
+/// Wait for the shutdown signal, then allow `grace` for in-flight work.
+async fn expire(grace: std::time::Duration) {
+    shutdown().await;
+    tokio::time::sleep(grace).await;
 }
 
 /// Wait for Ctrl-C or SIGTERM.

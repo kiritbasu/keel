@@ -178,6 +178,26 @@ impl Error {
         move |source| Error::Storage { context, source }
     }
 
+    /// The full chain, root cause included.
+    ///
+    /// `Display` deliberately shows only the context, because that is what a
+    /// *caller* needs — "create task", not a SQL fragment. But every boundary
+    /// that reports a failure to a human or an agent needs the leaf too, and
+    /// the absence of this cost an evening: a broken FTS index surfaced as
+    /// `count matching rows` and `run a question lookup` at the MCP layer,
+    /// which names the operation and hides the reason. The source was on the
+    /// error the whole time and nothing ever printed it.
+    pub fn chain(&self) -> String {
+        use std::error::Error as _;
+        let mut out = self.to_string();
+        let mut cursor: Option<&(dyn std::error::Error + 'static)> = self.source();
+        while let Some(e) = cursor {
+            out.push_str(&format!(": {e}"));
+            cursor = e.source();
+        }
+        out
+    }
+
     /// Wrap an I/O error with what the caller was trying to do.
     pub fn io(context: impl Into<String>) -> impl FnOnce(std::io::Error) -> Self {
         let context = context.into();

@@ -17,9 +17,9 @@
 | **Current phase** | Phases 0–3 complete. **Phase 2 closed 2026-08-10 on 18 of 20** |
 | **Phase progress** | Phase 0: **16/16** · Phase 1: **14/14** · Phase 2: **11/13** · Phase 3: **13/13** |
 | **Status** | Phases 0–3 built. Keel is the source of truth; every `product/*.md` is generated from it |
-| **Blocked on** | **p0: the daemon rejects every write until the FTS index is rebuilt.** Diagnosed, not fixed — see below |
+| **Blocked on** | Nothing. The p0 wedge is fixed and the store repaired |
 | **Warning** | **R-2 observed live** — session 3 shipped four features and moved zero task rows. See "The session that did not write to Keel" below |
-| **Next up** | Fix the p0 index-rebuild wedge. Then Step 10's independent hand-judge of ~20 writes |
+| **Next up** | Step 10's independent hand-judge of ~20 writes, then Phase 4 (GitHub) |
 | **Last session** | 2026-08-09 |
 | **Last updated** | 2026-08-09 |
 
@@ -156,27 +156,34 @@ Nothing.
 
 ---
 
-## Phase 2 is closed — and the p0 daemon wedge has a mechanism
+## Phase 2 is closed, and the p0 is fixed
 
-**Phase 2 shipped 2026-08-10**, on KB's call, against 18 of 20 pooled. Decision recorded as `dec_01KZN24NH42AW7XQB9GNNZ0NFY`, which states plainly what is being carried rather than resolved: a 69.9% pooled lower bound, no precision floor yet, and chat/Cowork untested.
+**Phase 2 shipped 2026-08-10** on 18 of 20 pooled. The decision states what is carried rather than resolved: a 69.9% pooled lower bound, no precision floor yet, chat and Cowork untested.
 
-**Closing it immediately hit the p0**, which is now diagnosed rather than merely observed. Four of eight question status updates failed, and after that every write failed while reads kept working:
+### The p0 — and I had it wrong twice before getting it right
+
+The real error, once the chain was actually printed:
 
 ```
-keel_update → "run a question lookup"     (500)
-keel_create → "count matching rows"       (500)
-keel_search "keel" / "daemon" / "gate" → No matches
-/api/entity/… → returns the entity fine
-fsck (daemon down) → clean, 27 checks
+FATAL Error: Invalid Input Error: Failed to delete all rows from index.
+Only deleted 0 out of 1 rows.
 ```
 
-**Search returning nothing for words that are certainly in the store is the tell: the FTS index is broken.** Both the create and update paths call `refresh_entity_index`, which rebuilds `fts_entities` off the event-log watermark; when that rebuild fails, every write fails with a message describing the *operation* rather than the cause, and reads — which never touch the index — keep working. That is why it looks like total corruption and why `fsck` disagrees.
+A DuckDB **ART index disagreeing with its table**. A `FATAL` poisons the connection, so every later query fails with whatever operation happened to be running — `count matching rows` on a create, `run a question lookup` on an update. Reads on a freshly started process worked because they never touched the damaged index; `fsck` reported clean because it checks referential integrity, not index consistency. Every observation was true and the conclusion was still wrong.
 
-**This is the panel's Step 8 hypothesis, confirmed with a mechanism:** *"two write paths into one file where only the daemon path maintains derived state."* Today's session ran `keel import` many times with the daemon stopped — a direct-open CLI write path that appends events without maintaining the index the daemon later tries to rebuild from. A restart does not clear it, because the damage is in the store's derived state, not the process.
+**My previous entry here blamed the FTS index. That was wrong.** I had searched *after* a write already poisoned the connection. Search on a genuinely fresh daemon returns hits — the FTS index was never involved.
 
-Data was never at risk: `fsck` clean throughout, and the CLI reads and writes the store normally with the daemon down.
+**The cause was cruder than any hypothesis on the table.** Graceful shutdown waits for in-flight connections, and `/api/events` is an SSE stream that by design never ends. So `SIGTERM` never completed, and every restart this session ended in `SIGKILL` — repeatedly, mid-write. That is how an index and its table stop agreeing.
 
-The p0 (`tsk_01KZM4PA7RW6DNNMCEX125609S`) now has a specific fix rather than a symptom: make the index rebuild recover by rebuilding from scratch rather than failing, surface the real DuckDB error via `#[source]` chaining instead of a context string, and have the CLI's direct write path either maintain the index or mark it stale so the daemon rebuilds cleanly.
+Worth noting against the panel's Step 8, which predicted *two write paths where only the daemon maintains derived state*: a good hypothesis, and not the cause.
+
+**Three fixes:**
+
+1. **Shutdown on a deadline, with a checkpoint.** Five seconds, then close anyway, always `CHECKPOINT` first. Verified with an SSE stream open: stops in 5s and logs the checkpoint, where it used to hang indefinitely.
+2. **Error chains surfaced.** `Error::chain()` walks to the root cause and the MCP boundary reports it. The source was attached the whole time and nothing ever printed it — which is why two hours went into guessing instead of reading. This is Step 8's `#[source]` item, and it paid for itself immediately.
+3. **A regression test** for the exact cycle: create, checkpoint, reopen, update, and assert the connection is not poisoned.
+
+**Recovery** used `keel backup` and `keel restore`, which rebuild every table and index from Parquet — 536 rows, verified per table. The damaged store is kept at `~/.keel.corrupt-20260810T053513Z`, the Parquet backup at `/tmp/keel-backup-repair`. **No data was lost**, and the four question updates that failed all evening have landed.
 
 ---
 

@@ -70,7 +70,10 @@ pub fn to_rpc_error(store: &DuckStore, err: Error) -> RpcError {
             }))
         }
         e if e.is_caller_error() => RpcError::new(codes::INVALID_PARAMS, err.to_string()),
-        _ => RpcError::new(codes::INTERNAL_ERROR, err.to_string()),
+        // The chain, not just the context. An agent reading "count matching
+        // rows" cannot act; one reading the DuckDB error underneath it can,
+        // and so can whoever is debugging at 3am.
+        _ => RpcError::new(codes::INTERNAL_ERROR, err.chain()),
     }
 }
 

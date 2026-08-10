@@ -117,6 +117,23 @@ impl DuckStore {
         &self.root
     }
 
+    /// Flush everything to disk and leave the file consistent.
+    ///
+    /// Called on shutdown. DuckDB checkpoints on a clean close, but a process
+    /// that is killed does not get one — and an interrupted write can leave an
+    /// ART index disagreeing with its table. That failure is invisible until
+    /// the next `UPDATE`, which then raises a FATAL error that poisons the
+    /// connection, so every later query fails with whatever operation happened
+    /// to be running. It cost an evening: the store looked corrupt, `fsck`
+    /// said clean, and both were true.
+    pub fn checkpoint(&self) -> Result<()> {
+        self.conn
+            .execute_batch("CHECKPOINT;")
+            .map_err(Error::storage(
+                "checkpoint the database before shutting down",
+            ))
+    }
+
     /// Borrow the connection for a read-only query.
     ///
     /// Exposed for `keel-cli fsck` and the backup command, which legitimately
