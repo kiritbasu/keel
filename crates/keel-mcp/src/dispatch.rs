@@ -78,6 +78,57 @@ pub fn to_rpc_error(store: &DuckStore, err: Error) -> RpcError {
     }
 }
 
+/// What a caller may write where an id is expected.
+const ID_OR_REF: &str =
+    "a prefixed ULID such as `tsk_01H8…`, or a readable reference such as `KEEL-42`";
+
+/// Turn what the caller wrote into an id, accepting `KEEL-42` as well as a ULID.
+///
+/// `Ok(None)` means it was a well-formed reference that names nothing, which is
+/// a different answer from "that is not a reference at all" — the first is a
+/// task that does not exist, the second is a typo in the shape of the argument,
+/// and a model correcting itself needs to know which.
+fn resolve_optional(
+    store: &DuckStore,
+    field: &str,
+    raw: &str,
+) -> Result<Option<EntityId>, RpcError> {
+    if EntityId::parse(raw).is_err() && keel_core::types::parse_readable_ref(raw).is_none() {
+        return Err(bad_arg(
+            field,
+            &format!("`{raw}` is neither an id nor a readable reference"),
+            ID_OR_REF,
+        ));
+    }
+    store.resolve_ref(raw).map_err(|e| to_rpc_error(store, e))
+}
+
+/// As [`resolve_optional`], for the callers where the target has to exist.
+fn resolve_required(store: &DuckStore, field: &str, raw: &str) -> Result<EntityId, RpcError> {
+    resolve_optional(store, field, raw)?.ok_or_else(|| {
+        bad_arg(
+            field,
+            &format!("`{raw}` does not name anything in this store"),
+            ID_OR_REF,
+        )
+    })
+}
+
+/// The readable label for an entity, if it has one: `KEEL-42`.
+///
+/// Only tasks have one. Returns `None` rather than inventing something for the
+/// other twelve types, because a made-up reference that does not resolve is
+/// worse than no reference at all.
+fn readable_ref(store: &DuckStore, entity: &Entity) -> Option<String> {
+    let Entity::Task(task) = entity else {
+        return None;
+    };
+    match store.get(&task.project_id) {
+        Ok(Some(Entity::Project(project))) => Some(format!("{}-{}", project.key, task.number)),
+        _ => None,
+    }
+}
+
 /// A missing or malformed argument.
 fn bad_arg(field: &str, problem: &str, expected: &str) -> RpcError {
     RpcError::new(
@@ -458,11 +509,14 @@ fn keel_get(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
     let diff_against = opt_i64(args, "diff_against").map(|v| v as i32);
 
     let mut found = Vec::new();
+    let mut entities = Vec::new();
     let mut missing = Vec::new();
 
     for raw in &ids {
-        let id = EntityId::parse(raw)
-            .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
+        let Some(id) = resolve_optional(store, "ids", raw)? else {
+            missing.push(raw.clone());
+            continue;
+        };
         let Some(entity) = store.get(&id).map_err(|e| to_rpc_error(store, e))? else {
             missing.push(raw.clone());
             continue;
@@ -493,16 +547,25 @@ fn keel_get(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
         }
 
         found.push(item);
+        entities.push(entity);
     }
 
     let mut summary = format!("{} artifact(s):", found.len());
-    for item in &found {
+    for (item, entity) in found.iter().zip(&entities) {
         if let Some(e) = item.get("entity") {
+            // The readable reference where there is one, since that is what a
+            // human will type back at the model in the next turn.
+            let identifier = readable_ref(store, entity).unwrap_or_else(|| {
+                e.get("id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("?")
+                    .to_owned()
+            });
             summary.push_str(&format!(
                 "\n  [{}] {} — {}",
                 e.get("type").and_then(Value::as_str).unwrap_or("?"),
                 label_of(e),
-                e.get("id").and_then(Value::as_str).unwrap_or("?"),
+                identifier,
             ));
         }
     }
@@ -655,17 +718,7 @@ fn keel_activity(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
     // project log and filtering client-side is what the caller would otherwise
     // have to do, and it silently misses anything older than the page.
     if let Some(raw) = opt_str(args, "entity") {
-        // `bad_arg` composes its own "Expected:", and so does the parse error,
-        // so passing the parse error through as the problem produces a message
-        // with two of them — which reads as a bug in the server to the model
-        // trying to correct itself.
-        let id = EntityId::parse(&raw).map_err(|_| {
-            bad_arg(
-                "entity",
-                &format!("`{raw}` is not an id"),
-                "a prefixed ULID, e.g. tsk_01H8… — the id of the row whose history you want",
-            )
-        })?;
+        let id = resolve_required(store, "entity", &raw)?;
         // The same default the schema declares. A branch with its own quietly
         // different default is a description that lies about the tool.
         let limit = opt_i64(args, "limit").unwrap_or(50).clamp(1, 500) as usize;
@@ -795,19 +848,21 @@ fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
         .map_err(|e| to_rpc_error(store, e))?
         .unwrap_or(created.entity);
 
+    let identifier =
+        readable_ref(store, &entity).unwrap_or_else(|| entity.id().as_str().to_owned());
     let summary = if created.created {
         format!(
             "Created {} “{}” — {}",
             entity_type,
             entity.label(),
-            entity.id()
+            identifier
         )
     } else {
         format!(
             "{} “{}” already exists — {} (nothing was created)",
             entity_type,
             entity.label(),
-            entity.id()
+            identifier
         )
     };
 
@@ -913,8 +968,7 @@ fn slugify(name: &str) -> String {
 
 fn keel_update(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
     let raw_id = req_str(args, "id")?;
-    let id = EntityId::parse(&raw_id)
-        .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
+    let id = resolve_required(store, "id", &raw_id)?;
     let version = opt_i64(args, "version").ok_or_else(|| {
         bad_arg(
             "version",
@@ -977,8 +1031,7 @@ fn keel_update(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
 
 fn keel_write_doc(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
     let raw_id = req_str(args, "id")?;
-    let id = EntityId::parse(&raw_id)
-        .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
+    let id = resolve_required(store, "id", &raw_id)?;
     let body = req_str(args, "body")?;
     let provenance = provenance_from(args)?;
 
@@ -1068,8 +1121,7 @@ fn keel_note(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
         ));
     }
 
-    let id = EntityId::parse(&req_str(args, "id")?)
-        .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
+    let id = resolve_required(store, "id", &req_str(args, "id")?)?;
 
     if opt_bool(args, "list") {
         let notes = store
@@ -1099,10 +1151,8 @@ fn keel_note(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
 }
 
 fn keel_link(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
-    let from = EntityId::parse(&req_str(args, "from")?)
-        .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
-    let to = EntityId::parse(&req_str(args, "to")?)
-        .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
+    let from = resolve_required(store, "from", &req_str(args, "from")?)?;
+    let to = resolve_required(store, "to", &req_str(args, "to")?)?;
     let rel = Relation::parse(&req_str(args, "rel")?)
         .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
     let anchor = opt_str(args, "anchor").unwrap_or_default();

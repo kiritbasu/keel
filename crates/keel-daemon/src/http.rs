@@ -476,6 +476,36 @@ async fn api_activity(
     ))
 }
 
+/// Resolve a path parameter that may be a ULID or a readable reference.
+///
+/// The app puts `KEEL-42` in its URLs, because that is what a person copies out
+/// of a conversation and pastes into the address bar. A 400 distinguishes "that
+/// is not a reference" from a 404's "no such thing".
+// The error variant is a whole `Response`, which clippy would rather was boxed.
+// It is not: this is the one-per-request path, the alternative is an allocation
+// on the failure branch of a handler that is about to allocate a JSON body
+// anyway, and boxing it would put a `*` at every call site for nothing.
+#[allow(clippy::result_large_err)]
+fn resolve_path_id(
+    store: &keel_core::DuckStore,
+    raw: &str,
+) -> std::result::Result<keel_core::EntityId, Response> {
+    use keel_core::EntityStore;
+    match store.resolve_ref(raw) {
+        Ok(Some(id)) => Ok(id),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "message": format!("`{raw}` does not name anything") } })),
+        )
+            .into_response()),
+        Err(e) => Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": { "message": e.to_string() } })),
+        )
+            .into_response()),
+    }
+}
+
 async fn api_entity(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -508,13 +538,13 @@ async fn api_notes(
     State(state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    use keel_core::{EntityId, EntityStore};
+    use keel_core::EntityStore;
 
     let store = state.store();
     let notes = if let Some(entity) = params.get("entity") {
-        match EntityId::parse(entity) {
+        match resolve_path_id(&store, entity) {
             Ok(id) => store.notes_for(&id, params.get("all").is_some_and(|v| v == "true")),
-            Err(e) => return bad_request(&e.to_string()),
+            Err(response) => return response,
         }
     } else if let Some(project) = params.get("project") {
         match keel_mcp::dispatch::resolve_project(&store, project) {
@@ -615,18 +645,12 @@ async fn api_document(
     Path(id): Path<String>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    use keel_core::{DocumentStore, EntityId};
+    use keel_core::DocumentStore;
 
     let store = state.store();
-    let entity_id = match EntityId::parse(&id) {
+    let entity_id = match resolve_path_id(&store, &id) {
         Ok(i) => i,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({ "error": { "message": e.to_string() } })),
-            )
-                .into_response();
-        }
+        Err(response) => return response,
     };
 
     let history = store.revisions(&entity_id).unwrap_or_default();
@@ -677,18 +701,12 @@ async fn api_graph(
     Path(id): Path<String>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    use keel_core::{DEFAULT_DEPTH, Direction, EntityId, GraphStore};
+    use keel_core::{DEFAULT_DEPTH, Direction, GraphStore};
 
     let store = state.store();
-    let entity_id = match EntityId::parse(&id) {
+    let entity_id = match resolve_path_id(&store, &id) {
         Ok(i) => i,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({ "error": { "message": e.to_string() } })),
-            )
-                .into_response();
-        }
+        Err(response) => return response,
     };
     let direction = params
         .get("direction")

@@ -89,6 +89,10 @@ pub struct ProjectLine {
     pub name: String,
     /// URL-safe short name.
     pub slug: String,
+    /// The prefix of this project's readable identifiers — the `KEEL` of
+    /// `KEEL-42`. Carried here so that anything holding a digest can compose a
+    /// task's reference without a second lookup.
+    pub key: String,
     /// active / paused / shipped / abandoned.
     pub status: String,
     /// Open tasks.
@@ -112,6 +116,13 @@ pub struct Item {
     pub entity_type: String,
     /// Its one-line label.
     pub label: String,
+    /// The readable identifier, for the types that have one — `KEEL-42`.
+    ///
+    /// Carried beside the label rather than folded into it, so a surface can
+    /// render it as its own thing and the label stays the title. `None` for the
+    /// twelve types that have no such identifier.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reference: Option<String>,
     /// Its status, for types that have one.
     pub status: Option<String>,
     /// Extra context — priority, severity, target date.
@@ -232,7 +243,7 @@ impl Digest {
             for item in &n.ready {
                 out.push_str(&format!(
                     "- **{}** `{}` — {}\n",
-                    item.title, item.id, item.why
+                    item.title, item.reference, item.why
                 ));
             }
             if n.ready.is_empty() && !n.blocked.is_empty() {
@@ -244,7 +255,7 @@ impl Digest {
             if !n.waiting_on_you.is_empty() {
                 out.push_str("\n**Waiting on the human**\n");
                 for item in &n.waiting_on_you {
-                    out.push_str(&format!("- {} `{}`\n", item.title, item.id));
+                    out.push_str(&format!("- {} `{}`\n", item.title, item.reference));
                 }
             }
             if !n.blocked.is_empty() {
@@ -540,6 +551,7 @@ fn project_line(store: &DuckStore, p: &keel_core::Project) -> Result<ProjectLine
         id: p.id.clone(),
         name: p.name.clone(),
         slug: p.slug.clone(),
+        key: p.key.clone(),
         status: p.status.as_str().to_owned(),
         open_tasks: open,
         urgent_tasks: urgent,
@@ -567,7 +579,7 @@ fn active_milestones(store: &DuckStore, project: &EntityId, limit: usize) -> Res
                 Entity::Milestone(m) => m.target_date.map(|d| format!("target {d}")),
                 _ => None,
             };
-            item(e, detail)
+            item(store, e, detail)
         })
         .collect())
 }
@@ -601,7 +613,7 @@ fn needs_attention(
                     (_, keel_core::TaskPriority::P0) => 1,
                     _ => 2,
                 };
-                Some((rank, item(e, Some(format!("{}", t.priority)))))
+                Some((rank, item(store, e, Some(format!("{}", t.priority)))))
             }
             _ => None,
         })
@@ -641,7 +653,7 @@ fn open_questions(store: &DuckStore, project: Option<&EntityId>) -> Result<Vec<I
                 }
                 _ => None,
             };
-            item(e, detail)
+            item(store, e, detail)
         })
         .collect())
 }
@@ -694,7 +706,7 @@ fn recent_decisions(
         page.items
             .iter()
             .take(limit)
-            .map(|e| item(e, None))
+            .map(|e| item(store, e, None))
             .collect(),
         total,
     ))
@@ -725,7 +737,7 @@ fn current_specs(
                     Entity::Spec(s) => Some(s.kind.to_string()),
                     _ => None,
                 };
-                item(e, detail)
+                item(store, e, detail)
             })
             .collect(),
         total,
@@ -746,7 +758,7 @@ fn environments(store: &DuckStore, project: &EntityId) -> Result<Vec<Item>> {
                 Entity::Environment(env) => env.deployed_version.clone(),
                 _ => None,
             };
-            item(e, detail)
+            item(store, e, detail)
         })
         .collect())
 }
@@ -797,6 +809,8 @@ pub struct NextUpJson {
 pub struct NextItem {
     /// `tsk_…`, so the caller can act on it without another lookup.
     pub id: String,
+    /// The readable identifier — `KEEL-42`. What a person will type back.
+    pub reference: String,
     /// Its title.
     pub title: String,
     /// `p0`…`p3`.
@@ -811,6 +825,7 @@ impl From<keel_core::Candidate> for NextItem {
     fn from(c: keel_core::Candidate) -> Self {
         NextItem {
             id: c.id.to_string(),
+            reference: c.reference,
             title: c.title,
             priority: c.priority,
             unblocks: c.unblocks,
@@ -906,11 +921,24 @@ fn rollup_suggestions(projects: &[ProjectLine]) -> Vec<String> {
 }
 
 /// Compact an entity into a digest item.
-fn item(entity: &Entity, detail: Option<String>) -> Item {
+///
+/// Takes the store only to resolve a task's project key, which is the one part
+/// of a readable identifier the task row does not carry. That is a point lookup
+/// per task in a list capped at ten — the alternative is threading the key
+/// through six call sites so that the digest can say `KEEL-42`.
+fn item(store: &DuckStore, entity: &Entity, detail: Option<String>) -> Item {
+    let reference = match entity {
+        Entity::Task(t) => match store.get(&t.project_id) {
+            Ok(Some(Entity::Project(p))) => Some(format!("{}-{}", p.key, t.number)),
+            _ => None,
+        },
+        _ => None,
+    };
     Item {
         id: entity.id().clone(),
         entity_type: entity.entity_type().as_str().to_owned(),
         label: entity.label().to_owned(),
+        reference,
         status: entity.status().map(str::to_owned),
         detail,
     }
@@ -956,6 +984,7 @@ mod tests {
                 id: EntityId::generate(EntityType::Question),
                 entity_type: "question".into(),
                 label: "Where does the store live?".into(),
+                reference: None,
                 status: Some("open".into()),
                 detail: None,
             }],

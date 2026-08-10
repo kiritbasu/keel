@@ -9,6 +9,20 @@
 
 import type { Entity } from "./api";
 
+/**
+ * A task's readable identifier: `KEEL-42`.
+ *
+ * Composed here rather than stored, so that re-keying a project does not mean
+ * rewriting every row that mentions it. Returns the ULID when the key is not to
+ * hand — that is still a working address, just not a readable one, and showing
+ * `undefined-42` would be worse than showing the long form.
+ */
+export function taskRef(key: string | undefined, task: Entity): string {
+  const number = task.number;
+  if (!key || typeof number !== "number" || number <= 0) return String(task.id);
+  return `${key}-${number}`;
+}
+
 /** Lifecycle order, left to right. Matches TaskStatus::ALL. */
 export const COLUMNS = ["todo", "in_progress", "blocked", "review", "done", "wont_do"] as const;
 

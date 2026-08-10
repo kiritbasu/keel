@@ -246,3 +246,22 @@ describe("the keyboard", () => {
     field.remove();
   });
 });
+
+describe("when the rest of the project cannot be loaded", () => {
+  // The failure that prompted this: the daemon was briefly down, the task
+  // itself rendered from cache, and the page quietly lost its readable
+  // identifier, its milestone name and J/K — while looking complete.
+  it("says what is missing rather than degrading silently", async () => {
+    const api = (await import("../lib/api")).api as unknown as {
+      entities: () => Promise<unknown>;
+    };
+    const working = api.entities;
+    api.entities = () => Promise.reject(new Error("Cannot reach the Keel daemon."));
+    try {
+      await show();
+      expect(screen.getByText(/could not be loaded/)).toBeTruthy();
+    } finally {
+      api.entities = working;
+    }
+  });
+});

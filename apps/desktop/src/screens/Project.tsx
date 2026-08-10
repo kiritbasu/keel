@@ -206,7 +206,12 @@ export function ProjectScreen({ route, generation }: ScreenProps) {
                       {i + 1}
                     </span>
                     <div className="min-w-0">
-                      <div className="text-small">{item.title}</div>
+                      <div className="text-small">
+                        <span className="mr-1.5 font-mono text-micro text-ink-faint">
+                          {item.reference}
+                        </span>
+                        {item.title}
+                      </div>
                       <div className="mt-0.5 text-small text-ink-faint">{item.why}</div>
                     </div>
                   </li>
@@ -226,7 +231,12 @@ export function ProjectScreen({ route, generation }: ScreenProps) {
                 </h3>
                 <ul className="space-y-1 text-small text-ink-muted">
                   {data.next_up.waiting_on_you.map((item) => (
-                    <li key={item.id}>{item.title}</li>
+                    <li key={item.id}>
+                      <span className="mr-1.5 font-mono text-micro text-ink-faint">
+                        {item.reference}
+                      </span>
+                      {item.title}
+                    </li>
                   ))}
                 </ul>
               </div>

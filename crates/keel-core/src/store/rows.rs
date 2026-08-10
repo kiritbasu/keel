@@ -269,6 +269,7 @@ pub fn spec_for(entity_type: EntityType) -> TableSpec {
             cols: &[
                 Plain("id"),
                 Plain("slug"),
+                Plain("key"),
                 Plain("name"),
                 Plain("description"),
                 Plain("status"),
@@ -300,6 +301,7 @@ pub fn spec_for(entity_type: EntityType) -> TableSpec {
             cols: &[
                 Plain("id"),
                 Plain("project_id"),
+                Plain("number"),
                 Plain("milestone_id"),
                 Plain("kind"),
                 Plain("title"),
@@ -454,6 +456,7 @@ pub fn insert_params(entity: &Entity) -> Vec<Value> {
         Entity::Project(e) => vec![
             s(e.id.as_str()),
             s(&e.slug),
+            s(&e.key),
             s(&e.name),
             os(e.description.clone()),
             s(e.status.as_str()),
@@ -479,6 +482,7 @@ pub fn insert_params(entity: &Entity) -> Vec<Value> {
         Entity::Task(e) => vec![
             s(e.id.as_str()),
             s(e.project_id.as_str()),
+            Value::Int(e.number),
             os(e.milestone_id.as_ref().map(EntityId::as_str)),
             s(e.kind.as_str()),
             s(&e.title),
@@ -606,6 +610,7 @@ pub fn from_row(entity_type: EntityType, row: &Row<'_>) -> Result<Entity> {
         EntityType::Project => Entity::Project(Project {
             id: get_id(row, t, "id")?,
             slug: get_s(row, t, "slug")?,
+            key: get_s(row, t, "key")?,
             name: get_s(row, t, "name")?,
             description: get_os(row, t, "description")?,
             status: ProjectStatus::parse(&get_s(row, t, "status")?)?,
@@ -635,6 +640,7 @@ pub fn from_row(entity_type: EntityType, row: &Row<'_>) -> Result<Entity> {
         EntityType::Task => Entity::Task(Task {
             id: get_id(row, t, "id")?,
             project_id: get_id(row, t, "project_id")?,
+            number: get_i(row, t, "number")?,
             milestone_id: get_oid(row, t, "milestone_id")?,
             kind: TaskKind::parse(&get_s(row, t, "kind")?)?,
             title: get_s(row, t, "title")?,

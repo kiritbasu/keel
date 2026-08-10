@@ -436,6 +436,72 @@ pub fn check(store: &DuckStore) -> Result<FsckReport> {
         });
     }
 
+    // --- Readable identifiers actually identify -------------------------
+    //
+    // `KEEL-42` is only worth having if it means exactly one task. The unique
+    // indexes make a duplicate impossible to write through the store, so what
+    // is being audited here is the state a restore or a hand-edited database
+    // can leave behind — and a duplicated readable id is the worst kind of
+    // wrong, because both rows look correct in isolation.
+    checks_run += 1;
+    let n = count(
+        "SELECT COALESCE(sum(c - 1), 0) FROM (
+           SELECT count(*) AS c FROM tasks GROUP BY project_id, number HAVING count(*) > 1
+         )",
+        "duplicate_task_number",
+    )?;
+    if n > 0 {
+        findings.push(Finding {
+            severity: Severity::Error,
+            check: "duplicate_task_number".to_owned(),
+            detail: format!(
+                "{n} task(s) share a number with another task in the same project, so a \
+                 readable identifier like KEEL-42 resolves to more than one row"
+            ),
+            remedy: "renumber the newer of each pair to the project's next free number. \
+                     Until then any reference to that identifier silently picks one"
+                .to_owned(),
+            count: n,
+        });
+    }
+
+    // A task with no number cannot be referred to at all, and a project with no
+    // key takes every one of its tasks down with it.
+    checks_run += 1;
+    let n = count(
+        "SELECT count(*) FROM tasks WHERE number IS NULL OR number <= 0",
+        "task_without_number",
+    )?;
+    if n > 0 {
+        findings.push(Finding {
+            severity: Severity::Error,
+            check: "task_without_number".to_owned(),
+            detail: format!("{n} task(s) have no number, so they have no readable identifier"),
+            remedy: "assign each the project's next free number. This should be impossible \
+                     through the store, so it means a row arrived another way"
+                .to_owned(),
+            count: n,
+        });
+    }
+
+    checks_run += 1;
+    let n = count(
+        "SELECT count(*) FROM projects WHERE key IS NULL OR key = ''",
+        "project_without_key",
+    )?;
+    if n > 0 {
+        findings.push(Finding {
+            severity: Severity::Error,
+            check: "project_without_key".to_owned(),
+            detail: format!(
+                "{n} project(s) have no key, so none of their tasks can be named readably"
+            ),
+            remedy: "set one — the uppercased first few letters of the slug is the default"
+                .to_owned(),
+            count: n,
+        });
+    }
+
     // --- Cross-references that resolve ----------------------------------
     //
     // A gate session filed a question into a project citing "append-only

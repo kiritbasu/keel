@@ -71,6 +71,8 @@ export interface ProjectLine {
   id: string;
   name: string;
   slug: string;
+  /** The prefix of this project's readable identifiers — the `KEEL` of `KEEL-42`. */
+  key: string;
   status: string;
   open_tasks: number;
   urgent_tasks: number;
@@ -83,6 +85,8 @@ export interface DigestItem {
   id: string;
   entity_type: string;
   label: string;
+  /** `KEEL-42`, for the types that have one. Tasks only, today. */
+  reference?: string;
   status: string | null;
   detail?: string;
 }
@@ -126,6 +130,8 @@ export interface NextUp {
 
 export interface NextItem {
   id: string;
+  /** `KEEL-42` — what a person will type back at Claude. */
+  reference: string;
   title: string;
   priority: string;
   unblocks: number;

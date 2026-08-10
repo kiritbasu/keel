@@ -41,6 +41,11 @@ const IMMUTABLE: &[(&str, &str)] = &[
         "current_doc_version",
         "the revision pointer is advanced by keel_write_doc, not by an update",
     ),
+    (
+        "number",
+        "a task's number is assigned in creation order and never reused, so that \
+         `KEEL-42` means the same task forever",
+    ),
 ];
 
 /// One field's transition, for the event log.

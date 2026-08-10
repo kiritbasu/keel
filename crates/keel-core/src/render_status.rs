@@ -161,14 +161,19 @@ pub fn render(store: &DuckStore, project_id: &EntityId) -> Result<String> {
         writeln!(out)?;
         for t in group {
             let Entity::Task(task) = t else { continue };
-            let mut line = format!("- **{}** `{}`", task.title, task.priority);
+            // The readable identifier, not the ULID. This file is read by a
+            // human, and a wall of `tsk_01KZKW28CS4Q1WSB0D95B2A01G` is most of
+            // why it stopped being worth opening.
+            let mut line = format!(
+                "- **{}-{}** {} `{}`",
+                project.key, task.number, task.title, task.priority
+            );
             if !task.labels.is_empty() {
                 line.push_str(&format!(" · {}", task.labels.join(", ")));
             }
             if let Some(url) = &task.external_ref {
                 line.push_str(&format!(" · [PR]({url})"));
             }
-            line.push_str(&format!(" · `{}`", task.id));
             writeln!(out, "{line}")?;
 
             // The task's own description, then the running commentary. This is

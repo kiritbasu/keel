@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareTasks, inBoardOrder, type RankMap } from "./tasks";
+import { compareTasks, inBoardOrder, taskRef, type RankMap } from "./tasks";
 import type { Entity } from "./api";
 
 function task(id: string, fields: Partial<Entity> = {}): Entity {
@@ -82,5 +82,24 @@ describe("inBoardOrder", () => {
 
   it("is empty for no tasks rather than throwing", () => {
     expect(inBoardOrder([], noRank)).toEqual([]);
+  });
+});
+
+describe("taskRef", () => {
+  it("composes the readable identifier", () => {
+    expect(taskRef("KEEL", task("tsk_1", { number: 42 }))).toBe("KEEL-42");
+  });
+
+  // Failure cases. Both fall back to the ULID, which is still a working
+  // address — `undefined-42` would be neither readable nor resolvable, and
+  // would be rendered into links and copied out of them.
+  it("falls back to the id when the key has not arrived yet", () => {
+    expect(taskRef(undefined, task("tsk_1", { number: 42 }))).toBe("tsk_1");
+    expect(taskRef("", task("tsk_1", { number: 42 }))).toBe("tsk_1");
+  });
+
+  it("falls back to the id when the task has no number", () => {
+    expect(taskRef("KEEL", task("tsk_1"))).toBe("tsk_1");
+    expect(taskRef("KEEL", task("tsk_1", { number: 0 }))).toBe("tsk_1");
   });
 });

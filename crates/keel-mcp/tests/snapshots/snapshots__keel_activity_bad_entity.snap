@@ -1,11 +1,19 @@
 ---
 source: crates/keel-mcp/tests/snapshots.rs
-assertion_line: 209
-expression: result
+assertion_line: 215
+expression: cases
 ---
 {
-  "error": {
-    "code": -32602,
-    "message": "argument `entity`: `task-42` is not an id. Expected: a prefixed ULID, e.g. tsk_01H8… — the id of the row whose history you want"
+  "not_a_reference": {
+    "error": {
+      "code": -32602,
+      "message": "argument `entity`: `the login one` is neither an id nor a readable reference. Expected: a prefixed ULID such as `tsk_01H8…`, or a readable reference such as `KEEL-42`"
+    }
+  },
+  "well_formed_but_unknown": {
+    "error": {
+      "code": -32602,
+      "message": "argument `entity`: `TASK-42` does not name anything in this store. Expected: a prefixed ULID such as `tsk_01H8…`, or a readable reference such as `KEEL-42`"
+    }
   }
 }

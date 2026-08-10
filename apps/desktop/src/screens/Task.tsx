@@ -37,7 +37,7 @@ import { Markdown } from "../components/Markdown";
 import { Page, projectCrumbs } from "../components/Page";
 import { href, navigate } from "../lib/router";
 import { groupRank, relationPhrase, type Direction } from "../lib/relations";
-import { inBoardOrder, type RankMap } from "../lib/tasks";
+import { inBoardOrder, taskRef, type RankMap } from "../lib/tasks";
 import type { ScreenProps } from "../App";
 
 /** A neighbour, plus which way the edge was walked to reach it. */
@@ -78,6 +78,7 @@ export function TaskScreen({ route, generation }: ScreenProps) {
   }, [project, generation]);
 
   const task = core.data?.entity.artifacts[0]?.entity;
+  const key = (context.data?.digest as Digest | undefined)?.project?.key;
 
   const rank = useMemo<RankMap>(() => {
     const m: RankMap = new Map();
@@ -133,11 +134,11 @@ export function TaskScreen({ route, generation }: ScreenProps) {
       const next = siblings[at + step];
       if (!next) return;
       e.preventDefault();
-      navigate({ screen: "task", project, taskId: String(next.id) });
+      navigate({ screen: "task", project, taskId: taskRef(key, next) });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [id, project, siblings]);
+  }, [id, project, siblings, key]);
 
   if (!id || !project) return <Empty message="No task named." />;
   if (core.loading && !core.data) return <Spinner />;
@@ -166,21 +167,33 @@ export function TaskScreen({ route, generation }: ScreenProps) {
     (m) => m.id === task.milestone_id,
   );
   const ranked = rank.get(id);
+  // Until the project has loaded we do not know the key. Showing the ULID for
+  // that moment makes the title flicker from a wall of characters to `KEEL-76`
+  // on every single open, so show nothing rather than the wrong thing — and
+  // fall back to the ULID only once we know the key is not coming.
+  const reference = !key && context.loading ? "" : taskRef(key, task);
 
   return (
     <Page
-      title={String(task.title)}
+      title={
+        <span className="flex items-baseline gap-2.5">
+          {reference && (
+            <span className="font-mono text-heading text-ink-faint">{reference}</span>
+          )}
+          <span>{String(task.title)}</span>
+        </span>
+      }
       crumbs={[
         ...projectCrumbs(route, "Board").slice(0, 2),
         { label: "Board", route: { screen: "board", project } },
-        { label: String(task.title) },
+        { label: reference || String(task.title) },
       ]}
       width="wide"
       meta={<Badge tone={statusTone(String(task.status))}>{String(task.status)}</Badge>}
       actions={
         <span className="flex items-center gap-2 text-micro text-ink-faint">
           <a
-            href={previous ? href({ screen: "task", project, taskId: String(previous.id) }) : undefined}
+            href={previous ? href({ screen: "task", project, taskId: taskRef(key, previous) }) : undefined}
             aria-disabled={!previous}
             className={cx("hover:text-ink", !previous && "opacity-30")}
           >
@@ -189,7 +202,7 @@ export function TaskScreen({ route, generation }: ScreenProps) {
           <kbd className="font-mono">K</kbd>
           <kbd className="font-mono">J</kbd>
           <a
-            href={next ? href({ screen: "task", project, taskId: String(next.id) }) : undefined}
+            href={next ? href({ screen: "task", project, taskId: taskRef(key, next) }) : undefined}
             aria-disabled={!next}
             className={cx("hover:text-ink", !next && "opacity-30")}
           >
@@ -198,6 +211,21 @@ export function TaskScreen({ route, generation }: ScreenProps) {
         </span>
       }
     >
+      {/* The second fetch failing is not fatal — the task itself is on screen —
+          but it silently costs the readable identifier, the milestone's name
+          and J/K, and a page that quietly does less while looking complete is
+          the failure this project treats as the serious one. Say so. */}
+      {context.error && (
+        <div className="mb-4 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-small text-warn">
+          Showing this task on its own: the rest of the project could not be
+          loaded, so it is named by its long id and J/K will not move between
+          tasks.{" "}
+          <button type="button" onClick={context.reload} className="underline">
+            Try again
+          </button>
+        </div>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-5">
           <Card title="Description">
@@ -264,8 +292,11 @@ export function TaskScreen({ route, generation }: ScreenProps) {
                   </a>
                 </Property>
               ) : null}
+              <Property label="Ref">
+                <span className="font-mono">{reference}</span>
+              </Property>
               <Property label="Id">
-                <Id value={id} />
+                <Id value={String(task.id)} />
               </Property>
             </dl>
           </Card>

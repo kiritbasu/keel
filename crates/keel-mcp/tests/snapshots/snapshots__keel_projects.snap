@@ -1,5 +1,6 @@
 ---
 source: crates/keel-mcp/tests/snapshots.rs
+assertion_line: 141
 expression: result
 ---
 {
@@ -27,6 +28,7 @@ expression: result
         "description": null,
         "id": "[id]",
         "idempotency_key": "[hash]",
+        "key": "HARB",
         "name": "Harbour",
         "repo_urls": [],
         "root_path": null,

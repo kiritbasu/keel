@@ -139,6 +139,59 @@ pub fn derive_idempotency_key(
     digest.iter().take(16).map(|b| format!("{b:02x}")).collect()
 }
 
+/// The longest a project key may be.
+///
+/// Four, because the point of `KEEL-42` is that it fits in a sentence and in a
+/// column heading, and because four is where a truncation still reads as an
+/// abbreviation rather than as a word cut in half — `harbour` gives `HARB`,
+/// not `HARBO`. A key long enough to be descriptive has stopped being a key.
+///
+/// The migration's `substr` must agree with this. They are two expressions of
+/// one rule, and the only thing keeping them in step is a test.
+pub const MAX_PROJECT_KEY: usize = 4;
+
+/// A project key derived from a slug: `keel` → `KEEL`, `harbour` → `HARB`.
+///
+/// Letters and digits only, uppercased, truncated. A slug with nothing usable
+/// in it falls back to `P` rather than to the empty string — an empty key would
+/// make every task in that project read as `-42`, and would collide with the
+/// next such project rather than being visibly odd.
+///
+/// Uniqueness is *not* handled here, because it cannot be: it needs to know
+/// about the other projects. [`crate::EntityStore::create`] resolves collisions
+/// on the way in.
+pub fn derive_project_key(slug: &str) -> String {
+    let letters: String = slug
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .take(MAX_PROJECT_KEY)
+        .collect::<String>()
+        .to_uppercase();
+    if letters.is_empty() {
+        "P".to_owned()
+    } else {
+        letters
+    }
+}
+
+/// Split a readable identifier into its parts: `KEEL-42` → `("KEEL", 42)`.
+///
+/// Returns `None` for anything that is not one — a ULID, a sentence, a key with
+/// no number. Deliberately strict about the number: `KEEL-42x` is not a
+/// reference, and treating it as `KEEL-42` would silently resolve a typo to a
+/// real task.
+pub fn parse_readable_ref(reference: &str) -> Option<(String, i32)> {
+    let (key, number) = reference.trim().rsplit_once('-')?;
+    if key.is_empty() || !key.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return None;
+    }
+    let number: i32 = number.parse().ok()?;
+    if number <= 0 {
+        return None;
+    }
+    Some((key.to_uppercase(), number))
+}
+
 /// The root container. Everything belongs to exactly one, except global terms.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Project {
@@ -146,6 +199,12 @@ pub struct Project {
     pub id: EntityId,
     /// URL-safe short name, unique across the store.
     pub slug: String,
+    /// The short prefix in a task's readable identifier — the `KEEL` of
+    /// `KEEL-42`. Unique across projects, because otherwise the readable
+    /// identifier is not an identifier. Derived from the slug on creation and
+    /// settable afterwards; nothing stores the composed string, so re-keying a
+    /// project does not rewrite anything.
+    pub key: String,
     /// Display name.
     pub name: String,
     /// One or two lines on what this is.
@@ -179,6 +238,7 @@ impl Project {
         Project {
             id: EntityId::generate(EntityType::Project),
             idempotency_key: derive_idempotency_key(None, EntityType::Project, &slug),
+            key: derive_project_key(&slug),
             slug,
             name,
             description: None,
@@ -257,6 +317,11 @@ pub struct Task {
     pub milestone_id: Option<EntityId>,
     /// Task, bug, chore or spike.
     pub kind: TaskKind,
+    /// The number in this task's readable identifier — the `42` of `KEEL-42`.
+    /// Unique within the project, assigned on creation in creation order, and
+    /// never reused. Zero means "not yet assigned", which is only ever true
+    /// between constructing a `Task` and storing it.
+    pub number: i32,
     /// One line naming the work.
     pub title: String,
     /// Short detail. Anything long-form belongs in a spec, linked with
@@ -286,6 +351,7 @@ impl Task {
             id: EntityId::generate(EntityType::Task),
             idempotency_key: derive_idempotency_key(Some(&project_id), EntityType::Task, &title),
             project_id,
+            number: 0,
             milestone_id: None,
             kind: TaskKind::default(),
             title,

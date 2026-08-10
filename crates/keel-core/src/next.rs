@@ -46,6 +46,12 @@ pub const DECISION_LABEL: &str = "decision-needed";
 pub struct Candidate {
     /// The task.
     pub id: EntityId,
+    /// Its readable identifier — `KEEL-42`.
+    ///
+    /// Carried, rather than left to the caller to compose, because this is the
+    /// list a session reads first and the identifier is the thing it will type
+    /// back. Every caller would otherwise need the project key to hand.
+    pub reference: String,
     /// Its title.
     pub title: String,
     /// `p0`…`p3`.
@@ -76,6 +82,13 @@ impl NextUp {
 
 /// Rank a project's open work.
 pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> Result<NextUp> {
+    // Fetched once for the whole ranking rather than per candidate: the key is
+    // the only part of a readable identifier that does not live on the task.
+    let key = match store.get(project_id)? {
+        Some(Entity::Project(p)) => p.key,
+        _ => String::new(),
+    };
+
     let page = store.list(
         &EntityQuery::in_project(project_id.clone())
             .of_type(EntityType::Task)
@@ -123,6 +136,7 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
         if !blockers.is_empty() {
             out.blocked.push(Candidate {
                 id: task.id.clone(),
+                reference: format!("{key}-{}", task.number),
                 title: task.title.clone(),
                 priority,
                 unblocks,
@@ -134,6 +148,7 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
             // silently treating it as ready would hide that.
             out.blocked.push(Candidate {
                 id: task.id.clone(),
+                reference: format!("{key}-{}", task.number),
                 title: task.title.clone(),
                 priority,
                 unblocks,
@@ -144,6 +159,7 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
         } else if waiting {
             out.waiting_on_you.push(Candidate {
                 id: task.id.clone(),
+                reference: format!("{key}-{}", task.number),
                 title: task.title.clone(),
                 priority,
                 unblocks,
@@ -152,6 +168,7 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
         } else {
             out.ready.push(Candidate {
                 id: task.id.clone(),
+                reference: format!("{key}-{}", task.number),
                 title: task.title.clone(),
                 priority,
                 unblocks,

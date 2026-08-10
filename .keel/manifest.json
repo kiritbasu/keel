@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-10T11:47:03.905389+00:00",
+  "generated_at": "2026-08-10T13:01:43.499870+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/readable-identifiers-are-composed-never-stored.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZNW724SBG1NFAWDZ9CR66DN",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "049b1a198ee5026315400df4e8b4ac0cb5536a56aa3ef1ee670c255338f345d0"
         }
       ]
     },

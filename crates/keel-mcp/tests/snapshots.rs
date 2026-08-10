@@ -200,12 +200,18 @@ fn one_rows_history() {
 }
 
 #[test]
-fn a_history_for_a_malformed_id_says_what_would_be_valid() {
-    // Failure case. A model that mistypes an id must get back something it can
-    // act on, not an empty list that reads as "nothing ever happened here".
+fn a_history_for_an_id_that_is_not_one_says_what_would_be_valid() {
+    // Failure cases, and the distinction between them is the point. A model
+    // that mistypes must get back something it can act on, not an empty list
+    // that reads as "nothing ever happened here" — and "you wrote a reference
+    // to a task that does not exist" needs a different correction from "that
+    // is not the shape of a reference at all".
     let (mut store, _dir) = seeded();
-    let result = call(&mut store, "keel_activity", json!({"entity": "task-42"}));
+    let cases = json!({
+        "well_formed_but_unknown": call(&mut store, "keel_activity", json!({"entity": "TASK-42"})),
+        "not_a_reference": call(&mut store, "keel_activity", json!({"entity": "the login one"})),
+    });
     settings().bind(|| {
-        insta::assert_json_snapshot!("keel_activity_bad_entity", result);
+        insta::assert_json_snapshot!("keel_activity_bad_entity", cases);
     });
 }

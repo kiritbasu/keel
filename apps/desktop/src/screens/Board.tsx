@@ -8,7 +8,7 @@ import { useAsync } from "../lib/useAsync";
 import { Badge, Chip, Empty, ErrorBox, Spinner, cx, priorityTone } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
 import { href } from "../lib/router";
-import { COLUMNS, compareTasks, type RankMap } from "../lib/tasks";
+import { COLUMNS, compareTasks, taskRef, type RankMap } from "../lib/tasks";
 import type { ScreenProps } from "../App";
 
 export function BoardScreen({ route, generation }: ScreenProps) {
@@ -42,6 +42,9 @@ export function BoardScreen({ route, generation }: ScreenProps) {
     return m;
   }, [notes.data]);
 
+  // The project key, so a card can say KEEL-42. It arrives with the digest,
+  // which this screen already fetches for the ranking.
+  const key = digest.data?.project?.key;
   const ranked = digest.data?.next_up ?? null;
   const rank = useMemo<RankMap>(() => {
     const m: RankMap = new Map();
@@ -105,6 +108,9 @@ export function BoardScreen({ route, generation }: ScreenProps) {
                 <li key={item.id} className="flex gap-2 text-small">
                   <span className="w-3 shrink-0 text-right tabular-nums text-ink-faint">{i + 1}</span>
                   <span className="min-w-0">
+                    <span className="mr-1.5 font-mono text-micro text-ink-faint">
+                      {item.reference}
+                    </span>
                     {item.title} <span className="text-ink-faint">— {item.why}</span>
                   </span>
                 </li>
@@ -141,6 +147,7 @@ export function BoardScreen({ route, generation }: ScreenProps) {
                   <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                     {inColumn.map((t) => {
                       const notes = notesByTask.get(String(t.id))?.length ?? 0;
+                      const reference = taskRef(key, t);
                       return (
                         // The whole card is the link. It used to be an
                         // `<article>` with no click handler, no hover state and
@@ -153,7 +160,7 @@ export function BoardScreen({ route, generation }: ScreenProps) {
                         // it was attached to. Both are one click away.
                         <a
                           key={t.id}
-                          href={href({ screen: "task", project, taskId: String(t.id) })}
+                          href={href({ screen: "task", project, taskId: reference })}
                           className={cx(
                             "block rounded-md border border-border-subtle bg-surface-raised p-2.5",
                             "transition-colors hover:border-accent/50 hover:bg-surface-hover",
@@ -176,6 +183,7 @@ export function BoardScreen({ route, generation }: ScreenProps) {
                             ))}
                           </div>
                           <div className="mt-1.5 flex items-center gap-2 text-micro text-ink-faint">
+                            <span className="font-mono">{reference}</span>
                             {notes > 0 && (
                               <span>
                                 {notes} {notes === 1 ? "note" : "notes"}

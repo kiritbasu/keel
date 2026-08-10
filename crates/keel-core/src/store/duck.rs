@@ -610,6 +610,25 @@ impl EntityStore for DuckStore {
             });
         }
 
+        // Readable identifiers are assigned here rather than in the
+        // constructors, because both need to know about rows the constructor
+        // cannot see: whether a key is taken, and what the last number was.
+        // Assigning after the idempotency checks matters — a create that turns
+        // out to be a repeat must not burn a number, or the sequence develops
+        // gaps that look like deleted work.
+        match &mut entity {
+            Entity::Project(p) if p.key.is_empty() => {
+                p.key = self.unique_project_key(&crate::types::derive_project_key(&p.slug))?;
+            }
+            Entity::Project(p) => {
+                p.key = self.unique_project_key(&p.key.to_uppercase())?;
+            }
+            Entity::Task(t) if t.number == 0 => {
+                t.number = self.next_task_number(&t.project_id)?;
+            }
+            _ => {}
+        }
+
         let now = Utc::now();
         *entity.audit_mut() = Audit::new(provenance, now);
 
@@ -1101,6 +1120,70 @@ impl EntityStore for DuckStore {
             out.push(read_event(row)?);
         }
         Ok(Page::new(out, total))
+    }
+
+    fn resolve_ref(&self, reference: &str) -> Result<Option<EntityId>> {
+        // A ULID is already the answer. Checking it first means the common case
+        // costs nothing and a readable reference can never shadow a real id.
+        if let Ok(id) = EntityId::parse(reference) {
+            return Ok(Some(id));
+        }
+        let Some((key, number)) = crate::types::parse_readable_ref(reference) else {
+            return Ok(None);
+        };
+
+        let found: std::result::Result<String, _> = self.conn.query_row(
+            "SELECT t.id FROM tasks t JOIN projects p ON p.id = t.project_id \
+             WHERE upper(p.key) = ? AND t.number = ?",
+            params_from_iter(vec![Value::Text(key), Value::Int(number)]),
+            |row| row.get::<_, String>(0),
+        );
+        match found {
+            Ok(id) => Ok(Some(EntityId::parse(&id)?)),
+            // A reference that resolves to nothing is not an error — the caller
+            // asked whether it names something, and the answer is no.
+            Err(duckdb::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(Error::storage(format!(
+                "resolve the reference `{reference}`"
+            ))(e)),
+        }
+    }
+
+    fn next_task_number(&self, project_id: &EntityId) -> Result<i32> {
+        // `MAX + 1` over every row including archived ones. A number is never
+        // reused: `KEEL-42` must mean the same task forever, and handing it to
+        // a second task after the first was archived is the one way to make a
+        // readable identifier actively misleading.
+        let next = self.count(
+            "SELECT COALESCE(MAX(number), 0) + 1 FROM tasks WHERE project_id = ?",
+            vec![Value::Text(project_id.as_str().to_owned())],
+        )?;
+        Ok(next as i32)
+    }
+
+    fn unique_project_key(&self, base: &str) -> Result<String> {
+        // Suffix until free, exactly as the backfill does. Bounded because an
+        // unbounded loop over a taken key is the shape of a hang, and a store
+        // with a hundred projects sharing five letters has a naming problem
+        // that a suffix was never going to fix.
+        for attempt in 1..=99 {
+            let candidate = if attempt == 1 {
+                base.to_owned()
+            } else {
+                format!("{base}{attempt}")
+            };
+            let taken = self.count(
+                "SELECT count(*) FROM projects WHERE upper(key) = ?",
+                vec![Value::Text(candidate.to_uppercase())],
+            )?;
+            if taken == 0 {
+                return Ok(candidate);
+            }
+        }
+        Err(Error::Invariant {
+            operation: format!("assign a project key starting from `{base}`"),
+            problem: "ninety-nine projects already share these letters".to_owned(),
+        })
     }
 
     fn events_for(&self, entity_id: &EntityId, limit: usize) -> Result<Page<Event>> {

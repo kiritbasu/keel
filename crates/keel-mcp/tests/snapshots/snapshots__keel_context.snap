@@ -1,11 +1,12 @@
 ---
 source: crates/keel-mcp/tests/snapshots.rs
+assertion_line: 95
 expression: result
 ---
 {
   "content": [
     {
-      "text": "# Harbour (harbour)\nstatus: active · 1 open task(s), 0 urgent, 0 blocked · 0 open question(s)\n\n## Next\n- **Dedupe usage events by idempotency key** `[id]` — nothing is blocking it · p2\n\n## Specs\n- Usage metering [draft · spec] [id]\n\n## Recently\n- [date] — created task “Dedupe usage events by idempotency key” (claude)\n- [date] — created spec “Usage metering” (claude)\n- [date] — created project “Harbour” (claude)\n\n## Also worth noticing\n- No milestone is active, but there is open work. Consider grouping it under one.\n- Nothing is marked p0 or p1. If something is actually urgent, say so on the task.\n",
+      "text": "# Harbour (harbour)\nstatus: active · 1 open task(s), 0 urgent, 0 blocked · 0 open question(s)\n\n## Next\n- **Dedupe usage events by idempotency key** `HARB-1` — nothing is blocking it · p2\n\n## Specs\n- Usage metering [draft · spec] [id]\n\n## Recently\n- [date] — created task “Dedupe usage events by idempotency key” (claude)\n- [date] — created spec “Usage metering” (claude)\n- [date] — created project “Harbour” (claude)\n\n## Also worth noticing\n- No milestone is active, but there is open work. Consider grouping it under one.\n- Nothing is marked p0 or p1. If something is actually urgent, say so on the task.\n",
       "type": "text"
     }
   ],
@@ -16,7 +17,7 @@ expression: result
     "budget_exceeded": false,
     "decisions": [],
     "environments": [],
-    "estimated_tokens": 173,
+    "estimated_tokens": 167,
     "next": [
       "No milestone is active, but there is open work. Consider grouping it under one.",
       "Nothing is marked p0 or p1. If something is actually urgent, say so on the task."
@@ -27,6 +28,7 @@ expression: result
         {
           "id": "[id]",
           "priority": "p2",
+          "reference": "HARB-1",
           "title": "Dedupe usage events by idempotency key",
           "unblocks": 0,
           "why": "nothing is blocking it · p2"
@@ -38,6 +40,7 @@ expression: result
       "active_milestone": null,
       "blocked_tasks": 0,
       "id": "[id]",
+      "key": "HARB",
       "name": "Harbour",
       "open_questions": 0,
       "open_tasks": 1,

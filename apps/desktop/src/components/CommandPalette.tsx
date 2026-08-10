@@ -17,6 +17,7 @@ import { api, type Entity } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
 import { navigate, NEEDS_PROJECT, type Route, type ScreenId } from "../lib/router";
 import { Dialog, Input, cx, labelOf } from "./ui";
+import { taskRef } from "../lib/tasks";
 
 export type PaletteKind = "screen" | "project" | "document" | "task";
 
@@ -68,10 +69,28 @@ export function score(label: string, query: string): number | null {
   return 3;
 }
 
-/** Filter and order the candidates. Stable within a tier, so the source order shows through. */
+/** How far a hint match is demoted below any title match. Wider than the tiers. */
+const HINT_PENALTY = 10;
+
+/**
+ * Filter and order the candidates. Stable within a tier, so the source order
+ * shows through.
+ *
+ * The hint is searched as well as the label, which is what makes typing
+ * `KEEL-42` find the task — a reference is the one thing a person remembers
+ * about a task when they cannot remember its title. Demoted well below any
+ * title match, so a search for real words is never displaced by an identifier
+ * that happens to contain the same letters.
+ */
 export function rank(items: PaletteItem[], query: string): PaletteItem[] {
+  const tierOf = (item: PaletteItem): number | null => {
+    const byLabel = score(item.label, query);
+    if (byLabel !== null) return byLabel;
+    const byHint = item.hint ? score(item.hint, query) : null;
+    return byHint === null ? null : byHint + HINT_PENALTY;
+  };
   return items
-    .map((item, index) => ({ item, index, tier: score(item.label, query) }))
+    .map((item, index) => ({ item, index, tier: tierOf(item) }))
     .filter((row): row is { item: PaletteItem; index: number; tier: number } => row.tier !== null)
     .sort((a, b) => a.tier - b.tier || a.index - b.index)
     .map((row) => row.item);
@@ -155,14 +174,21 @@ export function CommandPalette({
         route: { screen: "documents" as const, project: route.project, documentId: d.id },
       }));
 
+    // The key comes off whichever project row matches the address, so a task
+    // can be offered — and reached — as `KEEL-42`.
+    const key = (contents.data?.projects ?? []).find((p) => p.slug === route.project)?.key;
     const tasks = (contents.data?.tasks ?? [])
       .filter(() => Boolean(route.project))
       .map((t) => ({
         id: t.id,
         label: labelOf(t),
         kind: "task" as const,
-        hint: `${String(t.status ?? "")}${t.priority ? ` · ${String(t.priority)}` : ""}`,
-        route: { screen: "task" as const, project: route.project, taskId: t.id },
+        hint: taskRef(typeof key === "string" ? key : undefined, t),
+        route: {
+          screen: "task" as const,
+          project: route.project,
+          taskId: taskRef(typeof key === "string" ? key : undefined, t),
+        },
       }));
 
     return [...screenItems(route.project), ...projects, ...documents, ...tasks];

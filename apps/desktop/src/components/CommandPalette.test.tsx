@@ -30,8 +30,14 @@ vi.mock("../lib/api", () => ({
   },
 }));
 
-function item(label: string): PaletteItem {
-  return { id: label, label, kind: "task", route: { screen: "board", project: "keel" } };
+function item(label: string, hint?: string): PaletteItem {
+  return {
+    id: label,
+    label,
+    kind: "task",
+    ...(hint ? { hint } : {}),
+    route: { screen: "board", project: "keel" },
+  };
 }
 
 describe("score", () => {
@@ -86,6 +92,24 @@ describe("rank", () => {
 
   it("returns nothing when nothing matches", () => {
     expect(rank([item("Board")], "zzz")).toEqual([]);
+  });
+
+  // Typing a reference is how you find a task whose title you cannot recall,
+  // which is most of the point of having one.
+  it("finds a task by its reference as well as its title", () => {
+    const items = [item("The task detail view", "KEEL-42")];
+    expect(rank(items, "KEEL-42")).toHaveLength(1);
+    expect(rank(items, "keel-42")).toHaveLength(1);
+  });
+
+  // …but a reference must never displace a real title match, or searching for
+  // a word starts returning whatever identifier shares its letters.
+  it("ranks every title match above every reference match", () => {
+    const items = [item("Something else", "KEEL-42"), item("Keel-42 in the title")];
+    expect(rank(items, "keel-42").map((i) => i.label)).toEqual([
+      "Keel-42 in the title",
+      "Something else",
+    ]);
   });
 });
 

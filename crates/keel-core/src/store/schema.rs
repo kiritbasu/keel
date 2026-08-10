@@ -459,6 +459,60 @@ CREATE INDEX IF NOT EXISTS notes_entity ON notes(entity_id, id);
 CREATE INDEX IF NOT EXISTS notes_project ON notes(project_id);
 ",
         },
+        // Readable identifiers: `KEEL-42` rather than `tsk_01KZKW28CS4Q1WSB…`.
+        //
+        // A project gets a short `key` and a task gets a `number` unique within
+        // it. The ULID stays the identity — it is what links, events, notes and
+        // documents point at, and it is what makes ids stable and never reused.
+        // The readable pair is a *label*, and nothing stores the composed
+        // string, so a project can be re-keyed without a rewrite of every row
+        // that mentions it.
+        //
+        // The backfill is deliberate about two things. Keys are derived from
+        // the slug and de-duplicated by appending the row number, so two
+        // projects that reduce to the same letters — `keel` and `ke.el` both
+        // give `KEEL` — get `KEEL` and `KEEL2` rather than failing the unique
+        // index and leaving the store unmigratable. Numbers are assigned in id
+        // order, which is ULID order, which is creation order: `KEEL-1` is the
+        // oldest task, and the sequence reads as the project's history.
+        Migration {
+            id: 6,
+            name: "readable_identifiers",
+            sql: "
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS key VARCHAR;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS number INTEGER;
+
+UPDATE projects SET key = k.new_key FROM (
+  SELECT id, CASE WHEN rn = 1 THEN base ELSE base || CAST(rn AS VARCHAR) END AS new_key
+  FROM (
+    SELECT id, base, row_number() OVER (PARTITION BY base ORDER BY id) AS rn
+    FROM (
+      SELECT id,
+             COALESCE(
+               NULLIF(upper(substr(regexp_replace(slug, '[^a-zA-Z0-9]', '', 'g'), 1, 4)), ''),
+               'P'
+             ) AS base
+      FROM projects
+    )
+  )
+) k WHERE projects.id = k.id AND projects.key IS NULL;
+
+UPDATE tasks SET number = n.rn FROM (
+  SELECT id, row_number() OVER (PARTITION BY project_id ORDER BY id) AS rn FROM tasks
+) n WHERE tasks.id = n.id AND tasks.number IS NULL;
+
+-- Uniqueness is the whole promise: `KEEL-42` has to mean one task. Enforced by
+-- the engine rather than by the writer, because the writer is the thing most
+-- likely to be wrong.
+--
+-- Indexed on `upper(key)`, not on `key`: references resolve case-insensitively,
+-- so `KEEL` and `keel` are the same identifier and must not be able to coexist
+-- as two projects. A plain unique index would allow both and leave the lookup
+-- picking one arbitrarily.
+CREATE UNIQUE INDEX IF NOT EXISTS projects_key ON projects(upper(key));
+CREATE UNIQUE INDEX IF NOT EXISTS tasks_number ON tasks(project_id, number);
+",
+        },
     ]
 }
 

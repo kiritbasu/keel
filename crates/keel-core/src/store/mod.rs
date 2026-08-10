@@ -316,6 +316,20 @@ pub trait EntityStore {
         limit: usize,
     ) -> Result<Page<Event>>;
 
+    /// Turn whatever a caller wrote into an id: a ULID, or `KEEL-42`.
+    ///
+    /// The point of a readable identifier is that a human can say it out loud
+    /// and type it into a conversation, so every place that takes an id has to
+    /// take one. `Ok(None)` means it names nothing — which is a legitimate
+    /// answer to "does this exist", and distinct from a malformed reference.
+    fn resolve_ref(&self, reference: &str) -> Result<Option<EntityId>>;
+
+    /// The next unused task number in a project. Never reuses one.
+    fn next_task_number(&self, project_id: &EntityId) -> Result<i32>;
+
+    /// A project key that no other project holds, starting from `base`.
+    fn unique_project_key(&self, base: &str) -> Result<String>;
+
     /// One entity's history, oldest first.
     ///
     /// Separate from [`EntityStore::events`] rather than another parameter on
