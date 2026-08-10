@@ -19,7 +19,7 @@
 | **Status** | Phases 0–3 built. Keel is the source of truth; every `product/*.md` is generated from it |
 | **Blocked on** | Nothing. The p0 wedge is fixed and the store repaired |
 | **Warning** | **R-2 observed live** — session 3 shipped four features and moved zero task rows. See "The session that did not write to Keel" below |
-| **Next up** | Step 10's independent hand-judge of ~20 writes, then Phase 4 (GitHub) |
+| **Next up** | Two p1 precision fixes from the hand-judge, then Phase 4 (GitHub) — needs your account |
 | **Last session** | 2026-08-09 |
 | **Last updated** | 2026-08-09 |
 
@@ -153,6 +153,28 @@ Not broken down yet. Decompose at the start of each phase, not before — earlie
 Nothing.
 
 *(Format: task ID — what's blocking — who or what unblocks it — since when.)*
+
+---
+
+## Step 10 — the hand-judge. 26 of 30 kept, and two defects recall cannot see
+
+Every artifact from Runs B and C judged one at a time. Full write-up: `product/KEEP-RATE.md`.
+
+**39 create calls → 30 distinct artifacts → 26 worth keeping. 87%.** The nine extras were exact-duplicate retries within a session, deduplicated by the idempotency key — REQ-7 working on organic traffic.
+
+*Caveat stated in the document and worth repeating: I did this judging, and I built the harness. One interested judge on 30 rows.*
+
+**The four drops, and two of them matter:**
+
+- **Two speculative validation tasks.** One prompt about validating phases produced three tasks in each run. The `step ≤ 0` guard I kept — a genuine infinite loop found while in the file is what you want. The amplitude/speed task I dropped. That is R-6 in practice: not forty junk rows, but a third plausible one nobody will prioritise.
+- **A clarifying question stored as project knowledge** (C2). Right to say it in the reply, wrong to record it — six months on it captures confusion about a prompt, not something true about the project.
+- **A fabricated cross-reference** (C10). A question filed into Pellet cites "D-9" — which is a *Keel* decision. The store was empty when that session started. **The write happened, looked substantial, and is quietly poisoned.** That is exactly what a recall metric cannot see.
+
+**The finding the gate structurally cannot produce:** Run B wrote *"Validate constituent phases to 0–360 degrees"*; Run C wrote *"Validate constituent phases to 0–360"*. The idempotency key hashes the normalised title, and normalisation lowercases and collapses whitespace — it has no idea those are the same task. Per-session stores hid it completely. **In a shared store, ten sessions on one project would produce near-duplicates idempotency does not catch** — UC-8's failure arriving one level below where everyone was watching. Both runs score it as success.
+
+Both filed as p1. The second fix reuses the fuzzy match `keel_projects` already does, applied one level down.
+
+**What is genuinely good**, since precision cuts both ways: typing is right (the harbourmaster call became `feedback`, blake3 stayed a `question` rather than a decision nobody made), several rows are things nobody asked for and everybody would want (a path-traversal hole in `get()`, "a wrong chart datum is a silent safety failure"), and the bodies carry evidence rather than restatement.
 
 ---
 
