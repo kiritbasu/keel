@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZP5189J3N9R1BJESQ0PGJNZ v1 2026-08-10T16:05:17Z
+<!-- keel:generated decision dec_01KZP5189J3N9R1BJESQ0PGJNZ v1 2026-08-10T18:53:23Z
      source of truth is Keel — edits here are not saved -->
-# KB confirmed: blocked is derived from the links, not a status
+# B-42 — KB confirmed: blocked is derived from the links, not a status
 
 **Status:** `accepted`  
 **Id:** `dec_01KZP5189J3N9R1BJESQ0PGJNZ`

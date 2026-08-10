@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZNQR16ZJKQ5MGTSF8H0VW9C v1 2026-08-10T11:47:03Z
+<!-- keel:generated decision dec_01KZNQR16ZJKQ5MGTSF8H0VW9C v1 2026-08-10T18:53:23Z
      source of truth is Keel — edits here are not saved -->
-# The Tauri shell is suspended; the web build is the surface
+# B-39 — The Tauri shell is suspended; the web build is the surface
 
 **Status:** `accepted`  
 **Id:** `dec_01KZNQR16ZJKQ5MGTSF8H0VW9C`

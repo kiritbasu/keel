@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZKMPVR92GNRQXTE8836ZD1E v1 2026-08-09T18:07:39Z
+<!-- keel:generated decision dec_01KZKMPVR92GNRQXTE8836ZD1E v2 2026-08-10T18:53:24Z
      source of truth is Keel — edits here are not saved -->
-# Every table gets idempotency_key, not just tasks
+# B-10 — Every table gets idempotency_key, not just tasks
 
 **Status:** `accepted`  
 **Decided:** 2026-08-09  
@@ -12,13 +12,17 @@ SPEC §7.2 and REQ-7 say every create is idempotent; §3.2 gives the column only
 
 ## Decision
 
-All thirteen tables.
+Every table gets idempotency_key, not just tasks.
 
 ## Reasoning
 
-The alternative silently drops idempotency for twelve types including projects — the one type where duplicates are called out as the failure that ruins the aggregate view.
+SPEC §7.2 and PRD REQ-7 say *every* create is idempotent, but §3.2 only gives the column to `tasks`. Honouring the requirement means honouring it everywhere; the alternative silently drops idempotency for twelve of thirteen types, including `projects` — the one type where duplicates are called out as the failure that ruins the aggregate view (UC-8, REQ-8). Marked `PROVISIONAL` and raised as TQ-9, because adding a column is a storage-format change and those are KB's call.
 
 ## Consequences
 
 Marked PROVISIONAL; raised as TQ-9 because adding a column is a storage-format change and those are KB's call.
+
+## Reversible?
+
+Expensive — it is a schema column.
 

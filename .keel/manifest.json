@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-10T18:35:53.179139+00:00",
+  "generated_at": "2026-08-10T18:53:26.302487+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,39 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/waiting-on-a-human-decision-is-the-decision-needed-label-not-a-new-task-kind.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZPFPS0KK4YE59E3A8GJQ0VW",
+          "entity_type": "decision",
+          "version": 2,
+          "hash": "dd775714588644f1f98b4642231646d79df425534d5573149bba83479e410766"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/a-task-marked-blocked-with-no-blocks-edge-is-reported-as-a-data-problem-not-ranked.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZPFPPEMGCEB5HXXPF1RFWDC",
+          "entity_type": "decision",
+          "version": 2,
+          "hash": "0e1c6715dbb135c384f2c06803d6d2d3ecc38224680ff3feadde1dcdbeb676a5"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/keel-context-answers-what-next-with-named-ranked-tasks.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZPFPHCFPZ1X930DEC2ZRR7R",
+          "entity_type": "decision",
+          "version": 2,
+          "hash": "291e7c1684a04f74c32889a302d4eea3e3f53a47ec9967df1802bd39caf4f977"
         }
       ]
     },
@@ -195,8 +228,8 @@
         {
           "entity_id": "dec_01KZKWMTFN212CPD921AY3PX6D",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "bfe8955be916eac531c586540dcc4d74fe203ee6d18950496fe4152fdeecb728"
+          "version": 2,
+          "hash": "95a8e6c47f1da7983bccb9864acae51ef0c2205fbea918a3d00988c4fed3423a"
         }
       ]
     },
@@ -206,8 +239,8 @@
         {
           "entity_id": "dec_01KZKWMTDQZPZJ46PCEWATF0XY",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "ebc0e70fcdbc3af98d2186f119aca7c35c1faf4d72824222a5facfd34105535f"
+          "version": 2,
+          "hash": "3fb5d7cef20141db6fbc38ca96da0e55e2cf77d15f2024b14cdaaf989b263687"
         }
       ]
     },
@@ -217,8 +250,8 @@
         {
           "entity_id": "dec_01KZKWMTBYP6P7B8DQTB3586G9",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "fa25f02a2bce32fdf731b12d86111148eabc2b73c20f2bdcafa4e92e79ef737e"
+          "version": 2,
+          "hash": "f64502b18f1f78a7a5e4f622e9106f81c43a2f005542a0d294d4389136a06039"
         }
       ]
     },
@@ -228,8 +261,8 @@
         {
           "entity_id": "dec_01KZKWMT9M8EJQM7TJDZH8KX22",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "705d1accf758c271b6af474a050393d0882f3065d5c6bb54094083571ea8347f"
+          "version": 2,
+          "hash": "acb720da9b5e8e35378ce7e10665389e828e5c1517ae6ee30a5e4d264d81b1f0"
         }
       ]
     },
@@ -239,8 +272,8 @@
         {
           "entity_id": "dec_01KZKWMT7GFNZBYEQBV44NPY4R",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "5d6a8077d521549382e67a5f5d27641fced9aa60d3d67ffb7ce7e5f32cc3adad"
+          "version": 2,
+          "hash": "8a4471f787a689f04e540ea0edd801538a729373d9f5fc99504b9346a2e3f543"
         }
       ]
     },
@@ -250,8 +283,8 @@
         {
           "entity_id": "dec_01KZKWMT5SMKXQ07NKBKT87SXC",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "afc671645f2e99f3c86594f59323ad23baa6d21f0d10e37184283c8ce71bd495"
+          "version": 2,
+          "hash": "d95dd96a990e6fcc1fddf50dd0417a4bacb80014f9285116c19511c3b82b0188"
         }
       ]
     },
@@ -261,8 +294,8 @@
         {
           "entity_id": "dec_01KZKWMT3ZRNB06RMYBSTAKDV6",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "f98d16df8b5b9415b775459fac17b01a9acad2a3a9a700bd5bf7b9a988d115cd"
+          "version": 2,
+          "hash": "c0a5378c597640287fc83dc6f8226d3396913b39c32377a37454c50531ddc2d4"
         }
       ]
     },
@@ -272,8 +305,8 @@
         {
           "entity_id": "dec_01KZKWMT28K0HMJ1Y5JQ16TT8T",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "7bb6cfd70470f65ccecd7d236b3f05f0287e107bd97b9ca6c8f5134dc0e3344c"
+          "version": 2,
+          "hash": "4164eef8958f22621ae47eff2fbdad4224f2f8ec27356ed4f977674f19122568"
         }
       ]
     },
@@ -283,8 +316,8 @@
         {
           "entity_id": "dec_01KZKWMT0JWXM2JGX7MZ0QZ7DV",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "ca0a79c35847616bf5a474dd6f17cb80ab7f28621150a7b69d37b0cb215cb814"
+          "version": 2,
+          "hash": "eb7329f5bd751d4ee2fd6d9878c70a0704ad0890d77fd004e3d839442f4eaf07"
         }
       ]
     },
@@ -294,8 +327,8 @@
         {
           "entity_id": "dec_01KZKWMSYT6WTETRJ6DF82A42E",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "c57d4afcc68f0ba8c76cbb6109d2312a255bea3edf984d3df8d0ed4ee9bb82dd"
+          "version": 2,
+          "hash": "54e26ab6da5d92c988c5f8970cfee8f6cf6a4b31ba26f630cc744cebd527f0c3"
         }
       ]
     },
@@ -305,8 +338,8 @@
         {
           "entity_id": "dec_01KZKWMSX25E73XSGB9Q9A0P5W",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "13340360c533c6a69358857e23e0e672ad1c8475f97f128a56549e24df87e60c"
+          "version": 2,
+          "hash": "3fef2be1ace79ecbef8b59b94d80f0a870ede881cb2fe8e5f9de1cb751552214"
         }
       ]
     },
@@ -316,8 +349,8 @@
         {
           "entity_id": "dec_01KZKMPVVY4DAPXQD0H99HB27C",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "cdcbeaeff90f9e7a045cceea774231bd71aebf860f02beba4ca6699b6654a3a8"
+          "version": 2,
+          "hash": "471dcf7eca8f9bde1e32beca5505440b2d7fda7a5dd0230276ee81cb4da474b4"
         }
       ]
     },
@@ -327,8 +360,8 @@
         {
           "entity_id": "dec_01KZKMPVVAC6EZA35F1E87SC0C",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "84c72b1f155042c8ee06197b9f52aafa297de97f5c07fbce62e10f2d3387c5b1"
+          "version": 2,
+          "hash": "00cdda7d7be53a7910a6e2f2125158d5563cead2fb3b0238b60cee0bd0b60423"
         }
       ]
     },
@@ -338,8 +371,8 @@
         {
           "entity_id": "dec_01KZKMPVTSVQB53R5AGXMB5WZ5",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "af39d02d2fea04528d59d9373ed0cce3ec2b813dd0dba83490140e48eec31138"
+          "version": 2,
+          "hash": "2a6b0dacc22a3406395c0faaa0065b3ef790f6ce1d625045c1fd1957b2ee354d"
         }
       ]
     },
@@ -360,8 +393,8 @@
         {
           "entity_id": "dec_01KZKMPVSRVWSF4N42E9Y1M7A1",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "8a9f84db01d21a22be19a9ecfd59ca89f355fbfc8d7d23e8d5b99c2a7f72a469"
+          "version": 2,
+          "hash": "f1f28835518d3d88618dd5e087f1f57c90d7c63d6788cb92a252a120e8a34bee"
         }
       ]
     },
@@ -371,8 +404,8 @@
         {
           "entity_id": "dec_01KZKMPVS9XTWRN7303BPY0F18",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "c3daa4cd1dbe7cbdd3810a72a68cf517ce5d5083fae13919ff43b11c2385cf45"
+          "version": 2,
+          "hash": "3780cd981f05e6ed35976ab9b87fb87e02a696ad46543adeca09be080211f2cc"
         }
       ]
     },
@@ -382,8 +415,8 @@
         {
           "entity_id": "dec_01KZKMPVRTXA717P2854N17HQ5",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "b92d1fa906d90833976de2419af13ae93f1630ce53ded5a619a4c5d886a3c621"
+          "version": 2,
+          "hash": "5ea2a9e14fb3213b2063339345803b721fada313b4785565b7ca7d7a021a4146"
         }
       ]
     },
@@ -393,8 +426,8 @@
         {
           "entity_id": "dec_01KZKMPVR92GNRQXTE8836ZD1E",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "d5b7bfed8f777513604edb6295bd66be4e989dd183757425e5f4e50b5e037f6b"
+          "version": 2,
+          "hash": "0c00bb74ada3dfa99a95583a3295287e46c1c9e6973151311a1522043ab8a10e"
         }
       ]
     },
@@ -404,8 +437,8 @@
         {
           "entity_id": "dec_01KZKMPVQWSF1TN6TYEWQ3BJ61",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "ea4753795886ff0918e1da844c6513864ad808ead3ece4b02e4d5f6d72706a99"
+          "version": 2,
+          "hash": "835c7c9ff9580cbbab5c9ebb090f282d77b65690c707a9cb5afde7d1612c931c"
         }
       ]
     },
@@ -415,8 +448,8 @@
         {
           "entity_id": "dec_01KZKMPVQD8N0ZYBZZBMWTCP04",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "f670fb4fd6e0c947ec87912ff6db7ed30ea3176064d2c6bc702d7b2accf93fc1"
+          "version": 2,
+          "hash": "e1e385e8bb116fcef0704b4cae92acde6e495d4549e279df71161a1441323046"
         }
       ]
     },
@@ -426,8 +459,8 @@
         {
           "entity_id": "dec_01KZKMPVPZ81H8PHKF8RHZK13R",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "8e645e3f34a249c0b383797c1c20d69500a6fb18b920e1b341f85988bb4858a0"
+          "version": 2,
+          "hash": "354f93a094bbe43fdffcd5f87bdca0be856305da08b3ecfdbd77f28fa12ae038"
         }
       ]
     },
@@ -437,8 +470,8 @@
         {
           "entity_id": "dec_01KZKMPVPM94XEZGCSFS73XQ9T",
           "entity_type": "decision",
-          "version": 1,
-          "hash": "1900b53b030dcf00071b5304d594ac2ec9a035e04335196197f9b3a59efa2170"
+          "version": 2,
+          "hash": "d8d76c2efe5877bd9fc0e571f6a7a66d3ddc0a7831d8ddc41ebb8f504a61fb57"
         }
       ]
     },

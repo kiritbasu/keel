@@ -49,6 +49,7 @@ expression: result
       "id": "[id]",
       "idempotency_key": "[hash]",
       "mirror_path": null,
+      "number": 1,
       "project_id": "[id]",
       "status": "proposed",
       "title": "Aggregate hourly, not per-minute",

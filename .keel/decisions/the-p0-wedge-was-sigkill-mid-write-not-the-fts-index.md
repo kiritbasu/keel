@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZN2W5BPHM5DH3PRSHW5A600 v1 2026-08-10T05:39:08Z
+<!-- keel:generated decision dec_01KZN2W5BPHM5DH3PRSHW5A600 v1 2026-08-10T18:53:23Z
      source of truth is Keel — edits here are not saved -->
-# The p0 wedge was SIGKILL mid-write, not the FTS index
+# B-30 — The p0 wedge was SIGKILL mid-write, not the FTS index
 
 **Status:** `accepted`  
 **Decided:** 2026-08-10  

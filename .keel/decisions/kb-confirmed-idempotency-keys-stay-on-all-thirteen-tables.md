@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZN5H4EJ905TXJA2RTS0MNKY v1 2026-08-10T06:41:18Z
+<!-- keel:generated decision dec_01KZN5H4EJ905TXJA2RTS0MNKY v1 2026-08-10T18:53:23Z
      source of truth is Keel — edits here are not saved -->
-# KB confirmed: idempotency keys stay on all thirteen tables
+# B-32 — KB confirmed: idempotency keys stay on all thirteen tables
 
 **Status:** `accepted`  
 **Decided:** 2026-08-10  

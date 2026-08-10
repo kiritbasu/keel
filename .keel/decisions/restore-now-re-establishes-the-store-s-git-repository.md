@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZN3K1A6PBRFVJ9H9H6542HM v1 2026-08-10T05:51:33Z
+<!-- keel:generated decision dec_01KZN3K1A6PBRFVJ9H9H6542HM v1 2026-08-10T18:53:23Z
      source of truth is Keel — edits here are not saved -->
-# restore now re-establishes the store's git repository
+# B-31 — restore now re-establishes the store's git repository
 
 **Status:** `accepted`  
 **Decided:** 2026-08-10  

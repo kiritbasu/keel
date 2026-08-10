@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZMGPPJ0MM4VSGAP4KF724DQ v1 2026-08-10T00:22:49Z
+<!-- keel:generated decision dec_01KZMGPPJ0MM4VSGAP4KF724DQ v1 2026-08-10T18:53:24Z
      source of truth is Keel — edits here are not saved -->
-# Outside panel: the gate measurement was invalid and the file plan is rejected
+# B-27 — Outside panel: the gate measurement was invalid and the file plan is rejected
 
 **Status:** `proposed`  
 **Id:** `dec_01KZMGPPJ0MM4VSGAP4KF724DQ`

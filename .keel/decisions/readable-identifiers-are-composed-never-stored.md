@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZNW724SBG1NFAWDZ9CR66DN v1 2026-08-10T13:01:42Z
+<!-- keel:generated decision dec_01KZNW724SBG1NFAWDZ9CR66DN v1 2026-08-10T18:53:23Z
      source of truth is Keel — edits here are not saved -->
-# Readable identifiers are composed, never stored
+# B-40 — Readable identifiers are composed, never stored
 
 **Status:** `accepted`  
 **Id:** `dec_01KZNW724SBG1NFAWDZ9CR66DN`

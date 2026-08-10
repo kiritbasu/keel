@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZNHQ6BNEH54ZG8HQ7WRR2S5 v1 2026-08-10T10:00:47Z
+<!-- keel:generated decision dec_01KZNHQ6BNEH54ZG8HQ7WRR2S5 v1 2026-08-10T18:53:23Z
      source of truth is Keel — edits here are not saved -->
-# Eight named type sizes in two scales, not eleven anonymous ones
+# B-35 — Eight named type sizes in two scales, not eleven anonymous ones
 
 **Status:** `accepted`  
 **Id:** `dec_01KZNHQ6BNEH54ZG8HQ7WRR2S5`

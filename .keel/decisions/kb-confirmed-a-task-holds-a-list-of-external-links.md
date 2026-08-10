@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZP1E78WZXXTJZK7YBHATJCZ v1 2026-08-10T15:21:46Z
+<!-- keel:generated decision dec_01KZP1E78WZXXTJZK7YBHATJCZ v1 2026-08-10T18:53:23Z
      source of truth is Keel — edits here are not saved -->
-# KB confirmed: a task holds a list of external links
+# B-41 — KB confirmed: a task holds a list of external links
 
 **Status:** `accepted`  
 **Id:** `dec_01KZP1E78WZXXTJZK7YBHATJCZ`

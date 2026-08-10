@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZKMPVT876SD8CJJPGY9ZVXY v1 2026-08-09T18:07:39Z
+<!-- keel:generated decision dec_01KZKMPVT876SD8CJJPGY9ZVXY v1 2026-08-10T18:53:24Z
      source of truth is Keel — edits here are not saved -->
-# Fixture links are addressed by name, never by position
+# B-26 — Fixture links are addressed by name, never by position
 
 **Status:** `accepted`  
 **Decided:** 2026-08-09  

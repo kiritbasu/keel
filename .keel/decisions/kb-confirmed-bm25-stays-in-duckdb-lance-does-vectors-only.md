@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZN5H4FFR7VHD92Z1PWRTMRA v1 2026-08-10T06:41:18Z
+<!-- keel:generated decision dec_01KZN5H4FFR7VHD92Z1PWRTMRA v1 2026-08-10T18:53:23Z
      source of truth is Keel — edits here are not saved -->
-# KB confirmed: BM25 stays in DuckDB, Lance does vectors only
+# B-33 — KB confirmed: BM25 stays in DuckDB, Lance does vectors only
 
 **Status:** `accepted`  
 **Decided:** 2026-08-10  

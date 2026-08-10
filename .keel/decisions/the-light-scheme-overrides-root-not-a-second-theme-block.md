@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZNHQCRB7PYBKW0Q37P4VFVK v1 2026-08-10T10:00:47Z
+<!-- keel:generated decision dec_01KZNHQCRB7PYBKW0Q37P4VFVK v1 2026-08-10T18:53:23Z
      source of truth is Keel — edits here are not saved -->
-# The light scheme overrides :root, not a second @theme block
+# B-36 — The light scheme overrides :root, not a second @theme block
 
 **Status:** `accepted`  
 **Id:** `dec_01KZNHQCRB7PYBKW0Q37P4VFVK`

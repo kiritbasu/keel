@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZNQ3BCRH4CM0CAVV3DYC7TQ v1 2026-08-10T11:32:53Z
+<!-- keel:generated decision dec_01KZNQ3BCRH4CM0CAVV3DYC7TQ v1 2026-08-10T18:53:23Z
      source of truth is Keel — edits here are not saved -->
-# Graph traversal carries the neighbour's label
+# B-38 — Graph traversal carries the neighbour's label
 
 **Status:** `accepted`  
 **Id:** `dec_01KZNQ3BCRH4CM0CAVV3DYC7TQ`

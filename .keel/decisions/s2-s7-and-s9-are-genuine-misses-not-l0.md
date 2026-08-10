@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZMTF8PVC0AWYFPQVGXM69BB v1 2026-08-10T03:27:56Z
+<!-- keel:generated decision dec_01KZMTF8PVC0AWYFPQVGXM69BB v1 2026-08-10T18:53:24Z
      source of truth is Keel — edits here are not saved -->
-# s2, s7 and s9 are genuine misses, not L0
+# B-28 — s2, s7 and s9 are genuine misses, not L0
 
 **Status:** `accepted`  
 **Decided:** 2026-08-10  

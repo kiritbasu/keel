@@ -12,12 +12,12 @@
 //! here compares mirror state to database state. There is no function to do
 //! either, deliberately — the absence is the enforcement.
 //!
-//! SPEC §8.1 permits exactly one read, and it is not here: a Claude Code
-//! `PostToolUse` hook may take an *observed edit* to a mirror file and hand its
-//! contents to `keel_write_doc` as a new revision, after which the file is
-//! regenerated from the database. That is event-triggered, happens once, and
-//! the database wins unconditionally afterwards — so divergence has no window
-//! in which to accumulate. It lives in the plugin, not in `keel-core`.
+//! SPEC §8.1 used to permit exactly one read — a Claude Code `PostToolUse` hook
+//! that turned an observed edit into a revision. That hook never worked and was
+//! deleted rather than repaired, so the rule now has **no exception at all**.
+//! What replaced it refuses a commit instead of recovering an edit
+//! (`scripts/pre-commit`), and a deliberate migration is a person running
+//! `keel import`.
 //!
 //! # Prose only
 //!
@@ -401,7 +401,14 @@ fn header(entity_type: &str, id: &EntityId, version: i32) -> String {
 
 /// Render an artifact's front matter and body.
 fn render_prose(entity: &Entity, body: &str) -> String {
-    let mut out = format!("# {}\n\n", entity.label());
+    // The readable identifier goes in the heading, not in the metadata below
+    // it. `B-12` is what the prose in this repository actually cites, so a
+    // reader arriving from a citation should land on a heading that matches
+    // what they searched for.
+    let mut out = match entity {
+        Entity::Decision(d) if d.number > 0 => format!("# B-{} — {}\n\n", d.number, d.title),
+        _ => format!("# {}\n\n", entity.label()),
+    };
     if let Some(status) = entity.status() {
         out.push_str(&format!("**Status:** `{status}`  \n"));
     }

@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZNHQ0SMBXVKYF3SA85W9VZ7 v1 2026-08-10T10:00:47Z
+<!-- keel:generated decision dec_01KZNHQ0SMBXVKYF3SA85W9VZ7 v1 2026-08-10T18:53:23Z
      source of truth is Keel — edits here are not saved -->
-# The desktop app routes on the hash, and the router is hand-written
+# B-34 — The desktop app routes on the hash, and the router is hand-written
 
 **Status:** `accepted`  
 **Id:** `dec_01KZNHQ0SMBXVKYF3SA85W9VZ7`

@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZN24NH42AW7XQB9GNNZ0NFY v1 2026-08-10T05:29:35Z
+<!-- keel:generated decision dec_01KZN24NH42AW7XQB9GNNZ0NFY v1 2026-08-10T18:53:23Z
      source of truth is Keel — edits here are not saved -->
-# Phase 2 closed on 18 of 20
+# B-29 — Phase 2 closed on 18 of 20
 
 **Status:** `accepted`  
 **Decided:** 2026-08-10  
