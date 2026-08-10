@@ -256,6 +256,15 @@ pub(crate) fn strip_banner(content: &str) -> String {
     out.trim().to_owned()
 }
 
+/// `strip_banner`, exposed for the render-stability test.
+///
+/// The invariant it guards — that a regenerated tracker is byte-identical when
+/// nothing changed — is asserted from an integration test, which cannot reach a
+/// `pub(crate)` item.
+pub fn strip_banner_for_test(content: &str) -> String {
+    strip_banner(content)
+}
+
 /// Where a project's repository lives, if it has a checkout.
 pub fn repo_root(project: &crate::Project) -> Option<PathBuf> {
     project.root_path.as_ref().map(PathBuf::from)

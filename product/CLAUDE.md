@@ -12,7 +12,7 @@ This file is loaded automatically into every Claude Code session in this repo. I
 
 **At the start of every session, in this order:**
 
-1. Read `product/STATUS.md`. It tells you the current phase, what's in progress, and what's blocked.
+1. Read `product/STATUS.md`. It tells you the current phase, what's in progress, and what's blocked. It is generated from the task rows — read it, never edit it.
 2. Read `product/QUESTIONS.md`. Do not re-decide anything already listed there. Items in the "Needs KB" table marked `BLOCKED — needs KB` halt work on anything that depends on them; items marked `open` mean ask when convenient and keep going. Items in "Provisionally resolved" are decided — build on the stated assumption.
 3. `git log --oneline -15` — see what the last session actually did.
 4. State in one line what you're picking up before you touch anything.
@@ -65,7 +65,7 @@ having run. Everything under `product/`, this file included, is an output.
 
 ## Tracker discipline
 
-KB's primary window into this project is `product/STATUS.md`. If it is stale, he is blind. Treat it as a deliverable, not bookkeeping.
+KB's primary window into this project is the desktop app, with `product/STATUS.md` as its committed shadow. Both read the same rows, so a stale tracker now means stale *rows* — there is nothing to update separately, and nothing that can drift.
 
 **Rules:**
 
@@ -73,18 +73,30 @@ KB's primary window into this project is `product/STATUS.md`. If it is stale, he
 - A task is `done` only when it meets the definition of done below. Not when the code is written.
 - If a task turns out to be bigger than one task, split it and record the split. Don't silently expand scope.
 - If you're blocked, mark it `blocked` with the reason on the same line. Never leave something `in_progress` across sessions without a note.
-- Every session appends one changelog entry, even a session that achieved nothing. Especially that one.
+- Record what you *found* as a note on the task — `keel note add <task-id> "…"` — not as a line in a markdown table. A status without the finding behind it is a colour, not information. (The MCP surface has no note tool yet; it is the obvious next thing to add when MCP returns.)
+- The changelog is derived from the event log, so it writes itself. A session that achieved nothing still leaves a trace, which was the point of insisting on the entry.
 - Never delete a task. Mark it `dropped` with a reason.
 
 **Task IDs are stable and never reused.** `P0-7` means the same thing forever.
 
-**The dogfooding switch has been thrown.** Keel holds this project and every
-`product/*.md` is generated from it. The tracker is a half-step behind: it is
-still stored as prose rather than rendered from the task rows, because the task
-rows do not yet carry the per-task notes that make it worth reading. Finishing
-that is TQ-14. Until then the tracker's prose is edited in Keel like any other
-document, and `keel render-status keel` shows what the entity-rendered version
-would look like.
+**The tracker is rows, not prose.** `product/STATUS.md` is rendered from the
+task rows by `keel render-status`. There is no tracker document to edit and no
+markdown table to keep in step — changing what the tracker says means changing a
+row. This closed TQ-14, and it closed the gap that made the question worth
+asking: task rows now carry a **note stream**, so the findings that used to live
+in the tracker's Notes column live on the task itself, attributed to the session
+that learned them.
+
+Two consequences worth internalising:
+
+- **Never hand-edit `product/STATUS.md`.** It has no stored copy to recover an
+  edit from. Unlike the prose documents, where the `PostToolUse` hook turns an
+  edit into a revision, an edit here is overwritten by the next render and gone.
+- **The narrative moved.** Session-by-session accounts — what was tried, what
+  broke, what a measurement actually said — are in `product/JOURNAL.md`, which
+  *is* a document and is edited like any other prose. Findings that belong to
+  one task go on that task as a note; the story of a session goes in the
+  journal.
 
 ---
 
@@ -98,7 +110,7 @@ A task is not done until all of these are true:
 - [ ] Tests written **and** passing — including at least one failure case, not only the happy path. The one exception is a *forward-looking* test for behaviour a later phase delivers: mark it `#[ignore = "unblocks in Phase N — see STATUS.md P0-x"]` so CI stays green and the intent stays visible. Never `#[ignore]` a test for behaviour the current phase is supposed to deliver.
 - [ ] No `unwrap()`, `expect()`, or `panic!()` in library code (binaries and tests may, with a message)
 - [ ] Public items in `keel-core` have doc comments explaining *why*, not restating the signature
-- [ ] The tracker updated **in Keel**, and `keel generate keel` run
+- [ ] The task row updated **in Keel** — status moved, and anything learned recorded as a note on it — and `keel generate keel` run
 - [ ] Committed with a message that explains the change, not the diff
 
 If you can't tick all of them, the task is `in_progress`.

@@ -169,6 +169,80 @@ enum Command {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+
+    /// Append to a row's running commentary, or read it back.
+    ///
+    /// The commentary is what the tracker's prose used to carry. Having it on
+    /// the CLI matters beyond convenience: it is the only write path that does
+    /// not go through MCP, so a note can still be recorded when the MCP surface
+    /// is unavailable.
+    Note {
+        #[command(subcommand)]
+        action: NoteAction,
+    },
+
+    /// Archive a row. Soft delete — it stays on disk and stops appearing.
+    ///
+    /// Needed for the same reason `task` is: with MCP down there was no way to
+    /// retire a row, and a document that has outlived its purpose keeps owning
+    /// the file path it adopted.
+    Archive {
+        /// The entity id.
+        id: String,
+        /// The version you believe is current, for optimistic concurrency.
+        #[arg(long)]
+        version: i32,
+    },
+
+    /// Create a task row.
+    ///
+    /// Exists because until now the only ways to bring a row into being were
+    /// MCP and the one-shot `bootstrap`/`import` migrations. With MCP down
+    /// there was no way at all, which is how four completed pieces of work
+    /// ended up as lines in a markdown table and nowhere else.
+    Task {
+        /// Project id, slug or name.
+        #[arg(long)]
+        project: String,
+        /// The task title.
+        title: String,
+        /// Longer description.
+        #[arg(long)]
+        body: Option<String>,
+        /// todo, in_progress, blocked, done, dropped.
+        #[arg(long, default_value = "todo")]
+        status: String,
+        /// p0, p1, p2, p3.
+        #[arg(long, default_value = "p2")]
+        priority: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum NoteAction {
+    /// Append a note to a row.
+    Add {
+        /// The row to annotate. Any entity id.
+        entity: String,
+        /// The note. A finding, a decision, an observation.
+        body: String,
+        /// The conversation responsible, so the note stays traceable.
+        #[arg(long)]
+        session: Option<String>,
+    },
+    /// Print a row's notes, oldest first.
+    Ls {
+        /// The row whose commentary to read.
+        entity: String,
+        /// Include retracted notes.
+        #[arg(long)]
+        all: bool,
+    },
+    /// Retract a note. Soft, like every other removal in the store.
+    Retract {
+        /// The note id, `nte_…`.
+        id: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -190,6 +264,30 @@ fn main() -> Result<()> {
         Command::Fixture => run_fixture(&home, cli.json),
         Command::Status => run_status(&home, cli.json),
         Command::RenderStatus { project, out } => run_render_status(&home, project, out.clone()),
+        Command::Note { action } => run_note(&home, action, cli.json),
+        Command::Archive { id, version } => {
+            use keel_core::{Actor, EntityId, EntityStore, Provenance, Surface};
+            let mut store = open(&home)?;
+            let prov = Provenance::anonymous(Actor::Human).with_surface(Surface::Cli);
+            let archived = store.archive(&EntityId::parse(id)?, *version, &prov)?;
+            println!("{} — archived", archived.id());
+            Ok(())
+        }
+        Command::Task {
+            project,
+            title,
+            body,
+            status,
+            priority,
+        } => run_task_add(
+            &home,
+            project,
+            title,
+            body.clone(),
+            status,
+            priority,
+            cli.json,
+        ),
         Command::Gate {
             project,
             since,
@@ -390,6 +488,97 @@ fn run_render_status(home: &PathBuf, project: &str, out: Option<PathBuf>) -> Res
             println!("wrote {} ({} bytes)", path.display(), markdown.len());
         }
         None => print!("{markdown}"),
+    }
+    Ok(())
+}
+
+fn run_note(home: &PathBuf, action: &NoteAction, json: bool) -> Result<()> {
+    use keel_core::{Actor, EntityId, EntityStore, NewNote, NoteId, Provenance, Surface};
+
+    let mut store = open(home)?;
+    // `cli` rather than `code`: this is a person at a terminal, and the whole
+    // point of `surface` is telling those apart when reading the history back.
+    let prov = Provenance::anonymous(Actor::Human).with_surface(Surface::Cli);
+
+    match action {
+        NoteAction::Add {
+            entity,
+            body,
+            session,
+        } => {
+            let id = EntityId::parse(entity)?;
+            let mut note = NewNote::new(id, body.clone(), Actor::Human);
+            if let Some(s) = session {
+                note = note.in_session(s.clone());
+            }
+            let written = store.add_note(note, &prov)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&written)?);
+            } else {
+                println!("{} — noted on {}", written.id, written.entity_id);
+            }
+        }
+        NoteAction::Ls { entity, all } => {
+            let id = EntityId::parse(entity)?;
+            let notes = store.notes_for(&id, *all)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&notes)?);
+            } else if notes.is_empty() {
+                println!("no notes on {id}");
+            } else {
+                for n in &notes {
+                    let mark = if n.is_live() { " " } else { "×" };
+                    println!(
+                        "{mark} {} · {} · {}\n  {}",
+                        n.id,
+                        n.author,
+                        n.created_at.format("%Y-%m-%d %H:%M"),
+                        n.body.replace('\n', "\n  ")
+                    );
+                }
+            }
+        }
+        NoteAction::Retract { id } => {
+            let note = store.retract_note(&NoteId::parse(id)?, &prov)?;
+            println!("{} — retracted", note.id);
+        }
+    }
+    Ok(())
+}
+
+fn run_task_add(
+    home: &PathBuf,
+    project: &str,
+    title: &str,
+    body: Option<String>,
+    status: &str,
+    priority: &str,
+    json: bool,
+) -> Result<()> {
+    use keel_core::{Actor, EntityStore, Provenance, Surface, Task, TaskPriority, TaskStatus};
+
+    let mut store = open(home)?;
+    let found = resolve_project(&store, project)?;
+    let prov = Provenance::anonymous(Actor::Human).with_surface(Surface::Cli);
+
+    let mut task = Task::new(found.id().clone(), title);
+    task.status = TaskStatus::parse(status)?;
+    task.priority = TaskPriority::parse(priority)?;
+    task.body = body;
+
+    let created = store.create(task.into(), &prov)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&created)?);
+    } else {
+        println!(
+            "{} — {}",
+            created.entity.id(),
+            if created.created {
+                "created"
+            } else {
+                "already existed, returned unchanged"
+            }
+        );
     }
     Ok(())
 }

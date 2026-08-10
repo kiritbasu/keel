@@ -37,6 +37,7 @@ pub mod id;
 pub mod link;
 pub mod mirror;
 pub mod next;
+pub mod note;
 pub mod render_status;
 pub mod store;
 pub mod types;
@@ -57,10 +58,11 @@ pub use error::{Error, Result};
 pub use event::{Action, Cursor, Event, NewEvent};
 pub use fsck::{Finding, FsckReport, Severity};
 pub use generate::{GenerateReport, Mode};
-pub use id::{BlobId, DocId, EntityId, EventId, LinkId};
+pub use id::{BlobId, DocId, EntityId, EventId, LinkId, NoteId};
 pub use link::{DEFAULT_DEPTH, Direction, Link, MAX_DEPTH, NewLink, Relation};
 pub use mirror::{Manifest, MirrorFile, MirrorReport};
 pub use next::{Candidate, NextUp};
+pub use note::{NewNote, Note};
 pub use store::{
     Blob, Created, DocumentStore, DuckStore, EntityQuery, EntityStore, GraphStore, Neighbour, Page,
     SearchHit, SearchQuery, SearchSource,

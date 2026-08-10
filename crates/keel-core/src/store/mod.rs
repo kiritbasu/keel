@@ -22,7 +22,7 @@ pub use patch::{FieldChange, apply_changes};
 
 use crate::{
     Cursor, Direction, Document, DocumentDiff, Entity, EntityId, EntityType, Event, Link, NewEvent,
-    NewLink, Provenance, Relation, Result,
+    NewLink, NewNote, Note, Provenance, Relation, Result,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -305,6 +305,29 @@ pub trait EntityStore {
         project_id: Option<&EntityId>,
         limit: usize,
     ) -> Result<Page<Event>>;
+
+    /// Append a note to a row's running commentary.
+    ///
+    /// Fails if the subject does not exist. A note pointing at nothing is
+    /// unrecoverable in a way an ordinary orphan is not — nothing links to a
+    /// note, so there is no traversal that would ever surface it again.
+    fn add_note(&mut self, note: NewNote, provenance: &Provenance) -> Result<Note>;
+
+    /// One row's notes, oldest first.
+    ///
+    /// Retracted notes are excluded unless `include_retracted`, because the
+    /// overwhelmingly common caller is a renderer showing current commentary,
+    /// and making that caller filter is how retracted notes end up in output.
+    fn notes_for(&self, entity_id: &EntityId, include_retracted: bool) -> Result<Vec<Note>>;
+
+    /// Every live note in a project, oldest first.
+    ///
+    /// The renderer needs fifty streams at once; asking for them one row at a
+    /// time is fifty round trips to answer one question.
+    fn notes_in_project(&self, project_id: &EntityId) -> Result<Vec<Note>>;
+
+    /// Retract a note. Soft, like every other removal in the store.
+    fn retract_note(&mut self, id: &crate::NoteId, provenance: &Provenance) -> Result<Note>;
 }
 
 /// Link traversal. Nobody hand-writes a recursive CTE at a call site.

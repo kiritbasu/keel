@@ -235,6 +235,7 @@ simple_id!(LinkId, "lnk", "a link");
 simple_id!(EventId, "evt", "an event");
 simple_id!(DocId, "doc", "a document revision");
 simple_id!(BlobId, "blb", "a stored blob");
+simple_id!(NoteId, "nte", "a note");
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]

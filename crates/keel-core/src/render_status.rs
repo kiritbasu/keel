@@ -17,7 +17,7 @@
 
 use crate::{
     Cursor, DuckStore, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error,
-    MilestoneStatus, Result, TaskStatus,
+    MilestoneStatus, Note, Result, TaskStatus,
 };
 use std::fmt::Write as _;
 
@@ -49,6 +49,10 @@ pub fn render(store: &DuckStore, project_id: &EntityId) -> Result<String> {
 
     // --- At a glance -----------------------------------------------------
     let tasks = collect(store, project_id, EntityType::Task)?;
+    // Every stream in one call. Fifty tasks asking one at a time is fifty round
+    // trips to answer one question.
+    let all_notes = store.notes_in_project(project_id)?;
+    let notes: Vec<&Note> = all_notes.iter().collect();
     let milestones = collect(store, project_id, EntityType::Milestone)?;
     let questions = collect(store, project_id, EntityType::Question)?;
 
@@ -88,11 +92,12 @@ pub fn render(store: &DuckStore, project_id: &EntityId) -> Result<String> {
         open.len()
     )?;
     writeln!(out, "| **Open questions** | {unresolved} |")?;
-    writeln!(
-        out,
-        "| **Generated** | {} |",
-        now.format("%Y-%m-%d %H:%M UTC")
-    )?;
+    // No "Generated at" row. The banner above carries the timestamp, and the
+    // banner is the one thing `generate --check` excludes from comparison —
+    // precisely so that regenerating an unchanged project is not a diff. A
+    // timestamp in the table body would defeat that and make `--check` fail
+    // whenever a run straddled a minute boundary: a red CI that means nothing,
+    // which is worse than no check at all.
     writeln!(out)?;
 
     // --- Milestones ------------------------------------------------------
@@ -165,6 +170,41 @@ pub fn render(store: &DuckStore, project_id: &EntityId) -> Result<String> {
             }
             line.push_str(&format!(" · `{}`", task.id));
             writeln!(out, "{line}")?;
+
+            // The task's own description, then the running commentary. This is
+            // what made the tracker worth reading when it was prose, and its
+            // absence is the entire reason the prose version outlived the rows.
+            let body = task
+                .body
+                .as_deref()
+                .map(str::trim)
+                .filter(|b| !b.is_empty());
+            let stream: Vec<&&Note> = notes.iter().filter(|n| n.entity_id == task.id).collect();
+
+            if let Some(body) = body {
+                writeln!(out)?;
+                for para in body.lines() {
+                    writeln!(out, "  {para}")?;
+                }
+            }
+            if !stream.is_empty() {
+                writeln!(out)?;
+                for note in stream {
+                    // Attribution inline rather than in its own column: a note
+                    // is read for its content, and "who and when" is the
+                    // footnote that makes it checkable, not the headline.
+                    writeln!(
+                        out,
+                        "  - {} <sub>— {} · {}</sub>",
+                        note.body.replace('\n', " ").trim(),
+                        note.author,
+                        note.created_at.format("%Y-%m-%d")
+                    )?;
+                }
+                writeln!(out)?;
+            } else if body.is_some() {
+                writeln!(out)?;
+            }
         }
         writeln!(out)?;
     }

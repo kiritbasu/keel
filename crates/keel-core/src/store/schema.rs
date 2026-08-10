@@ -433,6 +433,32 @@ pub fn migrations() -> Vec<Migration> {
             name: "project_status_path",
             sql: "ALTER TABLE projects ADD COLUMN IF NOT EXISTS status_path VARCHAR;",
         },
+        // The running commentary that used to live only in the tracker's prose.
+        // Append-only, so it carries `created_at` and `archived_at` but neither
+        // `updated_at` nor `version` — see `note.rs` for why editing a note is
+        // the failure mode rather than the feature.
+        Migration {
+            id: 5,
+            name: "entity_notes",
+            sql: "
+CREATE TABLE IF NOT EXISTS notes (
+  id          VARCHAR PRIMARY KEY,
+  project_id  VARCHAR,
+  entity_type VARCHAR NOT NULL,
+  entity_id   VARCHAR NOT NULL,
+  body        VARCHAR NOT NULL,
+  author      VARCHAR NOT NULL,
+  session_id  VARCHAR,
+  surface     VARCHAR,
+  created_at  TIMESTAMP NOT NULL,
+  archived_at TIMESTAMP
+);
+-- The only query that matters: one row's stream, oldest first. Ordering is by
+-- id, which is a ULID, so this index serves the sort as well as the filter.
+CREATE INDEX IF NOT EXISTS notes_entity ON notes(entity_id, id);
+CREATE INDEX IF NOT EXISTS notes_project ON notes(project_id);
+",
+        },
     ]
 }
 

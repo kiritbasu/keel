@@ -22,8 +22,8 @@ use super::{
 };
 use crate::{
     Action, Actor, Audit, Cursor, DEFAULT_DEPTH, Direction, Entity, EntityId, EntityType, Error,
-    Event, EventId, Link, LinkId, MAX_DEPTH, NewEvent, NewLink, ProjectScope, Provenance, Relation,
-    Result, Surface,
+    Event, EventId, Link, LinkId, MAX_DEPTH, NewEvent, NewLink, NewNote, Note, NoteId,
+    ProjectScope, Provenance, Relation, Result, Surface,
 };
 use chrono::{DateTime, Utc};
 use duckdb::types::{TimeUnit, Value};
@@ -1102,9 +1102,199 @@ impl EntityStore for DuckStore {
         }
         Ok(Page::new(out, total))
     }
+
+    fn add_note(&mut self, note: NewNote, provenance: &Provenance) -> Result<Note> {
+        note.validate()?;
+
+        // The subject must exist. `v_entities` is why this is one query rather
+        // than a match over thirteen tables — resolving an id without knowing
+        // its type is exactly what the view was built for.
+        let Some((entity_type, project_id, archived)) = self.resolve_vertex(&note.entity_id)?
+        else {
+            return Err(Error::NotFound {
+                entity_type: EntityType::Task,
+                id: format!(
+                    "{} — cannot annotate a row that does not exist",
+                    note.entity_id
+                ),
+            });
+        };
+        if archived {
+            return Err(Error::Invalid {
+                entity_type,
+                field: "entity_id".to_owned(),
+                problem: format!("{} is archived", note.entity_id),
+                expected: "a live row — annotating an archived one writes commentary that \
+                           nothing will ever show. Restore it, or note the row that replaced it"
+                    .to_owned(),
+            });
+        }
+
+        let stored = Note {
+            id: NoteId::generate(),
+            project_id,
+            entity_type,
+            entity_id: note.entity_id,
+            body: note.body,
+            author: note.author,
+            // Provenance wins over anything the caller put on the note, for the
+            // same reason it does on every other write: one source of truth for
+            // who is acting, decided at the boundary and not per call.
+            session_id: note.session_id.or_else(|| provenance.session_id.clone()),
+            surface: note.surface.or(provenance.surface),
+            created_at: Utc::now(),
+            archived_at: None,
+        };
+
+        self.conn
+            .execute(
+                "INSERT INTO notes (id, project_id, entity_type, entity_id, body, author, \
+                 session_id, surface, created_at, archived_at) \
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+                params_from_iter(vec![
+                    Value::Text(stored.id.as_str().to_owned()),
+                    stored
+                        .project_id
+                        .as_ref()
+                        .map(|p| Value::Text(p.as_str().to_owned()))
+                        .unwrap_or(Value::Null),
+                    Value::Text(stored.entity_type.as_str().to_owned()),
+                    Value::Text(stored.entity_id.as_str().to_owned()),
+                    Value::Text(stored.body.clone()),
+                    Value::Text(stored.author.as_str().to_owned()),
+                    stored
+                        .session_id
+                        .clone()
+                        .map(Value::Text)
+                        .unwrap_or(Value::Null),
+                    stored
+                        .surface
+                        .map(|s| Value::Text(s.as_str().to_owned()))
+                        .unwrap_or(Value::Null),
+                    Value::Timestamp(TimeUnit::Microsecond, stored.created_at.timestamp_micros()),
+                ]),
+            )
+            .map_err(Error::storage(format!(
+                "append a note to {}",
+                stored.entity_id
+            )))?;
+
+        Ok(stored)
+    }
+
+    fn notes_for(&self, entity_id: &EntityId, include_retracted: bool) -> Result<Vec<Note>> {
+        let filter = if include_retracted {
+            ""
+        } else {
+            " AND archived_at IS NULL"
+        };
+        self.query_notes(
+            &format!("{NOTE_COLUMNS} FROM notes WHERE entity_id = ?{filter} ORDER BY id ASC"),
+            vec![Value::Text(entity_id.as_str().to_owned())],
+        )
+    }
+
+    fn notes_in_project(&self, project_id: &EntityId) -> Result<Vec<Note>> {
+        self.query_notes(
+            &format!(
+                "{NOTE_COLUMNS} FROM notes WHERE project_id = ? AND archived_at IS NULL \
+                 ORDER BY id ASC"
+            ),
+            vec![Value::Text(project_id.as_str().to_owned())],
+        )
+    }
+
+    fn retract_note(&mut self, id: &NoteId, provenance: &Provenance) -> Result<Note> {
+        let _ = provenance;
+        let now = Utc::now();
+        let changed = self
+            .conn
+            .execute(
+                "UPDATE notes SET archived_at = ? WHERE id = ? AND archived_at IS NULL",
+                params_from_iter(vec![
+                    Value::Timestamp(TimeUnit::Microsecond, now.timestamp_micros()),
+                    Value::Text(id.as_str().to_owned()),
+                ]),
+            )
+            .map_err(Error::storage(format!("retract note {id}")))?;
+        if changed == 0 {
+            // Either it never existed or it is already retracted. Both are the
+            // caller believing something false about the store, and both are
+            // worth saying out loud rather than returning a silent success.
+            return Err(Error::NotFound {
+                entity_type: EntityType::Task,
+                id: format!("{id} — no live note with this id"),
+            });
+        }
+        self.query_notes(
+            &format!("{NOTE_COLUMNS} FROM notes WHERE id = ?"),
+            vec![Value::Text(id.as_str().to_owned())],
+        )?
+        .pop()
+        .ok_or_else(|| Error::NotFound {
+            entity_type: EntityType::Task,
+            id: id.to_string(),
+        })
+    }
 }
 
 impl DuckStore {
+    /// Resolve any id to its type, project and archived state in one query.
+    ///
+    /// This is what `v_entities` is for: the caller has an id and no idea which
+    /// of thirteen tables it lives in, and a `match` over all thirteen would
+    /// have to be updated every time a type is added.
+    fn resolve_vertex(
+        &self,
+        id: &EntityId,
+    ) -> Result<Option<(EntityType, Option<EntityId>, bool)>> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT entity_type, project_id, archived_at FROM v_entities WHERE id = ? LIMIT 1",
+            )
+            .map_err(Error::storage("prepare a vertex lookup"))?;
+        let mut rows = stmt
+            .query(params_from_iter(vec![Value::Text(id.as_str().to_owned())]))
+            .map_err(Error::storage("run a vertex lookup"))?;
+        let Some(row) = rows.next().map_err(Error::storage("read a vertex row"))? else {
+            return Ok(None);
+        };
+        let e = |c: &'static str| Error::storage(format!("read column `{c}` of `v_entities`"));
+        let entity_type = EntityType::parse(
+            &row.get::<_, String>("entity_type")
+                .map_err(e("entity_type"))?,
+        )?;
+        let project_id = match row
+            .get::<_, Option<String>>("project_id")
+            .map_err(e("project_id"))?
+        {
+            Some(p) => Some(EntityId::parse(&p)?),
+            None => None,
+        };
+        let archived = row
+            .get::<_, Option<DateTime<Utc>>>("archived_at")
+            .map_err(e("archived_at"))?
+            .is_some();
+        Ok(Some((entity_type, project_id, archived)))
+    }
+
+    /// Run a note query and read the rows.
+    fn query_notes(&self, sql: &str, params: Vec<Value>) -> Result<Vec<Note>> {
+        let mut stmt = self
+            .conn
+            .prepare(sql)
+            .map_err(Error::storage("prepare a note query"))?;
+        let mut rows = stmt
+            .query(params_from_iter(params))
+            .map_err(Error::storage("run a note query"))?;
+        let mut out = Vec::new();
+        while let Some(row) = rows.next().map_err(Error::storage("read a note row"))? {
+            out.push(read_note(row)?);
+        }
+        Ok(out)
+    }
+
     /// Find one edge by its unique key.
     fn find_link(
         &self,
@@ -1362,6 +1552,47 @@ fn read_link(row: &Row<'_>) -> Result<Link> {
 }
 
 /// Rebuild an event from a row.
+/// The note projection, named once so the three note queries cannot drift.
+const NOTE_COLUMNS: &str = "SELECT id, project_id, entity_type, entity_id, body, author, \
+                            session_id, surface, created_at, archived_at";
+
+fn read_note(row: &Row<'_>) -> Result<Note> {
+    let e = |c: &'static str| Error::storage(format!("read column `{c}` of `notes`"));
+    Ok(Note {
+        id: NoteId::parse(&row.get::<_, String>("id").map_err(e("id"))?)?,
+        project_id: match row
+            .get::<_, Option<String>>("project_id")
+            .map_err(e("project_id"))?
+        {
+            Some(p) => Some(EntityId::parse(&p)?),
+            None => None,
+        },
+        entity_type: EntityType::parse(
+            &row.get::<_, String>("entity_type")
+                .map_err(e("entity_type"))?,
+        )?,
+        entity_id: EntityId::parse(&row.get::<_, String>("entity_id").map_err(e("entity_id"))?)?,
+        body: row.get::<_, String>("body").map_err(e("body"))?,
+        author: Actor::parse(&row.get::<_, String>("author").map_err(e("author"))?)?,
+        session_id: row
+            .get::<_, Option<String>>("session_id")
+            .map_err(e("session_id"))?,
+        surface: match row
+            .get::<_, Option<String>>("surface")
+            .map_err(e("surface"))?
+        {
+            Some(s) => Some(Surface::parse(&s)?),
+            None => None,
+        },
+        created_at: row
+            .get::<_, DateTime<Utc>>("created_at")
+            .map_err(e("created_at"))?,
+        archived_at: row
+            .get::<_, Option<DateTime<Utc>>>("archived_at")
+            .map_err(e("archived_at"))?,
+    })
+}
+
 fn read_event(row: &Row<'_>) -> Result<Event> {
     let e = |c: &'static str| Error::storage(format!("read column `{c}` of `events`"));
     let json = |v: Option<String>| v.and_then(|s| serde_json::from_str(&s).ok());
