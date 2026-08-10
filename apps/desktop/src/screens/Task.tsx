@@ -280,18 +280,23 @@ export function TaskScreen({ route, generation }: ScreenProps) {
               {task.closed_at ? (
                 <Property label="Closed">{when(String(task.closed_at))}</Property>
               ) : null}
-              {task.external_ref ? (
-                <Property label="Link">
-                  <a
-                    href={String(task.external_ref)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="truncate text-accent hover:underline"
-                  >
-                    {String(task.external_ref)}
-                  </a>
+              {((task.external_refs as string[] | undefined) ?? []).length > 0 && (
+                <Property label="Links">
+                  <span className="flex flex-col gap-0.5">
+                    {((task.external_refs as string[] | undefined) ?? []).map((url) => (
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="truncate text-accent hover:underline"
+                      >
+                        {url.replace(/^https?:\/\//, "")}
+                      </a>
+                    ))}
+                  </span>
                 </Property>
-              ) : null}
+              )}
               <Property label="Ref">
                 <span className="font-mono">{reference}</span>
               </Property>
@@ -301,10 +306,87 @@ export function TaskScreen({ route, generation }: ScreenProps) {
             </dl>
           </Card>
 
+          <Family
+            task={task}
+            siblings={siblings}
+            project={project}
+            projectKey={key}
+          />
           <Relationships related={related} project={project} />
         </aside>
       </div>
     </Page>
+  );
+}
+
+/**
+ * What this is part of, and what is part of it.
+ *
+ * Composition, not blocking. The two were the same edge before a task had a
+ * parent, which is why a rollup was impossible: `blocks` means "must happen
+ * first", and every inbound one is read by the ranking as something in the way.
+ *
+ * The progress count is the whole reason a parent is worth having — "3 of 7"
+ * is the question an epic exists to answer.
+ */
+function Family({
+  task,
+  siblings,
+  project,
+  projectKey,
+}: {
+  task: Entity;
+  siblings: Entity[];
+  project: string;
+  projectKey: string | undefined;
+}) {
+  const parent = task.parent_id
+    ? siblings.find((t) => String(t.id) === String(task.parent_id))
+    : undefined;
+  const children = siblings.filter((t) => String(t.parent_id) === String(task.id));
+  if (!parent && children.length === 0) return null;
+
+  const done = children.filter((t) => ["done", "wont_do"].includes(String(t.status))).length;
+
+  return (
+    <Card title="Part of">
+      <div className="space-y-3">
+        {parent && (
+          <div>
+            <h3 className="mb-1 text-micro tracking-wide text-ink-faint uppercase">Parent</h3>
+            <a
+              href={href({ screen: "task", project, taskId: taskRef(projectKey, parent) })}
+              className="text-small hover:underline"
+            >
+              {String(parent.title)}
+            </a>
+          </div>
+        )}
+        {children.length > 0 && (
+          <div>
+            <h3 className="mb-1 flex items-baseline gap-2 text-micro tracking-wide text-ink-faint uppercase">
+              Sub-tasks
+              <span className="tabular-nums">
+                {done} of {children.length} done
+              </span>
+            </h3>
+            <ul className="space-y-1">
+              {children.map((child) => (
+                <li key={String(child.id)} className="flex items-baseline gap-2">
+                  <Badge tone={statusTone(String(child.status))}>{String(child.status)}</Badge>
+                  <a
+                    href={href({ screen: "task", project, taskId: taskRef(projectKey, child) })}
+                    className="min-w-0 flex-1 truncate text-small hover:underline"
+                  >
+                    {String(child.title)}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 

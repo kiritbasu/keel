@@ -966,6 +966,132 @@ fn slugify(name: &str) -> String {
         .join("-")
 }
 
+/// Fields inside `changes` whose value is another row's id.
+///
+/// These have to accept `KEEL-42` for the same reason the `id` argument does:
+/// the readable identifier is only an identifier if it works everywhere one is
+/// taken. Missing this made `{"parent_id": "KEEL-92"}` fail with "no task with
+/// id KEEL-92 exists" about a task that plainly does.
+const REFERENCE_FIELDS: &[&str] = &["parent_id"];
+
+/// Rewrite readable references in `changes` into the ids the store stores.
+///
+/// Only touches a value that *is* a readable reference. A ULID is already
+/// right, and anything else is left alone so that serde's own error — which
+/// names the field and the valid shape — is what the caller sees.
+fn resolve_reference_fields(
+    store: &DuckStore,
+    changes: &mut Map<String, Value>,
+) -> Result<(), RpcError> {
+    for field in REFERENCE_FIELDS {
+        let Some(Value::String(raw)) = changes.get(*field) else {
+            continue;
+        };
+        if keel_core::types::parse_readable_ref(raw).is_none() {
+            continue;
+        }
+        let id = resolve_required(store, field, &raw.clone())?;
+        changes.insert((*field).to_owned(), json!(id.as_str()));
+    }
+    Ok(())
+}
+
+/// Turn "put it above the auth work" into a number.
+///
+/// `rank` is a float so that a move touches one row, but no caller should ever
+/// have to pick the float. `rank_after` and `rank_before` name a *task* — by
+/// readable reference or by id — and this resolves the value, which is the
+/// difference between a surface a model can use and one it has to compute
+/// against.
+///
+/// Both are consumed here rather than reaching the entity, because `Task` has
+/// no such fields and `apply_changes` would rightly reject them.
+fn resolve_rank_placement(
+    store: &DuckStore,
+    changes: &mut Map<String, Value>,
+) -> Result<(), RpcError> {
+    let after = changes.remove("rank_after");
+    let before = changes.remove("rank_before");
+    if after.is_none() && before.is_none() {
+        return Ok(());
+    }
+
+    // A task's own rank, and the rank of whatever currently sits next to it on
+    // the far side — placing "after A" means between A and A's successor.
+    let neighbour = |raw: &Value, field: &str| -> Result<f64, RpcError> {
+        let reference = raw
+            .as_str()
+            .ok_or_else(|| bad_arg(field, "not a string", ID_OR_REF))?;
+        let id = resolve_required(store, field, reference)?;
+        match store.get(&id).map_err(|e| to_rpc_error(store, e))? {
+            Some(Entity::Task(t)) => Ok(t.rank),
+            _ => Err(bad_arg(
+                field,
+                &format!("`{reference}` is not a task"),
+                "a task — only tasks carry a rank",
+            )),
+        }
+    };
+
+    let (low, high) = match (&after, &before) {
+        (Some(a), None) => {
+            let anchor = neighbour(a, "rank_after")?;
+            (Some(anchor), successor_rank(store, anchor)?)
+        }
+        (None, Some(b)) => {
+            let anchor = neighbour(b, "rank_before")?;
+            (predecessor_rank(store, anchor)?, Some(anchor))
+        }
+        (Some(a), Some(b)) => (
+            Some(neighbour(a, "rank_after")?),
+            Some(neighbour(b, "rank_before")?),
+        ),
+        (None, None) => unreachable!("checked above"),
+    };
+
+    let rank = store
+        .rank_between(low, high)
+        .map_err(|e| to_rpc_error(store, e))?;
+    changes.insert("rank".to_owned(), json!(rank));
+    Ok(())
+}
+
+/// The rank immediately above `anchor`, if anything is there.
+fn successor_rank(store: &DuckStore, anchor: f64) -> Result<Option<f64>, RpcError> {
+    Ok(store
+        .list(
+            &EntityQuery::default()
+                .of_type(EntityType::Task)
+                .limited(5_000),
+        )
+        .map_err(|e| to_rpc_error(store, e))?
+        .items
+        .iter()
+        .filter_map(|e| match e {
+            Entity::Task(t) if t.rank > anchor => Some(t.rank),
+            _ => None,
+        })
+        .min_by(|a, b| a.total_cmp(b)))
+}
+
+/// The rank immediately below `anchor`, if anything is there.
+fn predecessor_rank(store: &DuckStore, anchor: f64) -> Result<Option<f64>, RpcError> {
+    Ok(store
+        .list(
+            &EntityQuery::default()
+                .of_type(EntityType::Task)
+                .limited(5_000),
+        )
+        .map_err(|e| to_rpc_error(store, e))?
+        .items
+        .iter()
+        .filter_map(|e| match e {
+            Entity::Task(t) if t.rank < anchor => Some(t.rank),
+            _ => None,
+        })
+        .max_by(|a, b| a.total_cmp(b)))
+}
+
 fn keel_update(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
     let raw_id = req_str(args, "id")?;
     let id = resolve_required(store, "id", &raw_id)?;
@@ -988,7 +1114,7 @@ fn keel_update(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
         ));
     }
 
-    let changes = match args.get("changes") {
+    let mut changes = match args.get("changes") {
         Some(Value::Object(m)) => m.clone(),
         _ => {
             return Err(bad_arg(
@@ -998,6 +1124,9 @@ fn keel_update(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
             ));
         }
     };
+
+    resolve_reference_fields(store, &mut changes)?;
+    resolve_rank_placement(store, &mut changes)?;
 
     let updated = store
         .update(&id, version, &changes, &provenance)

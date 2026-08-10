@@ -513,6 +513,61 @@ CREATE UNIQUE INDEX IF NOT EXISTS projects_key ON projects(upper(key));
 CREATE UNIQUE INDEX IF NOT EXISTS tasks_number ON tasks(project_id, number);
 ",
         },
+        // Structure: a deliberate order, sub-tasks, and more than one link out.
+        //
+        // `rank` is a DOUBLE rather than an integer so that "put this above
+        // that" is the midpoint of its neighbours and touches one row, instead
+        // of a renumbering that touches every row below it. Backfilled from
+        // `number`, so the starting order is creation order rather than
+        // arbitrary. Float precision degrades after roughly fifty successive
+        // midpoint inserts between the *same* pair; at a few thousand rows
+        // hand-ordered by one person that is not reachable, and `fsck` reports
+        // ties if it ever is.
+        //
+        // `parent_id` is a column, not an edge. `blocks` means "must happen
+        // first" and composition is a different relation — modelling
+        // "is part of" as a blocking edge is what made rollups impossible and
+        // would quietly corrupt the ranking, which treats every inbound
+        // `blocks` as something in the way.
+        //
+        // `external_refs` replaces `external_ref` outright (TQ-23, KB confirmed
+        // 2026-08-10). Backfilled, then dropped: two columns meaning the same
+        // thing is drift with a schedule attached.
+        Migration {
+            id: 7,
+            name: "task_rank_parent_and_links",
+            sql: "
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS rank DOUBLE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS parent_id VARCHAR;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS external_refs VARCHAR[];
+
+UPDATE tasks SET external_refs =
+  CASE WHEN external_ref IS NULL OR external_ref = '' THEN CAST([] AS VARCHAR[])
+       ELSE [external_ref] END
+  WHERE external_refs IS NULL;
+
+UPDATE tasks SET rank = CAST(number AS DOUBLE) WHERE rank IS NULL;
+
+-- Every index on `tasks` comes off and goes back on around the drop. DuckDB
+-- refuses to drop a column while an index depends on any column *after* it —
+-- a positional restriction, not a logical one — and `external_ref` sits ahead
+-- of `idempotency_key` and the audit block. Recreated identically below; the
+-- unique ones are what enforce idempotency and readable identifiers, so a
+-- migration that quietly left them off would be worse than one that failed.
+DROP INDEX IF EXISTS tasks_idem;
+DROP INDEX IF EXISTS tasks_project;
+DROP INDEX IF EXISTS tasks_milestone;
+DROP INDEX IF EXISTS tasks_number;
+
+ALTER TABLE tasks DROP COLUMN external_ref;
+
+CREATE UNIQUE INDEX IF NOT EXISTS tasks_idem ON tasks(project_id, idempotency_key);
+CREATE INDEX IF NOT EXISTS tasks_project ON tasks(project_id);
+CREATE INDEX IF NOT EXISTS tasks_milestone ON tasks(milestone_id);
+CREATE UNIQUE INDEX IF NOT EXISTS tasks_number ON tasks(project_id, number);
+CREATE INDEX IF NOT EXISTS tasks_parent ON tasks(parent_id);
+",
+        },
     ]
 }
 

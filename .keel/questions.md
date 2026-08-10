@@ -21,24 +21,6 @@
 
 **Status:** open, and nothing is blocked on it.
 
-## TQ-23 — should a task hold more than one external link?
-
-`que_01KZNQ2WBFFS7SC2J3SKRJATKH` · question
-
-**Question.** RESET-PLAN 6.2 asks for a task to be able to hold more than one external reference — "its external link (PR or issue), and — new — the ability to hold more than one". `tasks.external_ref` is `Option<String>`.
-
-**Why it was not just done.** It is a storage-format change, and the standing rules say to ask about those. KB's approved field additions were three, named: a readable identifier, a rank, and a parent link. This is a fourth, and it arrived inside a UI step.
-
-**Options.**
-
-1. **Make it a list**, `external_refs VARCHAR[]`, forward-only migration copying the single value in. The column type already exists on this table — `labels` is a `VARCHAR[]`. Cheap.
-2. **Leave it single.** One PR per task is the overwhelmingly common case, and a task that genuinely spans two PRs is usually two tasks.
-3. **Model them as links** to `artifact` rows. Most faithful to the graph, most work, and probably more ceremony than a URL deserves.
-
-**Recommendation:** (1), bundled with the readable-identifier migration rather than as its own. It costs one column and it is the only one of the three that does not need new UI.
-
-**Status:** open — the detail view renders the single ref correctly today, so nothing is blocked on this.
-
 ## TQ-8 — SPEC §3.1's audit block lists four surface values; §6.5 names a fifth (cli).
 
 `que_01KZKWMSM71GGZHJA3156QBXKS` · question

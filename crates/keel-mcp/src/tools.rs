@@ -442,7 +442,11 @@ pub fn all() -> Vec<Tool> {
                  can usually merge and retry without asking anyone.\n\n\
                  An accepted decision's content is immutable — supersede it with a new decision \
                  linked by `supersedes` rather than editing it. Use `archive: true` to soft-delete; \
-                 nothing in Keel is ever really deleted."
+                 nothing in Keel is ever really deleted.\n\n\
+                 To reorder a task, put `rank_after` or `rank_before` in `changes` naming another \
+                 task — `{\"rank_after\": \"KEEL-12\"}` — rather than choosing a number. To make one \
+                 task part of another, set `parent_id`; that is composition, and it is a different \
+                 thing from `blocks`, which means \"must happen first\"."
                     .to_owned(),
             read_only: false,
             idempotent: true,
@@ -460,7 +464,12 @@ pub fn all() -> Vec<Tool> {
                         "changes": {
                             "type": "object",
                             "description": "Fields to set. Unknown fields are rejected with the \
-                                            list of real ones.",
+                                            list of real ones.\n\n\
+                                            Two are not fields but placements, for tasks: \
+                                            `rank_after` and `rank_before` each name another task \
+                                            and put this one next to it in the deliberate order. \
+                                            They resolve to `rank`, which you should not set \
+                                            directly.",
                             "additionalProperties": true
                         },
                         "archive": {

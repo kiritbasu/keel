@@ -858,7 +858,7 @@ pub fn load(store: &mut DuckStore) -> Result<FixtureSummary> {
         t.milestone_id = milestone_ids.get(milestone_idx).map(|(_, id)| id.clone());
         if status == TaskStatus::Done {
             t.closed_at = Some(now - Duration::days(7));
-            t.external_ref = Some(format!("https://github.com/kb/{}/pull/42", "keel"));
+            t.external_refs = vec![format!("https://github.com/kb/{}/pull/42", "keel")];
         }
         let prov = if kind == TaskKind::Bug {
             &human

@@ -197,10 +197,25 @@ describe("sortTasks", () => {
     expect(sortTasks(tasks, "updated", "desc", noRank).map((t) => t.id)).toEqual(["new", "old"]);
   });
 
-  it("uses the digest's ranking when asked for rank, so the app and the model agree", () => {
+  it("uses the digest's ranking for `next`, so the app and the model agree", () => {
     const rank: RankMap = new Map([["second", { position: 1, why: "" }]]);
     const tasks = [task("first", { priority: "p0" }), task("second", { priority: "p3" })];
-    expect(sortTasks(tasks, "rank", "asc", rank).map((t) => t.id)).toEqual(["second", "first"]);
+    expect(sortTasks(tasks, "next", "asc", rank).map((t) => t.id)).toEqual(["second", "first"]);
+  });
+
+  // `rank` and `next` are two different orders and were briefly the same word.
+  // A sort that silently means one when you asked for the other is exactly the
+  // kind of thing nobody reports, so they are asserted apart.
+  it("uses the stored deliberate order for `rank`, which is not the digest's", () => {
+    const digest: RankMap = new Map([["b", { position: 1, why: "" }]]);
+    const tasks = [task("a", { rank: 1 }), task("b", { rank: 2 })];
+    expect(sortTasks(tasks, "rank", "asc", digest).map((t) => t.id)).toEqual(["a", "b"]);
+    expect(sortTasks(tasks, "next", "asc", digest).map((t) => t.id)).toEqual(["b", "a"]);
+  });
+
+  it("sorts by a fractional rank, so a midpoint lands between its neighbours", () => {
+    const tasks = [task("a", { rank: 1 }), task("c", { rank: 2 }), task("b", { rank: 1.5 })];
+    expect(sortTasks(tasks, "rank", "asc", new Map()).map((t) => t.id)).toEqual(["a", "b", "c"]);
   });
 
   // Failure case: sorting must not mutate its input, or the board reorders
@@ -209,5 +224,26 @@ describe("sortTasks", () => {
     const tasks = [task("b", { priority: "p3" }), task("a", { priority: "p0" })];
     sortTasks(tasks, "priority", "asc", noRank);
     expect(tasks.map((t) => t.id)).toEqual(["b", "a"]);
+  });
+});
+
+describe("groupTasks, by parent", () => {
+  it("names each group after the parent and gathers the rest", () => {
+    const names = new Map([["tsk_epic", "The epic"]]);
+    const groups = groupTasks(
+      [task("child", { parent_id: "tsk_epic" }), task("loose")],
+      "parent",
+      names,
+    );
+    expect(groups.map((g) => g.label)).toEqual(["The epic", "not part of anything"]);
+  });
+
+  // The parent need not be in the filtered set: narrowing to open work should
+  // still say which epic each piece belongs to.
+  it("groups under a parent that is not itself in the list", () => {
+    const names = new Map([["tsk_epic", "The epic"]]);
+    const groups = groupTasks([task("child", { parent_id: "tsk_epic" })], "parent", names);
+    expect(groups[0]?.label).toBe("The epic");
+    expect(groups[0]?.tasks).toHaveLength(1);
   });
 });

@@ -56,6 +56,11 @@ export function TaskBoard({
   );
 }
 
+/** How many external links a task carries. */
+function links(task: Entity): number {
+  return ((task.external_refs as string[] | undefined) ?? []).length;
+}
+
 function TaskCard({
   task,
   project,
@@ -101,7 +106,11 @@ function TaskCard({
             {notes} {notes === 1 ? "note" : "notes"}
           </span>
         )}
-        {task.external_ref ? <span>has a link</span> : null}
+        {links(task) > 0 && (
+          <span>
+            {links(task)} {links(task) === 1 ? "link" : "links"}
+          </span>
+        )}
       </div>
     </a>
   );

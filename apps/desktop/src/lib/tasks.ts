@@ -75,15 +75,38 @@ export function inBoardOrder(tasks: Entity[], rank: RankMap): Entity[] {
 // --- Grouping and sorting ------------------------------------------------
 
 /** What the columns, or the list's section headings, are cut by. */
-export type GroupBy = "status" | "priority" | "milestone" | "label" | "none";
+export type GroupBy = "status" | "priority" | "milestone" | "label" | "parent" | "none";
 
-/** What orders tasks inside a group. */
-export type SortBy = "rank" | "priority" | "status" | "updated" | "title" | "number";
+/**
+ * What orders tasks inside a group.
+ *
+ * Two of these are orderings rather than fields, and they are different
+ * things: `next` is the ranking the digest computes and gives an agent, and
+ * `rank` is the deliberate order a person put the tasks in. Naming them apart
+ * matters — they were briefly the same word, and a sort that silently means
+ * one when you asked for the other is the kind of thing nobody reports.
+ */
+export type SortBy = "next" | "rank" | "priority" | "status" | "updated" | "title" | "number";
 
 export type SortDir = "asc" | "desc";
 
-export const GROUP_BY: GroupBy[] = ["status", "priority", "milestone", "label", "none"];
-export const SORT_BY: SortBy[] = ["rank", "priority", "status", "updated", "title", "number"];
+export const GROUP_BY: GroupBy[] = [
+  "status",
+  "priority",
+  "milestone",
+  "label",
+  "parent",
+  "none",
+];
+export const SORT_BY: SortBy[] = [
+  "next",
+  "rank",
+  "priority",
+  "status",
+  "updated",
+  "title",
+  "number",
+];
 
 /** One column, or one section of the list. */
 export interface Group {
@@ -113,7 +136,7 @@ const PRIORITIES = ["p0", "p1", "p2", "p3"];
 export function groupTasks(
   tasks: Entity[],
   by: GroupBy,
-  milestoneNames: ReadonlyMap<string, string>,
+  names: ReadonlyMap<string, string>,
 ): Group[] {
   if (by === "none") {
     return [{ key: "all", label: "All", tasks }];
@@ -141,14 +164,31 @@ export function groupTasks(
   if (by === "milestone") {
     const ids = [...new Set(tasks.map((t) => (t.milestone_id ? String(t.milestone_id) : "")))]
       .filter(Boolean)
-      .sort((a, b) => (milestoneNames.get(a) ?? a).localeCompare(milestoneNames.get(b) ?? b));
+      .sort((a, b) => (names.get(a) ?? a).localeCompare(names.get(b) ?? b));
     const groups = ids.map((id) => ({
       key: id,
-      label: milestoneNames.get(id) ?? id,
+      label: names.get(id) ?? id,
       tasks: tasks.filter((t) => String(t.milestone_id) === id),
     }));
     const rest = tasks.filter((t) => !t.milestone_id);
     if (rest.length) groups.push({ key: "none", label: "no milestone", tasks: rest });
+    return groups;
+  }
+
+  if (by === "parent") {
+    // One group per parent that something in the filtered set belongs to. The
+    // parent itself need not be in the set — a filter for open work should
+    // still say which epic each piece is part of.
+    const ids = [...new Set(tasks.map((t) => (t.parent_id ? String(t.parent_id) : "")))]
+      .filter(Boolean)
+      .sort((a, b) => (names.get(a) ?? a).localeCompare(names.get(b) ?? b));
+    const groups = ids.map((id) => ({
+      key: id,
+      label: names.get(id) ?? id,
+      tasks: tasks.filter((t) => String(t.parent_id) === id),
+    }));
+    const rest = tasks.filter((t) => !t.parent_id);
+    if (rest.length) groups.push({ key: "none", label: "not part of anything", tasks: rest });
     return groups;
   }
 
@@ -170,9 +210,10 @@ const STATUS_INDEX = new Map(COLUMNS.map((status, i) => [status as string, i]));
 /**
  * Order tasks within a group.
  *
- * `rank` is the default and means the ranking the digest gives an agent, so the
- * board and the model agree about what to do next. Every other option is a
- * property of the row.
+ * `next` is the default and means the ranking the digest gives an agent, so the
+ * board and the model agree about what to do next. `rank` is the separate,
+ * deliberate order a person put the tasks in. Everything else is a property of
+ * the row.
  *
  * Comparison is always on a typed key rather than on the stringified value.
  * The old board compared priorities as text, which sorted a task with no
@@ -188,13 +229,15 @@ export function sortTasks(
   const sign = dir === "desc" ? -1 : 1;
   const sorted = [...tasks];
 
-  if (by === "rank") {
+  if (by === "next") {
     sorted.sort(compareTasks(rank));
     return dir === "desc" ? sorted.reverse() : sorted;
   }
 
   sorted.sort((a, b) => {
     switch (by) {
+      case "rank":
+        return sign * (Number(a.rank ?? 0) - Number(b.rank ?? 0));
       case "priority":
         return sign * (priorityIndex(a.priority) - priorityIndex(b.priority));
       case "status":

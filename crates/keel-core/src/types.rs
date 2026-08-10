@@ -139,6 +139,13 @@ pub fn derive_idempotency_key(
     digest.iter().take(16).map(|b| format!("{b:02x}")).collect()
 }
 
+/// How deep a chain of parent tasks may go.
+///
+/// Six, because work nested deeper than that is a milestone wearing a task's
+/// clothes — and because a bound is what stops a malformed chain becoming an
+/// unbounded walk while something is trying to render it.
+pub const MAX_PARENT_DEPTH: usize = 6;
+
 /// The longest a project key may be.
 ///
 /// Four, because the point of `KEEL-42` is that it fits in a sentence and in a
@@ -307,7 +314,10 @@ impl Milestone {
 }
 
 /// A unit of work.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// `PartialEq` but not `Eq`: `rank` is a float, and a total equality on a type
+/// carrying one would be a lie about NaN rather than a convenience.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Task {
     /// `tsk_…`
     pub id: EntityId,
@@ -333,8 +343,22 @@ pub struct Task {
     pub priority: TaskPriority,
     /// Free-text labels.
     pub labels: Vec<String>,
-    /// PR or issue URL.
-    pub external_ref: Option<String>,
+    /// PR and issue URLs. More than one, because a task routinely spans a pull
+    /// request and the issue it closes (TQ-23, KB confirmed 2026-08-10).
+    pub external_refs: Vec<String>,
+    /// The task this one is part of, if any.
+    ///
+    /// A column rather than an edge: `blocks` means "must happen first", and
+    /// composition is a different relation. Modelling "is part of" as a
+    /// blocking edge is what made rollups impossible, and it would corrupt the
+    /// ranking, which reads every inbound `blocks` as something in the way.
+    pub parent_id: Option<EntityId>,
+    /// Where this sits in a deliberate order. Lower is earlier.
+    ///
+    /// Fractional so that inserting between two neighbours is their midpoint
+    /// and touches one row. Set through `rank_after`/`rank_before` rather than
+    /// by choosing a number — see [`crate::EntityStore::rank_between`].
+    pub rank: f64,
     /// When it reached a terminal status.
     pub closed_at: Option<DateTime<Utc>>,
     /// Idempotency key, unique within the project.
@@ -359,7 +383,11 @@ impl Task {
             status: TaskStatus::default(),
             priority: TaskPriority::default(),
             labels: Vec::new(),
-            external_ref: None,
+            external_refs: Vec::new(),
+            parent_id: None,
+            // Zero means "not yet assigned", which is only true between
+            // constructing a `Task` and storing it.
+            rank: 0.0,
             closed_at: None,
             audit: provisional_audit(),
         }

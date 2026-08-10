@@ -327,6 +327,20 @@ pub trait EntityStore {
     /// The next unused task number in a project. Never reuses one.
     fn next_task_number(&self, project_id: &EntityId) -> Result<i32>;
 
+    /// A rank that puts a new task at the end of the deliberate order.
+    fn next_task_rank(&self, project_id: &EntityId) -> Result<f64>;
+
+    /// A rank that sits between two neighbours, either of which may be absent.
+    ///
+    /// This is what "move it above the auth work" resolves to. Fractional, so
+    /// the move touches one row rather than renumbering everything below it.
+    fn rank_between(&self, before: Option<f64>, after: Option<f64>) -> Result<f64>;
+
+    /// Reject a parent that does not exist, is in another project, or would
+    /// make a cycle. Called on the way in, because a cycle is unrenderable and
+    /// the store is the only place that can see the whole chain.
+    fn check_task_parent(&self, task: &crate::Task) -> Result<()>;
+
     /// A project key that no other project holds, starting from `base`.
     fn unique_project_key(&self, base: &str) -> Result<String>;
 

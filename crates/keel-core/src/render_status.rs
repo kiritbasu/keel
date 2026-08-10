@@ -171,8 +171,8 @@ pub fn render(store: &DuckStore, project_id: &EntityId) -> Result<String> {
             if !task.labels.is_empty() {
                 line.push_str(&format!(" · {}", task.labels.join(", ")));
             }
-            if let Some(url) = &task.external_ref {
-                line.push_str(&format!(" · [PR]({url})"));
+            for (i, url) in task.external_refs.iter().enumerate() {
+                line.push_str(&format!(" · [link {}]({url})", i + 1));
             }
             writeln!(out, "{line}")?;
 

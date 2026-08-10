@@ -8,7 +8,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
 const TASK = {
   id: "tsk_me",
@@ -20,8 +20,12 @@ const TASK = {
   kind: "task",
   labels: ["desktop", "phase6"],
   milestone_id: "mst_1",
+  parent_id: "tsk_parent",
   closed_at: null,
-  external_ref: null,
+  external_refs: [
+    "https://github.com/kb/keel/pull/1",
+    "https://github.com/kb/keel/issues/2",
+  ],
   audit: { created_at: "2026-08-10T09:00:00Z", updated_at: "2026-08-10T10:00:00Z" },
 };
 
@@ -129,6 +133,29 @@ vi.mock("../lib/api", () => ({
               { id: "tsk_first", type: "task", title: "Aaa first", status: "todo", priority: "p0" },
               { id: "tsk_me", type: "task", title: "Me", status: "in_progress", priority: "p0" },
               { id: "tsk_last", type: "task", title: "Zzz last", status: "done", priority: "p0" },
+              {
+                id: "tsk_parent",
+                type: "task",
+                title: "The epic above",
+                status: "todo",
+                priority: "p1",
+              },
+              {
+                id: "tsk_kid_a",
+                type: "task",
+                title: "A finished piece",
+                status: "done",
+                priority: "p2",
+                parent_id: "tsk_me",
+              },
+              {
+                id: "tsk_kid_b",
+                type: "task",
+                title: "An unfinished piece",
+                status: "todo",
+                priority: "p2",
+                parent_id: "tsk_me",
+              },
             ],
       total: 3,
       truncated: false,
@@ -196,7 +223,9 @@ describe("what it shows", () => {
   // The event log has always held before and after; nothing had ever shown it.
   it("renders a field change as before and after", async () => {
     await show();
-    const row = screen.getByText("todo").closest("li");
+    // Scoped to the History card — "todo" also names several sub-task statuses.
+    const history = screen.getByText("History").closest("section") as HTMLElement;
+    const row = within(history).getByText("todo").closest("li");
     expect(row?.textContent).toContain("status");
     expect(row?.textContent).toContain("todo");
     expect(row?.textContent).toContain("→");
@@ -219,7 +248,9 @@ describe("the keyboard", () => {
 
     window.location.hash = "#/projects/keel/tasks/tsk_me";
     fireEvent.keyDown(window, { key: "k" });
-    expect(window.location.hash).toBe("#/projects/keel/tasks/tsk_first");
+    // The last card in the todo column, which is the one immediately before
+    // the in_progress column this task sits in.
+    expect(window.location.hash).toBe("#/projects/keel/tasks/tsk_kid_b");
   });
 
   // Failure case: at the ends of the list the keys must do nothing rather than
@@ -263,5 +294,30 @@ describe("when the rest of the project cannot be loaded", () => {
     } finally {
       api.entities = working;
     }
+  });
+});
+
+describe("what this is part of", () => {
+  // Composition, not blocking. The two were the same edge before a task had a
+  // parent, which is why a rollup was impossible: `blocks` means "must happen
+  // first", and the ranking reads every inbound one as something in the way.
+  it("shows the parent and the sub-tasks with a progress count", async () => {
+    await show();
+    expect(screen.getByText("Part of")).toBeTruthy();
+    expect(screen.getByText("The epic above")).toBeTruthy();
+    expect(screen.getByText("1 of 2 done")).toBeTruthy();
+  });
+
+  it("links a sub-task to its own page", async () => {
+    await show();
+    expect(screen.getByText("A finished piece").closest("a")?.getAttribute("href")).toBe(
+      "#/projects/keel/tasks/tsk_kid_a",
+    );
+  });
+
+  it("shows every external link, not just the first", async () => {
+    await show();
+    expect(screen.getByText("github.com/kb/keel/pull/1")).toBeTruthy();
+    expect(screen.getByText("github.com/kb/keel/issues/2")).toBeTruthy();
   });
 });

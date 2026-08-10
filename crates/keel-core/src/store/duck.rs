@@ -625,8 +625,14 @@ impl EntityStore for DuckStore {
             }
             Entity::Task(t) if t.number == 0 => {
                 t.number = self.next_task_number(&t.project_id)?;
+                if t.rank == 0.0 {
+                    t.rank = self.next_task_rank(&t.project_id)?;
+                }
             }
             _ => {}
+        }
+        if let Entity::Task(t) = &entity {
+            self.check_task_parent(t)?;
         }
 
         let now = Utc::now();
@@ -699,6 +705,13 @@ impl EntityStore for DuckStore {
         let applied = apply_changes(&mut entity, changes)?;
         if applied.is_empty() {
             return Ok(entity);
+        }
+
+        // Re-checked on update, not only on create. A parent set later is the
+        // one that can close a cycle: A is created, then B under A, then A is
+        // moved under B.
+        if let Entity::Task(t) = &entity {
+            self.check_task_parent(t)?;
         }
 
         let now = Utc::now();
@@ -1147,6 +1160,112 @@ impl EntityStore for DuckStore {
                 "resolve the reference `{reference}`"
             ))(e)),
         }
+    }
+
+    fn next_task_rank(&self, project_id: &EntityId) -> Result<f64> {
+        // New work lands at the end of the deliberate order rather than the
+        // start. A task nobody has placed has not been prioritised, and putting
+        // it at the top would be the store making that claim on their behalf.
+        let max: Option<f64> = self
+            .conn
+            .query_row(
+                "SELECT max(rank) FROM tasks WHERE project_id = ?",
+                params_from_iter(vec![Value::Text(project_id.as_str().to_owned())]),
+                |row| row.get::<_, Option<f64>>(0),
+            )
+            .map_err(Error::storage("read the last rank in a project"))?;
+        Ok(max.unwrap_or(0.0) + 1.0)
+    }
+
+    fn rank_between(&self, before: Option<f64>, after: Option<f64>) -> Result<f64> {
+        match (before, after) {
+            // Between two neighbours: the midpoint, which touches one row where
+            // a renumbering would touch every row below it.
+            (Some(a), Some(b)) => {
+                if (a - b).abs() < f64::EPSILON {
+                    return Err(Error::Invariant {
+                        operation: "place a task between two others".to_owned(),
+                        problem: format!(
+                            "both neighbours have rank {a}, so there is no space between them"
+                        ),
+                    });
+                }
+                Ok((a + b) / 2.0)
+            }
+            (Some(a), None) => Ok(a + 1.0),
+            (None, Some(b)) => Ok(b - 1.0),
+            (None, None) => Ok(1.0),
+        }
+    }
+
+    fn check_task_parent(&self, task: &crate::Task) -> Result<()> {
+        let Some(parent_id) = &task.parent_id else {
+            return Ok(());
+        };
+
+        if parent_id == &task.id {
+            return Err(Error::invalid(
+                EntityType::Task,
+                "parent_id",
+                "a task cannot be its own parent".to_owned(),
+                "the id of a different task in the same project".to_owned(),
+            ));
+        }
+
+        let Some(Entity::Task(parent)) = self.get(parent_id)? else {
+            return Err(Error::invalid(
+                EntityType::Task,
+                "parent_id",
+                format!("no task with id {parent_id} exists"),
+                "the id of a task in the same project — a parent is a task, not a milestone or \
+                 a spec"
+                    .to_owned(),
+            ));
+        };
+
+        if parent.project_id != task.project_id {
+            return Err(Error::invalid(
+                EntityType::Task,
+                "parent_id",
+                "the parent belongs to a different project".to_owned(),
+                "a task in the same project; composition does not cross project boundaries"
+                    .to_owned(),
+            ));
+        }
+
+        // Walk up from the proposed parent. A cycle here is not a tidiness
+        // problem: every rollup and every render of the tree would recurse
+        // until something ran out of stack, and the store is the only place
+        // that can see the whole chain.
+        let mut seen = vec![task.id.clone()];
+        let mut cursor = Some(parent.id.clone());
+        while let Some(id) = cursor {
+            if seen.contains(&id) {
+                return Err(Error::invalid(
+                    EntityType::Task,
+                    "parent_id",
+                    "that would make a task its own ancestor".to_owned(),
+                    "a task that is not already below this one in the tree".to_owned(),
+                ));
+            }
+            seen.push(id.clone());
+            if seen.len() > crate::types::MAX_PARENT_DEPTH {
+                return Err(Error::invalid(
+                    EntityType::Task,
+                    "parent_id",
+                    format!(
+                        "the chain of parents is deeper than {}",
+                        crate::types::MAX_PARENT_DEPTH
+                    ),
+                    "a shallower tree — work nested that deep is usually a milestone".to_owned(),
+                ));
+            }
+            cursor = match self.get(&id)? {
+                Some(Entity::Task(t)) => t.parent_id,
+                _ => None,
+            };
+        }
+        Ok(())
     }
 
     fn next_task_number(&self, project_id: &EntityId) -> Result<i32> {

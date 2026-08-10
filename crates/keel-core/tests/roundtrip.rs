@@ -49,7 +49,7 @@ fn one_of_each(project_id: &EntityId, metric_id: &EntityId) -> Vec<Entity> {
     task.body = Some("Forward-only migrations, tested.".into());
     task.priority = TaskPriority::P0;
     task.labels = vec!["storage".into(), "phase-0".into()];
-    task.external_ref = Some("https://github.com/kb/keel/pull/1".into());
+    task.external_refs = vec!["https://github.com/kb/keel/pull/1".into()];
 
     let mut spec = Spec::new(project_id.clone(), "Storage specification");
     spec.kind = SpecKind::DesignDoc;

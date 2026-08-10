@@ -502,6 +502,59 @@ pub fn check(store: &DuckStore) -> Result<FsckReport> {
         });
     }
 
+    // --- Sub-tasks form a tree, not a knot ------------------------------
+    //
+    // The store rejects a cycle on the way in, so what is audited here is the
+    // state a restore or a hand-edited database can leave. A cycle is not
+    // untidy: every rollup and every render of the tree recurses until
+    // something runs out of stack, and nothing else in the system can see the
+    // whole chain.
+    checks_run += 1;
+    let n = count(
+        "WITH RECURSIVE up AS (
+           SELECT id AS start, parent_id AS ancestor, 1 AS depth FROM tasks WHERE parent_id IS NOT NULL
+           UNION ALL
+           SELECT u.start, t.parent_id, u.depth + 1
+           FROM up u JOIN tasks t ON t.id = u.ancestor
+           WHERE t.parent_id IS NOT NULL AND u.depth < 32
+         )
+         SELECT count(DISTINCT start) FROM up WHERE ancestor = start",
+        "task_parent_cycle",
+    )?;
+    if n > 0 {
+        findings.push(Finding {
+            severity: Severity::Error,
+            check: "task_parent_cycle".to_owned(),
+            detail: format!("{n} task(s) are their own ancestor, so the sub-task tree has a loop"),
+            remedy: "clear `parent_id` on one task in each loop. Anything walking the tree \
+                     recurses forever until it is broken"
+                .to_owned(),
+            count: n,
+        });
+    }
+
+    checks_run += 1;
+    let n = count(
+        "SELECT count(*) FROM tasks t
+         LEFT JOIN tasks p ON p.id = t.parent_id
+         WHERE t.parent_id IS NOT NULL
+           AND (p.id IS NULL OR p.project_id != t.project_id)",
+        "task_parent_dangling",
+    )?;
+    if n > 0 {
+        findings.push(Finding {
+            severity: Severity::Error,
+            check: "task_parent_dangling".to_owned(),
+            detail: format!(
+                "{n} task(s) name a parent that does not exist or belongs to another project"
+            ),
+            remedy: "clear `parent_id`, or set it to a task in the same project. A child whose \
+                     parent is elsewhere appears under nothing and is counted by no rollup"
+                .to_owned(),
+            count: n,
+        });
+    }
+
     // --- Cross-references that resolve ----------------------------------
     //
     // A gate session filed a question into a project citing "append-only

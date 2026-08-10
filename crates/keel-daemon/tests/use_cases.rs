@@ -581,13 +581,22 @@ async fn uc3_implementation_handoff() {
                 "version": version,
                 "changes": {
                     "status": "done",
-                    "external_ref": "https://github.com/kb/harbour/pull/128"
+                    // A list since TQ-23: a task routinely spans a pull request
+                    // and the issue it closes.
+                    "external_refs": [
+                        "https://github.com/kb/harbour/pull/128",
+                        "https://github.com/kb/harbour/issues/91"
+                    ]
                 }
             })),
         )
         .await;
     assert_eq!(done["entity"]["status"], "done");
     assert_eq!(done["entity"]["version"], version + 1);
+    assert_eq!(
+        done["entity"]["external_refs"].as_array().map(Vec::len),
+        Some(2)
+    );
 
     // The timeline shows it.
     let activity = d

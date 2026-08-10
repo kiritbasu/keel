@@ -45,7 +45,7 @@ export function BoardScreen({ route, generation }: ScreenProps) {
     : "status";
   const sort: SortBy = SORT_BY.includes(route.query.sort as SortBy)
     ? (route.query.sort as SortBy)
-    : "rank";
+    : "next";
   const dir: SortDir = route.query.dir === "desc" ? "desc" : "asc";
 
   const { data, error, loading, reload } = useAsync<PageOf<Entity>>(
@@ -93,11 +93,14 @@ export function BoardScreen({ route, generation }: ScreenProps) {
     [ranked],
   );
 
-  const milestoneNames = useMemo(() => {
+  // Milestones and tasks share one lookup, because grouping needs a name for
+  // whatever it grouped by and both kinds of key land in the same place.
+  const groupNames = useMemo(() => {
     const names = new Map<string, string>();
     for (const m of milestones.data?.items ?? []) names.set(String(m.id), String(m.name));
+    for (const t of data?.items ?? []) names.set(String(t.id), String(t.title));
     return names;
-  }, [milestones.data]);
+  }, [milestones.data, data]);
 
   const facets = useMemo<Facets>(() => {
     const labels = new Set<string>();
@@ -119,14 +122,14 @@ export function BoardScreen({ route, generation }: ScreenProps) {
     // A board with one column is not a board, so `none` degrades to status
     // there rather than being offered and then quietly ignored.
     const by = layout === "board" && group === "none" ? "status" : group;
-    return groupTasks(matching, by, milestoneNames).map((g) => ({
+    return groupTasks(matching, by, groupNames).map((g) => ({
       ...g,
       tasks: sortTasks(g.tasks, sort, dir, rank),
     }));
     // `filter` is rebuilt from the query on every render, so the memo compares
     // its serialised form rather than its identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, filterKey, blockedIds, group, layout, milestoneNames, sort, dir, rank]);
+  }, [data, filterKey, blockedIds, group, layout, groupNames, sort, dir, rank]);
 
   // Counted as distinct tasks, not as the sum of the groups: grouping by label
   // puts a task with three labels in three groups, and adding the columns up
@@ -170,7 +173,7 @@ export function BoardScreen({ route, generation }: ScreenProps) {
                 // unfiltered board has a clean address rather than one trailing
                 // four parameters that say "as usual".
                 ...(next.group ? { group: next.group === "status" ? undefined : next.group } : {}),
-                ...(next.sort ? { sort: next.sort === "rank" ? undefined : next.sort } : {}),
+                ...(next.sort ? { sort: next.sort === "next" ? undefined : next.sort } : {}),
                 ...(next.dir ? { dir: next.dir === "asc" ? undefined : next.dir } : {}),
                 ...(next.layout
                   ? { view: next.layout === "board" ? undefined : next.layout }
@@ -226,7 +229,7 @@ export function BoardScreen({ route, generation }: ScreenProps) {
               setQuery(
                 route,
                 {
-                  sort: by === "rank" ? undefined : by,
+                  sort: by === "next" ? undefined : by,
                   // Clicking the column already sorted by reverses it.
                   dir: sort === by && dir === "asc" ? "desc" : undefined,
                 },
