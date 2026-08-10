@@ -7,28 +7,6 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
-### TQ-28 — renaming an artifact leaves an orphaned mirror file that reads as current
-
-`que_01KZPNN754J219CB2A059J1TBE` · question · open
-
-**Question:** Renaming an artifact changes its mirror slug, and `generate` only ever writes — it never removes a file it used to produce. The old file stays on disk, carrying a `keel:generated` banner and a real id, reading as current.
-
-Hit for real on 2026-08-10: correcting seven truncated decision titles produced seven new files under `.keel/decisions/` and left seven orphans behind. They were found by diffing the directory against `.keel/manifest.json` and removed by hand.
-
-**Why it matters.** An orphan is worse than a missing file. It is a plausible, banner-carrying, greppable document that no longer corresponds to anything, and the next `generate` will not touch it — so it is stale forever and nothing says so. That is the same failure this register unification existed to remove.
-
-**Why it has not bitten before:** renames were rare, and the mirror was mostly append-only in practice.
-
-**Options.**
-
-1. **`generate` prunes.** The manifest already records every path produced by the previous run; anything under the mirror root that was in the old manifest and is not in the new one gets deleted. Bounded to files Keel itself wrote, so it cannot touch anything else.
-2. **`generate --check` reports orphans** without deleting, and a person removes them. Safer, and consistent with the pre-commit check being loud rather than clever.
-3. **`fsck` reports them**, keeping generation write-only.
-
-**Recommendation:** (1) plus (2) — prune on write, report on check. The manifest makes it precise rather than heuristic, and deleting a file Keel wrote and no longer writes is not a destructive act in the sense the soft-delete rule cares about; the artifact is untouched in the store.
-
-**Status:** open.
-
 ### TQ-26 — the installed plugin is a hand-copy, and it drifts silently
 
 `que_01KZP8C2BNKSN7GMJV4JSBZ29Q` · risk · open · severity medium
@@ -132,6 +110,22 @@ It grows forever. Keep everything, which is probably fine for a decade at this w
 ## Settled
 
 *Decided, with the reasoning. Do not re-litigate these.*
+
+### TQ-28 — renaming an artifact leaves an orphaned mirror file that reads as current
+
+`que_01KZPNN754J219CB2A059J1TBE` · question · answered
+
+**Question:** Renaming an artifact changes its mirror slug, and `generate` only ever writes — it never removes a file it used to produce. The old file stays on disk carrying a `keel:generated` banner and a real id, reading as current.
+
+**Answered — prune on write, report on check.** KB's call, 2026-08-10. Built the same day.
+
+`generate` reads the previous `.keel/manifest.json` before writing anything, and any path it lists that this run no longer produces is removed in `Write` mode and reported in `Check` mode. Orphans count towards `is_current`, so a repository carrying one fails `--check` and the pre-commit hook refuses the commit.
+
+Bounded three ways, because this is the only place generation deletes: the path must have been produced by a previous run of this project, must live under `.keel/`, and must still be a file. A missing or unparseable manifest means "nothing known", never "everything is an orphan" — that reading is the one that could delete a tree, and it has its own test. So does a manifest naming `product/SPEC.md`, which must not be able to make generation delete a spec.
+
+Every removal is named individually in the output rather than counted. This is the only thing generation deletes, and a deletion nobody can see is how a tool stops being trusted.
+
+**Limit, stated deliberately:** pruning covers the mirror root only. An adopted document under `product/` orphans when its artifact is archived — as `QUESTIONS.md` and `DECISIONS.md` did this session — and those are still removed by hand. That is rare, deliberate, and a person is present; automatic deletion in `product/` is a larger act than this question asked for.
 
 ### TQ-27 — an accepted decision's title is immutable but its body is not
 

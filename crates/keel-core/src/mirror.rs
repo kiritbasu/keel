@@ -76,6 +76,15 @@ pub struct MirrorReport {
     pub written: Vec<String>,
     /// Files already correct, left alone.
     pub unchanged: Vec<String>,
+    /// Files this run previously produced and no longer does — removed in
+    /// [`crate::generate::Mode::Write`], reported in
+    /// [`crate::generate::Mode::Check`].
+    ///
+    /// Renaming an artifact changes its slug, so the old file would otherwise
+    /// survive carrying a `keel:generated` banner and a real id, reading as
+    /// current forever. That is worse than a missing file: it is plausible,
+    /// greppable and permanently wrong, and nothing would ever say so.
+    pub orphans: Vec<String>,
 }
 
 impl MirrorReport {
@@ -132,6 +141,16 @@ pub fn generate_except(
             root.join("decisions").display()
         )))?;
     }
+
+    // What the last run produced, so this one can tell what it has stopped
+    // producing. Read before anything is written. A missing or unreadable
+    // manifest means "nothing known", never "everything is an orphan" — the
+    // one reading that could delete a tree.
+    let previous: Vec<String> = std::fs::read_to_string(root.join("manifest.json"))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<Manifest>(&raw).ok())
+        .map(|m| m.files.into_iter().map(|f| f.path).collect())
+        .unwrap_or_default();
 
     let mut report = MirrorReport::default();
     let mut files: Vec<MirrorFile> = Vec::new();
@@ -365,6 +384,33 @@ pub fn generate_except(
         path: ".keel/glossary.md".to_owned(),
         contributors: term_contributors,
     });
+
+    // --- Orphans ----------------------------------------------------------
+    //
+    // Bounded three ways, because this is the only place generation deletes:
+    // the path must have been produced by a previous run of *this* project,
+    // must live under the mirror root, and must still be a file. Anything the
+    // mirror did not write is not the mirror's to remove.
+    let produced: std::collections::BTreeSet<&str> =
+        files.iter().map(|f| f.path.as_str()).collect();
+    for stale in &previous {
+        if produced.contains(stale.as_str()) {
+            continue;
+        }
+        if !stale.starts_with(".keel/") || stale.contains("..") {
+            continue;
+        }
+        let absolute = repo_root.join(stale);
+        if !absolute.is_file() {
+            continue;
+        }
+        if mode == crate::generate::Mode::Write {
+            std::fs::remove_file(&absolute)
+                .map_err(Error::io(format!("remove the orphaned {stale}")))?;
+        }
+        report.orphans.push(stale.clone());
+    }
+    report.orphans.sort();
 
     // --- Manifest --------------------------------------------------------
     let manifest = Manifest {

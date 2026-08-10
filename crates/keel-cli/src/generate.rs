@@ -38,7 +38,7 @@ pub fn run(
         }
     };
 
-    let changed = !report.written.is_empty();
+    let changed = !report.written.is_empty() || !report.orphans.is_empty();
 
     if json {
         println!(
@@ -47,12 +47,19 @@ pub fn run(
                 "written": report.written,
                 "unchanged": report.unchanged,
                 "unrepresented": report.unrepresented,
+                "orphans": report.orphans,
                 "checked": check,
             }))?
         );
     } else {
         for path in &report.written {
             println!("  {} {path}", if check { "stale" } else { "wrote" });
+        }
+        for path in &report.orphans {
+            // Named individually and never merely counted: this is the only
+            // thing generation deletes, and a deletion nobody can see is how
+            // a tool stops being trusted.
+            println!("  {} {path}", if check { "orphaned" } else { "removed" });
         }
         for note in &report.unrepresented {
             println!("  skipped {note}");
@@ -61,14 +68,16 @@ pub fn run(
             println!("up to date ({} files)", report.unchanged.len());
         } else if check {
             println!(
-                "{} file(s) differ from Keel, {} current",
+                "{} file(s) differ from Keel, {} orphaned, {} current",
                 report.written.len(),
+                report.orphans.len(),
                 report.unchanged.len()
             );
         } else {
             println!(
-                "{} file(s) written, {} unchanged",
+                "{} file(s) written, {} removed, {} unchanged",
                 report.written.len(),
+                report.orphans.len(),
                 report.unchanged.len()
             );
         }
@@ -89,6 +98,8 @@ struct WireReport {
     unchanged: Vec<String>,
     #[serde(default)]
     unrepresented: Vec<String>,
+    #[serde(default)]
+    orphans: Vec<String>,
 }
 
 fn via_daemon(
@@ -118,6 +129,7 @@ fn via_daemon(
         written: report.written,
         unchanged: report.unchanged,
         unrepresented: report.unrepresented,
+        orphans: report.orphans,
     })
 }
 

@@ -61,12 +61,24 @@ pub struct GenerateReport {
     /// Not fatal, and not a file operation — a warning that the store holds
     /// something the repository cannot see.
     pub unrepresented: Vec<String>,
+    /// Files a previous run produced and this one does not: removed in
+    /// [`Mode::Write`], reported in [`Mode::Check`].
+    ///
+    /// See [`crate::mirror::MirrorReport::orphans`] for why an orphan is worse
+    /// than a missing file. Counted by [`GenerateReport::is_current`], so a
+    /// repository carrying one fails `--check`.
+    pub orphans: Vec<String>,
 }
 
 impl GenerateReport {
     /// Whether the repository already matches the store.
+    ///
+    /// An orphan counts as not matching. It is a file the store no longer
+    /// produces, so a repository holding one has content Keel would not write
+    /// — which is the same failure as a hand edit, arriving from the other
+    /// direction.
     pub fn is_current(&self) -> bool {
-        self.written.is_empty()
+        self.written.is_empty() && self.orphans.is_empty()
     }
 }
 
@@ -137,6 +149,7 @@ pub fn all(
     let mirror_report = mirror::generate_except(store, project_id, repo_root, &adopted, mode)?;
     report.written.extend(mirror_report.written);
     report.unchanged.extend(mirror_report.unchanged);
+    report.orphans.extend(mirror_report.orphans);
 
     // --- The tracker ------------------------------------------------------
     if let Some(status_path) = project.status_path.as_deref() {

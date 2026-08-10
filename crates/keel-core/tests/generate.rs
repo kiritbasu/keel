@@ -443,3 +443,159 @@ fn the_decision_log_never_overwrites_a_document_that_claimed_the_same_file() {
         "the prose must survive: {spec}"
     );
 }
+
+/// Renaming an artifact removes the file its old name produced.
+///
+/// `generate` used to only ever write, so a rename left the old slug on disk
+/// carrying a `keel:generated` banner and a real id — plausible, greppable, and
+/// permanently wrong, with nothing to say so. Correcting seven truncated
+/// decision titles produced seven such orphans on 2026-08-10 (TQ-28).
+#[test]
+fn renaming_an_artifact_removes_the_file_its_old_name_produced() {
+    let repo = tempfile::tempdir().unwrap();
+    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let prov = Provenance::anonymous(Actor::Human);
+
+    let created = store
+        .create(
+            keel_core::Decision::new(project_id.clone(), "Use DuckDB").into(),
+            &prov,
+        )
+        .unwrap()
+        .entity;
+    generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+
+    let old = repo.path().join(".keel/decisions/use-duckdb.md");
+    assert!(old.is_file(), "the first run should have written it");
+
+    let mut changes = serde_json::Map::new();
+    changes.insert("title".to_owned(), serde_json::json!("Use SQLite"));
+    store
+        .update(created.id(), created.audit().version, &changes, &prov)
+        .unwrap();
+
+    let report = generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+
+    assert!(
+        !old.exists(),
+        "the file the old title produced must not survive the rename"
+    );
+    assert!(
+        repo.path().join(".keel/decisions/use-sqlite.md").is_file(),
+        "the new one must be written"
+    );
+    assert_eq!(
+        report.orphans,
+        vec![".keel/decisions/use-duckdb.md".to_owned()],
+        "and the removal must be reported, never silent"
+    );
+}
+
+/// `--check` reports an orphan and deletes nothing.
+///
+/// The mode exists so a hook can refuse a commit; a checking run that mutated
+/// the tree would be the same betrayal as the hook that silently did nothing.
+#[test]
+fn check_mode_reports_an_orphan_without_removing_it() {
+    let repo = tempfile::tempdir().unwrap();
+    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let prov = Provenance::anonymous(Actor::Human);
+
+    let created = store
+        .create(
+            keel_core::Decision::new(project_id.clone(), "Use DuckDB").into(),
+            &prov,
+        )
+        .unwrap()
+        .entity;
+    generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+
+    let mut changes = serde_json::Map::new();
+    changes.insert("title".to_owned(), serde_json::json!("Use SQLite"));
+    store
+        .update(created.id(), created.audit().version, &changes, &prov)
+        .unwrap();
+
+    let report = generate::all(&store, &project_id, repo.path(), Mode::Check).unwrap();
+
+    assert!(
+        repo.path().join(".keel/decisions/use-duckdb.md").is_file(),
+        "check mode must not delete"
+    );
+    assert_eq!(
+        report.orphans,
+        vec![".keel/decisions/use-duckdb.md".to_owned()]
+    );
+    assert!(
+        !report.is_current(),
+        "a tree carrying an orphan does not match the store, so --check must fail"
+    );
+}
+
+/// No manifest means "nothing known", never "everything is an orphan".
+///
+/// The dangerous reading. A first run, a manifest deleted by hand, or one
+/// written by a version that could not be parsed must all leave the tree alone
+/// — the alternative is a delete-everything bug on the one code path that
+/// deletes.
+#[test]
+fn a_missing_or_unreadable_manifest_removes_nothing() {
+    let repo = tempfile::tempdir().unwrap();
+    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let prov = Provenance::anonymous(Actor::Human);
+
+    store
+        .create(
+            keel_core::Decision::new(project_id.clone(), "Use DuckDB").into(),
+            &prov,
+        )
+        .unwrap();
+    generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+
+    let decision = repo.path().join(".keel/decisions/use-duckdb.md");
+    let spec = repo.path().join("product/SPEC.md");
+    assert!(decision.is_file() && spec.is_file());
+
+    std::fs::write(repo.path().join(".keel/manifest.json"), "{ not json").unwrap();
+    let report = generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+
+    assert!(report.orphans.is_empty(), "{:?}", report.orphans);
+    assert!(decision.is_file(), "an unreadable manifest must not delete");
+    assert!(spec.is_file(), "and must certainly not reach product/");
+}
+
+/// Pruning never reaches outside the mirror root.
+///
+/// An adopted document lives in `product/` and is worth more than any mirror
+/// file — 53 KB of prose in this repository's case. The manifest lists mirror
+/// paths only, and the write path refuses anything that is not one, so a
+/// corrupt or hostile manifest cannot make generation delete a spec.
+#[test]
+fn pruning_refuses_paths_outside_the_mirror_root() {
+    let repo = tempfile::tempdir().unwrap();
+    let (store, project_id, _) = fixture(repo.path(), BODY);
+    generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+
+    let manifest = repo.path().join(".keel/manifest.json");
+    let mut parsed: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&manifest).unwrap()).unwrap();
+    for path in [
+        "product/SPEC.md",
+        "../escape.md",
+        ".keel/../product/SPEC.md",
+    ] {
+        parsed["files"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({ "path": path, "contributors": [] }));
+    }
+    std::fs::write(&manifest, parsed.to_string()).unwrap();
+
+    let report = generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+
+    assert!(report.orphans.is_empty(), "{:?}", report.orphans);
+    assert!(
+        repo.path().join("product/SPEC.md").is_file(),
+        "the spec must survive a manifest that names it"
+    );
+}
