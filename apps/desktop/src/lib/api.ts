@@ -194,6 +194,20 @@ export interface Neighbour {
 }
 
 /** Every list the daemon returns says whether it was cut, and by how much. */
+/** One entry in a row's running commentary. */
+export interface Note {
+  id: string;
+  project_id: string | null;
+  entity_type: string;
+  entity_id: string;
+  body: string;
+  author: Actor;
+  session_id: string | null;
+  surface: string | null;
+  created_at: string;
+  archived_at: string | null;
+}
+
 export interface Page<T> {
   items: T[];
   total: number;
@@ -210,6 +224,14 @@ export const api = {
   context: (project?: string) => get<Digest>("/api/context", { project, depth: "full" }),
 
   projects: () => get<{ projects: Entity[] }>("/api/projects"),
+
+  /**
+   * A project's notes, in one call.
+   *
+   * Fetched for the whole project rather than per card: a board showing
+   * seventy tasks would otherwise open seventy requests to render a count.
+   */
+  notes: (project?: string) => get<{ notes: Note[]; total: number }>("/api/notes", { project }),
 
   entities: (params: {
     project?: string;

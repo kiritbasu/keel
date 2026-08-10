@@ -34,6 +34,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/activity", get(api_activity))
         .route("/api/entity/{id}", get(api_entity))
         .route("/api/entities", get(api_entities))
+        .route("/api/notes", get(api_notes))
         .route("/api/document/{id}", get(api_document))
         .route("/api/graph/{id}", get(api_graph))
         .route("/api/events", get(api_events_stream))
@@ -492,6 +493,56 @@ async fn api_entity(
             arguments: &args,
         },
     ))
+}
+
+/// A row's running commentary.
+///
+/// Its own endpoint rather than a field on `/api/entities`: a board renders
+/// seventy cards and wants none of the note bodies, while a detail view wants
+/// one card's in full. Folding them into the list would make the common case
+/// pay for the rare one.
+///
+/// `entity` fetches one stream; `project` fetches every live note in a project,
+/// which is what a view showing several cards at once actually needs.
+async fn api_notes(
+    State(state): State<AppState>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    use keel_core::{EntityId, EntityStore};
+
+    let store = state.store();
+    let notes = if let Some(entity) = params.get("entity") {
+        match EntityId::parse(entity) {
+            Ok(id) => store.notes_for(&id, params.get("all").is_some_and(|v| v == "true")),
+            Err(e) => return bad_request(&e.to_string()),
+        }
+    } else if let Some(project) = params.get("project") {
+        match keel_mcp::dispatch::resolve_project(&store, project) {
+            Ok(id) => store.notes_in_project(&id),
+            // `RpcError` is a wire shape, not a Display type — pass it through
+            // as the structured error it already is.
+            Err(e) => {
+                return (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))).into_response();
+            }
+        }
+    } else {
+        return bad_request(
+            "pass `entity` for one row's notes, or `project` for all of a project's",
+        );
+    };
+
+    match notes {
+        Ok(notes) => (
+            StatusCode::OK,
+            Json(json!({ "data": { "notes": notes, "total": notes.len() } })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": { "message": e.to_string() } })),
+        )
+            .into_response(),
+    }
 }
 
 /// List entities with filters.

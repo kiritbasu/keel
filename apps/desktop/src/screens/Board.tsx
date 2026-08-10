@@ -3,7 +3,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { api, type Digest, type Entity, type Page } from "../lib/api";
+import { api, type Digest, type Entity, type Note, type Page } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
 import { Badge, Empty, ErrorBox, Id, Spinner, cx, priorityTone } from "../components/ui";
 import type { ScreenProps } from "../App";
@@ -14,6 +14,9 @@ const COLUMNS = ["todo", "in_progress", "blocked", "review", "done", "wont_do"] 
 export function BoardScreen({ project, generation }: ScreenProps) {
   const [urgentOnly, setUrgentOnly] = useState(false);
   const [label, setLabel] = useState<string | null>(null);
+  // Which cards are expanded. A note is a paragraph and a column is 240px, so
+  // showing every stream at once would bury the board it is attached to.
+  const [open, setOpen] = useState<Set<string>>(new Set());
 
   const { data, error, loading, reload } = useAsync<Page<Entity>>(
     () => api.entities({ project, type: "task", limit: 2000 }),
@@ -24,6 +27,22 @@ export function BoardScreen({ project, generation }: ScreenProps) {
   // computed in the browser. A board that disagrees with what Claude was told
   // is worse than a board with no ordering at all.
   const digest = useAsync<Digest>(() => api.context(project), [project, generation]);
+
+  // Every stream in one request. Seventy cards asking individually is seventy
+  // round trips to render a count.
+  const notes = useAsync<{ notes: Note[]; total: number }>(
+    () => api.notes(project),
+    [project, generation],
+  );
+  const notesByTask = useMemo(() => {
+    const m = new Map<string, Note[]>();
+    for (const n of notes.data?.notes ?? []) {
+      const list = m.get(n.entity_id);
+      if (list) list.push(n);
+      else m.set(n.entity_id, [n]);
+    }
+    return m;
+  }, [notes.data]);
   const ranked = digest.data?.next_up ?? null;
   const rank = useMemo(() => {
     const m = new Map<string, { position: number; why: string }>();
@@ -174,6 +193,46 @@ export function BoardScreen({ project, generation }: ScreenProps) {
                       <div className="mt-1.5 truncate">
                         <Id value={t.id} />
                       </div>
+
+                      {(() => {
+                        const stream = notesByTask.get(String(t.id)) ?? [];
+                        if (stream.length === 0) return null;
+                        const isOpen = open.has(String(t.id));
+                        return (
+                          <div className="mt-2 border-t border-border-subtle pt-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpen((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(String(t.id))) next.delete(String(t.id));
+                                  else next.add(String(t.id));
+                                  return next;
+                                })
+                              }
+                              className="text-[11px] text-ink-muted hover:text-ink"
+                            >
+                              {isOpen ? "▾" : "▸"} {stream.length}{" "}
+                              {stream.length === 1 ? "note" : "notes"}
+                            </button>
+                            {isOpen && (
+                              <ul className="mt-1.5 space-y-1.5">
+                                {stream.map((n) => (
+                                  <li
+                                    key={n.id}
+                                    className="selectable text-[11px] leading-snug text-ink-muted"
+                                  >
+                                    {n.body}
+                                    <span className="mt-0.5 block text-ink-faint">
+                                      {n.author} · {n.created_at.slice(0, 10)}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </article>
                   ))}
                 </div>
