@@ -609,6 +609,105 @@ UPDATE tasks SET closed_at = updated_at
 WHERE closed_at IS NULL AND status IN ('done', 'wont_do');
 ",
         },
+        // A decision needs a number for the same reason a task does, and for one
+        // more: `B-12` was already being written into prose, so the identifier
+        // existed as a convention with nothing behind it. `fsck`'s
+        // `unresolved_id_reference` check therefore had to skip the whole `B-n`
+        // family — every citation dangled by construction, 182 of them — which
+        // is exactly why it misses the case that motivated it (KEEL-66).
+        //
+        // Backfilled in id order, which is creation order, matching migration 6.
+        Migration {
+            id: 10,
+            name: "decision_numbers",
+            sql: "
+ALTER TABLE decisions ADD COLUMN IF NOT EXISTS number INTEGER;
+
+UPDATE decisions SET number = n.rn FROM (
+  SELECT id, row_number() OVER (PARTITION BY project_id ORDER BY id) AS rn FROM decisions
+) n WHERE decisions.id = n.id AND decisions.number IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS decisions_number ON decisions(project_id, number);
+",
+        },
+        // A data migration, and the only one here that names specific ids.
+        //
+        // Migration 10's id-order backfill is right for every store but this
+        // one. Keel's own decisions were numbered `B-1` to `B-25` in prose for a
+        // day before the column existed, and those numbers are cited across the
+        // SPEC, the standing instructions, task notes and question bodies.
+        // Renumbering them in creation order would break every one of those
+        // citations silently — which is the precise failure this whole task
+        // exists to remove, so doing it here would be self-defeating.
+        //
+        // The mapping was made by hand against the prose table, not by matching
+        // titles: fuzzy matching got four of twenty-five wrong, including two it
+        // was confident about. Three of the twenty-five had no row at all and
+        // were written as rows first, so this runs over a complete set.
+        //
+        // Two phases because the permutation overlaps itself — `B-4` wants the
+        // number its current holder has — and the unique index from migration 10
+        // would reject the intermediate state. The offset is larger than any
+        // plausible decision count.
+        //
+        // On any other store every id matches nothing and this is a no-op.
+        Migration {
+            id: 11,
+            name: "keel_legacy_b_numbers",
+            sql: "
+CREATE TEMP TABLE _b_numbers(id VARCHAR, number INTEGER);
+INSERT INTO _b_numbers VALUES
+  ('dec_01KZKMPVPM94XEZGCSFS73XQ9T', 1),
+  ('dec_01KZKMPVPZ81H8PHKF8RHZK13R', 2),
+  ('dec_01KZKMPVQD8N0ZYBZZBMWTCP04', 3),
+  ('dec_01KZKWMSX25E73XSGB9Q9A0P5W', 4),
+  ('dec_01KZKWMSYT6WTETRJ6DF82A42E', 5),
+  ('dec_01KZKWMT0JWXM2JGX7MZ0QZ7DV', 6),
+  ('dec_01KZKWMTFN212CPD921AY3PX6D', 7),
+  ('dec_01KZKWMT28K0HMJ1Y5JQ16TT8T', 8),
+  ('dec_01KZKMPVQWSF1TN6TYEWQ3BJ61', 9),
+  ('dec_01KZKMPVR92GNRQXTE8836ZD1E', 10),
+  ('dec_01KZKWMT3ZRNB06RMYBSTAKDV6', 11),
+  ('dec_01KZKMPVRTXA717P2854N17HQ5', 12),
+  ('dec_01KZKMPVSRVWSF4N42E9Y1M7A1', 13),
+  ('dec_01KZKMPVTSVQB53R5AGXMB5WZ5', 14),
+  ('dec_01KZKMPVVAC6EZA35F1E87SC0C', 15),
+  ('dec_01KZKMPVVY4DAPXQD0H99HB27C', 16),
+  ('dec_01KZKMPVS9XTWRN7303BPY0F18', 17),
+  ('dec_01KZKWMT5SMKXQ07NKBKT87SXC', 18),
+  ('dec_01KZKWMT7GFNZBYEQBV44NPY4R', 19),
+  ('dec_01KZKWMT9M8EJQM7TJDZH8KX22', 20),
+  ('dec_01KZKWMTBYP6P7B8DQTB3586G9', 21),
+  ('dec_01KZKWMTDQZPZJ46PCEWATF0XY', 22),
+  ('dec_01KZPFPHCFPZ1X930DEC2ZRR7R', 23),
+  ('dec_01KZPFPPEMGCEB5HXXPF1RFWDC', 24),
+  ('dec_01KZPFPS0KK4YE59E3A8GJQ0VW', 25),
+  ('dec_01KZKMPVT876SD8CJJPGY9ZVXY', 26),
+  ('dec_01KZMGPPJ0MM4VSGAP4KF724DQ', 27),
+  ('dec_01KZMTF8PVC0AWYFPQVGXM69BB', 28),
+  ('dec_01KZN24NH42AW7XQB9GNNZ0NFY', 29),
+  ('dec_01KZN2W5BPHM5DH3PRSHW5A600', 30),
+  ('dec_01KZN3K1A6PBRFVJ9H9H6542HM', 31),
+  ('dec_01KZN5H4EJ905TXJA2RTS0MNKY', 32),
+  ('dec_01KZN5H4FFR7VHD92Z1PWRTMRA', 33),
+  ('dec_01KZNHQ0SMBXVKYF3SA85W9VZ7', 34),
+  ('dec_01KZNHQ6BNEH54ZG8HQ7WRR2S5', 35),
+  ('dec_01KZNHQCRB7PYBKW0Q37P4VFVK', 36),
+  ('dec_01KZNHQHCJ7D50QAY8738NNF3A', 37),
+  ('dec_01KZNQ3BCRH4CM0CAVV3DYC7TQ', 38),
+  ('dec_01KZNQR16ZJKQ5MGTSF8H0VW9C', 39),
+  ('dec_01KZNW724SBG1NFAWDZ9CR66DN', 40),
+  ('dec_01KZP1E78WZXXTJZK7YBHATJCZ', 41),
+  ('dec_01KZP5189J3N9R1BJESQ0PGJNZ', 42);
+
+UPDATE decisions SET number = number + 100000
+WHERE id IN (SELECT id FROM _b_numbers);
+
+UPDATE decisions SET number = b.number FROM _b_numbers b WHERE decisions.id = b.id;
+
+DROP TABLE _b_numbers;
+",
+        },
     ]
 }
 

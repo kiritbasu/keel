@@ -334,6 +334,7 @@ pub fn spec_for(entity_type: EntityType) -> TableSpec {
             cols: &[
                 Plain("id"),
                 Plain("project_id"),
+                Plain("number"),
                 Plain("title"),
                 Plain("status"),
                 Plain("decided_at"),
@@ -511,6 +512,7 @@ pub fn insert_params(entity: &Entity) -> Vec<Value> {
         Entity::Decision(e) => vec![
             s(e.id.as_str()),
             s(e.project_id.as_str()),
+            Value::Int(e.number),
             s(&e.title),
             s(e.status.as_str()),
             ots(e.decided_at),
@@ -678,6 +680,7 @@ pub fn from_row(entity_type: EntityType, row: &Row<'_>) -> Result<Entity> {
         EntityType::Decision => Entity::Decision(Decision {
             id: get_id(row, t, "id")?,
             project_id: get_id(row, t, "project_id")?,
+            number: get_i(row, t, "number")?,
             title: get_s(row, t, "title")?,
             status: DecisionStatus::parse(&get_s(row, t, "status")?)?,
             decided_at: get_ots(row, t, "decided_at")?,

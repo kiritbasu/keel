@@ -79,10 +79,11 @@ pub fn to_rpc_error(store: &DuckStore, err: Error) -> RpcError {
 }
 
 /// What a caller may write where an id is expected.
-const ID_OR_REF: &str =
-    "a prefixed ULID such as `tsk_01H8…`, or a readable reference such as `KEEL-42`";
+const ID_OR_REF: &str = "a prefixed ULID such as `tsk_01H8…`, or a readable reference such as \
+     `KEEL-42` for a task or `KEEL-B12` for a decision";
 
-/// Turn what the caller wrote into an id, accepting `KEEL-42` as well as a ULID.
+/// Turn what the caller wrote into an id, accepting `KEEL-42` and `KEEL-B12`
+/// as well as a ULID.
 ///
 /// `Ok(None)` means it was a well-formed reference that names nothing, which is
 /// a different answer from "that is not a reference at all" — the first is a
@@ -93,7 +94,10 @@ fn resolve_optional(
     field: &str,
     raw: &str,
 ) -> Result<Option<EntityId>, RpcError> {
-    if EntityId::parse(raw).is_err() && keel_core::types::parse_readable_ref(raw).is_none() {
+    if EntityId::parse(raw).is_err()
+        && keel_core::types::parse_readable_ref(raw).is_none()
+        && keel_core::types::parse_decision_ref(raw).is_none()
+    {
         return Err(bad_arg(
             field,
             &format!("`{raw}` is neither an id nor a readable reference"),

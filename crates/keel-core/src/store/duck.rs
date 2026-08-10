@@ -342,6 +342,25 @@ impl DuckStore {
         Ok(out)
     }
 
+    /// The next readable number for `table` within a project.
+    ///
+    /// `MAX + 1` over every row including archived ones. A number is never
+    /// reused: `KEEL-42` must mean the same task forever, and handing it to a
+    /// second task after the first was archived is the one way to make a
+    /// readable identifier actively misleading. The same holds for `B-12`, with
+    /// the extra sting that decision numbers are cited in prose that nothing
+    /// rewrites.
+    ///
+    /// `table` is never caller-supplied — it comes from this module's own match
+    /// on entity type, which is why interpolating it is not an injection.
+    fn next_number_in(&self, table: &str, project_id: &EntityId) -> Result<i32> {
+        let next = self.count(
+            &format!("SELECT COALESCE(MAX(number), 0) + 1 FROM {table} WHERE project_id = ?"),
+            vec![Value::Text(project_id.as_str().to_owned())],
+        )?;
+        Ok(next as i32)
+    }
+
     fn count(&self, sql: &str, params: Vec<Value>) -> Result<usize> {
         let n: i64 = self
             .conn
@@ -628,6 +647,9 @@ impl EntityStore for DuckStore {
                 if t.rank == 0.0 {
                     t.rank = self.next_task_rank(&t.project_id)?;
                 }
+            }
+            Entity::Decision(d) if d.number == 0 => {
+                d.number = self.next_number_in("decisions", &d.project_id)?;
             }
             _ => {}
         }
@@ -1164,13 +1186,22 @@ impl EntityStore for DuckStore {
         if let Ok(id) = EntityId::parse(reference) {
             return Ok(Some(id));
         }
-        let Some((key, number)) = crate::types::parse_readable_ref(reference) else {
-            return Ok(None);
+        // Decisions first: `KEEL-B12` would otherwise be tried as a task
+        // reference, fail the alphanumeric check on `KEEL-B`, and return None
+        // before anything looked at decisions.
+        let (table, key, number) = match crate::types::parse_decision_ref(reference) {
+            Some((key, number)) => ("decisions", key, number),
+            None => match crate::types::parse_readable_ref(reference) {
+                Some((key, number)) => ("tasks", key, number),
+                None => return Ok(None),
+            },
         };
 
         let found: std::result::Result<String, _> = self.conn.query_row(
-            "SELECT t.id FROM tasks t JOIN projects p ON p.id = t.project_id \
-             WHERE upper(p.key) = ? AND t.number = ?",
+            &format!(
+                "SELECT e.id FROM {table} e JOIN projects p ON p.id = e.project_id \
+                 WHERE upper(p.key) = ? AND e.number = ?"
+            ),
             params_from_iter(vec![Value::Text(key), Value::Int(number)]),
             |row| row.get::<_, String>(0),
         );
@@ -1292,15 +1323,7 @@ impl EntityStore for DuckStore {
     }
 
     fn next_task_number(&self, project_id: &EntityId) -> Result<i32> {
-        // `MAX + 1` over every row including archived ones. A number is never
-        // reused: `KEEL-42` must mean the same task forever, and handing it to
-        // a second task after the first was archived is the one way to make a
-        // readable identifier actively misleading.
-        let next = self.count(
-            "SELECT COALESCE(MAX(number), 0) + 1 FROM tasks WHERE project_id = ?",
-            vec![Value::Text(project_id.as_str().to_owned())],
-        )?;
-        Ok(next as i32)
+        self.next_number_in("tasks", project_id)
     }
 
     fn unique_project_key(&self, base: &str) -> Result<String> {

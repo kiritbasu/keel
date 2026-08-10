@@ -199,6 +199,30 @@ pub fn parse_readable_ref(reference: &str) -> Option<(String, i32)> {
     Some((key.to_uppercase(), number))
 }
 
+/// Split a decision reference into its parts: `KEEL-B12` → `("KEEL", 12)`.
+///
+/// A separate function rather than a flag on [`parse_readable_ref`] because the
+/// two namespaces are numbered independently: `KEEL-12` and `KEEL-B12` are both
+/// valid and name different artifacts. Folding them into one parser would make
+/// the `B` optional, and an optional discriminator between two live namespaces
+/// resolves typos to real rows.
+///
+/// Bare `B-12`, as written in prose, is deliberately *not* accepted here: it
+/// carries no project, and `B` would otherwise parse as a project key. Callers
+/// that already know the project — `fsck` scanning one project's documents —
+/// look the number up directly.
+pub fn parse_decision_ref(reference: &str) -> Option<(String, i32)> {
+    let (key, number) = reference.trim().rsplit_once("-B")?;
+    if key.is_empty() || !key.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return None;
+    }
+    let number: i32 = number.parse().ok()?;
+    if number <= 0 {
+        return None;
+    }
+    Some((key.to_uppercase(), number))
+}
+
 /// The root container. Everything belongs to exactly one, except global terms.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Project {
@@ -444,6 +468,18 @@ pub struct Decision {
     pub id: EntityId,
     /// Owning project.
     pub project_id: EntityId,
+    /// The number in this decision's readable identifier — the `12` of `B-12`.
+    /// Unique within the project, assigned on creation, and never reused.
+    ///
+    /// Decisions carry one for a reason tasks do not: `B-12` was already being
+    /// written into prose before the column existed, so the identifier was a
+    /// convention with nothing behind it. `fsck` could not resolve a single
+    /// `B-n` citation and had to skip the family, which is why it misses the
+    /// fabricated cross-reference that motivated the check (KEEL-66).
+    ///
+    /// Zero means "not yet assigned", true only between constructing a
+    /// `Decision` and storing it.
+    pub number: i32,
     /// Display title.
     pub title: String,
     /// Proposed, accepted, superseded or rejected. Content becomes immutable
@@ -473,6 +509,7 @@ impl Decision {
                 &title,
             ),
             project_id,
+            number: 0,
             title,
             status: DecisionStatus::default(),
             decided_at: None,
