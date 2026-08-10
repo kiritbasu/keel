@@ -93,6 +93,29 @@ fn dangling_id_references(store: &DuckStore) -> Result<Vec<String>> {
         labels.entry(row.0).or_default().push(row.1);
     }
 
+    // Decision numbers, as the `B-n` tokens prose actually writes.
+    //
+    // These resolve against a *column* rather than a title prefix, which is the
+    // point of giving decisions a number: `B-12` was a convention with nothing
+    // behind it, so this check had to skip the whole family and therefore missed
+    // the fabricated citation that motivated it (KEEL-66).
+    let mut stmt = store
+        .connection()
+        .prepare("SELECT project_id, number FROM decisions WHERE number IS NOT NULL")
+        .map_err(Error::storage("prepare the decision-number list"))?;
+    let mut decision_refs: std::collections::HashMap<String, std::collections::BTreeSet<String>> =
+        Default::default();
+    for row in stmt
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i32>(1)?)))
+        .map_err(Error::storage("list decision numbers"))?
+        .filter_map(std::result::Result::ok)
+    {
+        decision_refs
+            .entry(row.0)
+            .or_default()
+            .insert(format!("B-{}", row.1));
+    }
+
     let mut stmt = store
         .connection()
         .prepare(
@@ -133,6 +156,15 @@ fn dangling_id_references(store: &DuckStore) -> Result<Vec<String>> {
         }
     }
 
+    // A project with numbered decisions has the `B` family whether or not any
+    // title carries the prefix, because the numbers are now stored.
+    for project in decision_refs.keys() {
+        families
+            .entry(project.clone())
+            .or_default()
+            .insert("B".to_owned());
+    }
+
     let empty = Vec::new();
     let no_families = std::collections::BTreeSet::new();
     let mut out = Vec::new();
@@ -146,10 +178,13 @@ fn dangling_id_references(store: &DuckStore) -> Result<Vec<String>> {
             if !used.contains(prefix) {
                 continue;
             }
-            let resolves = [" ", "—", "-", ":"].iter().any(|sep| {
-                let with = format!("{id}{sep}");
-                title.starts_with(&with) || known.iter().any(|l| l.starts_with(&with))
-            });
+            let resolves = decision_refs
+                .get(project)
+                .is_some_and(|numbers| numbers.contains(&id))
+                || [" ", "—", "-", ":"].iter().any(|sep| {
+                    let with = format!("{id}{sep}");
+                    title.starts_with(&with) || known.iter().any(|l| l.starts_with(&with))
+                });
             if !resolves {
                 out.push(format!("“{}” cites {id}", truncate(title, 44)));
             }

@@ -7,6 +7,26 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
+### TQ-27 — an accepted decision's title is immutable but its body is not
+
+`que_01KZPKVNHC6P5HJ30KSFAVZ3QD` · question · open
+
+**Question:** `keel_update` refuses to change the title of an `accepted` decision — SPEC §3 makes content immutable at `accepted`, and `keel-core` enforces it. But `keel_write_doc` will replace that decision's entire body without complaint. All 25 decision bodies were rewritten this way on 2026-08-10 while migrating the reasoning out of the prose table, and nothing objected.
+
+The guard is on the weaker door. A title is a label; the body is the reasoning, and the reasoning *is* the decision. Guarding the label while leaving the argument writable is the wrong way round.
+
+**Why it matters now.** Seven decision titles are truncated in storage (B-5, B-7, B-8, B-11, B-18, B-19, B-22), cut at roughly 80 characters by whatever imported them — B-8 reads `Surface carries five values, not four: chat \`. They were invisible while the prose table carried the real titles and are now the headings in the generated log. Correcting a transcription defect is not amending a decision, but the rule cannot tell the difference, and routing around it with a direct write would prove the inconsistency rather than resolve it.
+
+**Options.**
+
+1. **Guard both.** An accepted decision's body becomes immutable too; changing it means a new decision that `supersedes` the old one. Consistent, and matches what the SPEC says. Cost: the migration performed today would have been impossible, and correcting a typo in reasoning needs a whole new row.
+2. **Guard neither, and rely on the revision chain.** Every body change is already a new attributed revision with a diff, so nothing is lost — the audit trail is the guard. Titles become editable, the truncations get fixed. Cost: an accepted decision can be quietly reworded, and the SPEC has to change.
+3. **Guard both, with an explicit correction path** — a flag or a separate command that says "this is a transcription fix, not an amendment", recorded as such in the event log.
+
+**Recommendation:** (2). The revision chain already does the job the immutability rule was reaching for, and does it better: it permits correction while making every correction visible and attributed. The current rule stops the harmless edit and permits the harmful one.
+
+**Status:** open. Nothing is blocked — but the seven wrong headings stay wrong until it is settled.
+
 ### TQ-26 — the installed plugin is a hand-copy, and it drifts silently
 
 `que_01KZP8C2BNKSN7GMJV4JSBZ29Q` · risk · open · severity medium

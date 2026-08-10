@@ -1,6 +1,5 @@
 ---
 source: crates/keel-mcp/tests/snapshots.rs
-assertion_line: 141
 expression: result
 ---
 {
@@ -25,6 +24,7 @@ expression: result
           "updated_by": "claude",
           "version": 1
         },
+        "decisions_path": null,
         "description": null,
         "id": "[id]",
         "idempotency_key": "[hash]",

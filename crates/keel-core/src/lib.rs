@@ -38,6 +38,7 @@ pub mod link;
 pub mod mirror;
 pub mod next;
 pub mod note;
+pub mod render_decisions;
 pub mod render_status;
 pub mod store;
 pub mod types;

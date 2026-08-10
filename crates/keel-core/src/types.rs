@@ -252,6 +252,14 @@ pub struct Project {
     /// mirror is deliberately prose-only (TQ-5), but it is still a generated
     /// repository file. `None` means this project does not want one.
     pub status_path: Option<String>,
+    /// Where the generated decision log goes, relative to `root_path`.
+    ///
+    /// Same reasoning as [`Project::status_path`]: the decision log is rendered
+    /// from the decision rows rather than being one artifact's prose, so no
+    /// document can adopt the path and the destination has to belong to the
+    /// project. `None` means this project does not want one, and its decisions
+    /// appear only as one file each under `.keel/decisions/`.
+    pub decisions_path: Option<String>,
     /// Other names this project goes by. The main defence against UC-8's
     /// nine-near-duplicate-projects failure.
     pub aliases: Vec<String>,
@@ -277,6 +285,7 @@ impl Project {
             repo_urls: Vec::new(),
             root_path: None,
             status_path: None,
+            decisions_path: None,
             aliases: Vec::new(),
             audit: provisional_audit(),
         }

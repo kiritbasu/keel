@@ -29,6 +29,7 @@
 //! hand edit visible instead of silently overwritten. D-3 is intact: no content
 //! ever flows from a file back into the store.
 
+use crate::render_decisions;
 use crate::{
     DocumentStore, DuckStore, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error,
     Result, mirror, render_status,
@@ -156,6 +157,31 @@ pub fn all(
                 &repo_root.join(status_path),
                 &markdown,
                 status_path,
+                mode,
+                &mut report,
+            )?;
+        }
+    }
+
+    // --- The decision log -------------------------------------------------
+    //
+    // Same shape as the tracker and the same collision rule, for the same
+    // reason: a decision log rendered from rows and a prose document claiming
+    // the path cannot both own the file, and picking a winner silently is how
+    // half a file disappears.
+    if let Some(decisions_path) = project.decisions_path.as_deref() {
+        if adopted_paths.iter().any(|p| p == decisions_path) {
+            report.unrepresented.push(format!(
+                "{decisions_path} — the decision log was not written: a document has already \
+                 adopted this path. Point the project's decisions_path somewhere else, or \
+                 archive the document, so one thing owns the file"
+            ));
+        } else {
+            let markdown = render_decisions::render(store, project_id)?;
+            write_or_check(
+                &repo_root.join(decisions_path),
+                &markdown,
+                decisions_path,
                 mode,
                 &mut report,
             )?;

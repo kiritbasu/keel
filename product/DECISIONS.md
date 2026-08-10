@@ -1,102 +1,903 @@
-<!-- keel:generated spec spc_01KZKSME0FNCY8BJZKFCHZ2H35
-     Keel is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
-     An edit made here is overwritten on the next `keel generate`. -->
-
 # Keel — Decision log
 
-> Maintained by Claude Code. Every non-obvious choice made during development gets a row.
-> Architectural decisions made *before* development are in `product/SPEC.md` §13 (D-1 … D-11, including D-2b — twelve rows) — those are settled and are not repeated here.
+<!-- keel:generated decisions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
+> Generated from the decision rows — edits here are not saved.
 
-**Why this exists:** in six months neither KB nor a fresh Claude session will remember why a library was chosen or why an approach was abandoned. One line written now saves an hour of archaeology later. It's also the seed data for Keel's own `decisions` table at the Phase 1 dogfooding switch.
+Every decision made while building, with the reasoning and what was rejected. In six months nobody will remember why a library was chosen or an approach abandoned, and one line written now saves an hour of archaeology later.
 
----
+`B-12` is a real identifier, not a convention: it resolves to a row, `keel_get KEEL-B12` returns it, and `fsck` checks that citations of it point at something. It was prose until 2026-08-10, which is why every `B-n` citation in this repository was unverifiable until then.
 
-## Format
+## Index
 
-| ID | Date | Decision | Reasoning | Reversible? |
-|---|---|---|---|---|
+| | Decision | Status |
+|---|---|---|
+| B-1 | [chrono for time, not jiff](#b-1) | `accepted` |
+| B-2 | [All Lance access goes through the DuckDB extension](#b-2) | `accepted` |
+| B-3 | [Bundled DuckDB is a feature, not a requirement](#b-3) | `accepted` |
+| B-4 | [No vector or FTS index on the Lance dataset initially — brute-force scan](#b-4) | `accepted` |
+| B-5 | [unwrap/expect/panic/todo/unimplemented are workspace clippy lints at warn, promoted to…](#b-5) | `accepted` |
+| B-6 | [missing_docs is a workspace lint, not just a keel-core convention](#b-6) | `accepted` |
+| B-7 | [Build scope this stretch is Phases 0–3; git stays local with no remote; session_id is a…](#b-7) | `accepted` |
+| B-8 | [Surface carries five values, not four: chat \](#b-8) | `accepted` |
+| B-9 | [ULIDs are minted from a monotonic generator](#b-9) | `accepted` |
+| B-10 | [Every table gets idempotency_key, not just tasks](#b-10) | `accepted` |
+| B-11 | [Dev builds use debug = "line-tables-only" and debug = false for dependencies; the…](#b-11) | `accepted` |
+| B-12 | [BM25 moves from Lance to DuckDB](#b-12) | `accepted` |
+| B-13 | [Tool responses lift version to the top of the entity](#b-13) | `accepted` |
+| B-14 | [The desktop app hand-writes its components](#b-14) | `accepted` |
+| B-15 | [Keel's local REST API has more endpoints than the MCP surface has tools](#b-15) | `accepted` |
+| B-16 | [Event summaries name artifacts, not ids](#b-16) | `accepted` |
+| B-17 | [Serve MCP 2025-11-25 alongside 2026-07-28](#b-17) | `accepted` |
+| B-18 | [keel import is a bridge, not a migration: re-importable, content-addressed, and it…](#b-18) | `accepted` |
+| B-19 | [The document reader renders markdown with react-markdown + remark-gfm, mapping every…](#b-19) | `accepted` |
+| B-20 | [Keel is the source of truth; every product/*.md is generated.](#b-20) | `accepted` |
+| B-21 | [Generation runs inside the daemon, exposed as POST /api/generate.](#b-21) | `accepted` |
+| B-22 | [projects gets a nullable status_path; a path claimed by both a document and the tracker…](#b-22) | `accepted` |
+| B-23 | [keel_context answers "what next" with named, ranked tasks](#b-23) | `proposed` |
+| B-24 | [A task marked blocked with no blocks edge is reported as a data problem, not ranked](#b-24) | `superseded` |
+| B-25 | ["Waiting on a human decision" is the decision-needed label, not a new task kind](#b-25) | `proposed` |
+| B-26 | [Fixture links are addressed by name, never by position](#b-26) | `accepted` |
+| B-27 | [Outside panel: the gate measurement was invalid and the file plan is rejected](#b-27) | `proposed` |
+| B-28 | [s2, s7 and s9 are genuine misses, not L0](#b-28) | `accepted` |
+| B-29 | [Phase 2 closed on 18 of 20](#b-29) | `accepted` |
+| B-30 | [The p0 wedge was SIGKILL mid-write, not the FTS index](#b-30) | `accepted` |
+| B-31 | [restore now re-establishes the store's git repository](#b-31) | `accepted` |
+| B-32 | [KB confirmed: idempotency keys stay on all thirteen tables](#b-32) | `accepted` |
+| B-33 | [KB confirmed: BM25 stays in DuckDB, Lance does vectors only](#b-33) | `accepted` |
+| B-34 | [The desktop app routes on the hash, and the router is hand-written](#b-34) | `accepted` |
+| B-35 | [Eight named type sizes in two scales, not eleven anonymous ones](#b-35) | `accepted` |
+| B-36 | [The light scheme overrides :root, not a second @theme block](#b-36) | `accepted` |
+| B-37 | [The desktop app gets Vitest and Testing Library](#b-37) | `accepted` |
+| B-38 | [Graph traversal carries the neighbour's label](#b-38) | `accepted` |
+| B-39 | [The Tauri shell is suspended; the web build is the surface](#b-39) | `accepted` |
+| B-40 | [Readable identifiers are composed, never stored](#b-40) | `accepted` |
+| B-41 | [KB confirmed: a task holds a list of external links](#b-41) | `accepted` |
+| B-42 | [KB confirmed: blocked is derived from the links, not a status](#b-42) | `accepted` |
 
-- **ID**: `B-1`, `B-2`, … (B for build-time, to avoid colliding with the spec's D-series)
-- **Reasoning**: one or two sentences on *why*, including what was rejected. "Chose X" without "over Y because Z" is not useful.
-- **Reversible?**: `yes` / `no` / `expensive`. If `no` or `expensive`, it should probably have been a question for KB first.
+## Reversals
+
+**B-24 — A task marked blocked with no blocks edge is reported as a data problem, not ranked**
+
+**Reversed 2026-08-10.** `blocked` is no longer a status — the enum value was removed in migration 8 and blocked is derived from the `blocks` edges, with `blocked_tasks()` as the single definition every surface reads.
+
+This was the right fix for the wrong shape. Reconciling two sources of truth is work that only exists because there are two, and the reconciliation itself was load-bearing, which is what made it look like a feature rather than a symptom. Removing the status removed the disagreement instead of reporting it. KB's call, since it cost a forward-only migration and a visible behaviour change.
 
 ---
 
 ## Decisions
 
-| ID | Date | Decision | Reasoning | Reversible? |
-|---|---|---|---|---|
-| B-1 | 2026-08-09 | **`chrono` for time, not `jiff`.** | `duckdb-rs` ships a first-class `chrono` feature with `ToSql`/`FromSql` for `TIMESTAMP`; there is no `jiff` feature. Choosing `jiff` would mean a hand-written conversion shim at every storage boundary — the exact place a timezone bug would hide — for no domain benefit. Recorded here because `product/CLAUDE.md` requires picking one and never mixing. | yes, painfully |
-| B-2 | 2026-08-09 | **All Lance access goes through the DuckDB `lance` extension. The `lance` and `lancedb` Rust crates are not dependencies.** | Verified empirically (see P0-2 table): `ATTACH … (TYPE lance)` gives full `SELECT`/`INSERT`/`UPDATE` over Lance datasets, and the three search functions work. Using the extension means one connection, one SQL surface, one transaction story — and it drops `lance` v10 + `arrow` v59 from the build entirely. Rejected: the native crate, which would have meant marshalling Arrow record batches by hand and keeping two Lance versions in step. | yes — `DocumentStore` is a trait precisely so this can be swapped |
-| B-3 | 2026-08-09 | **`bundled` is the default, but it is now a feature — `--no-default-features` links a system libduckdb instead.** | Originally justified as "the binary can never disagree with the extension versions it loads", which **overstated it**: `INSTALL lance` re-fetches for whatever version is running, so a system library self-heals given network. The genuine reasons are narrower — a self-contained binary that keeps working after `brew upgrade duckdb`, and a build that needs no setup on a fresh machine. Neither justifies a ten-minute wait on a machine that already has the right library, so it is a feature now. **Verified both ways:** system-linked builds the workspace in 54s versus roughly ten minutes, and all 264 tests pass against Homebrew's libduckdb 1.5.5, Lance extension included. The default stays `bundled` because the *installed* binary should not break when Homebrew moves underneath it; the fast path is for development. | yes |
-| B-4 | 2026-08-09 | **No vector or FTS index on the Lance dataset initially — brute-force scan.** | Verified that `lance_fts`, `lance_vector_search` and `lance_hybrid_search` all return correct results with no index present. At a few thousand documents an index is pure cost. Per the scale-discipline rule, a measurement comes before an index. | yes |
-| B-5 | 2026-08-09 | **`unwrap`/`expect`/`panic`/`todo`/`unimplemented` are workspace clippy lints at `warn`, promoted to errors by CI's `-D warnings`.** | The definition of done forbids these in library code. Encoding it as a lint means CI catches it; leaving it to review discipline means it lands. Tests and binaries opt out locally with `#[allow]` where genuinely warranted. | yes |
-| B-6 | 2026-08-09 | **`missing_docs` is a workspace lint, not just a `keel-core` convention.** | The contract only requires doc comments on `keel-core` public items, but scoping the lint per-crate is more machinery than it saves, and documenting the daemon's public surface costs little. | yes |
-| B-8 | 2026-08-09 | **`Surface` carries five values, not four: `chat \| cowork \| code \| ui \| cli`.** | SPEC §3.1's audit-block comment lists four; §6.5 separately names `cli` as a fixed sentinel for the command line. The two passages disagree and something had to give. Five is the reconciliation — `keel-cli` writes fixtures and restores backups, and those writes need an honest surface rather than a borrowed `ui`. The column is a bare `VARCHAR` with no check constraint, so this costs nothing at the storage layer. Raised with KB as TQ-8 rather than treated as settled. | yes |
-| B-9 | 2026-08-09 | **All ULIDs are minted from a single process-wide *monotonic* generator, never `Ulid::new()`.** | Found by a test, not by reading: `Ulid::new()` re-randomises its low 80 bits every call, so two ids created in the same millisecond sort arbitrarily. SPEC §3.4 rests on ULID order *being* chronological order so that "changed since T" is a range scan over `events.id` — and a burst of writes inside one millisecond is an agent's normal behaviour, not an edge case. Non-monotonic ids would make an event-cursor query silently skip or repeat rows, which is the same class of quiet-wrong-answer bug as an inverted graph traversal. Rejected: ordering every query by `(created_at, id)`, which pushes the problem to every call site instead of solving it once. | yes |
-| B-10 | 2026-08-09 | **Every table gets `idempotency_key`, not just `tasks`.** | SPEC §7.2 and PRD REQ-7 say *every* create is idempotent, but §3.2 only gives the column to `tasks`. Honouring the requirement means honouring it everywhere; the alternative silently drops idempotency for twelve of thirteen types, including `projects` — the one type where duplicates are called out as the failure that ruins the aggregate view (UC-8, REQ-8). Marked `PROVISIONAL` and raised as TQ-9, because adding a column is a storage-format change and those are KB's call. | expensive — it is a schema column |
-| B-12 | 2026-08-09 | **BM25 moves from Lance to DuckDB. `lance_hybrid_search` is not used; the Lance index does vectors only.** | SPEC §5 put both halves of hybrid search inside `lance_hybrid_search`. Its keyword half could not be characterised. On an un-indexed dataset, multi-term queries match inconsistently: `"onboarding metering"` returns a document containing only *metering*, while `"onboarding slow"` returns **nothing** despite a document containing *onboarding*. A third query returned an unrelated document with a score identical to an unrelated query's. The extension's documentation shows only single-word examples (`'puppy'`) and documents no way to build the index that would presumably fix this. A search returning plausible-but-wrong results is the same failure class as an inverted graph traversal, so it gets the same answer: put it where the semantics are known. DuckDB's `fts` extension is a real BM25 index with documented behaviour, and the index now covers *every* searchable artifact — prose titles and bodies joined in from Lance — so a spec and a task compete in one ranking instead of two. Lance keeps what it is uniquely for: the vector index and the multimodal blobs. `keel-core` was already doing the cross-index RRF fusion, so nothing else moved. **This is a §5 design change and is flagged to KB as TQ-10.** | yes — it is one module, and `DocumentStore` is a trait |
-| B-13 | 2026-08-09 | **Tool responses lift `version` (and `archived`) to the top of the entity, alongside the nested audit block.** | `version` lives inside `audit` in the domain model, which is right there and wrong on the wire: `keel_update` documents a `version` argument, so an agent that has just read an entity should be able to copy the field of that name straight across. Making it hunt inside `audit` is the papercut that becomes a 409 and a confused retry. Found by writing the UC-3 handoff test as an agent would actually do it. The audit block is untouched — this adds a field rather than moving one. | yes |
-| B-14 | 2026-08-09 | **The desktop app hand-writes its components rather than using shadcn/ui's generator.** | SPEC §10 names shadcn/ui. What a read-only, seven-screen app actually needs from it is a card, a badge, a status colour and an empty state — four small components. Running the generator to obtain those pulls in Radix primitives and a registry dependency for a surface with no dialogs, popovers or focus traps to manage. The conventions are kept: one component per concern, styling through class names, no theme provider, Tailwind 4 tokens in one place. Total frontend dependency footprint is 81 packages and a 227 KB bundle. Revisit the moment the app grows anything genuinely interactive. | yes |
-| B-15 | 2026-08-09 | **Keel's local REST API has more endpoints than the MCP surface has tools.** | The nine-tool ceiling exists because a *model* chooses worse among forty tools than among nine (SPEC §6.1). That reasoning does not transfer to a UI, which knows exactly what it wants and would otherwise fetch everything and filter client-side. `/api/entities`, `/api/document/{id}` and `/api/graph/{id}` are UI-facing and thin. The MCP surface is untouched at nine. | yes |
-| B-16 | 2026-08-09 | **Event summaries name artifacts, not ids.** | Found by looking at the finished Home screen: "linked tsk_01KZK163THQG7DPQWGV4C9FFZ7 references fbk_01KZK16505G3JJ2M7Z27JTP1WJ" is not a sentence a human can read, and the activity feed and Sunday-review digest are the two places that text is actually shown. Now "“Invoices round to the wrong cent” references “Invoices do not match our own metering”". The ids are still on the event for anything that needs them. | yes |
-| B-17 | 2026-08-09 | **The daemon serves 2025-11-25 as well as 2026-07-28.** | Found the moment KB pointed a real client at it: `claude mcp list` said "Failed to connect". Captured the wire traffic — **Claude Code 2.1.185 opens with the legacy `initialize` handshake and declares `2025-11-25`**, and sends none of the mirrored headers the current revision requires. A daemon that speaks only 2026-07-28 is unusable with the client this entire product exists to serve, which would have made Phase 2's gate impossible to even attempt. The spec's backward-compatibility section makes this a MAY; here it is the difference between working and not. `initialize`, `notifications/initialized` and `ping` are answered; `Mcp-Method`/`Mcp-Name` are required only of a 2026-07-28 caller; `resultType` and `_meta.serverInfo` are sent only to clients whose revision defines them. 2025-06-18 and 2025-03-26 are served the same way — they differ from 2025-11-25 only in ways the tool surface never touches. **SPEC §6's opening line is now wrong** and is flagged as TQ-11. | yes |
-| B-11 | 2026-08-09 | **Dev builds use `debug = "line-tables-only"` and `debug = false` for dependencies; the clippy gate drops `--all-features`.** | The vendored DuckDB's full debug info is enormous: `target/` reached **19 GB** and filled KB's disk mid-session (`ranlib: errno=28`). `--all-features` made it worse by building DuckDB a second time under a different feature set, while changing nothing — no workspace crate declares a feature. Line tables keep file-and-line in every backtrace, which is the part that matters; what is lost is stepping through DuckDB's C++ internals, which this project does not do. `product/CLAUDE.md`'s definition of done was amended to match. **Worth KB knowing separately: the machine is at 95% disk (327 GB of 373 GB used) independent of this repo.** | yes |
-| B-18 | 2026-08-09 | **`keel import` is a bridge, not a migration: re-importable, content-addressed, and it leaves the repo copy alone.** | KB asked whether whole specs can live in Keel and be read in the app. They can — a 51 KB SPEC.md round-trips byte-identical, stays searchable and diffs between revisions — so the only real question was how the repo files and the store stay in step. Import resolves an existing artifact by title before creating one, and `write_revision` is content-addressed, so re-running it on an unchanged file appends nothing. That makes it safe in a script or a hook, and it means `product/*.md` can stay authoritative for exactly as long as KB wants without the two copies drifting. Rejected: a one-way "move the files in and delete them", which forecloses a decision that is his (see TQ-13). | yes |
-| B-19 | 2026-08-09 | **The document reader renders markdown with `react-markdown` + `remark-gfm`, mapping every element by hand.** | The bodies were being shown as preformatted text, which made a real spec unreadable — the point of storing it. `react-markdown` over a string-to-HTML library because it does **not** render raw HTML by default: document bodies are written by a model, arrive from the store, and are displayed in an app served from the same origin as the daemon, so an injected `<script>` would be same-origin. Elements are mapped explicitly rather than pulling in a typography plugin, on the same reasoning as B-14. Tables get their own scroll container — the decision log and status tracker are almost entirely tables and would otherwise force the page wide. | yes |
-| B-20 | 2026-08-09 | **Keel is the source of truth; every `product/*.md` is generated. A prose artifact records the repository file it *is*, as `mirror_path`, and generation writes its body there verbatim.** | KB's call, made directly. The alternative that was running — repo files authoritative, `keel import` keeping Keel in step — worked, but it left two copies that agree only as long as someone remembers to run the import, and the failure mode is silent. Verbatim rather than re-rendered: these documents carry their own heading and front matter, and injecting a generated preamble would corrupt a file written to be read whole. The banner is an HTML comment for the same reason — invisible in every renderer, and harmless at the top of `product/CLAUDE.md`, which Claude Code loads verbatim on every session. Adopted files are excluded from the `.keel/` mirror, so no document has two homes. | yes — the files are on disk and in git; deleting the `mirror_path` values reverts to the mirror's slugged layout |
-| B-21 | 2026-08-09 | **Generation runs inside the daemon, exposed as `POST /api/generate`. The CLI is a client.** | Not a preference — a discovery. D-5 says non-daemon processes "connect read-only or go through the daemon's API", and **the read-only half does not exist**: DuckDB refuses a read-only connection while any process holds the write lock, so no second process can read the store while the daemon runs. Verified by implementing `open_read_only` and watching it fail with the same conflicting-lock error a writer gets; the code was reverted. Since the daemon is always running, "go through the API" is the only path, which resolves TQ-12 for every read-shaped command. `keel generate` falls back to opening the store directly only when no daemon answers, which is safe precisely because nothing else holds the lock then. **SPEC D-5's wording is now wrong** and is flagged as TQ-15. | yes |
-| B-22 | 2026-08-09 | **`projects` gets a nullable `status_path`; a path claimed by both a document and the tracker is reported, not resolved.** | The tracker is rendered from task and milestone rows, so no single artifact *is* `product/STATUS.md` the way the spec artifact is `product/SPEC.md` — the destination is a property of the project. Migration 4, additive and nullable. The collision case is real today: Keel's own `product/STATUS.md` is both an adopted prose document and the project's `status_path`. Rather than let whichever writer runs last win — which is how a file silently loses half its content — neither is written and the conflict is reported. The prose survives because it cannot be regenerated and the tracker can. | expensive — it is a schema column, though a nullable additive one |
-| B-23 | 2026-08-09 | **`keel_context` answers "what next" with named, ranked tasks. Ready work is ordered by what it unblocks first, then priority.** | KB, looking at the finished app: *"I don't understand what's next to build."* The digest was returning counts and a query to run — and the query returned nothing, because no `blocks` edge existed. Option (a) of TQ-16, chosen by KB. Ranking on the graph before the label is the part worth defending: a p1 that releases three tasks moves the project further than a p0 that releases none, and the count comes from edges a human already drew rather than a judgement this code invents. Three buckets, not one list — **ready**, **waiting on a human**, **blocked** — because a p0 decision nobody can start must not outrank work someone can. `ready` is capped at three and the truncation is reported: a ranked list of thirty is the same "you work it out" as a count. Rejected: a hand-written `next_action` field on the project, which is the STATUS.md problem again — right while maintained, silently stale after. | yes — one module, and the old count-based advice is still there under "Also worth noticing" |
-| B-24 | 2026-08-09 | **A task marked `blocked` with no `blocks` edge is reported as a data problem, not ranked.** | Keel's own store was in exactly this state: three blocked tasks, zero edges. The tempting behaviour is to trust the status and hide the task; the honest one is to say the status has no referent, because otherwise the thing that made the board unreadable stays invisible. The desktop board and the digest share one ranking from `keel-core`, so they cannot word it differently or disagree. | yes |
-| B-25 | 2026-08-09 | **"Waiting on a human decision" is the `decision-needed` label, not a new task kind or column.** | The bootstrap already used the label, so the data existed. A new `TaskKind` would be a schema change to express something a label expresses, and `product/CLAUDE.md` is explicit that a new type or field is almost always the wrong answer to awkward modelling. The cost is that it is a convention: nothing enforces it, and a decision task without the label ranks as ordinary work. | yes — trivially |
-| B-7 | 2026-08-09 | **Build scope this stretch is Phases 0–3; git stays local with no remote; `session_id` is a skill-minted per-conversation ULID; unverifiable human phase gates get an automated proxy and an honest note in `product/STATUS.md`.** | All four confirmed directly by KB on 2026-08-09 before he went away. Q-8 in `product/QUESTIONS.md` moves from `open` to answered on the strength of the third. | n/a — KB's call |
+### B-1 — chrono for time, not jiff
 
----
+`accepted` · decided 2026-08-09 · `dec_01KZKMPVPM94XEZGCSFS73XQ9T`
 
-## Findings from dependency verification (task P0-2)
+#### Decision
 
-Record what was actually true when checked, with the date and the source. `product/SPEC.md` was written in August 2026 from documentation, not from running code, and several claims sit on fast-moving ground.
+chrono for time, not jiff.
 
-| Claim in SPEC | Verified? | What's actually true | Date checked | Source |
-|---|---|---|---|---|
-| Lance extension available for current DuckDB | ✅ **yes** | DuckDB is at **1.5.5 (Variegata)**. `INSTALL lance; LOAD lance;` succeeds on `osx_arm64`. It is a core extension, not a community one. | 2026-08-09 | Ran it |
-| `ATTACH … (TYPE lance)` syntax as written in §5 | ⚠️ **syntax wrong, capability right** | ATTACH takes the **directory that contains the datasets**, not a single `.lance` path. `ATTACH '~/.keel/lance' AS lancedb (TYPE lance)` exposes `lancedb.documents` and `lancedb.blobs`. §5 attached `…/lance/documents.lance`, which would resolve to `documents.lance/documents.lance` and fail. **§5 corrected in place.** Bonus finding: the attached tables support `INSERT` and `UPDATE`, not just `SELECT` — hence B-2. | 2026-08-09 | Ran it |
-| `lance_hybrid_search()` signature and behaviour | ⚠️ **signature wrong, capability right** | Actual: `lance_hybrid_search(dataset_path, vector_column, query_vector, text_column, query_text, k := …, alpha := …, prefilter := …, nprobs := …, refine_factor := …, use_index := …, oversample_factor := …)`. §5 called it with three positional arguments. It also **returns the full source row** plus `_distance`, `_score` and `_hybrid_score`, so §5's join back to `lancedb.documents` on `doc_id` is unnecessary. `lance_fts(path, text_column, query)` and `lance_vector_search(path, vector_column, query_vector)` follow the same shape. **§5 corrected in place.** | 2026-08-09 | Ran it |
-| DuckPGQ still incompatible with the Lance-supporting DuckDB line | ✅ **yes — confirmed harder than the spec claimed** | `INSTALL duckpgq FROM community` on 1.5.5/osx_arm64 returns **HTTP 404** — no build exists. D-4 stands, now on evidence rather than documentation. The contingency in §4 remains hypothetical; nothing to reconsider. | 2026-08-09 | Ran it |
-| Quack status and timeline (§7.1) | ✅ **yes** | `quack` is a real, installable community extension for 1.5.5 ("The DuckDB 'Quack' Client/Server Protocol"), not installed here. D-5 explicitly does not depend on it and that remains correct — §7.1's argument is about the six non-locking write steps, which Quack does not touch. | 2026-08-09 | `duckdb_extensions()` |
-| Current MCP spec version and transport model | ✅ **yes** | **2026-07-28 is current** and final (shipped on that date). Stateless confirmed: the `initialize`/`notifications/initialized` handshake and `Mcp-Session-Id` are both **removed**. Several details §6 does not mention and Phase 1 must implement — see "MCP deltas" below. | 2026-08-09 | [changelog](https://modelcontextprotocol.io/specification/2026-07-28/changelog) |
-| MCP `Mcp-Method` / `Mcp-Name` header names (§6) | ✅ **yes** | Both REQUIRED on Streamable HTTP POST. `Mcp-Method` mirrors `method`; `Mcp-Name` mirrors `params.name`/`params.uri` and is required for `tools/call`. `MCP-Protocol-Version` is also required. Mismatch between header and body ⇒ HTTP 400 + JSON-RPC `-32020` (`HeaderMismatch`). | 2026-08-09 | [transport](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http) |
-| DCR deprecated in favour of CIMD (§11) | ✅ **yes** | RFC 7591 Dynamic Client Registration is deprecated in favour of Client ID Metadata Documents, retained only for backwards compatibility. §11's wording is accurate. Phase 5 only, so no action now. | 2026-08-09 | changelog, "Deprecated" §4 |
-| `fastembed-rs` version, model availability, ONNX dependency | ✅ **yes** | `fastembed` **5.17.4**, published 2026-07-28. Still ONNX Runtime via `ort`; still downloads the model on first run. `bge-small-en-v1.5` (384-dim) remains available. §5's two honest caveats against G8 both still hold. | 2026-08-09 | crates.io |
+#### Reasoning
 
-**Verdict: nothing invalidates the storage design.** SPEC §2–§5's architecture is sound as specified — one unified Lance `documents` dataset, attached into DuckDB, hybrid-searched in one SQL statement, all confirmed working. The two errors found were both *call syntax* in §5, which the handoff predicted, and both were fixed in place as editorial corrections. No escalation to KB was needed.
+`duckdb-rs` ships a first-class `chrono` feature with `ToSql`/`FromSql` for `TIMESTAMP`; there is no `jiff` feature. Choosing `jiff` would mean a hand-written conversion shim at every storage boundary — the exact place a timezone bug would hide — for no domain benefit. Recorded here because `product/CLAUDE.md` requires picking one and never mixing.
 
-### MCP deltas — things §6 predates and Phase 1 must handle
+#### Reversible?
 
-§6 was written against the 2026-07-28 announcement rather than the finished specification. None of these change the tool surface; all of them change the daemon's wire handling.
+Yes, painfully.
 
-| Delta | What Phase 1 must do |
-|---|---|
-| `server/discover` is a **required** RPC | Implement it. It advertises supported protocol versions, capabilities and identity. Clients may call it before anything else. |
-| Every result carries a required `resultType` field | Emit `"complete"` on all nine tools. `"input_required"` is the MRTR path and Keel never needs it. |
-| `tools/list` results require `ttlMs` and `cacheScope` | Keel's tool list is static, so a long `ttlMs` and `cacheScope: "public"` are correct and let clients stop polling. |
-| Protocol metadata moved into `_meta` | Read `io.modelcontextprotocol/protocolVersion`, `/clientInfo`, `/clientCapabilities` from `params._meta`, and validate the version against the `MCP-Protocol-Version` header. |
-| Error codes renumbered | `HeaderMismatch` `-32020`, `MissingRequiredClientCapability` `-32021`, `UnsupportedProtocolVersion` `-32022`. The old `-3200{1,3,4}` numbers are wrong. |
-| HTTP GET/DELETE on the MCP endpoint | Return `405 Method Not Allowed`. Ignore any `Mcp-Session-Id` or `Last-Event-ID` that arrives. |
-| `Origin` validation is a MUST | Reject invalid `Origin` with HTTP 403. Cheap, and the daemon is localhost-bound anyway. |
-| Sampling, Roots and Logging are deprecated | Do not implement them. Keel needs none. |
-| SSE resumability removed | The local REST/SSE surface for the desktop app is Keel's own API, not MCP, so this constrains only the MCP endpoint. |
 
-The nine-tool surface in §6.2 is unaffected. So is `keel_context`.
+### B-2 — All Lance access goes through the DuckDB extension
 
----
+`accepted` · decided 2026-08-09 · `dec_01KZKMPVPZ81H8PHKF8RHZK13R`
 
-## Reversals
+#### Decision
 
-When a decision turns out to be wrong, add a row here rather than editing the original. Knowing something was tried and abandoned is as useful as knowing what was chosen.
+All Lance access goes through the DuckDB lance extension. The lance and lancedb Rust crates are not dependencies.
 
-| Original | Date reversed | What replaced it | What we learned |
-|---|---|---|---|
-| **SPEC §8.1 — the `PostToolUse` hook that turns a file edit into a revision.** Specified as the one permitted read of the mirror, with a written guarantee that "the database wins unconditionally afterwards, the file is regenerated". | 2026-08-10 | **Nothing, deliberately.** The hook is deleted and `scripts/pre-commit` refuses a commit carrying a hand-edited generated file. D-3 no longer has an exception. | The hook never worked: it called `keel mirror`, a command renamed to `keel generate` underneath it, and swallowed the failure with `\|\| true`; it read `KEEL_SESSION_ID`, which nothing sets; and on this machine it was never installed at all. Every edit it claimed to capture was lost in silence. **A safety mechanism that quietly does nothing is worse than none, because it is relied upon** — the one-directional rule was being softened to make room for an exception that did not exist. The replacement does strictly less and fails loudly. |
-| **B-24 — a task marked `blocked` with no `blocks` edge is reported as a data problem.** A repair for a status and a graph that could disagree. | 2026-08-10 | **`blocked` is not a status.** The enum value is gone (migration 8); blocked is derived from the `blocks` edges, and `blocked_tasks()` is the single definition every surface reads. | B-24 was the right fix for the wrong shape. Reconciling two sources of truth is work that only exists because there are two — and the reconciliation itself was load-bearing, which is what made it look like a feature. Keel's own store had three tasks marked blocked and zero edges. Removing the status removed the disagreement instead of reporting it. KB's call, since it cost a forward-only migration and a visible behaviour change. |
+#### Reasoning
+
+Verified empirically (see P0-2 table): `ATTACH … (TYPE lance)` gives full `SELECT`/`INSERT`/`UPDATE` over Lance datasets, and the three search functions work. Using the extension means one connection, one SQL surface, one transaction story — and it drops `lance` v10 + `arrow` v59 from the build entirely. Rejected: the native crate, which would have meant marshalling Arrow record batches by hand and keeping two Lance versions in step.
+
+#### Consequences
+
+DocumentStore is a trait precisely so this can be swapped.
+
+#### Reversible?
+
+Yes — `DocumentStore` is a trait precisely so this can be swapped.
+
+
+### B-3 — Bundled DuckDB is a feature, not a requirement
+
+`accepted` · decided 2026-08-09 · `dec_01KZKMPVQD8N0ZYBZZBMWTCP04`
+
+#### Context
+
+Compiling DuckDB from source costs about ten minutes on a cold build.
+
+#### Decision
+
+bundled is the default, but it is now a feature — --no-default-features links a system libduckdb instead.
+
+#### Reasoning
+
+Originally justified as "the binary can never disagree with the extension versions it loads", which **overstated it**: `INSTALL lance` re-fetches for whatever version is running, so a system library self-heals given network. The genuine reasons are narrower — a self-contained binary that keeps working after `brew upgrade duckdb`, and a build that needs no setup on a fresh machine. Neither justifies a ten-minute wait on a machine that already has the right library, so it is a feature now. **Verified both ways:** system-linked builds the workspace in 54s versus roughly ten minutes, and all 264 tests pass against Homebrew's libduckdb 1.5.5, Lance extension included. The default stays `bundled` because the *installed* binary should not break when Homebrew moves underneath it; the fast path is for development.
+
+#### Consequences
+
+System-linked builds the workspace in 54s versus roughly ten minutes, with all tests passing either way.
+
+#### Reversible?
+
+Yes.
+
+
+### B-4 — No vector or FTS index on the Lance dataset initially — brute-force scan
+
+`accepted` · decided 2026-08-09 · `dec_01KZKWMSX25E73XSGB9Q9A0P5W`
+
+#### Decision
+
+No vector or FTS index on the Lance dataset initially — brute-force scan.
+
+#### Reasoning
+
+Verified that `lance_fts`, `lance_vector_search` and `lance_hybrid_search` all return correct results with no index present. At a few thousand documents an index is pure cost. Per the scale-discipline rule, a measurement comes before an index.
+
+#### Reversible?
+
+Yes.
+
+
+### B-5 — unwrap/expect/panic/todo/unimplemented are workspace clippy lints at warn, promoted to…
+
+`accepted` · decided 2026-08-09 · `dec_01KZKWMSYT6WTETRJ6DF82A42E`
+
+#### Decision
+
+unwrap/expect/panic/todo/unimplemented are workspace clippy lints at warn, promoted to errors by CI's -D warnings.
+
+#### Reasoning
+
+The definition of done forbids these in library code. Encoding it as a lint means CI catches it; leaving it to review discipline means it lands. Tests and binaries opt out locally with `#[allow]` where genuinely warranted.
+
+#### Reversible?
+
+Yes.
+
+
+### B-6 — missing_docs is a workspace lint, not just a keel-core convention
+
+`accepted` · decided 2026-08-09 · `dec_01KZKWMT0JWXM2JGX7MZ0QZ7DV`
+
+#### Decision
+
+missing_docs is a workspace lint, not just a keel-core convention.
+
+#### Reasoning
+
+The contract only requires doc comments on `keel-core` public items, but scoping the lint per-crate is more machinery than it saves, and documenting the daemon's public surface costs little.
+
+#### Reversible?
+
+Yes.
+
+
+### B-7 — Build scope this stretch is Phases 0–3; git stays local with no remote; session_id is a…
+
+`accepted` · decided 2026-08-09 · `dec_01KZKWMTFN212CPD921AY3PX6D`
+
+#### Decision
+
+Build scope this stretch is Phases 0–3; git stays local with no remote; session_id is a skill-minted per-conversation ULID; unverifiable human phase gates get an automated proxy and an honest note in product/STATUS.md.
+
+#### Reasoning
+
+All four confirmed directly by KB on 2026-08-09 before he went away. Q-8 in `product/QUESTIONS.md` moves from `open` to answered on the strength of the third.
+
+#### Reversible?
+
+N/a — KB's call.
+
+
+### B-8 — Surface carries five values, not four: chat \
+
+`accepted` · decided 2026-08-09 · `dec_01KZKWMT28K0HMJ1Y5JQ16TT8T`
+
+#### Decision
+
+Surface carries five values, not four: chat \| cowork \| code \| ui \| cli.
+
+#### Reasoning
+
+SPEC §3.1's audit-block comment lists four; §6.5 separately names `cli` as a fixed sentinel for the command line. The two passages disagree and something had to give. Five is the reconciliation — `keel-cli` writes fixtures and restores backups, and those writes need an honest surface rather than a borrowed `ui`. The column is a bare `VARCHAR` with no check constraint, so this costs nothing at the storage layer. Raised with KB as TQ-8 rather than treated as settled.
+
+#### Reversible?
+
+Yes.
+
+
+### B-9 — ULIDs are minted from a monotonic generator
+
+`accepted` · decided 2026-08-09 · `dec_01KZKMPVQWSF1TN6TYEWQ3BJ61`
+
+#### Context
+
+`Ulid::new()` re-randomises its low 80 bits on every call, so two ids created in the same millisecond sort arbitrarily.
+
+#### Decision
+
+All ULIDs are minted from a single process-wide *monotonic* generator, never Ulid::new().
+
+#### Reasoning
+
+Found by a test, not by reading: `Ulid::new()` re-randomises its low 80 bits every call, so two ids created in the same millisecond sort arbitrarily. SPEC §3.4 rests on ULID order *being* chronological order so that "changed since T" is a range scan over `events.id` — and a burst of writes inside one millisecond is an agent's normal behaviour, not an edge case. Non-monotonic ids would make an event-cursor query silently skip or repeat rows, which is the same class of quiet-wrong-answer bug as an inverted graph traversal. Rejected: ordering every query by `(created_at, id)`, which pushes the problem to every call site instead of solving it once.
+
+#### Consequences
+
+Found by a test, not by reading.
+
+#### Reversible?
+
+Yes.
+
+
+### B-10 — Every table gets idempotency_key, not just tasks
+
+`accepted` · decided 2026-08-09 · `dec_01KZKMPVR92GNRQXTE8836ZD1E`
+
+#### Context
+
+SPEC §7.2 and REQ-7 say every create is idempotent; §3.2 gives the column only to tasks.
+
+#### Decision
+
+Every table gets idempotency_key, not just tasks.
+
+#### Reasoning
+
+SPEC §7.2 and PRD REQ-7 say *every* create is idempotent, but §3.2 only gives the column to `tasks`. Honouring the requirement means honouring it everywhere; the alternative silently drops idempotency for twelve of thirteen types, including `projects` — the one type where duplicates are called out as the failure that ruins the aggregate view (UC-8, REQ-8). Marked `PROVISIONAL` and raised as TQ-9, because adding a column is a storage-format change and those are KB's call.
+
+#### Consequences
+
+Marked PROVISIONAL; raised as TQ-9 because adding a column is a storage-format change and those are KB's call.
+
+#### Reversible?
+
+Expensive — it is a schema column.
+
+
+### B-11 — Dev builds use debug = "line-tables-only" and debug = false for dependencies; the…
+
+`accepted` · decided 2026-08-09 · `dec_01KZKWMT3ZRNB06RMYBSTAKDV6`
+
+#### Decision
+
+Dev builds use debug = "line-tables-only" and debug = false for dependencies; the clippy gate drops --all-features.
+
+#### Reasoning
+
+The vendored DuckDB's full debug info is enormous: `target/` reached **19 GB** and filled KB's disk mid-session (`ranlib: errno=28`). `--all-features` made it worse by building DuckDB a second time under a different feature set, while changing nothing — no workspace crate declares a feature. Line tables keep file-and-line in every backtrace, which is the part that matters; what is lost is stepping through DuckDB's C++ internals, which this project does not do. `product/CLAUDE.md`'s definition of done was amended to match. **Worth KB knowing separately: the machine is at 95% disk (327 GB of 373 GB used) independent of this repo.**
+
+#### Reversible?
+
+Yes.
+
+
+### B-12 — BM25 moves from Lance to DuckDB
+
+`accepted` · decided 2026-08-09 · `dec_01KZKMPVRTXA717P2854N17HQ5`
+
+#### Context
+
+SPEC §5 put both halves of hybrid search inside lance_hybrid_search.
+
+#### Decision
+
+BM25 moves from Lance to DuckDB. lance_hybrid_search is not used; the Lance index does vectors only.
+
+#### Reasoning
+
+SPEC §5 put both halves of hybrid search inside `lance_hybrid_search`. Its keyword half could not be characterised. On an un-indexed dataset, multi-term queries match inconsistently: `"onboarding metering"` returns a document containing only *metering*, while `"onboarding slow"` returns **nothing** despite a document containing *onboarding*. A third query returned an unrelated document with a score identical to an unrelated query's. The extension's documentation shows only single-word examples (`'puppy'`) and documents no way to build the index that would presumably fix this. A search returning plausible-but-wrong results is the same failure class as an inverted graph traversal, so it gets the same answer: put it where the semantics are known. DuckDB's `fts` extension is a real BM25 index with documented behaviour, and the index now covers *every* searchable artifact — prose titles and bodies joined in from Lance — so a spec and a task compete in one ranking instead of two. Lance keeps what it is uniquely for: the vector index and the multimodal blobs. `keel-core` was already doing the cross-index RRF fusion, so nothing else moved. **This is a §5 design change and is flagged to KB as TQ-10.**
+
+#### Consequences
+
+The DuckDB index now covers prose too, so a spec and a task compete in one ranking. Flagged as TQ-10.
+
+#### Reversible?
+
+Yes — it is one module, and `DocumentStore` is a trait.
+
+
+### B-13 — Tool responses lift version to the top of the entity
+
+`accepted` · decided 2026-08-09 · `dec_01KZKMPVSRVWSF4N42E9Y1M7A1`
+
+#### Context
+
+`version` lives inside the audit block in the domain model.
+
+#### Decision
+
+Tool responses lift version (and archived) to the top of the entity, alongside the nested audit block.
+
+#### Reasoning
+
+`version` lives inside `audit` in the domain model, which is right there and wrong on the wire: `keel_update` documents a `version` argument, so an agent that has just read an entity should be able to copy the field of that name straight across. Making it hunt inside `audit` is the papercut that becomes a 409 and a confused retry. Found by writing the UC-3 handoff test as an agent would actually do it. The audit block is untouched — this adds a field rather than moving one.
+
+#### Consequences
+
+Found by writing the UC-3 test the way an agent would actually do it.
+
+#### Reversible?
+
+Yes.
+
+
+### B-14 — The desktop app hand-writes its components
+
+`accepted` · decided 2026-08-09 · `dec_01KZKMPVTSVQB53R5AGXMB5WZ5`
+
+#### Decision
+
+The desktop app hand-writes its components rather than using shadcn/ui's generator.
+
+#### Reasoning
+
+SPEC §10 names shadcn/ui. What a read-only, seven-screen app actually needs from it is a card, a badge, a status colour and an empty state — four small components. Running the generator to obtain those pulls in Radix primitives and a registry dependency for a surface with no dialogs, popovers or focus traps to manage. The conventions are kept: one component per concern, styling through class names, no theme provider, Tailwind 4 tokens in one place. Total frontend dependency footprint is 81 packages and a 227 KB bundle. Revisit the moment the app grows anything genuinely interactive.
+
+#### Consequences
+
+81 packages, a 227 KB bundle. Revisit the moment the app grows anything genuinely interactive.
+
+#### Reversible?
+
+Yes.
+
+
+### B-15 — Keel's local REST API has more endpoints than the MCP surface has tools
+
+`accepted` · decided 2026-08-09 · `dec_01KZKMPVVAC6EZA35F1E87SC0C`
+
+#### Decision
+
+Keel's local REST API has more endpoints than the MCP surface has tools.
+
+#### Reasoning
+
+The nine-tool ceiling exists because a *model* chooses worse among forty tools than among nine (SPEC §6.1). That reasoning does not transfer to a UI, which knows exactly what it wants and would otherwise fetch everything and filter client-side. `/api/entities`, `/api/document/{id}` and `/api/graph/{id}` are UI-facing and thin. The MCP surface is untouched at nine.
+
+#### Reversible?
+
+Yes.
+
+
+### B-16 — Event summaries name artifacts, not ids
+
+`accepted` · decided 2026-08-09 · `dec_01KZKMPVVY4DAPXQD0H99HB27C`
+
+#### Context
+
+"linked tsk_01KZK163THQG7 references fbk_01KZK16505G3J" is not a sentence.
+
+#### Decision
+
+Event summaries name artifacts, not ids.
+
+#### Reasoning
+
+Found by looking at the finished Home screen: "linked tsk_01KZK163THQG7DPQWGV4C9FFZ7 references fbk_01KZK16505G3JJ2M7Z27JTP1WJ" is not a sentence a human can read, and the activity feed and Sunday-review digest are the two places that text is actually shown. Now "“Invoices round to the wrong cent” references “Invoices do not match our own metering”". The ids are still on the event for anything that needs them.
+
+#### Reversible?
+
+Yes.
+
+
+### B-17 — Serve MCP 2025-11-25 alongside 2026-07-28
+
+`accepted` · decided 2026-08-09 · `dec_01KZKMPVS9XTWRN7303BPY0F18`
+
+#### Context
+
+Claude Code 2.1.185 opens with the legacy initialize handshake and declares 2025-11-25. A daemon speaking only the current revision reported "Failed to connect".
+
+#### Decision
+
+The daemon serves 2025-11-25 as well as 2026-07-28.
+
+#### Reasoning
+
+Found the moment KB pointed a real client at it: `claude mcp list` said "Failed to connect". Captured the wire traffic — **Claude Code 2.1.185 opens with the legacy `initialize` handshake and declares `2025-11-25`**, and sends none of the mirrored headers the current revision requires. A daemon that speaks only 2026-07-28 is unusable with the client this entire product exists to serve, which would have made Phase 2's gate impossible to even attempt. The spec's backward-compatibility section makes this a MAY; here it is the difference between working and not. `initialize`, `notifications/initialized` and `ping` are answered; `Mcp-Method`/`Mcp-Name` are required only of a 2026-07-28 caller; `resultType` and `_meta.serverInfo` are sent only to clients whose revision defines them. 2025-06-18 and 2025-03-26 are served the same way — they differ from 2025-11-25 only in ways the tool surface never touches. **SPEC §6's opening line is now wrong** and is flagged as TQ-11.
+
+#### Consequences
+
+Mirrored headers are required only of a 2026-07-28 caller; resultType goes only to clients whose revision defines it. Flagged as TQ-11.
+
+#### Reversible?
+
+Yes.
+
+
+### B-18 — keel import is a bridge, not a migration: re-importable, content-addressed, and it…
+
+`accepted` · decided 2026-08-09 · `dec_01KZKWMT5SMKXQ07NKBKT87SXC`
+
+#### Decision
+
+keel import is a bridge, not a migration: re-importable, content-addressed, and it leaves the repo copy alone.
+
+#### Reasoning
+
+KB asked whether whole specs can live in Keel and be read in the app. They can — a 51 KB SPEC.md round-trips byte-identical, stays searchable and diffs between revisions — so the only real question was how the repo files and the store stay in step. Import resolves an existing artifact by title before creating one, and `write_revision` is content-addressed, so re-running it on an unchanged file appends nothing. That makes it safe in a script or a hook, and it means `product/*.md` can stay authoritative for exactly as long as KB wants without the two copies drifting. Rejected: a one-way "move the files in and delete them", which forecloses a decision that is his (see TQ-13).
+
+#### Reversible?
+
+Yes.
+
+
+### B-19 — The document reader renders markdown with react-markdown + remark-gfm, mapping every…
+
+`accepted` · decided 2026-08-09 · `dec_01KZKWMT7GFNZBYEQBV44NPY4R`
+
+#### Decision
+
+The document reader renders markdown with react-markdown + remark-gfm, mapping every element by hand.
+
+#### Reasoning
+
+The bodies were being shown as preformatted text, which made a real spec unreadable — the point of storing it. `react-markdown` over a string-to-HTML library because it does **not** render raw HTML by default: document bodies are written by a model, arrive from the store, and are displayed in an app served from the same origin as the daemon, so an injected `<script>` would be same-origin. Elements are mapped explicitly rather than pulling in a typography plugin, on the same reasoning as B-14. Tables get their own scroll container — the decision log and status tracker are almost entirely tables and would otherwise force the page wide.
+
+#### Reversible?
+
+Yes.
+
+
+### B-20 — Keel is the source of truth; every product/*.md is generated.
+
+`accepted` · decided 2026-08-09 · `dec_01KZKWMT9M8EJQM7TJDZH8KX22`
+
+#### Decision
+
+Keel is the source of truth; every product/*.md is generated. A prose artifact records the repository file it *is*, as mirror_path, and generation writes its body there verbatim.
+
+#### Reasoning
+
+KB's call, made directly. The alternative that was running — repo files authoritative, `keel import` keeping Keel in step — worked, but it left two copies that agree only as long as someone remembers to run the import, and the failure mode is silent. Verbatim rather than re-rendered: these documents carry their own heading and front matter, and injecting a generated preamble would corrupt a file written to be read whole. The banner is an HTML comment for the same reason — invisible in every renderer, and harmless at the top of `product/CLAUDE.md`, which Claude Code loads verbatim on every session. Adopted files are excluded from the `.keel/` mirror, so no document has two homes.
+
+#### Reversible?
+
+Yes — the files are on disk and in git; deleting the `mirror_path` values reverts to the mirror's slugged layout.
+
+
+### B-21 — Generation runs inside the daemon, exposed as POST /api/generate.
+
+`accepted` · decided 2026-08-09 · `dec_01KZKWMTBYP6P7B8DQTB3586G9`
+
+#### Decision
+
+Generation runs inside the daemon, exposed as POST /api/generate. The CLI is a client.
+
+#### Reasoning
+
+Not a preference — a discovery. D-5 says non-daemon processes "connect read-only or go through the daemon's API", and **the read-only half does not exist**: DuckDB refuses a read-only connection while any process holds the write lock, so no second process can read the store while the daemon runs. Verified by implementing `open_read_only` and watching it fail with the same conflicting-lock error a writer gets; the code was reverted. Since the daemon is always running, "go through the API" is the only path, which resolves TQ-12 for every read-shaped command. `keel generate` falls back to opening the store directly only when no daemon answers, which is safe precisely because nothing else holds the lock then. **SPEC D-5's wording is now wrong** and is flagged as TQ-15.
+
+#### Reversible?
+
+Yes.
+
+
+### B-22 — projects gets a nullable status_path; a path claimed by both a document and the tracker…
+
+`accepted` · decided 2026-08-09 · `dec_01KZKWMTDQZPZJ46PCEWATF0XY`
+
+#### Decision
+
+projects gets a nullable status_path; a path claimed by both a document and the tracker is reported, not resolved.
+
+#### Reasoning
+
+The tracker is rendered from task and milestone rows, so no single artifact *is* `product/STATUS.md` the way the spec artifact is `product/SPEC.md` — the destination is a property of the project. Migration 4, additive and nullable. The collision case is real today: Keel's own `product/STATUS.md` is both an adopted prose document and the project's `status_path`. Rather than let whichever writer runs last win — which is how a file silently loses half its content — neither is written and the conflict is reported. The prose survives because it cannot be regenerated and the tracker can.
+
+#### Reversible?
+
+Expensive — it is a schema column, though a nullable additive one.
+
+
+### B-23 — keel_context answers "what next" with named, ranked tasks
+
+`proposed` · `dec_01KZPFPHCFPZ1X930DEC2ZRR7R`
+
+#### Decision
+
+keel_context answers "what next" with named, ranked tasks. Ready work is ordered by what it unblocks first, then priority.
+
+#### Reasoning
+
+KB, looking at the finished app: *"I don't understand what's next to build."* The digest was returning counts and a query to run — and the query returned nothing, because no `blocks` edge existed. Option (a) of TQ-16, chosen by KB. Ranking on the graph before the label is the part worth defending: a p1 that releases three tasks moves the project further than a p0 that releases none, and the count comes from edges a human already drew rather than a judgement this code invents. Three buckets, not one list — **ready**, **waiting on a human**, **blocked** — because a p0 decision nobody can start must not outrank work someone can. `ready` is capped at three and the truncation is reported: a ranked list of thirty is the same "you work it out" as a count. Rejected: a hand-written `next_action` field on the project, which is the STATUS.md problem again — right while maintained, silently stale after.
+
+#### Reversible?
+
+Yes — one module, and the old count-based advice is still there under "Also worth noticing".
+
+
+### B-24 — A task marked blocked with no blocks edge is reported as a data problem, not ranked
+
+`superseded` · `dec_01KZPFPPEMGCEB5HXXPF1RFWDC`
+
+#### Decision
+
+A task marked blocked with no blocks edge is reported as a data problem, not ranked.
+
+#### Reasoning
+
+Keel's own store was in exactly this state: three blocked tasks, zero edges. The tempting behaviour is to trust the status and hide the task; the honest one is to say the status has no referent, because otherwise the thing that made the board unreadable stays invisible. The desktop board and the digest share one ranking from `keel-core`, so they cannot word it differently or disagree.
+
+#### Reversible?
+
+Yes.
+
+#### Superseded
+
+**Reversed 2026-08-10.** `blocked` is no longer a status — the enum value was removed in migration 8 and blocked is derived from the `blocks` edges, with `blocked_tasks()` as the single definition every surface reads.
+
+This was the right fix for the wrong shape. Reconciling two sources of truth is work that only exists because there are two, and the reconciliation itself was load-bearing, which is what made it look like a feature rather than a symptom. Removing the status removed the disagreement instead of reporting it. KB's call, since it cost a forward-only migration and a visible behaviour change.
+
+
+### B-25 — "Waiting on a human decision" is the decision-needed label, not a new task kind
+
+`proposed` · `dec_01KZPFPS0KK4YE59E3A8GJQ0VW`
+
+#### Decision
+
+"Waiting on a human decision" is the decision-needed label, not a new task kind or column.
+
+#### Reasoning
+
+The bootstrap already used the label, so the data existed. A new `TaskKind` would be a schema change to express something a label expresses, and `product/CLAUDE.md` is explicit that a new type or field is almost always the wrong answer to awkward modelling. The cost is that it is a convention: nothing enforces it, and a decision task without the label ranks as ordinary work.
+
+#### Reversible?
+
+Yes — trivially.
+
+
+### B-26 — Fixture links are addressed by name, never by position
+
+`accepted` · decided 2026-08-09 · `dec_01KZKMPVT876SD8CJJPGY9ZVXY`
+
+#### Context
+
+Two Harbour feedback items ended up linked to a Keel spec.
+
+#### Decision
+
+Look artifacts up by label; error if the label is missing.
+
+#### Reasoning
+
+The link section used positional indices, and appending rows near the top of each list shifted every index below. The edges silently rewired themselves and nothing complained, because a link to the wrong artifact is still a valid link.
+
+#### Consequences
+
+A renamed artifact now breaks the fixture loudly rather than quietly dropping an edge.
+
+
+### B-27 — Outside panel: the gate measurement was invalid and the file plan is rejected
+
+`proposed` · `dec_01KZMGPPJ0MM4VSGAP4KF724DQ`
+
+Six-expert panel review with adversarial cross-examination, delivered as `product/WAY-FORWARD.md`, 2026-08-09.
+
+**The headline finding, and it is correct.** The gate harness is headless single-turn — `claude -p ... </dev/null`, one prompt, one response, process exits. Five silent sessions ended with *"I'll hold off until you say go."* There was no "you" and no next turn. The write was not refused; it was scheduled for a turn the harness architecturally could not supply. I recorded that caveat for run 1 and then dropped it, and every strategic conclusion since — including "the premise may be dead" — was drawn as though 3/10 measured judgement.
+
+**The statistical point is also right.** 9-of-10 at n=10 has a 95% CI of [0.555, 0.997]; two projects means effective n≈5. The gate cannot distinguish a 55% agent from a 100% agent. It was never a usable instrument.
+
+**The cause I missed, sitting in the highest-traffic text in the system.** `keel_create`'s description ends with *"confirm with the human"* and *"worse than useless"*; `keel_projects` says *"ask the human before creating anything"*. Tool descriptions are the only text re-read every session in every environment — unlike a skill (never loaded, proven) or a hook preamble (weak directive force). The anti-write instruction is inside the write tool, and `requires_confirmation` is tool *output* arriving at decision time, which is the strongest channel that exists.
+
+**My file-based plan is rejected, on grounds I should have seen.** `product/STATUS.md` is one spec artifact — the whole forty-row tracker. An agent adding a task row via the PostToolUse hook writes revision N+1 of that blob, creates zero task artifacts, and `generate --check` passes. That is bit-for-bit the incident that lost 16 of 28 questions, promoted to the default write path and executed on every edit. It also reduces surface coverage (chat and Cowork have no filesystem, no hook, no localhost daemon) and turns a silent non-write on those surfaces into silent data loss.
+
+**Adopted from it:** collapse the four model-facing write tools into one `keel_record`; rewrite the description with "call this without asking" in the first three lines; teach reversibility through the write's own output; auto-create the first project for a directory; a deterministic Stop hook with no model call; and a `class` column making the prose-blob failure unrepresentable rather than merely detectable.
+
+**Process rule adopted unanimously, and it indicts the build order:** no phase may be sequenced ahead of a phase that tests an assumption it depends on. 305 tests and a nine-relation typed graph for a store holding 29 links is the signature of ordering work by what was buildable rather than by what was uncertain.
+
+Full document at `product/WAY-FORWARD.md`. It is not yet in Keel — it arrived as a repo file and should be imported.
+
+
+### B-28 — s2, s7 and s9 are genuine misses, not L0
+
+`accepted` · decided 2026-08-10 · `dec_01KZMTF8PVC0AWYFPQVGXM69BB`
+
+KB's judgement, 2026-08-10. The three silent sessions in Run A were all pure implementation prompts - cache a lookup, fix gc() wiping the store on an empty keep set, make put() atomic. Each is a genuine miss rather than a session with nothing worth recording.\n\nThat is the right call. A bug that would wipe a content-addressed store on an accidental empty keep set is exactly the kind of thing a project memory should hold, and 'we found and fixed a data-loss bug' is more valuable six months on than most of what did get recorded.\n\nConsequence: Run A is 7 of 10 against a bar of 9, and the residual is real. It also settles the open judgement in TQ-21 and re-frames Step 6.
+
+
+### B-29 — Phase 2 closed on 18 of 20
+
+`accepted` · decided 2026-08-10 · `dec_01KZN24NH42AW7XQB9GNNZ0NFY`
+
+KB's call, 2026-08-10.
+
+The exit criterion - across ten unprompted sessions Claude writes to Keel in at least nine, every write attributed, zero duplicate projects - was met on two consecutive independent draws. Runs B and C each scored 9 of 10. Pooled 18 of 20, point estimate 90%, 95% CI [69.9%, 97.2%].
+
+What closes it is not the score alone but the mechanism being understood. Six runs decompose into three distinct failures with three distinct fixes: the SessionStart hook fixed noticing and intent (ceiling ~30% to 80%), the continuation turn fixed execution (offers 8 to 1, and it was an instrument artefact rather than a product fault), and the deterministic Stop hook fixed the residual by reaching sessions that never noticed Keel at all during heads-down implementation work. The Stop hook fired in exactly the three sessions that had missed in Run A and stayed silent for the seven that had not, which is stronger evidence than the aggregate.
+
+What is knowingly carried rather than resolved:
+- The pooled lower bound is 69.9%. Twenty sessions cannot establish a 90% rate, and 9-of-10-at-n=10 was retired as a statistical instrument for exactly that reason. Closing the phase is a judgement that the mechanism works, not a claim that the rate is 90%.
+- The precision floor does not exist. Step 10's independent hand-judge of ~20 writes remains open as a p0. The criterion is pure recall, which is least trustworthy when recall is high.
+- Chat and Cowork have neither hook and are entirely untested. Everything measured is Claude Code.
+- One known failure mode survives: a session that receives the Stop nudge and answers the user's next question instead.
+
+These are recorded as open work, not as reasons the phase stays open.
+
+
+### B-30 — The p0 wedge was SIGKILL mid-write, not the FTS index
+
+`accepted` · decided 2026-08-10 · `dec_01KZN2W5BPHM5DH3PRSHW5A600`
+
+Fixed 2026-08-10. I diagnosed this wrong twice before getting it, and the wrong diagnosis is recorded in STATUS as of the previous commit.
+
+What it actually was. An UPDATE raised a DuckDB FATAL: 'Failed to delete all rows from index. Only deleted 0 out of 1 rows.' That is an ART index disagreeing with its table. A FATAL poisons the DuckDB connection, so every subsequent query fails with whatever operation happened to be running - 'count matching rows' on a create, 'run a question lookup' on an update. Reads on a freshly started process worked because they never touched the damaged index, and fsck reported clean because it checks referential integrity, not index consistency. Every observation was true and the conclusion was still wrong.
+
+My earlier claim that the FTS index was broken came from searching after a write had already poisoned the connection. Search on a genuinely fresh daemon returns hits. The FTS index was never involved.
+
+The cause. The daemon's graceful shutdown waits for in-flight connections, and /api/events is a Server-Sent Events stream that by design never ends. So SIGTERM never completed, and every restart this session ended in SIGKILL - repeatedly, mid-write. That is how the index and its table stopped agreeing.
+
+Three fixes:
+1. Shutdown now runs on a five-second deadline and CHECKPOINTs before exiting. Verified: with an SSE stream open, SIGTERM stops the daemon in 5s and logs the checkpoint. It used to hang indefinitely.
+2. Error chains are surfaced. Error::chain() walks to the root cause and the MCP boundary reports it. The source was attached the whole time; nothing printed it, which is why two hours went into guessing instead of reading.
+3. Regression test: create, checkpoint, reopen, update - the exact cycle, asserting the connection is not poisoned afterwards.
+
+Recovery used backup and restore, which rebuilt every table and index from Parquet. 536 rows, verified per table. The damaged store is kept at ~/.keel.corrupt-20260810T053513Z and the Parquet backup at /tmp/keel-backup-repair. No data was lost.
+
+Worth noting for the panel's Step 8: their hypothesis was two write paths into one file where only the daemon maintains derived state. That was reasonable and it was not the cause. The cause was cruder - the daemon could not be stopped politely, so it was stopped rudely, many times.
+
+
+### B-31 — restore now re-establishes the store's git repository
+
+`accepted` · decided 2026-08-10 · `dec_01KZN3K1A6PBRFVJ9H9H6542HM`
+
+Found one command before deleting the only copy that still had it. SPEC §11 names three recovery tiers: the store's own git history (full fidelity, every revision), the Parquet backup, and the markdown mirror. keel restore rebuilds from tier 2 into a fresh directory - and handed back a store with no .git, so a restore silently cost you tier 1, the tier with the most fidelity.
+
+That is worse than it sounds because of when it fires: you only restore after something has already gone wrong, so the moment you use tier 2 is exactly the moment you lose tier 1. Nothing warned, and verify_restore passed because it checks rows, not recovery properties.
+
+The fix lives in keel-cli rather than keel-core, mirroring plugin/install.sh: keel-core does not spawn processes, and 'a store should be a git repo' is policy rather than storage. After a verified restore the CLI runs git init, writes the models/ .gitignore, and commits the restored state - an empty repository restores nothing, so the state has to be in a commit. No remote, which is Q-2 and KB's call.
+
+It never fails the restore. A missing git binary prints a warning naming the exact command to run, because the rows being back matters more than the tier being re-established this second.
+
+Two tests: a restored store becomes a repo with its state committed and models/ ignored, and an existing repo is left alone - the same loss in the other direction.
+
+
+### B-32 — KB confirmed: idempotency keys stay on all thirteen tables
+
+`accepted` · decided 2026-08-10 · `dec_01KZN5H4EJ905TXJA2RTS0MNKY`
+
+TQ-9 answered 2026-08-10. B-10 stands and is no longer provisional.
+
+The spec disagreed with itself - REQ-7 and section 7.2 say every create is idempotent, section 3.2 gave the column only to tasks. Implemented on all thirteen because the alternative silently drops idempotency for twelve types including projects, the one type where duplicates are called out as ruining the cross-project view.
+
+It has since earned it on organic traffic: across the gate runs, sessions called create twice with an identical title on nine occasions and the key deduplicated every one.
+
+
+### B-33 — KB confirmed: BM25 stays in DuckDB, Lance does vectors only
+
+`accepted` · decided 2026-08-10 · `dec_01KZN5H4FFR7VHD92Z1PWRTMRA`
+
+TQ-10 answered 2026-08-10. B-12 stands and is no longer provisional. SPEC section 5 is now formally wrong about which engine ranks keywords and should be corrected.
+
+The original design put both halves of hybrid search in lance_hybrid_search. Its keyword half could not be characterised: 'onboarding metering' returned a document containing only metering, 'onboarding slow' returned nothing despite a document containing onboarding, and a third query returned an unrelated document with a score identical to an unrelated query's.
+
+DuckDB's fts extension is a real BM25 index with documented behaviour, and it covers every artifact type rather than prose alone, so a spec and a task compete in one ranking instead of two. Lance keeps the vector index and the blobs. Search has behaved correctly throughout.
+
+
+### B-34 — The desktop app routes on the hash, and the router is hand-written
+
+`accepted` · `dec_01KZNHQ0SMBXVKYF3SA85W9VZ7`
+
+#### Context
+
+Phase 6 needs every screen, project, document, search and task to have an address. The app had no router at all.
+
+#### Decision
+
+**Route on `location.hash`, with a hand-written route table in `apps/desktop/src/lib/router.ts`.** No routing dependency.
+
+#### Reasoning
+
+Two separate calls, both pointing the same way.
+
+**The hash rather than the path.** A path-based router needs the server to fall back to `index.html` for any deep URL. Vite's dev server does that; Tauri's asset protocol does not. So `/projects/keel/board` would have 404'd on reload in the built app — precisely the failure routing was added to fix, and one that would only have shown up in the packaged build. The hash never reaches a server, so one bundle behaves identically in dev, in the Tauri webview, and in the future static web build SPEC §10 asks for.
+
+**Hand-written rather than a library.** Eleven route patterns and a query string come to about 200 lines including the comments. A router library would need roughly as much configuration and would add a dependency to the surface. Same reasoning as B-14 for components.
+
+Two properties are held by tests rather than by care: `parseHash(toHash(r)) === r` for every route the app can build, and an address matching no route falls back to Home while keeping its query. `App` then canonicalises — an address that means nothing, or names a project-scoped screen with no project, is rewritten with `replace` so it never becomes a Back destination.
+
+#### Reversible?
+
+Yes, cheaply. Every call site goes through `href`, `navigate` and `useRoute`; swapping to paths or to a library means rewriting one module.
+
+
+### B-35 — Eight named type sizes in two scales, not eleven anonymous ones
+
+`accepted` · `dec_01KZNHQ6BNEH54ZG8HQ7WRR2S5`
+
+#### Context
+
+The app used eleven ad hoc pixel sizes with no names — `text-[15px]`, `text-[12.5px]`, `text-[10px]` and so on — so no two screens agreed on what a label or a heading was.
+
+#### Decision
+
+**Six named steps for the interface: `display`, `title`, `heading`, `body`, `small`, `micro`. Two more for rendered document bodies only: `doc-title` and `doc-section`.** All eight are Tailwind theme tokens in `styles.css`. No raw pixel size survives anywhere in `src/`.
+
+#### Reasoning
+
+A name is what makes a size a decision rather than a guess: `text-micro` says "this is metadata", `text-[10px]` says nothing.
+
+The two extra steps are an honest exception rather than a leak. A rendered spec has its own heading hierarchy and needs steps above `text-title`, which the interface never uses; forcing an article and a toolbar onto one scale would flatten the article. Naming them keeps the count truthful — eight sizes, every one a decision, in two clearly separated scales — instead of quietly reintroducing anonymous values inside the markdown renderer.
+
+12px folded into 13 and 10px into 11. Nothing was lost that a reader can see.
+
+#### Reversible?
+
+Yes. One file.
+
+
+### B-36 — The light scheme overrides :root, not a second @theme block
+
+`accepted` · `dec_01KZNHQCRB7PYBKW0Q37P4VFVK`
+
+#### Context
+
+The light scheme was declared as a second `@theme` block nested inside `@media (prefers-color-scheme: light)`, and it overrode only the surfaces, the ink and the accent. `good`, `warn` and `bad` kept their dark-tuned values.
+
+#### Decision
+
+**Declare the palette once in a top-level `@theme`, and override the custom properties on `:root` inside the media query — including the three status colours.**
+
+#### Reasoning
+
+Tailwind v4 resolves every colour utility through `var(--color-…)`, so an override on `:root` reaches utilities that were generated once. A nested `@theme` is not the documented arrangement and depends on where the block lands in the cascade.
+
+The status colours mattered more than the mechanism. A hue tuned to sit on a near-black surface at 0.74–0.80 lightness is close to invisible on a near-white one: in light mode "done" and "blocked" both read as pale smudges, and a colour system that cannot be told apart is not carrying information. Light values are 0.52–0.55 lightness at similar or higher chroma.
+
+#### Reversible?
+
+Yes. One file.
+
+
+### B-37 — The desktop app gets Vitest and Testing Library
+
+`accepted` · `dec_01KZNHQHCJ7D50QAY8738NNF3A`
+
+#### Context
+
+The definition of done requires tests, including at least one failure case. The desktop app had no test runner at all — every test in the repository was Rust.
+
+#### Decision
+
+**Vitest with jsdom and `@testing-library/react`, configured inside the existing `vite.config.ts`.** `npm test` in `apps/desktop`.
+
+#### Reasoning
+
+Vitest reuses the Vite config the app already has, so the transform pipeline under test is the one that ships — a separate Jest setup would mean a second TypeScript and JSX configuration that can drift from the real one.
+
+jsdom rather than a real browser: what needs testing here is routing, ranking and keyboard handling, none of which needs a compositor. The parts that do need one — layout, the light theme — are not things a unit test would have caught anyway, and were checked in a browser instead.
+
+One patch to the environment, in `src/test-setup.ts`: jsdom has no `Element.prototype.scrollIntoView`. Stubbing it there keeps the guard out of product code, where it would have been test scaffolding shipped to users.
+
+#### Reversible?
+
+Yes, though there is now a test suite that would have to move with it.
+
+
+### B-38 — Graph traversal carries the neighbour's label
+
+`accepted` · `dec_01KZNQ3BCRH4CM0CAVV3DYC7TQ`
+
+#### Context
+
+`Neighbour` was `{id, entity_type, rel, anchor, depth, path}`. Everything that rendered or reasoned about a traversal therefore had to go back and look up what each id was.
+
+Two callers had already gone wrong in the same way. The document reader printed bare ULIDs under "Connected" — the id was all it had. And an agent walking the graph got a list of identifiers it had to follow with a `keel_get` per hop to learn what it had found.
+
+#### Decision
+
+**`neighbours()` joins `v_entities` and returns a `label`.**
+
+#### Reasoning
+
+`v_entities` exists for exactly this: SPEC §4 built it to resolve an id without knowing its type, and unifying the four different name columns — `name`, `title`, `term`, `summary` — is what its `label` column is for. The join is a `LEFT JOIN` on the walk's final select, which costs one lookup per returned row on a store of a few thousand.
+
+`LEFT`, not inner, and this is the part worth keeping: an edge pointing at a row that no longer resolves comes back with an empty label rather than being dropped. Dropping it would turn a visible integrity problem into a silently shorter graph — hiding precisely what `fsck`'s dangling-link check exists to report, and in the direction that makes everything look fine.
+
+#### Reversible?
+
+Yes, but there is no reason to. It is one additive field on a read shape.
+
+
+### B-39 — The Tauri shell is suspended; the web build is the surface
+
+`accepted` · `dec_01KZNQR16ZJKQ5MGTSF8H0VW9C`
+
+The desktop shell is not built for now. Work on the read surface happens in the browser: `npm run dev` in `apps/desktop` serves the React bundle on :1420 and proxies `/api` to the daemon on :7654.
+
+**Why.** Nothing in `apps/desktop/src` imports a Tauri API — the frontend is already a plain web app, and SPEC §10's "same bundle, different base URL" holds today. The shell therefore buys nothing at this stage while costing a webview dependency tree and ~1.2 GB of build output. That cost was invisible until the disk filled: `target/` had reached 11 GB alongside `src-tauri/target/` at 1.2 GB, on a volume with 10 GB free.
+
+**How it is enforced.** `apps/desktop/src-tauri/build.rs` exits with a message unless `KEEL_DESKTOP=1` is set. A loud refusal rather than deleting the crate, because the shell is coming back — this is a pause, not a reversal of the Phase 3 plan. The workspace already excluded `src-tauri`, so no ordinary `cargo` command was building it; the guard is what stops the next session from doing it by hand without noticing the cost.
+
+**To un-suspend:** delete the guard block in `build.rs` and the note on the workspace `exclude`.
+
+
+### B-40 — Readable identifiers are composed, never stored
+
+`accepted` · `dec_01KZNW724SBG1NFAWDZ9CR66DN`
+
+#### Context
+
+Phase 6 adds `KEEL-42` alongside `tsk_01KZKW28CS4Q1WSB0D95B2A01G`. The obvious implementation is a `ref` column on `tasks` holding the composed string, written once at creation.
+
+#### Decision
+
+**Store the two halves — `projects.key` and `tasks.number` — and compose the label at every point of use. Nothing anywhere stores `KEEL-42`.**
+
+#### Reasoning
+
+A stored composite is a denormalisation whose invalidation nobody owns. Re-keying a project — which the key being editable makes a legitimate operation — would require rewriting every task row, and any that were missed would go on displaying the old prefix while resolving under the new one. That is the failure this project keeps meeting in other clothes: something that looks right and is quietly wrong.
+
+Composing costs a project lookup at the surfaces that do not already hold the project, and every surface that renders more than one task already holds it: `ProjectLine` carries the key, so the digest, the board, the detail view and the tracker all have it to hand. The one place it is genuinely per-row is `keel_get`'s summary, where it is a point lookup on a table with a handful of rows.
+
+Two consequences that took some deciding:
+
+**A number is never reused, even after an archive.** `MAX(number) + 1` counts archived rows. If a number were handed on, `KEEL-1` would keep resolving and silently start meaning a different task — and every note, commit message and conversation that used it would be wrong with nothing to say so.
+
+**The uniqueness index is on `upper(key)`.** References resolve case-insensitively, so `KEEL` and `keel` must be one identifier. A plain unique index would have permitted both as separate projects, leaving the lookup to pick one arbitrarily.
+
+#### Reversible?
+
+Adding a cached column later is easy. Removing one that has drifted is not, which is the asymmetry the decision turns on.
+
+
+### B-41 — KB confirmed: a task holds a list of external links
+
+`accepted` · `dec_01KZP1E78WZXXTJZK7YBHATJCZ`
+
+#### Context
+
+TQ-23. RESET-PLAN 6.2 asked for a task to be able to hold more than one external reference. `tasks.external_ref` was `Option<String>`, and changing it is a storage-format change, so it was raised rather than assumed.
+
+#### Decision
+
+**KB confirmed, 2026-08-10: a task can hold more than one.** `external_ref VARCHAR` becomes `external_refs VARCHAR[]`, backfilled from the single value and then dropped, in the same migration as rank and the parent link.
+
+#### Reasoning
+
+Option 1 of the three offered. The column type already exists on this table — `labels` is a `VARCHAR[]` — so it costs one migration step and no new machinery, and it is the only one of the three field additions that needs no new UI beyond rendering a list where a string was rendered.
+
+The old column is dropped rather than kept alongside. Two columns meaning the same thing is drift with a schedule attached, and the one that stops being written is the one everything keeps reading.
+
+Renaming rather than aliasing: a caller passing `external_ref` now gets serde's own "task has no field `external_ref`… any of: …", which names the replacement. Accepting both would be the undocumented-parameter problem RESET-PLAN 7.3 exists to remove, created deliberately.
+
+#### Reversible?
+
+Forward-only, like every migration here. The data survives either way — the backfill copies before the drop.
+
+
+### B-42 — KB confirmed: blocked is derived from the links, not a status
+
+`accepted` · `dec_01KZP5189J3N9R1BJESQ0PGJNZ`
+
+#### Context
+
+TQ-25. RESET-PLAN 6.5 settled that the links win for what "blocked" means. It did not settle whether `blocked` survived as a value a caller could set, and the two readings lead to materially different work.
+
+#### Decision
+
+**KB confirmed, 2026-08-10: derive it.** A task is blocked exactly when something links to it with `blocks`. `blocked` stops being a `TaskStatus`; the board's column becomes a computed grouping; the counts in the app, the digest and the generated tracker all come from the same derivation.
+
+#### Reasoning
+
+The same call this codebase has made everywhere else: make the contradiction unrepresentable rather than detectable. Option 1 would have kept two facts that must agree and added an integrity check to notice when they do not — which is a check that fires *after* someone has already read the wrong number.
+
+The evidence was on screen while the question was being asked. The digest reported two tasks as "marked blocked, but nothing links to it with `blocks`" — KEEL-45 and KEEL-48. Under the rejected option those become findings a human clears, one at a time, forever. Under this one they simply stop being blocked, because nothing is blocking them and nothing ever was.
+
+It costs a forward-only migration and a visible behaviour change, which is why it was KB's to make rather than mine.
+
+#### Reversible?
+
+The migration is forward-only. Re-adding an enum value later is easy; the rows that were moved out of `blocked` would not come back, and should not — they were wrong.
+
+

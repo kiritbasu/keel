@@ -708,6 +708,18 @@ UPDATE decisions SET number = b.number FROM _b_numbers b WHERE decisions.id = b.
 DROP TABLE _b_numbers;
 ",
         },
+        // The decision log becomes a generated view of the decision rows, so it
+        // needs a destination the way the tracker does.
+        //
+        // A second nullable path column rather than a general mapping, which was
+        // KB's call: three aggregates exist, two of them are content to live
+        // under `.keel/`, and a stored map would be more machinery than the
+        // problem has instances. If a fourth arrives, generalise then.
+        Migration {
+            id: 12,
+            name: "project_decisions_path",
+            sql: "ALTER TABLE projects ADD COLUMN IF NOT EXISTS decisions_path VARCHAR;",
+        },
     ]
 }
 

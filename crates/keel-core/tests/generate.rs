@@ -56,6 +56,14 @@ fn fixture(repo: &std::path::Path, body: &str) -> (DuckStore, EntityId, EntityId
     (store, project_id, spec_id)
 }
 
+/// Point a project's decision log at `path`.
+fn set_decisions_path(store: &mut DuckStore, project_id: &EntityId, path: &str, prov: &Provenance) {
+    let version = store.get(project_id).unwrap().unwrap().audit().version;
+    let mut changes = serde_json::Map::new();
+    changes.insert("decisions_path".to_owned(), serde_json::json!(path));
+    store.update(project_id, version, &changes, prov).unwrap();
+}
+
 const BODY: &str = "# Demo — Technical Specification\n\n\
                     > Status: Draft\n\n\
                     ## 1. Storage\n\n\
@@ -326,5 +334,112 @@ fn the_questions_file_carries_settled_questions_as_well_as_open_ones() {
     assert!(
         written.find("## Open").unwrap() < written.find("## Settled").unwrap(),
         "{written}"
+    );
+}
+
+/// The decision log is rendered from rows, at the project's `decisions_path`.
+///
+/// The register used to be two things that had to agree by hand: a numbered
+/// prose table and one generated file per decision. This is the half that makes
+/// the table stop existing.
+#[test]
+fn the_decision_log_is_generated_at_the_projects_decisions_path() {
+    use keel_core::{Decision, DecisionStatus};
+
+    let repo = tempfile::tempdir().unwrap();
+    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let prov = Provenance::anonymous(Actor::Human);
+
+    set_decisions_path(&mut store, &project_id, "docs/DECISIONS.md", &prov);
+
+    let live = store
+        .create(
+            Decision::new(project_id.clone(), "chrono, not jiff").into(),
+            &prov,
+        )
+        .unwrap()
+        .entity;
+    let doc = Document::first(
+        EntityType::Decision,
+        live.id().clone(),
+        Some(project_id.clone()),
+        "chrono, not jiff",
+        "## Decision\n\nchrono.\n\n## Reasoning\n\nduckdb-rs has a chrono feature and no jiff one.",
+        Actor::Human,
+        chrono::Utc::now(),
+    )
+    .unwrap();
+    store.write_revision(doc).unwrap();
+
+    let mut reversed = Decision::new(project_id.clone(), "blocked is a status");
+    reversed.status = DecisionStatus::Superseded;
+    let reversed = store.create(reversed.into(), &prov).unwrap().entity;
+    let doc = Document::first(
+        EntityType::Decision,
+        reversed.id().clone(),
+        Some(project_id.clone()),
+        "blocked is a status",
+        "## Decision\n\nA status.\n\n## Superseded\n\nDerived from the edges instead.",
+        Actor::Human,
+        chrono::Utc::now(),
+    )
+    .unwrap();
+    store.write_revision(doc).unwrap();
+
+    generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+    let written = std::fs::read_to_string(repo.path().join("docs/DECISIONS.md")).unwrap();
+
+    // Numbered, and the number is the heading — that is what prose cites.
+    assert!(written.contains("### B-1 — chrono, not jiff"), "{written}");
+    assert!(
+        written.contains("duckdb-rs has a chrono feature"),
+        "{written}"
+    );
+
+    // A reversal is surfaced above the decisions, with the reason, because a
+    // reversal met after acting on the original is one met too late.
+    assert!(written.contains("## Reversals"), "{written}");
+    assert!(
+        written.contains("Derived from the edges instead."),
+        "{written}"
+    );
+    assert!(
+        written.find("## Reversals").unwrap() < written.find("### B-1").unwrap(),
+        "{written}"
+    );
+
+    // The body's own headings are demoted, or every decision's `## Decision`
+    // reads as a top-level section of the log.
+    assert!(written.contains("#### Decision"), "{written}");
+    assert!(!written.contains("\n## Decision\n"), "{written}");
+}
+
+/// A document that has adopted the path wins, and the conflict is reported.
+///
+/// Same rule as the tracker: the prose cannot be regenerated and the log can, so
+/// neither is written rather than letting whichever runs last silently take the
+/// file.
+#[test]
+fn the_decision_log_never_overwrites_a_document_that_claimed_the_same_file() {
+    let repo = tempfile::tempdir().unwrap();
+    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let prov = Provenance::anonymous(Actor::Human);
+
+    set_decisions_path(&mut store, &project_id, "product/SPEC.md", &prov);
+
+    let report = generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+
+    assert!(
+        report
+            .unrepresented
+            .iter()
+            .any(|u| u.contains("decisions_path")),
+        "the collision must be reported: {:?}",
+        report.unrepresented
+    );
+    let spec = std::fs::read_to_string(repo.path().join("product/SPEC.md")).unwrap();
+    assert!(
+        spec.contains("DuckDB and Lance"),
+        "the prose must survive: {spec}"
     );
 }

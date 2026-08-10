@@ -30,18 +30,34 @@ project="${KEEL_PROJECT:-keel}"
 staged="$(git diff --cached --name-only --diff-filter=ACM -- 'product/*.md' '.keel/**/*.md' 2>/dev/null)"
 [ -n "$staged" ] || exit 0
 
-# The repository's own build comes first, and PATH last. This machine had a
-# `keel` from an earlier day on PATH — one with a `mirror` subcommand and no
-# `generate` — which is also why the hook this replaces called `keel mirror`:
-# the command existed when it was written and was renamed underneath it. A
-# check that runs the wrong binary reports drift that is not there, which is
-# the same disease as a hook that silently does nothing.
+# The **newest** usable build wins, and PATH loses ties.
+#
+# Not a fixed order, which is what this did first and which was wrong in both
+# directions. This machine had a `keel` from an earlier day on PATH — one with a
+# `mirror` subcommand and no `generate` — which is also why the hook this
+# replaces called `keel mirror`: the command existed when it was written and was
+# renamed underneath it. Preferring the repository's own build fixed that, and
+# then broke the same way from the other side: `target/release/keel` was checked
+# first while being eighty minutes older than `target/debug/keel`, so a commit
+# adding a renderer was told all 42 of its outputs were stale.
+#
+# A check that runs the wrong binary reports drift that is not there, and a
+# check that cries wolf gets bypassed with --no-verify, which is the same
+# disease as a hook that silently does nothing. Age is the honest tiebreak: the
+# most recently built binary is the one that knows about the change being
+# committed.
 keel_bin=""
+newest=0
 for candidate in target/release/keel target/debug/keel "$(command -v keel 2>/dev/null || true)"; do
   [ -n "$candidate" ] && [ -x "$candidate" ] || continue
   "$candidate" generate --help >/dev/null 2>&1 || continue
-  keel_bin="$candidate"
-  break
+  # `stat -f %m` on BSD/macOS, `stat -c %Y` on GNU. An unreadable timestamp
+  # counts as age zero rather than aborting: a usable binary beats none.
+  mtime="$(stat -f %m "$candidate" 2>/dev/null || stat -c %Y "$candidate" 2>/dev/null || echo 0)"
+  if [ "$mtime" -ge "$newest" ]; then
+    newest="$mtime"
+    keel_bin="$candidate"
+  fi
 done
 
 # A missing or unusable binary must not block a commit — that would make the

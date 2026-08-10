@@ -1,8 +1,8 @@
-<!-- keel:generated decision dec_01KZPFPPEMGCEB5HXXPF1RFWDC v2 2026-08-10T18:53:23Z
+<!-- keel:generated decision dec_01KZPFPPEMGCEB5HXXPF1RFWDC v2 2026-08-10T19:40:43Z
      source of truth is Keel — edits here are not saved -->
 # B-24 — A task marked blocked with no blocks edge is reported as a data problem, not ranked
 
-**Status:** `proposed`  
+**Status:** `superseded`  
 **Id:** `dec_01KZPFPPEMGCEB5HXXPF1RFWDC`
 
 ## Decision
