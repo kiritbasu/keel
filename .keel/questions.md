@@ -7,24 +7,6 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
-### TQ-24 — keel_activity gained an `entity` parameter without asking
-
-`que_01KZNQ3KCH7JQ0Z48JKQWRX3Y0` · question · open
-
-**What was done.** `keel_activity` now takes an optional `entity` id and returns that one row's whole history — every status and field change with its before and after — instead of a project feed. Documented in the tool's schema and its description, snapshot updated.
-
-**Why this is flagged.** The standing rules say to ask KB about anything touching the MCP tool surface. This is a parameter, not a tool, so the ten-tool ceiling is untouched and model selection is unaffected — but it is the tool surface, so it is being recorded rather than assumed.
-
-**Why it was done rather than deferred.** The task detail view needs one row's history, and there were three ways to get it:
-
-- Add it to Keel's own REST API only, as `/api/notes?entity=` already is. That is the established pattern, but it adds a fifth endpoint bypassing the shared dispatch — working directly against RESET-PLAN 7.4, which is about removing the four that already do.
-- Page the project feed and filter client-side. This is what a caller must do today, and it is wrong rather than merely slow: anything older than the page fetched is simply missing, and nothing says so.
-- Put it on the tool, where the REST endpoint gets it for free through the dispatch it already uses. No new bypass, and a model gains "how did this task get here", which it could not previously ask.
-
-**Recommendation:** keep it. If KB disagrees, removing it means deleting one schema property and one branch; the store method underneath stays either way.
-
-**Status:** open, and nothing is blocked on it.
-
 ### TQ-3 — Re-embedding strategy when the model changes: background full pass, or lazy on access?
 
 `que_01KZKWMSFKG5316C06B4HNXXBR` · question · open
@@ -150,6 +132,24 @@ The two readings lead to materially different work.
 **Live evidence either way:** the digest reports two tasks right now as "marked blocked, but nothing links to it with `blocks`" — KEEL-45 and KEEL-48. Under (1) those become fsck findings a human clears. Under (2) they simply stop being blocked.
 
 **Status:** open. Not blocking — (1) is the safe default and the work can start there, but choosing (2) later means redoing the status handling rather than adding to it.
+
+### TQ-24 — keel_activity gained an `entity` parameter without asking
+
+`que_01KZNQ3KCH7JQ0Z48JKQWRX3Y0` · question · answered
+
+**Question:** `keel_activity` gained an `entity` parameter that nobody asked for. It returned one row's whole history, short-circuiting the project feed.
+
+**Answered — removed.** KB's call, 2026-08-10.
+
+It was a second question wearing the first one's name. "What changed across the project since I last looked" pages forward from a cursor; "how did this task get here" wants one row's whole story at once. Bolting the second onto the first meant a parameter that silently ignored `project`, `since` and `cursor` — three arguments a model could pass and watch do nothing.
+
+The tool now advertises `project`, `since`, `cursor` and `limit`, and its description points at `keel_get` for a single row: a note says what was *learned*, where an event says only which field moved.
+
+**The capability was real, and it moved rather than dying.** The desktop app's task-detail history panel was the only caller. It now reads `GET /api/entity/{id}/history`, which is B-15's own pattern — the local API has more endpoints than the tool surface has tools, because a UI knows exactly what it wants and a model chooses worse among more options.
+
+A parameter on `/api/activity` would have been the wrong fix even though it needed no new route: that URL *is* `keel_activity`, and a query parameter the tool does not declare is precisely the two-surfaces-that-resemble-each-other problem KEEL-89 removed. Its own endpoint keeps the two honest.
+
+Two snapshot tests went with it. Note what they had been asserting: that a mistyped entity produced an actionable error. Good tests of a parameter that should not have existed — being well tested is not the same as being wanted.
 
 ### TQ-23 — should a task hold more than one external link?
 

@@ -1,6 +1,5 @@
 ---
 source: crates/keel-mcp/tests/snapshots.rs
-assertion_line: 79
 expression: "keel_mcp::list_result()"
 ---
 {
@@ -268,15 +267,11 @@ expression: "keel_mcp::list_result()"
         "idempotentHint": true,
         "readOnlyHint": true
       },
-      "description": "Every mutation since a timestamp or an event cursor, oldest first. Use it to catch up: 'what happened since I last looked', or to see what another session did while you were working.\n\nPass the `cursor` from a previous response to continue exactly where you left off, with no gaps and no repeats.\n\nPass `entity` instead to read one row's whole history — every status change and field change with its before and after. That answers 'how did this task get here', which paging the project feed and filtering cannot, because anything older than the page is simply missing.",
+      "description": "Every mutation since a timestamp or an event cursor, oldest first. Use it to catch up: 'what happened since I last looked', or to see what another session did while you were working.\n\nPass the `cursor` from a previous response to continue exactly where you left off, with no gaps and no repeats.\n\nFor one row's own story, read its notes with `keel_get` — a note says what was learned, where an event says only which field moved.",
       "inputSchema": {
         "properties": {
           "cursor": {
             "description": "An event id from a previous response. Takes precedence over `since`.",
-            "type": "string"
-          },
-          "entity": {
-            "description": "One row's id, e.g. `tsk_01H8…`. Returns that row's history oldest first and ignores `project`, `since` and `cursor` — a single row's story is short enough to want whole.",
             "type": "string"
           },
           "limit": {

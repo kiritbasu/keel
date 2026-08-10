@@ -255,12 +255,18 @@ export const api = {
    * One row's history — every status and field change, with before and after.
    *
    * The event log has always held this and nothing has ever shown it.
+   *
+   * Its own endpoint rather than `/api/activity?entity=`, because that route is
+   * the `keel_activity` tool and the tool no longer takes an entity (TQ-24).
+   * B-15 is the rule this follows: the local API has more endpoints than the
+   * tool surface has tools, since a UI knows what it wants and a model chooses
+   * worse among more options.
    */
   history: (entity: string, limit = 500) =>
-    get<{ events: EventRow[]; total: number; truncated: boolean }>("/api/activity", {
-      entity,
-      limit,
-    }),
+    get<{ events: EventRow[]; total: number; truncated: boolean }>(
+      `/api/entity/${encodeURIComponent(entity)}/history`,
+      { limit },
+    ),
 
   entities: (params: {
     project?: string;

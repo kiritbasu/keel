@@ -721,31 +721,16 @@ fn event_summary(page: &keel_core::Page<keel_core::Event>, more: &str) -> String
     lines.join("\n")
 }
 
+/// The project feed, oldest first.
+///
+/// It used to take an `entity` too, returning one row's whole history. That was
+/// added without being asked for and removed on 2026-08-10 (TQ-24, KB's call).
+/// The capability survives where it belongs: `GET /api/entity/{id}/history`
+/// serves the desktop app's history panel, which is the only thing that ever
+/// wanted it. B-15 is the rule — the local API has more endpoints than the tool
+/// surface has tools, because a UI knows exactly what it wants and a model
+/// chooses worse among more options.
 fn keel_activity(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
-    // One row's history is a different question from the project feed, and it
-    // short-circuits: a cursor pages a feed forwards, whereas "what happened to
-    // this task" wants the whole story at once. Answering it by paging the
-    // project log and filtering client-side is what the caller would otherwise
-    // have to do, and it silently misses anything older than the page.
-    if let Some(raw) = opt_str(args, "entity") {
-        let id = resolve_required(store, "entity", &raw)?;
-        // The same default the schema declares. A branch with its own quietly
-        // different default is a description that lies about the tool.
-        let limit = opt_i64(args, "limit").unwrap_or(50).clamp(1, 500) as usize;
-        let page = store
-            .events_for(&id, limit)
-            .map_err(|e| to_rpc_error(store, e))?;
-        return Ok(tool_result(
-            event_summary(&page, "raise `limit` for the rest"),
-            json!({
-                "events": page.items,
-                "total": page.total,
-                "truncated": page.truncated,
-                "cursor": Value::Null,
-            }),
-        ));
-    }
-
     let project = match opt_str(args, "project") {
         Some(p) => Some(resolve_project(store, &p)?),
         None => None,

@@ -168,55 +168,6 @@ fn error_shapes() {
 }
 
 #[test]
-fn one_rows_history() {
-    // `keel_activity` answers two questions with one tool: a project feed you
-    // page with a cursor, and a single row's whole story. The second is what a
-    // detail view renders and what lets a model answer "how did this get here"
-    // without paging a log and filtering — which silently misses anything older
-    // than the page it happened to fetch.
-    let (mut store, _dir) = seeded();
-    let created = call(
-        &mut store,
-        "keel_create",
-        json!({"type": "task", "project": "harbour", "title": "Backfill closed_at"}),
-    );
-    let id = created["structuredContent"]["entity"]["id"]
-        .as_str()
-        .expect("a created task has an id")
-        .to_owned();
-    let version = created["structuredContent"]["entity"]["version"]
-        .as_i64()
-        .unwrap_or(1);
-    call(
-        &mut store,
-        "keel_update",
-        json!({"id": id, "version": version, "changes": {"status": "in_progress"}}),
-    );
-
-    let result = call(&mut store, "keel_activity", json!({"entity": id}));
-    settings().bind(|| {
-        insta::assert_json_snapshot!("keel_activity_entity", result);
-    });
-}
-
-#[test]
-fn a_history_for_an_id_that_is_not_one_says_what_would_be_valid() {
-    // Failure cases, and the distinction between them is the point. A model
-    // that mistypes must get back something it can act on, not an empty list
-    // that reads as "nothing ever happened here" — and "you wrote a reference
-    // to a task that does not exist" needs a different correction from "that
-    // is not the shape of a reference at all".
-    let (mut store, _dir) = seeded();
-    let cases = json!({
-        "well_formed_but_unknown": call(&mut store, "keel_activity", json!({"entity": "TASK-42"})),
-        "not_a_reference": call(&mut store, "keel_activity", json!({"entity": "the login one"})),
-    });
-    settings().bind(|| {
-        insta::assert_json_snapshot!("keel_activity_bad_entity", cases);
-    });
-}
-
-#[test]
 fn every_advertised_tool_is_dispatchable_and_vice_versa() {
     // The two lists are maintained by hand in different files: `tools::all()`
     // is what a client is told exists, and the `match` in `dispatch` is what

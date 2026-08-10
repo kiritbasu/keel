@@ -33,6 +33,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/search", get(api_search))
         .route("/api/activity", get(api_activity))
         .route("/api/entity/{id}", get(api_entity))
+        .route("/api/entity/{id}/history", get(api_entity_history))
         .route("/api/entities", get(api_entities))
         .route("/api/notes", get(api_notes))
         .route("/api/document/{id}", get(api_document))
@@ -519,6 +520,55 @@ async fn api_search(
             arguments: &args,
         },
     ))
+}
+
+/// One row's whole history — every field change, with its before and after.
+///
+/// Its own endpoint rather than a parameter on `/api/activity`, because
+/// `/api/activity` *is* `keel_activity` and that tool no longer takes one
+/// (TQ-24). B-15 is why this is not a contradiction: the local API has more
+/// endpoints than the tool surface has tools, since a UI knows exactly what it
+/// wants and a model chooses worse among more options.
+///
+/// Not paged from the feed and filtered, which is what a caller would otherwise
+/// have to do: that silently misses anything older than the page, and a history
+/// that quietly starts partway through is worse than no history at all.
+async fn api_entity_history(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    use keel_core::EntityStore as _;
+
+    let store = state.store();
+    let entity_id = match store.resolve_ref(&id) {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return api_error(
+                StatusCode::NOT_FOUND,
+                codes::INVALID_PARAMS,
+                format!("`{id}` names nothing in this store"),
+            );
+        }
+        Err(e) => return api_error(StatusCode::BAD_REQUEST, codes::INVALID_PARAMS, e),
+    };
+    let limit = params
+        .get("limit")
+        .and_then(|l| l.parse::<usize>().ok())
+        .unwrap_or(500)
+        .clamp(1, 5_000);
+    match store.events_for(&entity_id, limit) {
+        Ok(page) => (
+            StatusCode::OK,
+            Json(json!({ "data": {
+                "events": page.items,
+                "total": page.total,
+                "truncated": page.truncated,
+            }})),
+        )
+            .into_response(),
+        Err(e) => api_error(StatusCode::INTERNAL_SERVER_ERROR, codes::INTERNAL_ERROR, e),
+    }
 }
 
 async fn api_activity(
