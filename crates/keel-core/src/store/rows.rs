@@ -211,6 +211,25 @@ fn get_oi(row: &Row<'_>, table: &str, col: &str) -> Result<Option<i32>> {
     row.get::<_, Option<i32>>(col).map_err(col_err(table, col))
 }
 
+/// Read a readable-identifier number, treating NULL as "not yet assigned".
+///
+/// Deliberately lenient, and the leniency is the point. `number` is meant to be
+/// populated for every row, but a migration adds the column *before* the binary
+/// that populates it can possibly be running — so there is always a window in
+/// which a writer inserts a row without one. On 2026-08-10 that window was 84
+/// seconds wide and a real project landed a decision inside it.
+///
+/// Reading that as a hard error was catastrophically out of proportion: one row
+/// with a NULL made **every** row of that type unreadable in that project,
+/// including the idempotency lookup, so `keel_create` failed too. A single
+/// unnumbered row should cost that row's label, not the whole table.
+///
+/// Zero already means "not yet assigned" everywhere else in the codebase, and
+/// the write paths assign a real number to anything holding it.
+fn get_number(row: &Row<'_>, table: &str, col: &str) -> Result<i32> {
+    Ok(get_oi(row, table, col)?.unwrap_or(0))
+}
+
 /// Read an optional f64 column.
 fn get_od(row: &Row<'_>, table: &str, col: &str) -> Result<Option<f64>> {
     row.get::<_, Option<f64>>(col).map_err(col_err(table, col))
@@ -649,7 +668,7 @@ pub fn from_row(entity_type: EntityType, row: &Row<'_>) -> Result<Entity> {
         EntityType::Task => Entity::Task(Task {
             id: get_id(row, t, "id")?,
             project_id: get_id(row, t, "project_id")?,
-            number: get_i(row, t, "number")?,
+            number: get_number(row, t, "number")?,
             milestone_id: get_oid(row, t, "milestone_id")?,
             kind: TaskKind::parse(&get_s(row, t, "kind")?)?,
             title: get_s(row, t, "title")?,
@@ -683,7 +702,7 @@ pub fn from_row(entity_type: EntityType, row: &Row<'_>) -> Result<Entity> {
         EntityType::Decision => Entity::Decision(Decision {
             id: get_id(row, t, "id")?,
             project_id: get_id(row, t, "project_id")?,
-            number: get_i(row, t, "number")?,
+            number: get_number(row, t, "number")?,
             title: get_s(row, t, "title")?,
             status: DecisionStatus::parse(&get_s(row, t, "status")?)?,
             decided_at: get_ots(row, t, "decided_at")?,

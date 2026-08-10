@@ -720,6 +720,38 @@ DROP TABLE _b_numbers;
             name: "project_decisions_path",
             sql: "ALTER TABLE projects ADD COLUMN IF NOT EXISTS decisions_path VARCHAR;",
         },
+        // Repair for rows written in the window between a `number` column
+        // existing and the binary that fills it being deployed.
+        //
+        // Migration 10 backfilled every decision that existed when it ran. What
+        // it could not do is reach forward: for 84 seconds on 2026-08-10 a
+        // daemon was running that had the column and not the field, and another
+        // project created a decision through it. The row got a NULL, and a NULL
+        // made every decision in that project unreadable — including the
+        // idempotency lookup, so creates failed too.
+        //
+        // Covers `tasks` for the same reason, which had the identical shape and
+        // survived only because migration 6 happened to land in a quieter
+        // minute. Idempotent, and a no-op on a store with nothing to fix.
+        Migration {
+            id: 13,
+            name: "backfill_missing_numbers",
+            sql: "
+UPDATE decisions SET number = n.rn FROM (
+  SELECT id,
+         COALESCE((SELECT max(number) FROM decisions m WHERE m.project_id = d.project_id), 0)
+           + row_number() OVER (PARTITION BY d.project_id ORDER BY d.id) AS rn
+  FROM decisions d WHERE d.number IS NULL
+) n WHERE decisions.id = n.id AND decisions.number IS NULL;
+
+UPDATE tasks SET number = n.rn FROM (
+  SELECT id,
+         COALESCE((SELECT max(number) FROM tasks m WHERE m.project_id = t.project_id), 0)
+           + row_number() OVER (PARTITION BY t.project_id ORDER BY t.id) AS rn
+  FROM tasks t WHERE t.number IS NULL
+) n WHERE tasks.id = n.id AND tasks.number IS NULL;
+",
+        },
     ]
 }
 

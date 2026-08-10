@@ -423,3 +423,84 @@ fn an_accepted_decision_can_be_corrected_and_the_change_is_recorded() {
     let stale = store.update(created.id(), created.audit().version, &changes, &prov);
     assert!(stale.is_err(), "a stale version must still be rejected");
 }
+
+/// One row with no readable number must not make the whole table unreadable.
+///
+/// Reported from another project on 2026-08-10: `keel_create` with
+/// `type: "decision"` failed reproducibly with
+/// `read column number of decisions: Invalid column type Null`.
+///
+/// The cause was a window every schema change opens. Migration 10 added
+/// `number` and backfilled everything that existed; 84 seconds later a daemon
+/// that had the column but not the field inserted a decision, which got a NULL.
+/// Reading that as a hard error meant one row took down *every* read of that
+/// type in that project — including the idempotency lookup, which is why a
+/// create failed rather than merely a list.
+///
+/// The fix is proportion: an unnumbered row costs its own label, nothing more.
+#[test]
+fn a_row_with_no_number_is_still_readable_and_gets_repaired() {
+    let (mut store, _dir) = store();
+    let project_id = project(&mut store);
+
+    let first = store
+        .create(
+            Decision::new(project_id.clone(), "Use DuckDB").into(),
+            &claude(),
+        )
+        .unwrap()
+        .entity;
+    store
+        .create(
+            Decision::new(project_id.clone(), "Bundle it").into(),
+            &claude(),
+        )
+        .unwrap();
+
+    // Exactly what the old daemon left behind.
+    store
+        .connection()
+        .execute(
+            "UPDATE decisions SET number = NULL WHERE id = ?",
+            duckdb::params![first.id().as_str()],
+        )
+        .expect("blank the number");
+
+    // Reading it must work, and must not be mistaken for a real identifier.
+    let read = store
+        .get(first.id())
+        .expect("one unnumbered row must not make the type unreadable")
+        .expect("the row is still there");
+    match &read {
+        Entity::Decision(d) => assert_eq!(d.number, 0, "zero means unassigned"),
+        other => panic!("expected a decision, got {other:?}"),
+    }
+
+    // Listing the project must not fail either — this is what the idempotency
+    // lookup does, and it failing is what turned a bad row into a failed create.
+    let page = store
+        .list(&EntityQuery::in_project(project_id.clone()).of_type(EntityType::Decision))
+        .expect("listing must survive an unnumbered row");
+    assert_eq!(page.items.len(), 2);
+
+    // Creating alongside it must work. This is the reported symptom.
+    let third = store
+        .create(
+            Decision::new(project_id.clone(), "Vendor Lance").into(),
+            &claude(),
+        )
+        .expect("a create must not be blocked by another row's missing number");
+    assert!(third.created);
+
+    // And an update repairs the blank rather than writing the zero back, which
+    // would collide with the unique index the moment a second row did it.
+    let mut changes = serde_json::Map::new();
+    changes.insert("status".to_owned(), serde_json::json!("accepted"));
+    let repaired = store
+        .update(read.id(), read.audit().version, &changes, &claude())
+        .expect("update the unnumbered row");
+    match &repaired {
+        Entity::Decision(d) => assert!(d.number > 0, "the write path assigns one: {}", d.number),
+        other => panic!("expected a decision, got {other:?}"),
+    }
+}

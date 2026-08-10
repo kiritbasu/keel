@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-10T21:06:47.820991+00:00",
+  "generated_at": "2026-08-10T21:51:10.358366+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/a-missing-readable-number-is-read-as-unassigned-not-as-an-error.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZPTGB10RJERCFAJR9C1R71B",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "9483a57bf16b118d3862d0b0032b44b13280e28eb2e376cfca8f59aef31982bf"
         }
       ]
     },

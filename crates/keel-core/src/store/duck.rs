@@ -734,6 +734,22 @@ impl EntityStore for DuckStore {
             return Ok(entity);
         }
 
+        // A row read back with no readable number gets one before it is written
+        // again. Reading NULL as zero keeps one unnumbered row from making a
+        // whole table unreadable; writing zero back would trade that for two
+        // rows colliding on the unique index, which is a worse trade. The
+        // migration repairs these in bulk — this catches anything that appears
+        // after it, in the same window a schema change always opens.
+        match &mut entity {
+            Entity::Task(t) if t.number == 0 => {
+                t.number = self.next_number_in("tasks", &t.project_id)?;
+            }
+            Entity::Decision(d) if d.number == 0 => {
+                d.number = self.next_number_in("decisions", &d.project_id)?;
+            }
+            _ => {}
+        }
+
         // Re-checked on update, not only on create. A parent set later is the
         // one that can close a cycle: A is created, then B under A, then A is
         // moved under B.
