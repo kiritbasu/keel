@@ -7,38 +7,6 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
-### TQ-26 — the installed plugin is a hand-copy, and it drifts silently
-
-`que_01KZP8C2BNKSN7GMJV4JSBZ29Q` · risk · open · severity medium
-
-**Found while fixing KEEL-86.** The hooks that actually run on this machine are not the ones in the repository.
-
-`~/.claude/settings.json` points at `~/.claude/skills/keel/session-start.sh` and `stop.sh` — copies. Before today's change they matched `plugin/hooks/` byte for byte, so nothing had gone wrong yet; they are now stale by exactly this fix, and nothing anywhere would say so.
-
-Two consequences, both live:
-
-**The fix is inert until the copies are updated.** Every session until then still gets the old preamble and the re-injection on compaction.
-
-```bash
-cp plugin/hooks/session-start.sh plugin/hooks/stop.sh plugin/skills/keel/SKILL.md ~/.claude/skills/keel/
-```
-
-I have not run it. `plugin/install.sh` says in its own header that it deliberately does not edit anyone's Claude configuration — "rewriting someone's settings from a shell script is the kind of helpfulness that is indistinguishable from damage the one time it gets it wrong" — and copying files into `~/.claude` uninvited is the same act.
-
-**The `PostToolUse` mirror hook was never installed here at all.** `settings.json` has no reference to it. It was only ever configured in `plugin/hooks/hooks.json`, which applies when Keel is loaded as a *plugin*. So the hook RESET-PLAN called broken was, on this machine, not merely broken but absent — which is why nobody noticed it failing.
-
-**Related, and worth its own look:** `~/.local/bin/keel` is a build from 9 August. It has a `mirror` subcommand and no `generate`. That is where `keel mirror` came from — the command existed when the hook was written and was renamed underneath it. Anyone running `keel generate keel` from a terminal today gets "unrecognized subcommand" unless they are inside the repo using `cargo run`.
-
-**Options.**
-
-1. **Make `install.sh` copy the hooks and the skill**, keeping its refusal to touch `settings.json`. Files under `~/.claude/skills/keel/` are Keel's own, not the user's config.
-2. **Load Keel as a plugin** and delete the hand-copies, so `hooks.json` is the only configuration.
-3. **Leave it, and add a check** that warns when the installed copies differ from the repo.
-
-**Recommendation:** (1) plus re-running the install, which also replaces the stale binary. It is the smallest change that makes "what is in the repo" and "what runs" the same thing.
-
-**Status:** open. Nothing is blocked — but every plugin change lands inert until this is settled.
-
 ### TQ-24 — keel_activity gained an `entity` parameter without asking
 
 `que_01KZNQ3KCH7JQ0Z48JKQWRX3Y0` · question · open
@@ -140,6 +108,28 @@ The guard was on the wrong door. A title is a label; the body is the argument, a
 What replaces it was already in place: every change is an attributed revision with a diff and an event naming the field, so a reworded decision is *visible* rather than prevented — and visible is the property the rule was reaching for. "Supersede rather than edit" survives as advice, which is what it always was.
 
 Consequences already taken: the seven truncated titles are corrected (B-5, B-7, B-8, B-11, B-18, B-19, B-22), and the retitling exposed TQ-28 — a rename leaves an orphaned mirror file that reads as current.
+
+### TQ-26 — the installed plugin is a hand-copy, and it drifts silently
+
+`que_01KZP8C2BNKSN7GMJV4JSBZ29Q` · risk · answered · severity medium
+
+**Question:** The hooks that actually run on this machine are copies under `~/.claude/skills/keel/`, made by hand. Nothing keeps them in step with `plugin/`, so a plugin change lands inert and nothing says so.
+
+**Answered — option 1: `install.sh` copies them, and still will not touch `settings.json`.** KB's call, 2026-08-10. Built the same day.
+
+`./plugin/install.sh` now installs `SKILL.md`, `session-start.sh` and `stop.sh` into `~/.claude/skills/keel/` (override with `KEEL_SKILL_DIR`), reporting each as installed, updated or unchanged. "Unchanged" is printed deliberately: it is the evidence that the copy is in step, which is the one fact the step exists to establish.
+
+`--skill-only` skips the build and copies just those three files. That is the part that makes it work rather than merely exist — a full release build of a vendored DuckDB to copy three files is the friction that made hand-copying attractive in the first place.
+
+**The distinction that makes this installation rather than interference:** `~/.claude/settings.json` is the user's file and the script still refuses to write it. `~/.claude/skills/keel/` holds this repository's files and nothing else authors them. The script does read `settings.json` to check whether it references the installed hooks, and says so if not — hooks that are installed but never invoked look exactly like hooks that do not work.
+
+**Confirmed live.** At the moment of the fix the copies were already stale again — `stop.sh` and `SKILL.md` both differed, one session after being copied by hand — so this session's `stop.sh` change had been inert the whole time. Running `--skill-only` updated both; all three now match the repository.
+
+**Also fixed:** `plugin/README.md` recommended the exact `cp -r` that caused the drift, and told anyone running the gate to use it.
+
+**Not done, deliberately:** nothing *detects* drift between installs — re-running the command is what keeps them in step. A check would be option 3, and it earns its place only if this turns out to be forgotten in practice.
+
+**Related, and unchanged:** `~/.local/bin/keel` may still be an old build. A full `./plugin/install.sh` replaces it. The false-drift problem it used to cause in the pre-commit hook is gone independently: that hook now picks the newest usable binary rather than the first one it finds.
 
 ### TQ-25 — if links are authoritative for blocked, does `blocked` survive as a status?
 

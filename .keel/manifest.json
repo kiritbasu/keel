@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-10T20:42:37.547455+00:00",
+  "generated_at": "2026-08-10T20:52:32.000676+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -490,12 +490,6 @@
       "path": ".keel/questions.md",
       "contributors": [
         {
-          "entity_id": "que_01KZP8C2BNKSN7GMJV4JSBZ29Q",
-          "entity_type": "question",
-          "version": 1,
-          "hash": "29b98d85dab45b99f939b21350fbd15520ba75240e812268a31d3a31f34f51d4"
-        },
-        {
           "entity_id": "que_01KZNQ3KCH7JQ0Z48JKQWRX3Y0",
           "entity_type": "question",
           "version": 1,
@@ -548,6 +542,12 @@
           "entity_type": "question",
           "version": 2,
           "hash": "65869409d55d8453bf356856f32a8b8115cd527edb0f27fe50f4b642e14c0143"
+        },
+        {
+          "entity_id": "que_01KZP8C2BNKSN7GMJV4JSBZ29Q",
+          "entity_type": "question",
+          "version": 2,
+          "hash": "f6abd5e93acae048ca066f9cd37503531edc2497f5a5d721af1b074ddb189da3"
         },
         {
           "entity_id": "que_01KZP4XBB45RAN5CBFN2FEV2QH",

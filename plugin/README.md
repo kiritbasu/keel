@@ -34,7 +34,24 @@ is a real phase and not an afterthought (PRD R-2).
 ```
 
 That builds the binaries, installs them to `~/.local/bin`, creates the store at
-`~/.keel`, and prints what to add to your Claude Code configuration.
+`~/.keel`, copies the skill and hooks to `~/.claude/skills/keel/`, and prints
+what to add to your Claude Code configuration.
+
+**After editing anything under `plugin/`, re-run it:**
+
+```bash
+./plugin/install.sh --skill-only
+```
+
+That skips the build and copies the three files, reporting which of them
+changed. It matters more than it sounds: the copies under `~/.claude` are what
+actually run, and when they were made by hand they drifted from the repository
+within a day — a plugin edit landing inert, with nothing anywhere to say so
+(TQ-26). A full release build to copy three files was the friction that made
+people skip it.
+
+The one thing `install.sh` will not do is edit `~/.claude/settings.json`. That
+file is yours; `~/.claude/skills/keel/` is Keel's.
 
 Start the daemon:
 
@@ -91,7 +108,7 @@ started in this repository is about as prompted as a session gets.
 have nothing to fire:
 
 ```bash
-cp -r plugin/skills/keel ~/.claude/skills/keel
+./plugin/install.sh --skill-only
 claude mcp add --scope user --transport http keel http://127.0.0.1:7654/mcp
 ```
 
