@@ -183,6 +183,16 @@ The writes are real, not noise — decisions, questions and tasks matching each 
 
 **Two bugs the repaired instrument caught in itself**, both flagged by an implausible score rather than a test: scoring checked one store for ten per-session stores (recall 0% against ceiling 70%), and `t0` came from a directory mtime that updated after the events it was meant to bound. Both were fixable without re-running because the stores were kept up.
 
+**All 41 archived sessions rescored**, which separates two changes that had been tangled:
+
+| Run | Condition | Did not notice | Ceiling | Offers | Wrote |
+|---|---|---|---|---|---|
+| 1–3 | skill only | 5 / 4 / 4 | 40% / 30% / 27% | 3 each | 1 / 0 / 0 |
+| 4 | + SessionStart hook | 2 | **80%** | 8 | 5 |
+| A | + continuation turn | 3 | 70% | **1** | **7** |
+
+The hook fixed *noticing and intent* — ceiling from ~30% to 80%. The continuation turn fixed *execution* — run 4 had a **higher** ceiling than Run A and wrote fewer, the whole difference being eight offers versus one. So the single-turn harness was suppressing roughly three writes per run, and run 4's real ceiling of 80% was the highest ever recorded. The run that triggered "the premise may be dead" was the one where the model most reliably worked out what should be recorded.
+
 **Caution:** 7/10 at n=10 from two projects is one draw. It does not establish 70%, and it does not establish that 9 is reachable.
 
 ---

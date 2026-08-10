@@ -116,3 +116,27 @@ Both were found because the stores were still running when the score was compute
 2. Decide whether s2/s7/s9 are L0 or genuine misses. That single judgement moves the score between 7/10 and 7/7.
 3. Re-argue Step 6 against the residual it would actually address.
 4. Score the 41 archived pre-Step-2 sessions against the rubric — free, and it gives the trend a denominator it has never had.
+
+---
+
+## Addendum — all 41 archived sessions scored against the rubric
+
+Free, as noted in Step 2: the transcripts survive, so every session ever run can be scored retrospectively. Recall cannot be recovered for runs 1–4 because their stores were torn down, so writes cannot be confirmed as landed — but **ceiling** (did the session form the intent) and **offers** are fully recoverable, and they are the numbers that decompose the problem.
+
+| Run | Condition | Did not notice | **Ceiling** | Offers | Wrote |
+|---|---|---|---|---|---|
+| 1 | skill only | 5 | 40% | 3 | 1 |
+| 2 | skill only | 4 | 30% | 3 | 0 |
+| 3 | skill only | 4 | 27% | 3 | 0 |
+| 4 | **+ SessionStart hook** | 2 | **80%** | 8 | 5 |
+| A | **+ continuation turn** | 3 | 70% | **1** | **7** |
+
+This separates two changes that had been tangled together, and each moved a different stage:
+
+**The hook fixed noticing and intent.** Sessions that never touched Keel fell from 5/4/4 to 2. Ceiling jumped from ~30% to 80%. That is the orientation mechanism working, and it is a much larger effect than "3 of 10" ever suggested.
+
+**The continuation turn fixed execution.** Run 4 had a *higher* ceiling than Run A — 80% versus 70% — and wrote fewer: 5 versus 7. The difference is entirely in offers, which collapsed from 8 to 1. Eight sessions in run 4 formed the intent and then addressed a turn that did not exist.
+
+**So the single-turn harness was suppressing roughly three writes per run**, and every strategic conclusion drawn from runs 1–4 was reading an instrument artefact as a behavioural finding. The panel said exactly this. The numbers now say it too.
+
+One consequence worth stating plainly: **run 4's real ceiling was 80%, the highest ever recorded.** The run that triggered "the premise may be dead" was the run in which the model most reliably worked out what should be recorded.
