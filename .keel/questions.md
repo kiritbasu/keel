@@ -7,25 +7,27 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
-### TQ-27 — an accepted decision's title is immutable but its body is not
+### TQ-28 — renaming an artifact leaves an orphaned mirror file that reads as current
 
-`que_01KZPKVNHC6P5HJ30KSFAVZ3QD` · question · open
+`que_01KZPNN754J219CB2A059J1TBE` · question · open
 
-**Question:** `keel_update` refuses to change the title of an `accepted` decision — SPEC §3 makes content immutable at `accepted`, and `keel-core` enforces it. But `keel_write_doc` will replace that decision's entire body without complaint. All 25 decision bodies were rewritten this way on 2026-08-10 while migrating the reasoning out of the prose table, and nothing objected.
+**Question:** Renaming an artifact changes its mirror slug, and `generate` only ever writes — it never removes a file it used to produce. The old file stays on disk, carrying a `keel:generated` banner and a real id, reading as current.
 
-The guard is on the weaker door. A title is a label; the body is the reasoning, and the reasoning *is* the decision. Guarding the label while leaving the argument writable is the wrong way round.
+Hit for real on 2026-08-10: correcting seven truncated decision titles produced seven new files under `.keel/decisions/` and left seven orphans behind. They were found by diffing the directory against `.keel/manifest.json` and removed by hand.
 
-**Why it matters now.** Seven decision titles are truncated in storage (B-5, B-7, B-8, B-11, B-18, B-19, B-22), cut at roughly 80 characters by whatever imported them — B-8 reads `Surface carries five values, not four: chat \`. They were invisible while the prose table carried the real titles and are now the headings in the generated log. Correcting a transcription defect is not amending a decision, but the rule cannot tell the difference, and routing around it with a direct write would prove the inconsistency rather than resolve it.
+**Why it matters.** An orphan is worse than a missing file. It is a plausible, banner-carrying, greppable document that no longer corresponds to anything, and the next `generate` will not touch it — so it is stale forever and nothing says so. That is the same failure this register unification existed to remove.
+
+**Why it has not bitten before:** renames were rare, and the mirror was mostly append-only in practice.
 
 **Options.**
 
-1. **Guard both.** An accepted decision's body becomes immutable too; changing it means a new decision that `supersedes` the old one. Consistent, and matches what the SPEC says. Cost: the migration performed today would have been impossible, and correcting a typo in reasoning needs a whole new row.
-2. **Guard neither, and rely on the revision chain.** Every body change is already a new attributed revision with a diff, so nothing is lost — the audit trail is the guard. Titles become editable, the truncations get fixed. Cost: an accepted decision can be quietly reworded, and the SPEC has to change.
-3. **Guard both, with an explicit correction path** — a flag or a separate command that says "this is a transcription fix, not an amendment", recorded as such in the event log.
+1. **`generate` prunes.** The manifest already records every path produced by the previous run; anything under the mirror root that was in the old manifest and is not in the new one gets deleted. Bounded to files Keel itself wrote, so it cannot touch anything else.
+2. **`generate --check` reports orphans** without deleting, and a person removes them. Safer, and consistent with the pre-commit check being loud rather than clever.
+3. **`fsck` reports them**, keeping generation write-only.
 
-**Recommendation:** (2). The revision chain already does the job the immutability rule was reaching for, and does it better: it permits correction while making every correction visible and attributed. The current rule stops the harmless edit and permits the harmful one.
+**Recommendation:** (1) plus (2) — prune on write, report on check. The manifest makes it precise rather than heuristic, and deleting a file Keel wrote and no longer writes is not a destructive act in the sense the soft-delete rule cares about; the artifact is untouched in the store.
 
-**Status:** open. Nothing is blocked — but the seven wrong headings stay wrong until it is settled.
+**Status:** open.
 
 ### TQ-26 — the installed plugin is a hand-copy, and it drifts silently
 
@@ -130,6 +132,20 @@ It grows forever. Keep everything, which is probably fine for a decade at this w
 ## Settled
 
 *Decided, with the reasoning. Do not re-litigate these.*
+
+### TQ-27 — an accepted decision's title is immutable but its body is not
+
+`que_01KZPKVNHC6P5HJ30KSFAVZ3QD` · question · answered
+
+**Question:** `keel_update` refuses to change the title of an `accepted` decision, but `keel_write_doc` will replace that decision's entire body without complaint. All 25 decision bodies were rewritten this way while migrating the reasoning out of the prose table, and nothing objected.
+
+**Answered — option 2: guard neither, and rely on the revision chain.** KB's call, 2026-08-10. Recorded as B-43; SPEC §3.2's note corrected.
+
+The guard was on the wrong door. A title is a label; the body is the argument, and the argument is the decision. Guarding the label while leaving the argument writable stopped the harmless edit and permitted the harmful one.
+
+What replaces it was already in place: every change is an attributed revision with a diff and an event naming the field, so a reworded decision is *visible* rather than prevented — and visible is the property the rule was reaching for. "Supersede rather than edit" survives as advice, which is what it always was.
+
+Consequences already taken: the seven truncated titles are corrected (B-5, B-7, B-8, B-11, B-18, B-19, B-22), and the retitling exposed TQ-28 — a rename leaves an orphaned mirror file that reads as current.
 
 ### TQ-25 — if links are authoritative for blocked, does `blocked` survive as a status?
 

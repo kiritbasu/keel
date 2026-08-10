@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZKWMT7GFNZBYEQBV44NPY4R v2 2026-08-10T18:53:24Z
+<!-- keel:generated decision dec_01KZKWMT7GFNZBYEQBV44NPY4R v2 2026-08-10T20:25:03Z
      source of truth is Keel — edits here are not saved -->
-# B-19 — The document reader renders markdown with react-markdown + remark-gfm, mapping every…
+# B-19 — The document reader renders markdown with react-markdown, mapping every element by hand
 
 **Status:** `accepted`  
 **Decided:** 2026-08-09  

@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZKWMT5SMKXQ07NKBKT87SXC v2 2026-08-10T18:53:24Z
+<!-- keel:generated decision dec_01KZKWMT5SMKXQ07NKBKT87SXC v2 2026-08-10T20:25:03Z
      source of truth is Keel — edits here are not saved -->
-# B-18 — keel import is a bridge, not a migration: re-importable, content-addressed, and it…
+# B-18 — keel import is a bridge, not a migration: re-importable and content-addressed
 
 **Status:** `accepted`  
 **Decided:** 2026-08-09  

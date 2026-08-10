@@ -491,8 +491,13 @@ pub struct Decision {
     pub number: i32,
     /// Display title.
     pub title: String,
-    /// Proposed, accepted, superseded or rejected. Content becomes immutable
-    /// at `accepted`; that rule is enforced in `keel-core`, not the schema.
+    /// Proposed, accepted, superseded or rejected.
+    ///
+    /// `accepted` used to make the content un-editable. It no longer does: the
+    /// guard refused a title change while the body — the actual reasoning —
+    /// stayed writable through `write_revision`, so it prevented the harmless
+    /// edit and permitted the harmful one. Every change is an attributed
+    /// revision with a diff, which is the guard that was wanted (TQ-27, B-43).
     pub status: DecisionStatus,
     /// When it was accepted.
     pub decided_at: Option<DateTime<Utc>>,

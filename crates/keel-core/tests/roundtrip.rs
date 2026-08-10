@@ -347,39 +347,6 @@ fn a_second_global_term_of_the_same_name_is_refused() {
 }
 
 #[test]
-fn updating_an_accepted_decision_says_to_supersede_it_instead() {
-    let (mut store, _dir) = store();
-    let project_id = project(&mut store);
-
-    let mut decision = Decision::new(project_id, "Use DuckDB");
-    decision.status = DecisionStatus::Accepted;
-    let stored = store.create(decision.into(), &claude()).unwrap().entity;
-
-    let err = store
-        .update(
-            stored.id(),
-            1,
-            json!({"title": "Use SQLite"}).as_object().unwrap(),
-            &claude(),
-        )
-        .unwrap_err();
-    assert!(
-        err.to_string().contains("supersedes"),
-        "the error should name the remedy: {err}"
-    );
-
-    // The status may still change — that is how it gets superseded.
-    store
-        .update(
-            stored.id(),
-            1,
-            json!({"status": "superseded"}).as_object().unwrap(),
-            &claude(),
-        )
-        .expect("status transitions on an accepted decision are allowed");
-}
-
-#[test]
 fn a_page_that_is_cut_reports_the_total() {
     // Hard constraint 4: no silent truncation.
     let (mut store, _dir) = store();
@@ -403,4 +370,56 @@ fn a_page_that_is_cut_reports_the_total() {
     assert_eq!(page.items.len(), 5);
     assert_eq!(page.total, 12, "the caller must be told how many exist");
     assert!(page.truncated);
+}
+
+/// An accepted decision can be corrected, and the correction is recorded.
+///
+/// This used to be refused (`DecisionImmutable`), and the refusal was on the
+/// wrong door: it blocked a title change while `write_revision` replaced the
+/// body — the actual reasoning — unchecked. Seven titles truncated at import
+/// could not be fixed; twenty-five bodies were rewritten without objection.
+///
+/// The test that guarded the old rule asserted only that the *error* named the
+/// remedy — never that the body it was protecting was actually protected. It
+/// replaced by this one, which asserts the behaviour KB chose: permit the edit,
+/// and rely on the revision chain to make it visible (TQ-27, B-43).
+#[test]
+fn an_accepted_decision_can_be_corrected_and_the_change_is_recorded() {
+    let (mut store, _dir) = store();
+    let prov = claude();
+    let project_id = project(&mut store);
+
+    let mut decision = Decision::new(project_id.clone(), "Surface carries five values: chat \\");
+    decision.status = DecisionStatus::Accepted;
+    let created = store.create(decision.into(), &prov).unwrap().entity;
+
+    let mut changes = serde_json::Map::new();
+    changes.insert(
+        "title".to_owned(),
+        serde_json::json!("Surface carries five values: chat, cowork, code, ui, cli"),
+    );
+    let updated = store
+        .update(created.id(), created.audit().version, &changes, &prov)
+        .expect("a truncated title must be correctable");
+
+    assert_eq!(
+        updated.label(),
+        "Surface carries five values: chat, cowork, code, ui, cli"
+    );
+
+    // The guard that replaces the refusal: the change is attributed, not silent.
+    let events = store.events_for(created.id(), 20).unwrap();
+    assert!(
+        events
+            .items
+            .iter()
+            .any(|e| e.field.as_deref() == Some("title")),
+        "the correction must leave an event: {:?}",
+        events.items
+    );
+
+    // Optimistic concurrency still applies — removing the immutability guard
+    // must not have removed the stale-write guard with it.
+    let stale = store.update(created.id(), created.audit().version, &changes, &prov);
+    assert!(stale.is_err(), "a stale version must still be rejected");
 }

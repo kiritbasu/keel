@@ -15,24 +15,24 @@ Every decision made while building, with the reasoning and what was rejected. In
 | B-2 | [All Lance access goes through the DuckDB extension](#b-2) | `accepted` |
 | B-3 | [Bundled DuckDB is a feature, not a requirement](#b-3) | `accepted` |
 | B-4 | [No vector or FTS index on the Lance dataset initially — brute-force scan](#b-4) | `accepted` |
-| B-5 | [unwrap/expect/panic/todo/unimplemented are workspace clippy lints at warn, promoted to…](#b-5) | `accepted` |
+| B-5 | [unwrap/expect/panic/todo/unimplemented are workspace clippy lints, promoted to errors by CI](#b-5) | `accepted` |
 | B-6 | [missing_docs is a workspace lint, not just a keel-core convention](#b-6) | `accepted` |
-| B-7 | [Build scope this stretch is Phases 0–3; git stays local with no remote; session_id is a…](#b-7) | `accepted` |
-| B-8 | [Surface carries five values, not four: chat \](#b-8) | `accepted` |
+| B-7 | [Build scope is Phases 0–3; git stays local; session_id is skill-minted](#b-7) | `accepted` |
+| B-8 | [Surface carries five values, not four: chat, cowork, code, ui, cli](#b-8) | `accepted` |
 | B-9 | [ULIDs are minted from a monotonic generator](#b-9) | `accepted` |
 | B-10 | [Every table gets idempotency_key, not just tasks](#b-10) | `accepted` |
-| B-11 | [Dev builds use debug = "line-tables-only" and debug = false for dependencies; the…](#b-11) | `accepted` |
+| B-11 | [Dev builds use line-tables-only debug info, and the clippy gate drops --all-features](#b-11) | `accepted` |
 | B-12 | [BM25 moves from Lance to DuckDB](#b-12) | `accepted` |
 | B-13 | [Tool responses lift version to the top of the entity](#b-13) | `accepted` |
 | B-14 | [The desktop app hand-writes its components](#b-14) | `accepted` |
 | B-15 | [Keel's local REST API has more endpoints than the MCP surface has tools](#b-15) | `accepted` |
 | B-16 | [Event summaries name artifacts, not ids](#b-16) | `accepted` |
 | B-17 | [Serve MCP 2025-11-25 alongside 2026-07-28](#b-17) | `accepted` |
-| B-18 | [keel import is a bridge, not a migration: re-importable, content-addressed, and it…](#b-18) | `accepted` |
-| B-19 | [The document reader renders markdown with react-markdown + remark-gfm, mapping every…](#b-19) | `accepted` |
+| B-18 | [keel import is a bridge, not a migration: re-importable and content-addressed](#b-18) | `accepted` |
+| B-19 | [The document reader renders markdown with react-markdown, mapping every element by hand](#b-19) | `accepted` |
 | B-20 | [Keel is the source of truth; every product/*.md is generated.](#b-20) | `accepted` |
 | B-21 | [Generation runs inside the daemon, exposed as POST /api/generate.](#b-21) | `accepted` |
-| B-22 | [projects gets a nullable status_path; a path claimed by both a document and the tracker…](#b-22) | `accepted` |
+| B-22 | [projects gets a nullable status_path; a path claimed twice is reported, not resolved](#b-22) | `accepted` |
 | B-23 | [keel_context answers "what next" with named, ranked tasks](#b-23) | `proposed` |
 | B-24 | [A task marked blocked with no blocks edge is reported as a data problem, not ranked](#b-24) | `superseded` |
 | B-25 | ["Waiting on a human decision" is the decision-needed label, not a new task kind](#b-25) | `proposed` |
@@ -53,6 +53,7 @@ Every decision made while building, with the reasoning and what was rejected. In
 | B-40 | [Readable identifiers are composed, never stored](#b-40) | `accepted` |
 | B-41 | [KB confirmed: a task holds a list of external links](#b-41) | `accepted` |
 | B-42 | [KB confirmed: blocked is derived from the links, not a status](#b-42) | `accepted` |
+| B-43 | [An accepted decision can be corrected; the revision chain is the guard](#b-43) | `proposed` |
 
 ## Reversals
 
@@ -146,7 +147,7 @@ Verified that `lance_fts`, `lance_vector_search` and `lance_hybrid_search` all r
 Yes.
 
 
-### B-5 — unwrap/expect/panic/todo/unimplemented are workspace clippy lints at warn, promoted to…
+### B-5 — unwrap/expect/panic/todo/unimplemented are workspace clippy lints, promoted to errors by CI
 
 `accepted` · decided 2026-08-09 · `dec_01KZKWMSYT6WTETRJ6DF82A42E`
 
@@ -180,7 +181,7 @@ The contract only requires doc comments on `keel-core` public items, but scoping
 Yes.
 
 
-### B-7 — Build scope this stretch is Phases 0–3; git stays local with no remote; session_id is a…
+### B-7 — Build scope is Phases 0–3; git stays local; session_id is skill-minted
 
 `accepted` · decided 2026-08-09 · `dec_01KZKWMTFN212CPD921AY3PX6D`
 
@@ -197,7 +198,7 @@ All four confirmed directly by KB on 2026-08-09 before he went away. Q-8 in `pro
 N/a — KB's call.
 
 
-### B-8 — Surface carries five values, not four: chat \
+### B-8 — Surface carries five values, not four: chat, cowork, code, ui, cli
 
 `accepted` · decided 2026-08-09 · `dec_01KZKWMT28K0HMJ1Y5JQ16TT8T`
 
@@ -264,7 +265,7 @@ Marked PROVISIONAL; raised as TQ-9 because adding a column is a storage-format c
 Expensive — it is a schema column.
 
 
-### B-11 — Dev builds use debug = "line-tables-only" and debug = false for dependencies; the…
+### B-11 — Dev builds use line-tables-only debug info, and the clippy gate drops --all-features
 
 `accepted` · decided 2026-08-09 · `dec_01KZKWMT3ZRNB06RMYBSTAKDV6`
 
@@ -415,7 +416,7 @@ Mirrored headers are required only of a 2026-07-28 caller; resultType goes only 
 Yes.
 
 
-### B-18 — keel import is a bridge, not a migration: re-importable, content-addressed, and it…
+### B-18 — keel import is a bridge, not a migration: re-importable and content-addressed
 
 `accepted` · decided 2026-08-09 · `dec_01KZKWMT5SMKXQ07NKBKT87SXC`
 
@@ -432,7 +433,7 @@ KB asked whether whole specs can live in Keel and be read in the app. They can �
 Yes.
 
 
-### B-19 — The document reader renders markdown with react-markdown + remark-gfm, mapping every…
+### B-19 — The document reader renders markdown with react-markdown, mapping every element by hand
 
 `accepted` · decided 2026-08-09 · `dec_01KZKWMT7GFNZBYEQBV44NPY4R`
 
@@ -483,7 +484,7 @@ Not a preference — a discovery. D-5 says non-daemon processes "connect read-on
 Yes.
 
 
-### B-22 — projects gets a nullable status_path; a path claimed by both a document and the tracker…
+### B-22 — projects gets a nullable status_path; a path claimed twice is reported, not resolved
 
 `accepted` · decided 2026-08-09 · `dec_01KZKWMTDQZPZJ46PCEWATF0XY`
 
@@ -899,5 +900,38 @@ It costs a forward-only migration and a visible behaviour change, which is why i
 #### Reversible?
 
 The migration is forward-only. Re-adding an enum value later is easy; the rows that were moved out of `blocked` would not come back, and should not — they were wrong.
+
+
+### B-43 — An accepted decision can be corrected; the revision chain is the guard
+
+`proposed` · `dec_01KZPNN6TBH77592TR7VN6DD4K`
+
+#### Context
+
+`keel_update` refused any content change to a decision whose status was `accepted` — SPEC §3.2, enforced in `keel-core` because the schema cannot express it. The remedy it named was to create a new decision linked with `supersedes`.
+
+`keel_write_doc` was never subject to it. It replaced an accepted decision's entire body without complaint, and did so twenty-five times on 2026-08-10 while the reasoning was migrated out of the prose table into the rows.
+
+#### Decision
+
+The guard is removed. An accepted decision can be edited, and the revision chain is what makes the edit safe.
+
+#### Reasoning
+
+It sat on the wrong door. A title is a label; the body is the argument, and the argument *is* the decision. Guarding the label while leaving the argument writable stopped the harmless edit and permitted the harmful one.
+
+The concrete cost was visible: seven decision titles had been truncated at roughly eighty characters by whatever imported them — B-8 read `Surface carries five values, not four: chat \` — and could not be corrected. They were invisible while the prose table carried the real titles, and became the headings of the generated log the moment the register was unified. Correcting a transcription defect is not amending a decision, but a write guard cannot tell the two apart. The revision chain can, after the fact, which is when the question is actually asked.
+
+What replaces it was already there: every change is an attributed revision with a diff and an event naming the field. A reworded decision is visible rather than prevented, and *visible* is the property that was wanted — "supersede instead of editing" is advice about how to think, and it survives as advice.
+
+The old test asserted only that the error named the remedy. It never asserted that the body it was protecting was protected, which is part of how the gap lasted.
+
+#### Consequences
+
+Retitling a decision changes its mirror slug, and `generate` never deletes, so seven orphaned files under `.keel/decisions/` had to be removed by hand. A generated file that survives a rename reads as current, which is its own small instance of the disease this register unification was fixing. Recorded as TQ-28.
+
+#### Reversible?
+
+Yes — the guard was six lines. Re-adding it would re-break title correction, so anything that reinstates it should guard the body too or not at all.
 
 

@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-10T19:54:57.570676+00:00",
+  "generated_at": "2026-08-10T20:30:42.594944+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/an-accepted-decision-can-be-corrected-the-revision-chain-is-the-guard.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZPNN6TBH77592TR7VN6DD4K",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "b486bd497e1e1f4e34073a4cb806aaf8ae9b782d61ecd2ea84a0b87e69d58425"
         }
       ]
     },
@@ -223,24 +234,24 @@
       ]
     },
     {
-      "path": ".keel/decisions/build-scope-this-stretch-is-phases-0-3-git-stays-local-with-no-remote-session-id-is-a.md",
+      "path": ".keel/decisions/build-scope-is-phases-0-3-git-stays-local-session-id-is-skill-minted.md",
       "contributors": [
         {
           "entity_id": "dec_01KZKWMTFN212CPD921AY3PX6D",
           "entity_type": "decision",
           "version": 2,
-          "hash": "95a8e6c47f1da7983bccb9864acae51ef0c2205fbea918a3d00988c4fed3423a"
+          "hash": "94d78716cf8e3e1ad786ea2fec54b0a4ee522777a866846c455a1d938135c7bf"
         }
       ]
     },
     {
-      "path": ".keel/decisions/projects-gets-a-nullable-status-path-a-path-claimed-by-both-a-document-and-the-tracker.md",
+      "path": ".keel/decisions/projects-gets-a-nullable-status-path-a-path-claimed-twice-is-reported-not-resolved.md",
       "contributors": [
         {
           "entity_id": "dec_01KZKWMTDQZPZJ46PCEWATF0XY",
           "entity_type": "decision",
           "version": 2,
-          "hash": "3fb5d7cef20141db6fbc38ca96da0e55e2cf77d15f2024b14cdaaf989b263687"
+          "hash": "61f90c949f6d815b3fbc1c58099b3fb0e93817a85a56e94c4e077f6480e47ad2"
         }
       ]
     },
@@ -267,46 +278,46 @@
       ]
     },
     {
-      "path": ".keel/decisions/the-document-reader-renders-markdown-with-react-markdown-remark-gfm-mapping-every.md",
+      "path": ".keel/decisions/the-document-reader-renders-markdown-with-react-markdown-mapping-every-element-by-hand.md",
       "contributors": [
         {
           "entity_id": "dec_01KZKWMT7GFNZBYEQBV44NPY4R",
           "entity_type": "decision",
           "version": 2,
-          "hash": "8a4471f787a689f04e540ea0edd801538a729373d9f5fc99504b9346a2e3f543"
+          "hash": "b51605405e687f412071c840d0726da143164edf5eedf8a2ebab67b19e71a0ed"
         }
       ]
     },
     {
-      "path": ".keel/decisions/keel-import-is-a-bridge-not-a-migration-re-importable-content-addressed-and-it.md",
+      "path": ".keel/decisions/keel-import-is-a-bridge-not-a-migration-re-importable-and-content-addressed.md",
       "contributors": [
         {
           "entity_id": "dec_01KZKWMT5SMKXQ07NKBKT87SXC",
           "entity_type": "decision",
           "version": 2,
-          "hash": "d95dd96a990e6fcc1fddf50dd0417a4bacb80014f9285116c19511c3b82b0188"
+          "hash": "a69d22f3dfcaada5a895b083c3598ea41007769a8ed4a5e1f806f029233b6fb7"
         }
       ]
     },
     {
-      "path": ".keel/decisions/dev-builds-use-debug-line-tables-only-and-debug-false-for-dependencies-the.md",
+      "path": ".keel/decisions/dev-builds-use-line-tables-only-debug-info-and-the-clippy-gate-drops-all-features.md",
       "contributors": [
         {
           "entity_id": "dec_01KZKWMT3ZRNB06RMYBSTAKDV6",
           "entity_type": "decision",
           "version": 2,
-          "hash": "c0a5378c597640287fc83dc6f8226d3396913b39c32377a37454c50531ddc2d4"
+          "hash": "dd0d85987a8e9d76a3712d543786a2bdbbb2bc21b906feb69f6070ca4b8e0eb8"
         }
       ]
     },
     {
-      "path": ".keel/decisions/surface-carries-five-values-not-four-chat.md",
+      "path": ".keel/decisions/surface-carries-five-values-not-four-chat-cowork-code-ui-cli.md",
       "contributors": [
         {
           "entity_id": "dec_01KZKWMT28K0HMJ1Y5JQ16TT8T",
           "entity_type": "decision",
           "version": 2,
-          "hash": "4164eef8958f22621ae47eff2fbdad4224f2f8ec27356ed4f977674f19122568"
+          "hash": "3338becb42fb8e78b8e34d8ca63fde026d63a770e419d65c0634be88efc380ab"
         }
       ]
     },
@@ -322,13 +333,13 @@
       ]
     },
     {
-      "path": ".keel/decisions/unwrap-expect-panic-todo-unimplemented-are-workspace-clippy-lints-at-warn-promoted-to.md",
+      "path": ".keel/decisions/unwrap-expect-panic-todo-unimplemented-are-workspace-clippy-lints-promoted-to-errors-by-ci.md",
       "contributors": [
         {
           "entity_id": "dec_01KZKWMSYT6WTETRJ6DF82A42E",
           "entity_type": "decision",
           "version": 2,
-          "hash": "54e26ab6da5d92c988c5f8970cfee8f6cf6a4b31ba26f630cc744cebd527f0c3"
+          "hash": "b479e2785e654b7afcc4d4672739b8524f661af3c50879d4e121440a814f4e73"
         }
       ]
     },
@@ -479,10 +490,10 @@
       "path": ".keel/questions.md",
       "contributors": [
         {
-          "entity_id": "que_01KZPKVNHC6P5HJ30KSFAVZ3QD",
+          "entity_id": "que_01KZPNN754J219CB2A059J1TBE",
           "entity_type": "question",
           "version": 1,
-          "hash": "1cc5483164504964e05826f6bfe4c6cdc6049cda997dbc9c83a8ebdb06f4667a"
+          "hash": "956f169bd2502ee8971b7c951674db3d907318fb7848d20ea50644eec0acfd7a"
         },
         {
           "entity_id": "que_01KZP8C2BNKSN7GMJV4JSBZ29Q",
@@ -531,6 +542,12 @@
           "entity_type": "question",
           "version": 1,
           "hash": "2658bbe846f41efece327f5b14da526cabbda64653ae996e0c29a2f9fe3e8e5f"
+        },
+        {
+          "entity_id": "que_01KZPKVNHC6P5HJ30KSFAVZ3QD",
+          "entity_type": "question",
+          "version": 2,
+          "hash": "65869409d55d8453bf356856f32a8b8115cd527edb0f27fe50f4b642e14c0143"
         },
         {
           "entity_id": "que_01KZP4XBB45RAN5CBFN2FEV2QH",

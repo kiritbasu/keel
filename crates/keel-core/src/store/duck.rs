@@ -714,15 +714,20 @@ impl EntityStore for DuckStore {
             });
         }
 
-        // An accepted decision is immutable by design (SPEC §3.2): supersede
-        // it rather than editing it. Enforced here because the schema cannot
-        // express it.
-        if let Entity::Decision(d) = &entity
-            && d.status == crate::DecisionStatus::Accepted
-            && changes.keys().any(|k| k != "status")
-        {
-            return Err(Error::DecisionImmutable { id: id.to_string() });
-        }
+        // An accepted decision used to be un-editable here (SPEC §3.2), and the
+        // guard was removed on 2026-08-10 because it sat on the wrong door.
+        //
+        // It refused a *title* change while `write_revision` would replace the
+        // decision's entire body without complaint — and the body is the
+        // reasoning, which is the decision. Twenty-five bodies were rewritten
+        // through that gap during the register migration and nothing objected,
+        // while seven titles truncated at import could not be corrected.
+        //
+        // The revision chain is the better guard and was already doing the job:
+        // every change is an attributed revision with a diff, so a reworded
+        // decision is visible rather than prevented. Preventing the harmless
+        // edit while permitting the harmful one is worse than permitting both
+        // and recording them. KB's call, TQ-27, recorded as B-43.
 
         let applied = apply_changes(&mut entity, changes)?;
         if applied.is_empty() {

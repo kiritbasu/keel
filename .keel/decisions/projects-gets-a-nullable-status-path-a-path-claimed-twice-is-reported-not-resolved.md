@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZKWMTDQZPZJ46PCEWATF0XY v2 2026-08-10T18:53:24Z
+<!-- keel:generated decision dec_01KZKWMTDQZPZJ46PCEWATF0XY v2 2026-08-10T20:25:03Z
      source of truth is Keel — edits here are not saved -->
-# B-22 — projects gets a nullable status_path; a path claimed by both a document and the tracker…
+# B-22 — projects gets a nullable status_path; a path claimed twice is reported, not resolved
 
 **Status:** `accepted`  
 **Decided:** 2026-08-09  

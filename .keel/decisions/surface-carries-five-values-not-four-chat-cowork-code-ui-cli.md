@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZKWMT28K0HMJ1Y5JQ16TT8T v2 2026-08-10T18:53:24Z
+<!-- keel:generated decision dec_01KZKWMT28K0HMJ1Y5JQ16TT8T v2 2026-08-10T20:25:03Z
      source of truth is Keel — edits here are not saved -->
-# B-8 — Surface carries five values, not four: chat \
+# B-8 — Surface carries five values, not four: chat, cowork, code, ui, cli
 
 **Status:** `accepted`  
 **Decided:** 2026-08-09  

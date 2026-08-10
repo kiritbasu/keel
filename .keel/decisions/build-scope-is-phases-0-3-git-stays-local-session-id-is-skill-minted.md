@@ -1,6 +1,6 @@
-<!-- keel:generated decision dec_01KZKWMTFN212CPD921AY3PX6D v2 2026-08-10T18:53:24Z
+<!-- keel:generated decision dec_01KZKWMTFN212CPD921AY3PX6D v2 2026-08-10T20:25:03Z
      source of truth is Keel — edits here are not saved -->
-# B-7 — Build scope this stretch is Phases 0–3; git stays local with no remote; session_id is a…
+# B-7 — Build scope is Phases 0–3; git stays local; session_id is skill-minted
 
 **Status:** `accepted`  
 **Decided:** 2026-08-09  

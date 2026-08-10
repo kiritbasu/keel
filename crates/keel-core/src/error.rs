@@ -95,20 +95,6 @@ pub enum Error {
         problem: String,
     },
 
-    /// An accepted decision was edited rather than superseded.
-    ///
-    /// Called out separately from `Invariant` because the remedy is specific
-    /// and an agent should be told it: create a new decision and link it with
-    /// `supersedes`.
-    #[error(
-        "decision `{id}` is accepted and its content is immutable. \
-         Create a new decision and link it to this one with rel `supersedes`."
-    )]
-    DecisionImmutable {
-        /// The accepted decision that was targeted.
-        id: String,
-    },
-
     /// The storage engine failed.
     #[error("{context}")]
     Storage {
@@ -243,7 +229,6 @@ impl Error {
                 | Error::NotFound { .. }
                 | Error::StaleVersion { .. }
                 | Error::Invariant { .. }
-                | Error::DecisionImmutable { .. }
         )
     }
 }

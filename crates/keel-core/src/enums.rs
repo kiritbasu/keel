@@ -216,8 +216,12 @@ string_enum! {
     DecisionStatus for EntityType::Decision, field "status", default Proposed {
         /// Written down but not agreed.
         Proposed = "proposed",
-        /// Agreed. Content becomes immutable at this point — supersede
-        /// instead of editing.
+        /// Agreed. Editing one is allowed and recorded: a decision that was
+        /// wrong is marked `Superseded` with a `## Superseded` section, but a
+        /// decision whose *title was truncated at import* is a transcription
+        /// defect and correcting it is not an amendment. The revision chain
+        /// tells the two apart after the fact; a write guard could not tell
+        /// them apart at all (TQ-27, B-43).
         Accepted = "accepted",
         /// Replaced by a later decision.
         Superseded = "superseded",
