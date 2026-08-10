@@ -42,6 +42,82 @@ fn normalise_for_key(s: &str) -> String {
         .join(" ")
 }
 
+/// How alike two labels are, as a token-set overlap between 0 and 1.
+///
+/// Exists because the idempotency key is a *hash* of the normalised title, so
+/// it treats "Validate constituent phases to 0–360 degrees" and "Validate
+/// constituent phases to 0–360" as unrelated. Two gate runs produced exactly
+/// that pair. With one store per session nothing noticed; in a shared store
+/// they are two rows for one task — UC-8's failure arriving one level below
+/// projects, where nobody was watching for it.
+///
+/// Jaccard over normalised tokens rather than an edit distance: word order
+/// varies freely between two descriptions of the same work, and character
+/// distance punishes a longer, better title.
+///
+/// Overlap alone is not enough to merge on — see [`same_thing`].
+pub fn title_similarity(a: &str, b: &str) -> f64 {
+    let tokens = |s: &str| -> std::collections::BTreeSet<String> {
+        normalise_for_key(s)
+            .split_whitespace()
+            .filter(|t| t.chars().any(char::is_alphanumeric))
+            .map(str::to_owned)
+            .collect()
+    };
+    let (a, b) = (tokens(a), tokens(b));
+    if a.is_empty() || b.is_empty() {
+        return 0.0;
+    }
+    let shared = a.intersection(&b).count() as f64;
+    let total = a.union(&b).count() as f64;
+    shared / total
+}
+
+/// Minimum overlap before two titles can be considered the same thing.
+///
+/// A false merge hides work that was genuinely new, which is worse than a
+/// duplicate: a duplicate is visible and mergeable, a hidden row is neither.
+pub const SAME_THING_THRESHOLD: f64 = 0.8;
+
+/// Whether two titles name the same thing.
+///
+/// **Overlap plus containment**, and the containment half is what makes this
+/// safe. One token set must be a subset of the other — the difference can only
+/// be *added* words, never *substituted* ones.
+///
+/// The distinction is the whole rule. "Validate phases to 0–360" against
+/// "Validate phases to 0–360 degrees" is an addition: the same thing said with
+/// one more word. "Open question number 4" against "Open question number 5" is
+/// a substitution, and the substituted token is the only thing distinguishing
+/// them.
+///
+/// Overlap alone got this wrong, and a test caught it: sixty questions
+/// differing by a single digit scored 0.875 — fourteen shared tokens out of
+/// sixteen — and collapsed into two rows. High similarity says "these are
+/// mostly the same words"; only containment says "one of these adds nothing
+/// the other lacks".
+pub fn same_thing(a: &str, b: &str) -> bool {
+    let tokens = |s: &str| -> std::collections::BTreeSet<String> {
+        normalise_for_key(s)
+            .split_whitespace()
+            .filter(|t| t.chars().any(char::is_alphanumeric))
+            .map(str::to_owned)
+            .collect()
+    };
+    let (ta, tb) = (tokens(a), tokens(b));
+    if ta.is_empty() || tb.is_empty() {
+        return false;
+    }
+    // Containment: no substituted tokens in either direction.
+    if !(ta.is_subset(&tb) || tb.is_subset(&ta)) {
+        return false;
+    }
+    // And enough overlap that a one-word title does not swallow everything it
+    // is a prefix of — "Fix" is a subset of "Fix the login page" and is not
+    // the same task.
+    title_similarity(a, b) >= SAME_THING_THRESHOLD
+}
+
 /// Derive the default idempotency key for a create, per SPEC §7.2.
 ///
 /// `hash(project_id, type, normalised_title)`. Truncated to 32 hex characters:
@@ -818,6 +894,21 @@ impl Entity {
             Entity::Metric(e) => &e.name,
             Entity::MetricObservation(e) => e.note.as_deref().unwrap_or("observation"),
             Entity::Artifact(e) => &e.name,
+        }
+    }
+
+    /// The string each constructor hashes into its derived idempotency key.
+    ///
+    /// Almost always [`Entity::label`], but a project keys on its *slug* — two
+    /// projects may legitimately share a display name while the slug is what
+    /// must be unique. Comparing a stored key against the key this would
+    /// derive is how `create` tells a caller-supplied key from a derived one,
+    /// and an explicit key is a claim that two same-titled things are
+    /// different.
+    pub fn natural_key(&self) -> &str {
+        match self {
+            Entity::Project(p) => &p.slug,
+            other => other.label(),
         }
     }
 

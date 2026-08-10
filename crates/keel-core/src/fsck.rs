@@ -62,7 +62,142 @@ impl FsckReport {
     }
 }
 
+/// Artifacts whose prose cites a `B-1`/`TQ-4`/`Q-2`/`R-6`/`P0-7` style
+/// identifier that no live artifact in the same project answers to.
+///
+/// Titles in this project carry their identifier as a prefix — "TQ-17 — …" —
+/// so resolution is: does some artifact in the same project have a title
+/// starting with that id? Deliberately lexical and deliberately scoped to the
+/// project: a citation is a claim about *this* project's record.
+fn dangling_id_references(store: &DuckStore) -> Result<Vec<String>> {
+    // Resolve against *every* entity, not just those with prose. The first
+    // version scanned `lancedb.documents` alone and reported 227 dangling
+    // citations in a store of ~250 artifacts — because an artifact created
+    // without a body has no document row, so most real targets were invisible.
+    // `v_entities` exists for exactly this: resolve an id without knowing its
+    // type.
+    let mut stmt = store
+        .connection()
+        .prepare("SELECT COALESCE(project_id, ''), label FROM v_entities WHERE archived_at IS NULL")
+        .map_err(Error::storage("prepare the cross-reference target list"))?;
+    let mut labels: std::collections::HashMap<String, Vec<String>> = Default::default();
+    for row in stmt
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        .map_err(Error::storage("list cross-reference targets"))?
+        .filter_map(std::result::Result::ok)
+    {
+        labels.entry(row.0).or_default().push(row.1);
+    }
+
+    let mut stmt = store
+        .connection()
+        .prepare(
+            "SELECT COALESCE(project_id, ''), title, body FROM lancedb.documents \
+             WHERE status = 'current'",
+        )
+        .map_err(Error::storage("prepare the cross-reference scan"))?;
+    let rows: Vec<(String, String, String)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .map_err(Error::storage("run the cross-reference scan"))?
+        .filter_map(std::result::Result::ok)
+        .collect();
+
+    // Only check identifier *families* this project actually uses in titles.
+    //
+    // Without this the check is worse than useless. Keel's own `B-n` decisions
+    // and `D-n` spec decisions live in prose — a numbered table inside a
+    // document — not as artifact titles, so every citation of them dangles by
+    // construction: 182 findings in a store of ~250 artifacts, all of them
+    // describing a convention the store does not model rather than a broken
+    // reference.
+    //
+    // Where a project *does* title artifacts "TQ-17 — …", a dangling TQ-n is a
+    // genuine break, and that is worth saying.
+    let mut families: std::collections::HashMap<String, std::collections::BTreeSet<String>> =
+        Default::default();
+    for (project, project_labels) in &labels {
+        for label in project_labels {
+            if let Some(id) = label.split_whitespace().next()
+                && let Some((prefix, _)) = id.split_once('-')
+                && cited_ids(id).contains(&id.to_owned())
+            {
+                families
+                    .entry(project.clone())
+                    .or_default()
+                    .insert(prefix.to_owned());
+            }
+        }
+    }
+
+    let empty = Vec::new();
+    let no_families = std::collections::BTreeSet::new();
+    let mut out = Vec::new();
+    for (project, title, body) in &rows {
+        let known = labels.get(project).unwrap_or(&empty);
+        let used = families.get(project).unwrap_or(&no_families);
+        for id in cited_ids(body) {
+            let Some((prefix, _)) = id.split_once('-') else {
+                continue;
+            };
+            if !used.contains(prefix) {
+                continue;
+            }
+            let resolves = [" ", "—", "-", ":"].iter().any(|sep| {
+                let with = format!("{id}{sep}");
+                title.starts_with(&with) || known.iter().any(|l| l.starts_with(&with))
+            });
+            if !resolves {
+                out.push(format!("“{}” cites {id}", truncate(title, 44)));
+            }
+        }
+    }
+    out.sort();
+    out.dedup();
+    Ok(out)
+}
+
+/// Identifiers cited in prose, as bare `PREFIX-number` tokens.
+///
+/// Matched conservatively. A false positive here sends someone hunting for a
+/// problem that is not there, which is the same disease as the citation.
+fn cited_ids(body: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for raw in body.split(|c: char| !(c.is_ascii_alphanumeric() || c == '-')) {
+        let token = raw.trim_matches('-');
+        let Some((prefix, number)) = token.split_once('-') else {
+            continue;
+        };
+        let known_prefix = matches!(prefix, "B" | "D" | "Q" | "TQ" | "R")
+            || (prefix.len() == 2
+                && prefix.starts_with('P')
+                && prefix[1..].chars().all(|c| c.is_ascii_digit()));
+        if known_prefix
+            && !number.is_empty()
+            && number
+                .chars()
+                .all(|c| c.is_ascii_digit() || c.is_ascii_alphabetic())
+            && number.chars().next().is_some_and(|c| c.is_ascii_digit())
+        {
+            out.push(token.to_owned());
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// Shorten a title for a finding.
+fn truncate(s: &str, n: usize) -> String {
+    if s.chars().count() <= n {
+        return s.to_owned();
+    }
+    s.chars().take(n).collect::<String>() + "…"
+}
+
 /// Run every integrity check.
+///
+/// Exits non-zero only on errors, so a warning-only report can still gate a
+/// backup or a deploy without crying wolf.
 pub fn check(store: &DuckStore) -> Result<FsckReport> {
     let mut findings = Vec::new();
     let mut checks_run = 0usize;
@@ -246,6 +381,42 @@ pub fn check(store: &DuckStore) -> Result<FsckReport> {
         });
     }
 
+    // --- Cross-references that resolve ----------------------------------
+    //
+    // A gate session filed a question into a project citing "append-only
+    // (D-9)". D-9 is one of *Keel's* decisions; the project it was filed under
+    // was empty minutes earlier and has no D-9. The body went on to reference
+    // columns that project does not have.
+    //
+    // A fabricated citation is worse than a missing one. It reads as
+    // provenance, sends the reader looking for something that was never there,
+    // and nothing in the store disagrees with it. Recall cannot see this at
+    // all: the write happened and looked substantial.
+    checks_run += 1;
+    let dangling = dangling_id_references(store)?;
+    if !dangling.is_empty() {
+        let shown: Vec<String> = dangling.iter().take(5).cloned().collect();
+        findings.push(Finding {
+            severity: Severity::Warning,
+            check: "unresolved_id_reference".to_owned(),
+            detail: format!(
+                "{} artifact(s) cite an identifier that resolves to nothing in their own \
+                 project: {}{}",
+                dangling.len(),
+                shown.join("; "),
+                if dangling.len() > shown.len() {
+                    ", …"
+                } else {
+                    ""
+                }
+            ),
+            remedy: "correct the citation, or create what it refers to. A reference that \
+                     resolves to nothing reads as provenance and is not"
+                .to_owned(),
+            count: dangling.len() as i64,
+        });
+    }
+
     // --- Provenance is intact -------------------------------------------
     checks_run += 1;
     let n = count(
@@ -368,5 +539,57 @@ mod tests {
     #[test]
     fn errors_sort_before_warnings() {
         assert!(Severity::Error < Severity::Warning);
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod citation_tests {
+    use super::cited_ids;
+
+    #[test]
+    fn it_finds_the_identifiers_this_project_actually_uses() {
+        assert_eq!(
+            cited_ids("reconcile with append-only (D-9) and no access-time tracking"),
+            vec!["D-9"]
+        );
+        assert_eq!(
+            cited_ids("see TQ-17 and B-22, plus P0-13"),
+            vec!["B-22", "P0-13", "TQ-17"]
+        );
+        assert_eq!(cited_ids("raised as R-2a"), vec!["R-2a"]);
+    }
+
+    #[test]
+    fn it_does_not_invent_citations_out_of_ordinary_prose() {
+        // A false positive sends someone hunting for a problem that is not
+        // there — the same disease as the fabricated citation itself.
+        assert!(cited_ids("validate phases to 0-360 degrees").is_empty());
+        assert!(cited_ids("the UTF-8 encoding and a SHA-256 digest").is_empty());
+        assert!(cited_ids("bump to v1-rc2 before the 2026-08-10 cutoff").is_empty());
+        assert!(cited_ids("a well-known trade-off").is_empty());
+        assert!(cited_ids("").is_empty());
+    }
+
+    #[test]
+    fn a_citation_is_only_checked_when_the_project_titles_artifacts_that_way() {
+        // The scoping that makes this check usable. Keel's own B-n decisions
+        // live in a numbered table inside a prose document, never as artifact
+        // titles, so without family scoping every citation of them dangles by
+        // construction: 182 findings in a store of ~250 artifacts, none of
+        // them a broken reference. The rule is that a family is only checked
+        // where the project actually uses it as a title prefix.
+        //
+        // This asserts the ingredient — that a title's leading token is
+        // recognised as an identifier — since the scoping is built from it.
+        assert_eq!(cited_ids("TQ-17"), vec!["TQ-17"]);
+        assert_eq!(cited_ids("R-2a"), vec!["R-2a"]);
+        assert!(cited_ids("Generation runs inside the daemon").is_empty());
+    }
+
+    #[test]
+    fn a_hyphenated_word_is_not_an_identifier() {
+        // "append-only" must not read as a citation of "only" under prefix A.
+        assert!(cited_ids("append-only storage, write-ahead logging").is_empty());
     }
 }

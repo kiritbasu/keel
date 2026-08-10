@@ -246,6 +246,57 @@ impl DuckStore {
         self.query_one(entity_type, &sql, params)
     }
 
+    /// A live entity of this type in this project whose label means the same
+    /// thing as `label`.
+    ///
+    /// Only ever consulted on create, and only after the exact key has missed.
+    /// Archived rows are excluded here — unlike the exact-key path, which
+    /// deliberately matches them: reviving an archived row on a *fuzzy* match
+    /// would resurrect something a human chose to put away.
+    fn find_by_similar_label(
+        &self,
+        entity_type: EntityType,
+        project_id: Option<&EntityId>,
+        label: &str,
+    ) -> Result<Option<Entity>> {
+        // Three types are excluded, each for its own reason:
+        //
+        // - `metric_observation`: its label is a note, and two readings of one
+        //   metric are emphatically not the same row.
+        // - `artifact`: named by URL or filename, where a near-match is a
+        //   different file.
+        // - `term`: a glossary entry's name *is* its identity, and Q-4 requires
+        //   a global term and a project-scoped one of the same name to coexist.
+        //   The COALESCE index already expresses that exactly; guessing on top
+        //   of it can only be wrong.
+        if matches!(
+            entity_type,
+            EntityType::MetricObservation | EntityType::Artifact | EntityType::Term
+        ) {
+            return Ok(None);
+        }
+
+        let mut query = EntityQuery::default().of_type(entity_type).limited(2_000);
+        if let Some(p) = project_id {
+            query = EntityQuery::in_project(p.clone())
+                .of_type(entity_type)
+                .limited(2_000);
+        }
+        let page = self.list(&query)?;
+
+        let mut best: Option<(f64, Entity)> = None;
+        for candidate in page.items {
+            if !crate::types::same_thing(candidate.label(), label) {
+                continue;
+            }
+            let score = crate::types::title_similarity(candidate.label(), label);
+            if best.as_ref().is_none_or(|(b, _)| score > *b) {
+                best = Some((score, candidate));
+            }
+        }
+        Ok(best.map(|(_, e)| e))
+    }
+
     fn query_one(
         &self,
         entity_type: EntityType,
@@ -522,6 +573,37 @@ impl EntityStore for DuckStore {
             // returns *archived* matches — deliberately, because silently
             // minting a second row alongside an archived one is how a store
             // fills up with near-duplicates.
+            return Ok(Created {
+                entity: existing,
+                created: false,
+            });
+        }
+
+        // A near-miss on the title is the same failure the key exists to
+        // prevent, one step less exact. The key is a hash, so it cannot see
+        // that two titles describe one thing; this can.
+        //
+        // Unless the caller supplied their own key. That is them saying "these
+        // are different things that happen to share a title" — two `Deploy`
+        // tasks keyed `deploy-staging` and `deploy-production` — and guessing
+        // over an explicit assertion is exactly the false merge that hides
+        // work. A derived key carries no such claim, so only then do we look.
+        let key_was_derived = entity.idempotency_key()
+            == crate::types::derive_idempotency_key(
+                project_id.as_ref(),
+                entity_type,
+                entity.natural_key(),
+            );
+        if key_was_derived
+            && let Some(existing) =
+                self.find_by_similar_label(entity_type, project_id.as_ref(), entity.label())?
+        {
+            tracing::info!(
+                existing = %existing.label(),
+                attempted = %entity.label(),
+                "returning an existing {entity_type} with a near-identical title rather than \
+                 creating a second row"
+            );
             return Ok(Created {
                 entity: existing,
                 created: false,
