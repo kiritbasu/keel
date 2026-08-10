@@ -2,7 +2,9 @@
 resolver = "3"
 # The Tauri app is excluded on purpose: it drags in a large native dependency
 # tree, and building a webview on every `cargo test --workspace` would make the
-# fast feedback loop slow for no benefit. Build it from apps/desktop.
+# fast feedback loop slow for no benefit. It is also suspended as of
+# 2026-08-10 — the web build is the surface under development, and the shell's
+# build script refuses to run without KEEL_DESKTOP=1. See its build.rs.
 exclude = ["apps/desktop/src-tauri"]
 members = [
     "crates/keel-core",

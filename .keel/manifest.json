@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-10T11:32:54.349573+00:00",
+  "generated_at": "2026-08-10T11:47:03.905389+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/the-tauri-shell-is-suspended-the-web-build-is-the-surface.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZNQR16ZJKQ5MGTSF8H0VW9C",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "c721eabcca9e7efc2ac1a837f1913036e70accf64654f4f14c31a2d7f10f3b9e"
         }
       ]
     },
