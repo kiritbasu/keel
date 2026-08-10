@@ -342,7 +342,11 @@ pub fn all() -> Vec<Tool> {
                  catch up: 'what happened since I last looked', or to see what another session \
                  did while you were working.\n\n\
                  Pass the `cursor` from a previous response to continue exactly where you left \
-                 off, with no gaps and no repeats."
+                 off, with no gaps and no repeats.\n\n\
+                 Pass `entity` instead to read one row's whole history — every status change and \
+                 field change with its before and after. That answers 'how did this task get \
+                 here', which paging the project feed and filtering cannot, because anything \
+                 older than the page is simply missing."
                     .to_owned(),
             read_only: true,
             idempotent: true,
@@ -351,6 +355,13 @@ pub fn all() -> Vec<Tool> {
                     "type": "object",
                     "properties": {
                         "project": { "type": "string" },
+                        "entity": {
+                            "type": "string",
+                            "description": "One row's id, e.g. `tsk_01H8…`. Returns that row's \
+                                            history oldest first and ignores `project`, `since` \
+                                            and `cursor` — a single row's story is short enough \
+                                            to want whole."
+                        },
                         "since": { "type": "string", "format": "date-time" },
                         "cursor": {
                             "type": "string",

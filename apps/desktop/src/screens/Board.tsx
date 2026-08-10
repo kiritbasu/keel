@@ -2,29 +2,19 @@
  * Screen 4 — Board. Tasks by status, filterable, keyboard-driven.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { api, type Digest, type Entity, type Note, type Page as PageOf } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
-import { Badge, Chip, Empty, ErrorBox, Id, Spinner, cx, priorityTone } from "../components/ui";
+import { Badge, Chip, Empty, ErrorBox, Spinner, cx, priorityTone } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
+import { href } from "../lib/router";
+import { COLUMNS, compareTasks, type RankMap } from "../lib/tasks";
 import type { ScreenProps } from "../App";
-
-/** Lifecycle order, left to right. Matches TaskStatus::ALL. */
-const COLUMNS = ["todo", "in_progress", "blocked", "review", "done", "wont_do"] as const;
 
 export function BoardScreen({ route, generation }: ScreenProps) {
   const project = route.project;
   const [urgentOnly, setUrgentOnly] = useState(false);
   const [label, setLabel] = useState<string | null>(null);
-  // Which cards are expanded. A note is a paragraph and a column is 240px, so
-  // showing every stream at once would bury the board it is attached to.
-  const [open, setOpen] = useState<Set<string>>(new Set());
-
-  // The command palette can name a task in the address. Until a task has a page
-  // of its own, this is how "jump to that task" lands somewhere real: the card
-  // is highlighted and scrolled to.
-  const focused = route.query.task;
-  const focusedCard = useRef<HTMLElement>(null);
 
   const { data, error, loading, reload } = useAsync<PageOf<Entity>>(
     () => api.entities({ project, type: "task", limit: 2000 }),
@@ -53,8 +43,8 @@ export function BoardScreen({ route, generation }: ScreenProps) {
   }, [notes.data]);
 
   const ranked = digest.data?.next_up ?? null;
-  const rank = useMemo(() => {
-    const m = new Map<string, { position: number; why: string }>();
+  const rank = useMemo<RankMap>(() => {
+    const m: RankMap = new Map();
     ranked?.ready.forEach((item, i) => m.set(item.id, { position: i + 1, why: item.why }));
     return m;
   }, [ranked]);
@@ -73,10 +63,6 @@ export function BoardScreen({ route, generation }: ScreenProps) {
     }
     return [...seen].sort();
   }, [data]);
-
-  useEffect(() => {
-    focusedCard.current?.scrollIntoView({ block: "center" });
-  }, [focused, tasks]);
 
   if (loading && !data) return <Spinner />;
   if (error) {
@@ -139,17 +125,11 @@ export function BoardScreen({ route, generation }: ScreenProps) {
           // top of the next column's heading.
           <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2">
             {COLUMNS.map((column) => {
-              // Ranked work sorts to the top, in rank order. A column that
-              // displays "3" above "1" is showing a ranking and contradicting
-              // it in the same breath.
+              // The comparator is shared with the detail view, so `J` and `K`
+              // walk exactly the sequence the board shows.
               const inColumn = tasks
                 .filter((t) => String(t.status) === column)
-                .sort((a, b) => {
-                  const ra = rank.get(String(a.id))?.position ?? Infinity;
-                  const rb = rank.get(String(b.id))?.position ?? Infinity;
-                  if (ra !== rb) return ra - rb;
-                  return String(a.priority).localeCompare(String(b.priority));
-                });
+                .sort(compareTasks(rank));
               return (
                 <div key={column} className="flex w-[240px] shrink-0 flex-col">
                   <div className="mb-2 flex items-baseline justify-between gap-2 px-1">
@@ -160,19 +140,27 @@ export function BoardScreen({ route, generation }: ScreenProps) {
                   </div>
                   <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                     {inColumn.map((t) => {
-                      const isFocused = focused === String(t.id);
+                      const notes = notesByTask.get(String(t.id))?.length ?? 0;
                       return (
-                        <article
+                        // The whole card is the link. It used to be an
+                        // `<article>` with no click handler, no hover state and
+                        // no focus — the dead end this phase is named after.
+                        //
+                        // The note stream and the external link moved to the
+                        // detail view rather than being duplicated here: an
+                        // anchor cannot contain another anchor, and a paragraph
+                        // of commentary inside a 240px column buried the board
+                        // it was attached to. Both are one click away.
+                        <a
                           key={t.id}
-                          ref={isFocused ? focusedCard : undefined}
+                          href={href({ screen: "task", project, taskId: String(t.id) })}
                           className={cx(
-                            "rounded-md border bg-surface-raised p-2.5",
-                            isFocused
-                              ? "border-accent ring-1 ring-accent/40"
-                              : "border-border-subtle",
+                            "block rounded-md border border-border-subtle bg-surface-raised p-2.5",
+                            "transition-colors hover:border-accent/50 hover:bg-surface-hover",
+                            "focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:outline-none",
                           )}
                         >
-                          <p className="selectable text-small leading-snug break-words">
+                          <p className="text-small leading-snug break-words">
                             {rank.has(String(t.id)) && (
                               <span className="mr-1.5 rounded bg-accent/15 px-1.5 py-0.5 text-micro font-semibold tabular-nums text-accent">
                                 {rank.get(String(t.id))?.position}
@@ -187,61 +175,15 @@ export function BoardScreen({ route, generation }: ScreenProps) {
                               <Badge key={l}>{l}</Badge>
                             ))}
                           </div>
-                          {t.external_ref ? (
-                            <a
-                              href={String(t.external_ref)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-2 block truncate text-micro text-accent hover:underline"
-                              title={String(t.external_ref)}
-                            >
-                              {String(t.external_ref)}
-                            </a>
-                          ) : null}
-                          <div className="mt-1.5 truncate">
-                            <Id value={t.id} />
+                          <div className="mt-1.5 flex items-center gap-2 text-micro text-ink-faint">
+                            {notes > 0 && (
+                              <span>
+                                {notes} {notes === 1 ? "note" : "notes"}
+                              </span>
+                            )}
+                            {t.external_ref ? <span>has a link</span> : null}
                           </div>
-
-                          {(() => {
-                            const stream = notesByTask.get(String(t.id)) ?? [];
-                            if (stream.length === 0) return null;
-                            const isOpen = open.has(String(t.id));
-                            return (
-                              <div className="mt-2 border-t border-border-subtle pt-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setOpen((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(String(t.id))) next.delete(String(t.id));
-                                      else next.add(String(t.id));
-                                      return next;
-                                    })
-                                  }
-                                  className="text-micro text-ink-muted hover:text-ink"
-                                >
-                                  {isOpen ? "▾" : "▸"} {stream.length}{" "}
-                                  {stream.length === 1 ? "note" : "notes"}
-                                </button>
-                                {isOpen && (
-                                  <ul className="mt-1.5 space-y-1.5">
-                                    {stream.map((n) => (
-                                      <li
-                                        key={n.id}
-                                        className="selectable text-micro leading-snug text-ink-muted"
-                                      >
-                                        {n.body}
-                                        <span className="mt-0.5 block text-ink-faint">
-                                          {n.author} · {n.created_at.slice(0, 10)}
-                                        </span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </article>
+                        </a>
                       );
                     })}
                   </div>

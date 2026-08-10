@@ -26,6 +26,7 @@ import { HomeScreen } from "./screens/Home";
 import { ProjectScreen } from "./screens/Project";
 import { RoadmapScreen } from "./screens/Roadmap";
 import { BoardScreen } from "./screens/Board";
+import { TaskScreen } from "./screens/Task";
 import { DocumentsScreen } from "./screens/Documents";
 import { SearchScreen } from "./screens/Search";
 import { ActivityScreen } from "./screens/Activity";
@@ -141,6 +142,8 @@ export function App() {
         return <RoadmapScreen {...shared} />;
       case "board":
         return <BoardScreen {...shared} />;
+      case "task":
+        return <TaskScreen {...shared} />;
       case "documents":
         return <DocumentsScreen {...shared} />;
       case "search":

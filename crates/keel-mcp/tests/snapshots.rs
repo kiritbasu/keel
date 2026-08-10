@@ -166,3 +166,46 @@ fn error_shapes() {
         insta::assert_json_snapshot!("errors", cases);
     });
 }
+
+#[test]
+fn one_rows_history() {
+    // `keel_activity` answers two questions with one tool: a project feed you
+    // page with a cursor, and a single row's whole story. The second is what a
+    // detail view renders and what lets a model answer "how did this get here"
+    // without paging a log and filtering — which silently misses anything older
+    // than the page it happened to fetch.
+    let (mut store, _dir) = seeded();
+    let created = call(
+        &mut store,
+        "keel_create",
+        json!({"type": "task", "project": "harbour", "title": "Backfill closed_at"}),
+    );
+    let id = created["structuredContent"]["entity"]["id"]
+        .as_str()
+        .expect("a created task has an id")
+        .to_owned();
+    let version = created["structuredContent"]["entity"]["version"]
+        .as_i64()
+        .unwrap_or(1);
+    call(
+        &mut store,
+        "keel_update",
+        json!({"id": id, "version": version, "changes": {"status": "in_progress"}}),
+    );
+
+    let result = call(&mut store, "keel_activity", json!({"entity": id}));
+    settings().bind(|| {
+        insta::assert_json_snapshot!("keel_activity_entity", result);
+    });
+}
+
+#[test]
+fn a_history_for_a_malformed_id_says_what_would_be_valid() {
+    // Failure case. A model that mistypes an id must get back something it can
+    // act on, not an empty list that reads as "nothing ever happened here".
+    let (mut store, _dir) = seeded();
+    let result = call(&mut store, "keel_activity", json!({"entity": "task-42"}));
+    settings().bind(|| {
+        insta::assert_json_snapshot!("keel_activity_bad_entity", result);
+    });
+}

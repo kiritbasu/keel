@@ -133,8 +133,7 @@ describe("the palette, driven by the keyboard", () => {
     expect(screen.getByRole("option", { selected: true }).textContent).toContain("The task detail view");
 
     fireEvent.keyDown(input, { key: "Enter" });
-    // No page of its own yet, so a task lands on the board with the card named.
-    expect(window.location.hash).toBe("#/projects/keel/board?task=tsk_1");
+    expect(window.location.hash).toBe("#/projects/keel/tasks/tsk_1");
   });
 
   it("moves the selection with the arrow keys", async () => {

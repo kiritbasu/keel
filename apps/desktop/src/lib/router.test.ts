@@ -24,6 +24,15 @@ describe("parseHash", () => {
     });
   });
 
+  it("reads a task inside a project", () => {
+    expect(parseHash("#/projects/keel/tasks/tsk_01ABC")).toEqual({
+      screen: "task",
+      project: "keel",
+      taskId: "tsk_01ABC",
+      query: {},
+    });
+  });
+
   it("reads a document inside a project", () => {
     expect(parseHash("#/projects/keel/documents/spc_01ABC")).toEqual({
       screen: "documents",
@@ -78,6 +87,14 @@ describe("toHash", () => {
   it("degrades a project-scoped screen with no project to Home", () => {
     expect(toHash({ screen: "board", query: {} })).toBe("#/");
     expect(toHash({ screen: "documents", query: {} })).toBe("#/");
+    expect(toHash({ screen: "task", query: {} })).toBe("#/");
+  });
+
+  // Failure case: a task route with a project but no id is not an address
+  // either. It degrades to that project's board rather than all the way to
+  // Home, which keeps the reader where they were trying to be.
+  it("degrades a task with no id to the project's board", () => {
+    expect(toHash({ screen: "task", project: "keel", query: {} })).toBe("#/projects/keel/board");
   });
 
   it("round-trips every shape the app can build", () => {
@@ -89,6 +106,7 @@ describe("toHash", () => {
       { screen: "roadmap", project: "keel", query: {} },
       { screen: "activity", project: "keel", query: { actor: "claude" } },
       { screen: "documents", project: "keel", documentId: "spc_1", query: { v: "3", diff: "1" } },
+      { screen: "task", project: "keel", taskId: "tsk_1", query: {} },
       { screen: "search", query: { q: "why is billing slow", types: "spec" } },
     ];
     for (const route of routes) {
@@ -150,6 +168,7 @@ describe("NEEDS_PROJECT", () => {
       project: true,
       roadmap: false,
       board: true,
+      task: true,
       documents: true,
       search: false,
       activity: false,

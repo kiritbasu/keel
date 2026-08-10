@@ -1103,6 +1103,37 @@ impl EntityStore for DuckStore {
         Ok(Page::new(out, total))
     }
 
+    fn events_for(&self, entity_id: &EntityId, limit: usize) -> Result<Page<Event>> {
+        let params = vec![Value::Text(entity_id.as_str().to_owned())];
+        let total = self.count(
+            "SELECT count(*) FROM events WHERE entity_id = ?",
+            params.clone(),
+        )?;
+
+        // Ascending, like the project feed: a history reads forwards, and a
+        // caller that wants the newest first can reverse a list it already has
+        // in full. Descending here would make the `limit` keep the *newest*
+        // and drop the beginning, which is the half that explains the rest.
+        let sql = format!(
+            "SELECT id, project_id, entity_type, entity_id, action, field, \
+             CAST(before AS VARCHAR) AS before, CAST(after AS VARCHAR) AS after, \
+             actor, session_id, surface, summary, CAST(meta AS VARCHAR) AS meta, created_at \
+             FROM events WHERE entity_id = ? ORDER BY id ASC LIMIT {limit}"
+        );
+
+        let mut stmt = self.conn.prepare(&sql).map_err(Error::storage(format!(
+            "prepare the history of {entity_id}"
+        )))?;
+        let mut rows = stmt
+            .query(params_from_iter(params))
+            .map_err(Error::storage(format!("run the history of {entity_id}")))?;
+        let mut out = Vec::new();
+        while let Some(row) = rows.next().map_err(Error::storage("read an event row"))? {
+            out.push(read_event(row)?);
+        }
+        Ok(Page::new(out, total))
+    }
+
     fn add_note(&mut self, note: NewNote, provenance: &Provenance) -> Result<Note> {
         note.validate()?;
 
@@ -1397,8 +1428,10 @@ impl GraphStore for DuckStore {
                    AND w.depth < ?
                    AND NOT list_contains(w.path, l.{yield_col})
              )
-             SELECT id, entity_type, rel, anchor, depth, to_json(path) AS path FROM walk
-             ORDER BY depth, id"
+             SELECT w.id, w.entity_type, w.rel, w.anchor, w.depth,
+                    to_json(w.path) AS path, v.label
+             FROM walk w LEFT JOIN v_entities v ON v.id = w.id
+             ORDER BY w.depth, w.id"
         );
 
         let mut stmt = self.conn.prepare(&sql).map_err(Error::storage(format!(
@@ -1448,6 +1481,14 @@ impl GraphStore for DuckStore {
                 .filter_map(|s| EntityId::parse(s).ok())
                 .collect();
 
+            // A `LEFT JOIN`, so a dangling edge yields an empty label rather
+            // than dropping the row. Losing the edge would hide the breakage
+            // that `fsck`'s dangling-link check exists to report.
+            let label = row
+                .get::<_, Option<String>>("label")
+                .map_err(Error::storage("read traversal label"))?
+                .unwrap_or_default();
+
             // A node reachable by two paths appears twice; keep the shorter.
             let neighbour = Neighbour {
                 id,
@@ -1456,6 +1497,7 @@ impl GraphStore for DuckStore {
                 anchor,
                 depth: depth_val.clamp(0, i32::from(u8::MAX)) as u8,
                 path,
+                label,
             };
             match out.iter().position(|n| n.id == neighbour.id) {
                 Some(i) if out[i].depth > neighbour.depth => out[i] = neighbour,

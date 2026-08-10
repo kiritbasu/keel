@@ -14,6 +14,10 @@
 use crate::{DuckStore, EntityType, Error, Result};
 use serde::{Deserialize, Serialize};
 
+/// How long an `in_progress` claim may go without an update before the board
+/// is calling work active that almost certainly is not.
+const STALE_CLAIM_DAYS: i64 = 3;
+
 /// How much a finding matters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -393,13 +397,30 @@ pub fn check(store: &DuckStore) -> Result<FsckReport> {
     // A stale claim is worse than an empty column. An empty column says
     // "nothing is tracked here"; a stale one says "this is being worked on
     // right now", and is wrong.
+    //
+    // The cutoff is computed here and bound, rather than written as
+    // `now() - INTERVAL 3 DAY` in the SQL. That form is a binder error against
+    // the embedded DuckDB — `now()` is TIMESTAMPTZ where `updated_at` is
+    // TIMESTAMP, and the timestamp/interval operator does not resolve on this
+    // connection even once the types match, though the same expression binds
+    // fine in the standalone shell of the same version. It failed at *bind*
+    // time, which meant the whole of `fsck` died on this one check rather than
+    // reporting it: an integrity checker that cannot run is worse than a
+    // missing check, because the report it never printed looked like a crash
+    // rather than a finding. Binding a parameter sidesteps the function
+    // catalogue altogether and says the rule more plainly anyway.
+    let stale_after = chrono::Utc::now() - chrono::Duration::days(STALE_CLAIM_DAYS);
     checks_run += 1;
-    let n = count(
-        "SELECT count(*) FROM tasks WHERE status = 'in_progress' \
-         AND archived_at IS NULL \
-         AND updated_at < now() - INTERVAL 3 DAY",
-        "stale_in_progress",
-    )?;
+    let n = conn
+        .query_row(
+            "SELECT count(*) FROM tasks WHERE status = 'in_progress' \
+             AND archived_at IS NULL AND updated_at < ?",
+            [stale_after.naive_utc().to_string()],
+            |r| r.get::<_, i64>(0),
+        )
+        .map_err(Error::storage(
+            "run the `stale_in_progress` integrity check",
+        ))?;
     if n > 0 {
         findings.push(Finding {
             severity: Severity::Warning,

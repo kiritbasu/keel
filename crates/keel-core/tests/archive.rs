@@ -134,10 +134,19 @@ fn a_task_claimed_and_left_is_reported_as_stale() {
     );
 
     // Backdate past the threshold, which is the only part a test can force.
+    //
+    // The timestamp is computed here rather than written as
+    // `now() - INTERVAL 5 DAY`: that expression does not bind against the
+    // embedded DuckDB, which is what kept both this test and the check itself
+    // failing from the day they were written.
+    let five_days_ago = (chrono::Utc::now() - chrono::Duration::days(5))
+        .naive_utc()
+        .to_string();
     store
         .connection()
-        .execute_batch(
-            "UPDATE tasks SET updated_at = now() - INTERVAL 5 DAY WHERE status = 'in_progress';",
+        .execute(
+            "UPDATE tasks SET updated_at = ? WHERE status = 'in_progress'",
+            [five_days_ago],
         )
         .unwrap();
 

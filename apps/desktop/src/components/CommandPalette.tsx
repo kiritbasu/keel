@@ -155,10 +155,6 @@ export function CommandPalette({
         route: { screen: "documents" as const, project: route.project, documentId: d.id },
       }));
 
-    // A task has no page of its own yet, so selecting one opens the board with
-    // that card highlighted. That is the honest half-step: the palette can
-    // genuinely reach a task today, and when the detail view lands this route
-    // becomes the task's own address instead.
     const tasks = (contents.data?.tasks ?? [])
       .filter(() => Boolean(route.project))
       .map((t) => ({
@@ -166,11 +162,7 @@ export function CommandPalette({
         label: labelOf(t),
         kind: "task" as const,
         hint: `${String(t.status ?? "")}${t.priority ? ` · ${String(t.priority)}` : ""}`,
-        route: {
-          screen: "board" as const,
-          project: route.project,
-          query: { task: t.id },
-        },
+        route: { screen: "task" as const, project: route.project, taskId: t.id },
       }));
 
     return [...screenItems(route.project), ...projects, ...documents, ...tasks];

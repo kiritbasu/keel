@@ -188,6 +188,8 @@ export interface Neighbour {
   id: string;
   entity_type: string;
   rel: string;
+  /** What it is called. Carried by the traversal so a caller need not re-fetch. */
+  label: string;
   anchor: string;
   depth: number;
   path: string[];
@@ -232,6 +234,27 @@ export const api = {
    * seventy tasks would otherwise open seventy requests to render a count.
    */
   notes: (project?: string) => get<{ notes: Note[]; total: number }>("/api/notes", { project }),
+
+  /**
+   * One row's notes, retracted ones included.
+   *
+   * A detail view shows a retracted note struck through rather than hiding it:
+   * what a session once believed is part of how the row got here, and silently
+   * dropping it rewrites the record.
+   */
+  notesFor: (entity: string) =>
+    get<{ notes: Note[]; total: number }>("/api/notes", { entity, all: "true" }),
+
+  /**
+   * One row's history — every status and field change, with before and after.
+   *
+   * The event log has always held this and nothing has ever shown it.
+   */
+  history: (entity: string, limit = 500) =>
+    get<{ events: EventRow[]; total: number; truncated: boolean }>("/api/activity", {
+      entity,
+      limit,
+    }),
 
   entities: (params: {
     project?: string;

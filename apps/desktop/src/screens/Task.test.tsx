@@ -1,0 +1,248 @@
+/**
+ * The detail view.
+ *
+ * Four things it must get right, each of which was previously impossible to get
+ * wrong only because nothing rendered them at all: relationships stated in the
+ * direction they were walked, retracted notes shown rather than hidden, the
+ * event log rendered as before-and-after, and J/K walking the board's order.
+ */
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+
+const TASK = {
+  id: "tsk_me",
+  type: "task",
+  title: "The task detail view",
+  body: "Clicking a card opens the task at its own URL.",
+  status: "in_progress",
+  priority: "p0",
+  kind: "task",
+  labels: ["desktop", "phase6"],
+  milestone_id: "mst_1",
+  closed_at: null,
+  external_ref: null,
+  audit: { created_at: "2026-08-10T09:00:00Z", updated_at: "2026-08-10T10:00:00Z" },
+};
+
+vi.mock("../lib/api", () => ({
+  ApiError: class ApiError extends Error {},
+  subscribe: () => () => {},
+  api: {
+    entity: async () => ({ artifacts: [{ entity: TASK }] }),
+    notesFor: async () => ({
+      notes: [
+        {
+          id: "nte_1",
+          entity_id: "tsk_me",
+          entity_type: "task",
+          project_id: "prj_1",
+          body: "Still believed at the time.",
+          author: "claude",
+          session_id: "ses_abc",
+          surface: "code",
+          created_at: "2026-08-10T09:30:00Z",
+          archived_at: "2026-08-10T09:45:00Z",
+        },
+        {
+          id: "nte_2",
+          entity_id: "tsk_me",
+          entity_type: "task",
+          project_id: "prj_1",
+          body: "What actually happened.",
+          author: "human",
+          session_id: null,
+          surface: null,
+          created_at: "2026-08-10T09:50:00Z",
+          archived_at: null,
+        },
+      ],
+      total: 2,
+    }),
+    history: async () => ({
+      events: [
+        {
+          id: "evt_1",
+          entity_id: "tsk_me",
+          entity_type: "task",
+          project_id: "prj_1",
+          action: "created",
+          field: null,
+          before: null,
+          after: null,
+          actor: "claude",
+          session_id: null,
+          surface: null,
+          summary: "created task “The task detail view”",
+          created_at: "2026-08-10T09:00:00Z",
+        },
+        {
+          id: "evt_2",
+          entity_id: "tsk_me",
+          entity_type: "task",
+          project_id: "prj_1",
+          action: "status_changed",
+          field: "status",
+          before: "todo",
+          after: "in_progress",
+          actor: "claude",
+          session_id: null,
+          surface: null,
+          summary: "status todo → in_progress",
+          created_at: "2026-08-10T10:00:00Z",
+        },
+      ],
+      total: 2,
+      truncated: false,
+    }),
+    graph: async (_id: string, direction: string) => ({
+      neighbours:
+        direction === "outbound"
+          ? [
+              {
+                id: "tsk_child",
+                entity_type: "task",
+                rel: "blocks",
+                label: "Sub-tasks — a parent link",
+                anchor: "",
+                depth: 1,
+                path: [],
+              },
+            ]
+          : [
+              {
+                id: "tsk_parent",
+                entity_type: "task",
+                rel: "blocks",
+                label: "One page shell for every screen",
+                anchor: "",
+                depth: 1,
+                path: [],
+              },
+            ],
+    }),
+    entities: async ({ type }: { type?: string }) => ({
+      items:
+        type === "milestone"
+          ? [{ id: "mst_1", type: "milestone", name: "Phase 6 — Make the tracker real" }]
+          : [
+              { id: "tsk_first", type: "task", title: "Aaa first", status: "todo", priority: "p0" },
+              { id: "tsk_me", type: "task", title: "Me", status: "in_progress", priority: "p0" },
+              { id: "tsk_last", type: "task", title: "Zzz last", status: "done", priority: "p0" },
+            ],
+      total: 3,
+      truncated: false,
+    }),
+    context: async () => ({ next_up: null }),
+  },
+}));
+
+const { TaskScreen } = await import("./Task");
+
+const route = { screen: "task" as const, project: "keel", taskId: "tsk_me", query: {} };
+
+async function show() {
+  render(<TaskScreen route={route} generation={0} />);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+beforeEach(() => {
+  window.location.hash = "#/projects/keel/tasks/tsk_me";
+});
+afterEach(cleanup);
+
+describe("what it shows", () => {
+  it("renders the description, the properties and the milestone by name", async () => {
+    await show();
+    expect(screen.getByText("Clicking a card opens the task at its own URL.")).toBeTruthy();
+    expect(screen.getByText("Phase 6 — Make the tracker real")).toBeTruthy();
+    expect(screen.getAllByText("in_progress").length).toBeGreaterThan(0);
+  });
+
+  // The direction property, at the level a reader sees it. The same stored
+  // `blocks` edge must appear under two different headings depending on which
+  // way it was walked.
+  it("states each relationship in the direction it was walked", async () => {
+    await show();
+    expect(screen.getByText("Blocked by")).toBeTruthy();
+    expect(screen.getByText("Blocks")).toBeTruthy();
+    expect(screen.getByText("One page shell for every screen")).toBeTruthy();
+    expect(screen.getByText("Sub-tasks — a parent link")).toBeTruthy();
+  });
+
+  it("links a related task to its own page", async () => {
+    await show();
+    const link = screen.getByText("Sub-tasks — a parent link").closest("a");
+    expect(link?.getAttribute("href")).toBe("#/projects/keel/tasks/tsk_child");
+  });
+
+  // A retracted note stays visible and struck through. Hiding it would rewrite
+  // the record: what a session once believed is part of how the row got here.
+  it("shows a retracted note rather than dropping it", async () => {
+    await show();
+    const note = screen.getByText("Still believed at the time.");
+    expect(note).toBeTruthy();
+    expect(screen.getByText("retracted")).toBeTruthy();
+    expect(note.closest(".line-through")).toBeTruthy();
+  });
+
+  it("says when a note came from outside a tracked session", async () => {
+    await show();
+    expect(screen.getByText("written outside a tracked session")).toBeTruthy();
+  });
+
+  // The event log has always held before and after; nothing had ever shown it.
+  it("renders a field change as before and after", async () => {
+    await show();
+    const row = screen.getByText("todo").closest("li");
+    expect(row?.textContent).toContain("status");
+    expect(row?.textContent).toContain("todo");
+    expect(row?.textContent).toContain("→");
+    expect(row?.textContent).toContain("in_progress");
+  });
+
+  it("falls back to the summary for an event with no field", async () => {
+    await show();
+    expect(screen.getByText(/created task/)).toBeTruthy();
+  });
+});
+
+describe("the keyboard", () => {
+  it("J and K walk the board's order", async () => {
+    await show();
+    // Board order is todo, then in_progress, then done — so the neighbours of
+    // the in_progress task are the todo one and the done one.
+    fireEvent.keyDown(window, { key: "j" });
+    expect(window.location.hash).toBe("#/projects/keel/tasks/tsk_last");
+
+    window.location.hash = "#/projects/keel/tasks/tsk_me";
+    fireEvent.keyDown(window, { key: "k" });
+    expect(window.location.hash).toBe("#/projects/keel/tasks/tsk_first");
+  });
+
+  // Failure case: at the ends of the list the keys must do nothing rather than
+  // wrap around, which would make J look like it had jumped at random.
+  it("stops at the ends rather than wrapping", async () => {
+    render(
+      <TaskScreen route={{ ...route, taskId: "tsk_first" }} generation={0} />,
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    window.location.hash = "#/projects/keel/tasks/tsk_first";
+    fireEvent.keyDown(window, { key: "k" });
+    expect(window.location.hash).toBe("#/projects/keel/tasks/tsk_first");
+  });
+
+  // Failure case: J typed into a field is a letter, not a command.
+  it("ignores J and K typed into a text field", async () => {
+    await show();
+    const field = document.createElement("input");
+    document.body.append(field);
+    fireEvent.keyDown(field, { key: "j" });
+    expect(window.location.hash).toBe("#/projects/keel/tasks/tsk_me");
+    field.remove();
+  });
+});

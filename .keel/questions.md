@@ -3,6 +3,42 @@
 <!-- keel:generated questions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
 > Generated from Keel — edits here are not saved.
 
+## TQ-24 — keel_activity gained an `entity` parameter without asking
+
+`que_01KZNQ3KCH7JQ0Z48JKQWRX3Y0` · question
+
+**What was done.** `keel_activity` now takes an optional `entity` id and returns that one row's whole history — every status and field change with its before and after — instead of a project feed. Documented in the tool's schema and its description, snapshot updated.
+
+**Why this is flagged.** The standing rules say to ask KB about anything touching the MCP tool surface. This is a parameter, not a tool, so the ten-tool ceiling is untouched and model selection is unaffected — but it is the tool surface, so it is being recorded rather than assumed.
+
+**Why it was done rather than deferred.** The task detail view needs one row's history, and there were three ways to get it:
+
+- Add it to Keel's own REST API only, as `/api/notes?entity=` already is. That is the established pattern, but it adds a fifth endpoint bypassing the shared dispatch — working directly against RESET-PLAN 7.4, which is about removing the four that already do.
+- Page the project feed and filter client-side. This is what a caller must do today, and it is wrong rather than merely slow: anything older than the page fetched is simply missing, and nothing says so.
+- Put it on the tool, where the REST endpoint gets it for free through the dispatch it already uses. No new bypass, and a model gains "how did this task get here", which it could not previously ask.
+
+**Recommendation:** keep it. If KB disagrees, removing it means deleting one schema property and one branch; the store method underneath stays either way.
+
+**Status:** open, and nothing is blocked on it.
+
+## TQ-23 — should a task hold more than one external link?
+
+`que_01KZNQ2WBFFS7SC2J3SKRJATKH` · question
+
+**Question.** RESET-PLAN 6.2 asks for a task to be able to hold more than one external reference — "its external link (PR or issue), and — new — the ability to hold more than one". `tasks.external_ref` is `Option<String>`.
+
+**Why it was not just done.** It is a storage-format change, and the standing rules say to ask about those. KB's approved field additions were three, named: a readable identifier, a rank, and a parent link. This is a fourth, and it arrived inside a UI step.
+
+**Options.**
+
+1. **Make it a list**, `external_refs VARCHAR[]`, forward-only migration copying the single value in. The column type already exists on this table — `labels` is a `VARCHAR[]`. Cheap.
+2. **Leave it single.** One PR per task is the overwhelmingly common case, and a task that genuinely spans two PRs is usually two tasks.
+3. **Model them as links** to `artifact` rows. Most faithful to the graph, most work, and probably more ceremony than a URL deserves.
+
+**Recommendation:** (1), bundled with the readable-identifier migration rather than as its own. It costs one column and it is the only one of the three that does not need new UI.
+
+**Status:** open — the detail view renders the single ref correctly today, so nothing is blocked on this.
+
 ## TQ-8 — SPEC §3.1's audit block lists four surface values; §6.5 names a fifth (cli).
 
 `que_01KZKWMSM71GGZHJA3156QBXKS` · question

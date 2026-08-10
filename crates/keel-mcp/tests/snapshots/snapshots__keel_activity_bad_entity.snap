@@ -1,0 +1,11 @@
+---
+source: crates/keel-mcp/tests/snapshots.rs
+assertion_line: 209
+expression: result
+---
+{
+  "error": {
+    "code": -32602,
+    "message": "argument `entity`: `task-42` is not an id. Expected: a prefixed ULID, e.g. tsk_01H8… — the id of the row whose history you want"
+  }
+}

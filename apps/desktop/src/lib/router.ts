@@ -28,6 +28,7 @@ export type ScreenId =
   | "project"
   | "roadmap"
   | "board"
+  | "task"
   | "documents"
   | "search"
   | "activity";
@@ -39,6 +40,8 @@ export interface Route {
   project?: string;
   /** The document being read, when the address names one. */
   documentId?: string;
+  /** The task being read, when the address names one. */
+  taskId?: string;
   /** Everything after `?`. Filters live here so a filtered view is a link. */
   query: Record<string, string>;
 }
@@ -53,6 +56,7 @@ export interface Route {
 const ROUTES: Array<{ pattern: string; screen: ScreenId }> = [
   { pattern: "/projects/:project/documents/:documentId", screen: "documents" },
   { pattern: "/projects/:project/documents", screen: "documents" },
+  { pattern: "/projects/:project/tasks/:taskId", screen: "task" },
   { pattern: "/projects/:project/roadmap", screen: "roadmap" },
   { pattern: "/projects/:project/board", screen: "board" },
   { pattern: "/projects/:project/search", screen: "search" },
@@ -70,6 +74,7 @@ export const NEEDS_PROJECT: Record<ScreenId, boolean> = {
   project: true,
   roadmap: false,
   board: true,
+  task: true,
   documents: true,
   search: false,
   activity: false,
@@ -116,6 +121,7 @@ export function parseHash(hash: string): Route {
       screen: route.screen,
       ...(params.project ? { project: params.project } : {}),
       ...(params.documentId ? { documentId: params.documentId } : {}),
+      ...(params.taskId ? { taskId: params.taskId } : {}),
       query,
     };
   }
@@ -149,6 +155,17 @@ export function toHash(route: Route): string {
       break;
     case "board":
       path = project ? `/projects/${project}/board` : "/";
+      break;
+    // A task with no id is not an address. Falling back to the board rather
+    // than to Home keeps the reader in the same project, which is where they
+    // were trying to be.
+    case "task":
+      path =
+        project && route.taskId
+          ? `/projects/${project}/tasks/${encodeURIComponent(route.taskId)}`
+          : project
+            ? `/projects/${project}/board`
+            : "/";
       break;
     case "roadmap":
       path = project ? `/projects/${project}/roadmap` : "/roadmap";

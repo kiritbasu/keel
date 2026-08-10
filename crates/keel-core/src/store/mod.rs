@@ -141,6 +141,16 @@ pub struct Neighbour {
     pub id: EntityId,
     /// Its type, denormalised on the edge so reaching it costs no join.
     pub entity_type: EntityType,
+    /// What it is called, resolved through `v_entities`.
+    ///
+    /// Carried because a traversal result that is only an id cannot be
+    /// rendered or reasoned about without a second round of lookups, and every
+    /// caller was doing that round differently — the document reader showed
+    /// bare ULIDs where a title belonged, and an agent walking the graph had to
+    /// follow every hop with a `keel_get` to learn what it had found. Empty
+    /// only if the edge points at a row that no longer resolves, which `fsck`
+    /// reports as a dangling link.
+    pub label: String,
     /// The relation on the edge that reached it.
     pub rel: Relation,
     /// The anchor on that edge, e.g. `REQ-4`. Empty means whole-entity.
@@ -305,6 +315,16 @@ pub trait EntityStore {
         project_id: Option<&EntityId>,
         limit: usize,
     ) -> Result<Page<Event>>;
+
+    /// One entity's history, oldest first.
+    ///
+    /// Separate from [`EntityStore::events`] rather than another parameter on
+    /// it: that one is a cursor-following feed over a whole project, where
+    /// paging must visit every event exactly once, and a filter that removes
+    /// rows from under a cursor breaks that guarantee. This one answers a
+    /// different question — "what has happened to *this*" — and a row's whole
+    /// history is small enough to want in one piece.
+    fn events_for(&self, entity_id: &EntityId, limit: usize) -> Result<Page<Event>>;
 
     /// Append a note to a row's running commentary.
     ///

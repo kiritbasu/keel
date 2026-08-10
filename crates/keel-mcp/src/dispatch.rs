@@ -619,7 +619,70 @@ fn match_score(needle: &str, p: &Project) -> u32 {
     0
 }
 
+/// Render a page of events for a model to read.
+///
+/// `more` names the way to get the rest, which differs by caller: a project
+/// feed is paged by cursor, a single row's history is not paged at all and
+/// simply takes a larger limit. Hard constraint 4 — a list that was cut says
+/// so, with a total, and with what to do about it.
+fn event_summary(page: &keel_core::Page<keel_core::Event>, more: &str) -> String {
+    if page.items.is_empty() {
+        return "Nothing has changed.".to_owned();
+    }
+    let mut lines = vec![format!("{} change(s):", page.items.len())];
+    for e in &page.items {
+        lines.push(format!(
+            "  {} {} {} — {}",
+            e.created_at.format("%Y-%m-%d %H:%M"),
+            e.actor,
+            e.action,
+            e.summary
+        ));
+    }
+    if page.truncated {
+        lines.push(format!(
+            "  … {} more; {more}",
+            page.total - page.items.len()
+        ));
+    }
+    lines.join("\n")
+}
+
 fn keel_activity(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
+    // One row's history is a different question from the project feed, and it
+    // short-circuits: a cursor pages a feed forwards, whereas "what happened to
+    // this task" wants the whole story at once. Answering it by paging the
+    // project log and filtering client-side is what the caller would otherwise
+    // have to do, and it silently misses anything older than the page.
+    if let Some(raw) = opt_str(args, "entity") {
+        // `bad_arg` composes its own "Expected:", and so does the parse error,
+        // so passing the parse error through as the problem produces a message
+        // with two of them — which reads as a bug in the server to the model
+        // trying to correct itself.
+        let id = EntityId::parse(&raw).map_err(|_| {
+            bad_arg(
+                "entity",
+                &format!("`{raw}` is not an id"),
+                "a prefixed ULID, e.g. tsk_01H8… — the id of the row whose history you want",
+            )
+        })?;
+        // The same default the schema declares. A branch with its own quietly
+        // different default is a description that lies about the tool.
+        let limit = opt_i64(args, "limit").unwrap_or(50).clamp(1, 500) as usize;
+        let page = store
+            .events_for(&id, limit)
+            .map_err(|e| to_rpc_error(store, e))?;
+        return Ok(tool_result(
+            event_summary(&page, "raise `limit` for the rest"),
+            json!({
+                "events": page.items,
+                "total": page.total,
+                "truncated": page.truncated,
+                "cursor": Value::Null,
+            }),
+        ));
+    }
+
     let project = match opt_str(args, "project") {
         Some(p) => Some(resolve_project(store, &p)?),
         None => None,
@@ -641,27 +704,7 @@ fn keel_activity(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
         .map_err(|e| to_rpc_error(store, e))?;
 
     let next_cursor = page.items.last().map(|e| e.id.as_str().to_owned());
-    let summary = if page.items.is_empty() {
-        "Nothing has changed.".to_owned()
-    } else {
-        let mut lines = vec![format!("{} change(s):", page.items.len())];
-        for e in &page.items {
-            lines.push(format!(
-                "  {} {} {} — {}",
-                e.created_at.format("%Y-%m-%d %H:%M"),
-                e.actor,
-                e.action,
-                e.summary
-            ));
-        }
-        if page.truncated {
-            lines.push(format!(
-                "  … {} more; pass cursor to continue",
-                page.total - page.items.len()
-            ));
-        }
-        lines.join("\n")
-    };
+    let summary = event_summary(&page, "pass cursor to continue");
 
     Ok(tool_result(
         summary,

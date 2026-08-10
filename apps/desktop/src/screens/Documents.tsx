@@ -237,8 +237,11 @@ export function DocumentsScreen({ route, generation }: ScreenProps) {
                         >
                           <Badge>{n.rel}</Badge>
                           <Badge>{n.entity_type}</Badge>
+                          {/* The traversal carries the label now, so this reads
+                              as a name. It showed a ULID because the id was all
+                              a neighbour used to have. */}
+                          <span className="min-w-0 truncate">{n.label || <Id value={n.id} />}</span>
                           {n.anchor && <Badge tone="border-accent/40 text-accent">{n.anchor}</Badge>}
-                          <Id value={n.id} />
                         </button>
                       </li>
                     ))}

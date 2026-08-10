@@ -507,7 +507,10 @@ export function Stat({
 /** A monospace id that can be copied. */
 export function Id({ value }: { value: string }) {
   return (
-    <code className="selectable font-mono text-micro text-ink-faint" title="Click to select, then copy">
+    <code
+      className="selectable font-mono text-micro break-all text-ink-faint"
+      title="Click to select, then copy"
+    >
       {value}
     </code>
   );
