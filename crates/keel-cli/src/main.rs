@@ -498,7 +498,90 @@ fn run_restore(source: &PathBuf, target: &PathBuf, json: bool) -> Result<()> {
     if !problems.is_empty() {
         bail!("the restored store does not match the backup manifest");
     }
+
+    // A restored store must be a git repository, or the restore has quietly
+    // cost you a recovery tier.
+    //
+    // SPEC §11 names three: the store's own git history (full fidelity,
+    // including every revision), the Parquet backup, and the markdown mirror.
+    // `restore` rebuilds from tier 2 into a fresh directory — and until now
+    // handed back a store with no `.git`, so tier 1 was silently gone. Found
+    // the hard way, one command before deleting the only copy that still had
+    // it.
+    match init_store_git(target) {
+        Ok(true) => println!("  initialised {} as a git repository", target.display()),
+        Ok(false) => {}
+        // Never fail the restore for this. The rows are back and verified;
+        // a missing git binary is a smaller problem than pretending the
+        // restore did not happen.
+        Err(e) => eprintln!(
+            "  warning: could not initialise {} as a git repository: {e}\n  \
+             The data is restored and verified, but SPEC §11's recovery tier 1 \
+             is missing until you run: git -C {} init",
+            target.display(),
+            target.display()
+        ),
+    }
     Ok(())
+}
+
+/// Make a restored store its own git repository, as `plugin/install.sh` does
+/// for a fresh one.
+///
+/// Returns whether it created anything. Deliberately no remote — that is Q-2
+/// and it is KB's call.
+fn init_store_git(target: &std::path::Path) -> Result<bool> {
+    if target.join(".git").exists() {
+        return Ok(false);
+    }
+    if std::process::Command::new("git")
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_err()
+    {
+        bail!("git is not on PATH");
+    }
+
+    let git = |args: &[&str]| -> Result<()> {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(target)
+            .args(args)
+            .output()
+            .with_context(|| format!("run git {}", args.join(" ")))?;
+        if !out.status.success() {
+            bail!(
+                "git {} failed: {}",
+                args.join(" "),
+                String::from_utf8_lossy(&out.stderr).trim()
+            );
+        }
+        Ok(())
+    };
+
+    git(&["init", "-q"])?;
+    std::fs::write(
+        target.join(".gitignore"),
+        "# Model weights are large and re-downloadable.\nmodels/\n",
+    )
+    .with_context(|| format!("write {}/.gitignore", target.display()))?;
+    git(&["add", "-A"])?;
+    // An empty repository restores nothing, so the restored state is the first
+    // commit. Identity is set per-invocation rather than relying on a global
+    // config that may not exist.
+    git(&[
+        "-c",
+        "user.name=keel",
+        "-c",
+        "user.email=keel@localhost",
+        "commit",
+        "-q",
+        "-m",
+        "chore: store restored from a Parquet backup",
+    ])?;
+    Ok(true)
 }
 
 fn run_fixture(home: &PathBuf, json: bool) -> Result<()> {
@@ -563,4 +646,74 @@ fn run_status(home: &PathBuf, json: bool) -> Result<()> {
         println!("  {} open question(s)", open_questions.total);
     }
     Ok(())
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod restore_git_tests {
+    use super::init_store_git;
+
+    fn have_git() -> bool {
+        std::process::Command::new("git")
+            .arg("--version")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+
+    #[test]
+    fn a_restored_store_becomes_a_git_repository_with_its_state_committed() {
+        // SPEC §11 tier 1. `restore` rebuilds from tier 2 into a fresh
+        // directory, and used to hand back a store with no `.git` — so a
+        // restore silently cost you the recovery tier with the most fidelity.
+        if !have_git() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("keel.duckdb"), b"not really a database").unwrap();
+
+        assert!(init_store_git(dir.path()).unwrap(), "it created the repo");
+        assert!(dir.path().join(".git").exists());
+        assert!(dir.path().join(".gitignore").exists());
+
+        // An empty repository restores nothing, so the state must be committed.
+        let log = std::process::Command::new("git")
+            .arg("-C")
+            .arg(dir.path())
+            .args(["log", "--oneline"])
+            .output()
+            .unwrap();
+        assert!(log.status.success(), "the repo has a HEAD");
+        assert!(
+            String::from_utf8_lossy(&log.stdout).contains("restored"),
+            "the restored state is the first commit"
+        );
+
+        // Model weights are large and re-downloadable; committing them would
+        // make the recovery tier unusable.
+        assert!(
+            std::fs::read_to_string(dir.path().join(".gitignore"))
+                .unwrap()
+                .contains("models/")
+        );
+    }
+
+    #[test]
+    fn an_existing_repository_is_left_alone() {
+        // Restoring into a directory that is already a repo must not reinit it
+        // and lose its history — which is exactly the loss this whole fix is
+        // about, just in the other direction.
+        if !have_git() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join(".git")).unwrap();
+        assert!(!init_store_git(dir.path()).unwrap(), "it did nothing");
+        assert!(
+            !dir.path().join(".gitignore").exists(),
+            "and wrote nothing over the existing repo"
+        );
+    }
 }

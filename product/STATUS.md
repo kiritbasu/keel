@@ -183,6 +183,10 @@ Worth noting against the panel's Step 8, which predicted *two write paths where 
 2. **Error chains surfaced.** `Error::chain()` walks to the root cause and the MCP boundary reports it. The source was attached the whole time and nothing ever printed it — which is why two hours went into guessing instead of reading. This is Step 8's `#[source]` item, and it paid for itself immediately.
 3. **A regression test** for the exact cycle: create, checkpoint, reopen, update, and assert the connection is not poisoned.
 
+**One more bug, found one command before I deleted the only copy that still had it.** `~/.keel` is meant to be its own git repository — SPEC §11's recovery tier 1, the one with full fidelity including every revision. `keel restore` rebuilds from tier 2 into a *fresh* directory and handed back a store with no `.git`, so **restoring silently cost you the best recovery tier**. Worse for when it fires: you only restore after something has already gone wrong, so the moment you use tier 2 is the moment you lose tier 1. `verify_restore` passed throughout, because it checks rows rather than recovery properties.
+
+Fixed in `keel-cli` rather than `keel-core`, mirroring `plugin/install.sh` — core does not spawn processes, and "a store should be a git repo" is policy, not storage. After a verified restore it runs `git init`, writes the `models/` ignore, and commits the restored state, because an empty repository restores nothing. It never fails the restore: a missing `git` prints the exact command to run instead. Two tests, and a real backup→restore cycle verified end to end.
+
 **Recovery** used `keel backup` and `keel restore`, which rebuild every table and index from Parquet — 536 rows, verified per table. The damaged store is kept at `~/.keel.corrupt-20260810T053513Z`, the Parquet backup at `/tmp/keel-backup-repair`. **No data was lost**, and the four question updates that failed all evening have landed.
 
 ---

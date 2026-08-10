@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-10T05:39:09.063989+00:00",
+  "generated_at": "2026-08-10T05:51:33.675882+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/restore-now-re-establishes-the-store-s-git-repository.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZN3K1A6PBRFVJ9H9H6542HM",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "262b9dfcf53335702b9008dbaca2b1274472c5d1748b109f04b3faf145901b9d"
         }
       ]
     },
