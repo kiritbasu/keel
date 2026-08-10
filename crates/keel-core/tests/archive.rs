@@ -92,3 +92,65 @@ fn a_checkpointed_store_reopens_and_accepts_writes() {
         .list(&EntityQuery::in_project(id).of_type(EntityType::Task))
         .expect("the connection is not poisoned");
 }
+
+#[test]
+fn a_task_claimed_and_left_is_reported_as_stale() {
+    // `in_progress` had never been used once across 66 tasks, so the board's
+    // middle column was always empty. Asking sessions to claim a task before
+    // starting fills it — and creates the opposite failure: a claim left by a
+    // session that ended hours ago, still reading as active work.
+    //
+    // A stale claim is worse than an empty column. Empty says "nothing is
+    // tracked here"; stale says "this is happening right now" and is wrong.
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = DuckStore::open(dir.path()).unwrap();
+    let prov = Provenance::anonymous(Actor::Human);
+    let project = store
+        .create(Project::new("p", "P").into(), &prov)
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+    let task = store
+        .create(Task::new(project, "Claimed and abandoned").into(), &prov)
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+
+    let mut changes = serde_json::Map::new();
+    changes.insert("status".to_owned(), serde_json::json!("in_progress"));
+    store.update(&task, 1, &changes, &prov).unwrap();
+
+    // Freshly claimed: not stale, and must not be reported. Nagging about work
+    // started a minute ago is how a check gets ignored.
+    let report = keel_core::fsck::check(&store).unwrap();
+    assert!(
+        !report
+            .findings
+            .iter()
+            .any(|f| f.check == "stale_in_progress"),
+        "a claim made just now is not stale"
+    );
+
+    // Backdate past the threshold, which is the only part a test can force.
+    store
+        .connection()
+        .execute_batch(
+            "UPDATE tasks SET updated_at = now() - INTERVAL 5 DAY WHERE status = 'in_progress';",
+        )
+        .unwrap();
+
+    let report = keel_core::fsck::check(&store).unwrap();
+    let finding = report
+        .findings
+        .iter()
+        .find(|f| f.check == "stale_in_progress")
+        .expect("a five-day-old claim is reported");
+    assert_eq!(finding.count, 1);
+    assert_eq!(
+        finding.severity,
+        keel_core::Severity::Warning,
+        "a warning, not an error — it is untidy, not broken"
+    );
+}

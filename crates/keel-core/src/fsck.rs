@@ -381,6 +381,40 @@ pub fn check(store: &DuckStore) -> Result<FsckReport> {
         });
     }
 
+    // --- Work claimed and never finished --------------------------------
+    //
+    // `in_progress` had never been used once across 66 tasks: agent sessions
+    // discover the shape of the work while doing it and record the outcome, so
+    // by the time there is something to write down it is finished. The
+    // SessionStart hook now asks a session to claim a task before starting,
+    // which creates the opposite failure — a task claimed by a session that
+    // ended hours ago, still showing as active.
+    //
+    // A stale claim is worse than an empty column. An empty column says
+    // "nothing is tracked here"; a stale one says "this is being worked on
+    // right now", and is wrong.
+    checks_run += 1;
+    let n = count(
+        "SELECT count(*) FROM tasks WHERE status = 'in_progress' \
+         AND archived_at IS NULL \
+         AND updated_at < now() - INTERVAL 3 DAY",
+        "stale_in_progress",
+    )?;
+    if n > 0 {
+        findings.push(Finding {
+            severity: Severity::Warning,
+            check: "stale_in_progress".to_owned(),
+            detail: format!(
+                "{n} task(s) have been in_progress for more than three days without an \
+                 update. The board is claiming work is active that probably is not"
+            ),
+            remedy: "finish them, or move them back to todo. A stale claim is worse than \
+                     an empty column: it is confidently wrong rather than merely silent"
+                .to_owned(),
+            count: n,
+        });
+    }
+
     // --- Cross-references that resolve ----------------------------------
     //
     // A gate session filed a question into a project citing "append-only

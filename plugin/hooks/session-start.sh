@@ -122,6 +122,11 @@ preamble = (
     "worked out exactly what should be captured, drafted it, then asked "
     "permission and stopped — so it was lost. Write it, then say in one line "
     "that you did. Asking turns a free write into an interruption.\n\n"
+    "If you pick up one of the tasks under Next below, set it to in_progress "
+    "before you start — keel_update with the id shown, one call, no need to "
+    "ask. On a long-running project this is the only way the human can see "
+    "what is being worked on right now rather than only what has finished. "
+    "Set it back to todo if you end up not doing it.\n\n"
 )
 preamble += session_hint
 print(json.dumps({

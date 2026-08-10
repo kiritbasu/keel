@@ -156,6 +156,43 @@ Nothing.
 
 ---
 
+## The three decisions, and what removing MCP cost
+
+**TQ-9 — idempotency keys stay on all thirteen tables.** Confirmed. B-10 is no longer provisional. It earned it on organic traffic: across the gate runs, sessions called `create` twice with an identical title on nine occasions and the key deduplicated every one.
+
+**TQ-10 — BM25 stays in DuckDB.** Confirmed. B-12 is no longer provisional, and **SPEC §5 is now formally wrong** about which engine ranks keywords; it should be corrected.
+
+**TQ-11 — legacy MCP support removed.** KB's call, made knowing Claude Code 2.1.185 speaks 2025-11-25 and would stop connecting. Measured rather than predicted:
+
+| | |
+|---|---|
+| Claude Code MCP | **✘ Failed to connect** |
+| desktop app · both hooks · `generate` · `gate` | all fine |
+
+The blast radius is narrower than "everything" — everything on the local REST API is untouched. What breaks is exactly the MCP tool surface: **how an agent writes to Keel**, which is what all of Phase 2 was about. Six tests now pin the refusal rather than the support, each naming TQ-11 so the next person to hit it knows it is deliberate. `git revert 3d1cc27` restores it.
+
+**The immediate cost, which is worth seeing.** Everything below this line had to be recorded by editing prose and importing it, because the tools that write structured rows are gone. So these decisions exist as paragraphs and not as `decision` artifacts — which is precisely the prose-versus-structure split described under "the prose blob problem", arriving again by a different route. Restoring MCP would let them be written properly.
+
+## Two precision fixes from the hand-judge
+
+**Near-duplicate titles.** `create` now checks for a near-identical title after the exact key misses. The rule is overlap **plus containment** — one token set must be a subset of the other, so the difference can only be *added* words, never *substituted* ones. Overlap alone was wrong and a test caught it: sixty questions differing by one digit scored 0.875 and collapsed into two rows. Two more existing tests caught more — an explicit idempotency key is the caller asserting "these are different", and Q-4 requires a global and project-scoped term of the same name to coexist.
+
+**Unresolved cross-references**, as an `fsck` check. Two wrong versions first: resolving against documents only reported 227 dangling refs in a store of ~250 artifacts, and even fixed it reported 182, because Keel's `B-n` decisions live in a prose table and dangle by construction. Scoped to families a project actually uses in titles, it found **six genuine breaks** — TQ-12 and TQ-13 cited in three documents after those rows were dropped. Both restored; `fsck` clean. It does **not** catch the case that motivated it, and that limitation is recorded on the task.
+
+## `in_progress` had never once been used
+
+KB: *"when Claude Code is working on updates I don't see anything go into the in-progress state."* True, and the data is stark — **57 done, 6 todo, 3 blocked, and zero transitions into `in_progress` across 66 tasks.** The middle column of the board has always been empty.
+
+The cause is structural. `in_progress` needs the work named *before* it happens; agent sessions discover the shape of the work while doing it and record the outcome, so by the time there is something to write down it is finished.
+
+Fixed KB's way: the SessionStart hook now asks a session to claim a task before starting, with the ids sitting directly beneath the instruction. That is still telling the model — but the hook is the one channel that demonstrably works here, and the id is right there.
+
+**With a guard, because this creates the opposite failure.** A task claimed by a session that ended hours ago still reads as active work, and **a stale claim is worse than an empty column: empty says "nothing is tracked here", stale says "this is happening right now" and is wrong.** `fsck` now warns on anything `in_progress` for more than three days, and a test pins both sides — a fresh claim must not be nagged about, a five-day-old one must be.
+
+Unmeasured: whether sessions actually do it. The gate harness could tell us, and has not yet.
+
+---
+
 ## Step 10 — the hand-judge. 26 of 30 kept, and two defects recall cannot see
 
 Every artifact from Runs B and C judged one at a time. Full write-up: `product/KEEP-RATE.md`.
