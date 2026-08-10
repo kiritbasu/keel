@@ -504,15 +504,17 @@ export function Stat({
   );
 }
 
-/** A monospace id that can be copied. */
+/**
+ * A monospace id.
+ *
+ * No tooltip explaining how to copy it. An interface that has to tell you how
+ * to use a piece of text is showing you something it should not have had to.
+ * Where a readable identifier exists — `KEEL-42` — that is what is shown, and
+ * this is for the places where none does.
+ */
 export function Id({ value }: { value: string }) {
   return (
-    <code
-      className="selectable font-mono text-micro break-all text-ink-faint"
-      title="Click to select, then copy"
-    >
-      {value}
-    </code>
+    <code className="selectable font-mono text-micro break-all text-ink-faint">{value}</code>
   );
 }
 

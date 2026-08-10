@@ -9,7 +9,7 @@
 import { useMemo } from "react";
 import { api, type EventRow } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
-import { Badge, Chip, Empty, ErrorBox, Id, Spinner, Tooltip, when } from "../components/ui";
+import { Badge, Chip, Empty, ErrorBox, Spinner, Tooltip, when } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
 import { setQuery } from "../lib/router";
 import type { ScreenProps } from "../App";
@@ -88,7 +88,9 @@ export function ActivityScreen({ route, generation }: ScreenProps) {
                     {e.summary}
                   </p>
                   <div className="mt-0.5 flex items-center gap-2">
-                    <Id value={e.entity_id} />
+                    {/* The summary already names what changed, so the id was
+                        a second identifier for the same thing and the only one
+                        a person could not read. */}
                     {e.session_id ? (
                       <Tooltip align="left" text="The conversation that made this change">
                         <span className="font-mono text-micro text-ink-faint">{e.session_id}</span>
@@ -96,9 +98,11 @@ export function ActivityScreen({ route, generation }: ScreenProps) {
                     ) : (
                       <Tooltip
                         align="left"
-                        text="No session id. Attribution is cooperative (D-10), so this is legal — but a rising count here means the skill has stopped threading it."
+                        text="This change did not say which conversation it came from. That is allowed — but if it becomes common, attribution has stopped working."
                       >
-                        <span className="text-micro text-warn">unattributed</span>
+                        <span className="text-micro text-ink-faint">
+                          written outside a tracked session
+                        </span>
                       </Tooltip>
                     )}
                   </div>

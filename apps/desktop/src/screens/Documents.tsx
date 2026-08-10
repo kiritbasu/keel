@@ -215,8 +215,8 @@ export function DocumentsScreen({ route, generation }: ScreenProps) {
                 <Markdown>{current.body}</Markdown>
               ) : (
                 <Empty
-                  message="This artifact has no body yet."
-                  hint="Ask Claude to write one — keel_write_doc."
+                  message="Nothing has been written here yet."
+                  hint="Ask Claude to write it."
                 />
               )}
 

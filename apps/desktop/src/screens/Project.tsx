@@ -8,7 +8,7 @@
 
 import { api, type Digest } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
-import { Badge, Card, Empty, ErrorBox, Id, Spinner, Stat, Tooltip, statusTone } from "../components/ui";
+import { Badge, Card, Empty, ErrorBox, Id, Spinner, Stat, statusTone } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
 import { href } from "../lib/router";
 import type { ScreenProps } from "../App";
@@ -51,17 +51,9 @@ export function ProjectScreen({ route, generation }: ScreenProps) {
           <Stat value={p.urgent_tasks} label="urgent" tone={p.urgent_tasks ? "text-warn" : undefined} />
           <Stat value={p.blocked_tasks} label="blocked" tone={p.blocked_tasks ? "text-bad" : undefined} />
           <Stat value={p.open_questions} label="questions" />
-          <div className="ml-auto self-end text-micro text-ink-faint">
-            digest ≈ {data.estimated_tokens.toLocaleString()} tokens
-            {data.budget_exceeded && (
-              <Tooltip
-                align="right"
-                text="Questions and glossary are never trimmed, so the digest exceeded its budget. That usually means the question register needs pruning."
-              >
-                <span className="ml-2 text-warn">over budget</span>
-              </Tooltip>
-            )}
-          </div>
+          {/* The digest's size and its budget used to sit here. Both measure
+              what an agent reads, in a unit only an agent has — a token count
+              on a human's dashboard is a number nobody can act on. */}
         </div>
 
         <div className="grid gap-5 lg:grid-cols-2">

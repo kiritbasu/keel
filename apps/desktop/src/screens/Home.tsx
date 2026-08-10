@@ -44,7 +44,7 @@ export function HomeScreen({ generation }: ScreenProps) {
         {projects.length === 0 ? (
           <Empty
             message="Nothing here yet."
-            hint="Talk to Claude about a project and it will appear. Or run `keel fixture` against a scratch store to see what it looks like full."
+            hint="Talk to Claude about a project and it will appear here."
           />
         ) : (
           <div className="grid gap-3">

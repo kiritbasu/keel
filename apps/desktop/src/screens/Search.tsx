@@ -135,7 +135,7 @@ export function SearchScreen({ route, generation }: ScreenProps) {
         {!query && (
           <Empty
             message="Type a question."
-            hint="Prefer a natural question over keywords — the semantic half is what makes 'why is billing slow' find a decision about aggregation granularity."
+            hint="Prefer a natural question over keywords. Searching by meaning is what makes 'why is billing slow' find a decision titled 'Aggregate hourly, not per-minute'."
           />
         )}
 

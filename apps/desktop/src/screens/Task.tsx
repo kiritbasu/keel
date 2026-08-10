@@ -300,7 +300,7 @@ export function TaskScreen({ route, generation }: ScreenProps) {
               <Property label="Ref">
                 <span className="font-mono">{reference}</span>
               </Property>
-              <Property label="Id">
+              <Property label="Internal id">
                 <Id value={String(task.id)} />
               </Property>
             </dl>
