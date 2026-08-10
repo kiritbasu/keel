@@ -116,16 +116,38 @@ describe("groupTasks", () => {
 
   it("groups by status in lifecycle order, keeping empty columns", () => {
     const groups = groupTasks([task("a", { status: "done" })], "status", noMilestones);
+    // No `blocked` — it is not a status (TQ-25).
     expect(groups.map((g) => g.key)).toEqual([
       "todo",
       "in_progress",
-      "blocked",
       "review",
       "done",
       "wont_do",
     ]);
     // An empty column is information: it says nothing is in review.
     expect(groups.find((g) => g.key === "todo")?.tasks).toEqual([]);
+  });
+
+  // Blocked is a column, but a derived one, and it comes first because it is
+  // the one that needs a person.
+  it("pulls blocked work into its own column, out of whatever status it has", () => {
+    const tasks = [task("stuck", { status: "todo" }), task("free", { status: "todo" })];
+    const groups = groupTasks(tasks, "status", noMilestones, new Set(["stuck"]));
+    expect(groups[0]?.key).toBe("blocked");
+    expect(groups[0]?.tasks.map((t) => t.id)).toEqual(["stuck"]);
+    expect(groups.find((g) => g.key === "todo")?.tasks.map((t) => t.id)).toEqual(["free"]);
+  });
+
+  // Failure case: a task in two columns would double every count on the board.
+  it("shows a blocked task once, not in both columns", () => {
+    const groups = groupTasks([task("stuck", { status: "todo" })], "status", noMilestones, new Set(["stuck"]));
+    const appearances = groups.flatMap((g) => g.tasks).filter((t) => t.id === "stuck");
+    expect(appearances).toHaveLength(1);
+  });
+
+  it("has no blocked column when nothing is blocked", () => {
+    const groups = groupTasks([task("a", { status: "todo" })], "status", noMilestones, new Set());
+    expect(groups.map((g) => g.key)).not.toContain("blocked");
   });
 
   it("groups by priority and gathers the unprioritised at the end", () => {

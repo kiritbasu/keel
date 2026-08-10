@@ -236,23 +236,29 @@ fn decisions_waiting_on_a_human_do_not_compete_with_work() {
 }
 
 #[test]
-fn a_task_marked_blocked_with_no_blocker_is_reported_not_quietly_ranked() {
+fn a_task_with_nothing_blocking_it_is_ready() {
+    // This used to be the test for a contradiction: a task *marked* blocked
+    // with no `blocks` edge, which the ranking reported as its own data
+    // problem. Keel's own store was in exactly that state — three such tasks.
+    //
+    // The status is gone (TQ-25), so the contradiction cannot be written down
+    // and there is nothing left to report. What remains to assert is the thing
+    // that replaced it: blocked means an edge, and only an edge.
     let mut f = setup();
-    // Exactly the state Keel's own store was in: three tasks marked blocked,
-    // not one `blocks` edge between them.
-    let orphan = f.task(
+    let alone = f.task(
         "Deployable daemon with auth",
         TaskPriority::P3,
-        TaskStatus::Blocked,
+        TaskStatus::Todo,
     );
 
     let up = f.rank();
-    assert!(up.ready.is_empty(), "it must not be offered as ready");
-    let reported = up.blocked.iter().find(|c| c.id == orphan).unwrap();
     assert!(
-        reported.why.contains("nothing links to it"),
-        "the data problem is the finding — silently treating it as ready would hide it. Got: {}",
-        reported.why
+        up.blocked.is_empty(),
+        "nothing links to it, so nothing is blocking it"
+    );
+    assert!(
+        up.ready.iter().any(|c| c.id == alone),
+        "and it is therefore work someone can pick up"
     );
 }
 

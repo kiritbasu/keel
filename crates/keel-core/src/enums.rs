@@ -127,13 +127,17 @@ string_enum! {
 
 string_enum! {
     /// Where a task stands.
+    ///
+    /// There is deliberately no `blocked`. Being blocked is a fact about the
+    /// *graph* — something links to this task with `blocks` — and holding it as
+    /// a status too meant two facts that had to agree and did not. Two tasks
+    /// were marked blocked with nothing linked to them at the moment the
+    /// decision was taken. Derived, the contradiction cannot be written down.
     TaskStatus for EntityType::Task, field "status", default Todo {
         /// Not started.
         Todo = "todo",
         /// Being worked on.
         InProgress = "in_progress",
-        /// Held up. The blocker should be a `blocks` edge, not just prose.
-        Blocked = "blocked",
         /// Work is complete and awaiting confirmation. This is where a merged
         /// PR lands (D-8) — proposed, never auto-closed.
         Review = "review",
@@ -416,7 +420,6 @@ mod tests {
     fn open_task_statuses_exclude_finished_work() {
         assert!(TaskStatus::Todo.is_open());
         assert!(TaskStatus::InProgress.is_open());
-        assert!(TaskStatus::Blocked.is_open());
         assert!(
             TaskStatus::Review.is_open(),
             "review still needs confirming"

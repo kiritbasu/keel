@@ -142,9 +142,9 @@ export function FilterBar({
       <Chip
         selected={filter.blocked}
         onClick={() => onFilter({ ...filter, blocked: !filter.blocked })}
-        title="Only tasks something is linked to as a blocker"
+        title="Only tasks something is linked to as a blocker — the one definition of blocked"
       >
-        has blockers
+        blocked
       </Chip>
 
       {count > 0 && (

@@ -163,11 +163,14 @@ enum Command {
 
     /// Print the generated tracker for a project to standard output.
     RenderStatus {
-        /// Project id, slug or name.
+        /// Project id, slug or name. Must match exactly one project.
         project: String,
         /// Write here instead of standard output.
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Write even if the result is dramatically smaller than what is there.
+        #[arg(long)]
+        force: bool,
     },
 
     /// Append to a row's running commentary, or read it back.
@@ -263,7 +266,11 @@ fn main() -> Result<()> {
         Command::Restore { source, target } => run_restore(source, target, cli.json),
         Command::Fixture => run_fixture(&home, cli.json),
         Command::Status => run_status(&home, cli.json),
-        Command::RenderStatus { project, out } => run_render_status(&home, project, out.clone()),
+        Command::RenderStatus {
+            project,
+            out,
+            force,
+        } => run_render_status(&home, project, out.clone(), *force),
         Command::Note { action } => run_note(&home, action, cli.json),
         Command::Archive { id, version } => {
             use keel_core::{Actor, EntityId, EntityStore, Provenance, Surface};
@@ -462,10 +469,10 @@ pub(crate) fn resolve_project(store: &DuckStore, reference: &str) -> Result<keel
     use keel_core::{Entity, EntityQuery, EntityStore, EntityType};
     let projects = store.list(&EntityQuery::default().of_type(EntityType::Project))?;
     let needle = reference.to_lowercase();
-    projects
+    let mut matches: Vec<keel_core::Entity> = projects
         .items
         .into_iter()
-        .find(|p| match p {
+        .filter(|p| match p {
             Entity::Project(pr) => {
                 pr.id.as_str() == reference
                     || pr.slug.eq_ignore_ascii_case(reference)
@@ -473,22 +480,89 @@ pub(crate) fn resolve_project(store: &DuckStore, reference: &str) -> Result<keel
             }
             _ => false,
         })
+        .collect();
+
+    // More than one match is refused rather than resolved by taking the first.
+    // Silently picking one is how a render lands in the wrong project's file.
+    if matches.len() > 1 {
+        let names: Vec<String> = matches
+            .iter()
+            .map(|p| match p {
+                Entity::Project(pr) => format!("{} ({})", pr.slug, pr.id),
+                other => other.id().to_string(),
+            })
+            .collect();
+        anyhow::bail!(
+            "`{reference}` matches {} projects: {}. Name one exactly.",
+            names.len(),
+            names.join(", ")
+        );
+    }
+
+    matches
+        .pop()
         .with_context(|| format!("no project matches `{reference}`"))
 }
 
-fn run_render_status(home: &PathBuf, project: &str, out: Option<PathBuf>) -> Result<()> {
+/// How much smaller than the file it replaces a render may be before it stops
+/// and asks.
+///
+/// A tracker does not lose half its content by accident. Pointed at the wrong
+/// project — one that is near-empty — this is what stands between a mistyped
+/// argument and a file nobody kept a copy of.
+const SHRINK_FLOOR: f64 = 0.5;
+
+fn run_render_status(
+    home: &PathBuf,
+    project: &str,
+    out: Option<PathBuf>,
+    force: bool,
+) -> Result<()> {
     let store = open(home)?;
     let found = resolve_project(&store, project)?;
 
     let markdown = keel_core::render_status::render(&store, found.id())?;
-    match out {
-        Some(path) => {
-            std::fs::write(&path, &markdown)
-                .with_context(|| format!("write {}", path.display()))?;
-            println!("wrote {} ({} bytes)", path.display(), markdown.len());
-        }
-        None => print!("{markdown}"),
+    let Some(path) = out else {
+        print!("{markdown}");
+        return Ok(());
+    };
+
+    // Compare before writing. The previous version wrote unconditionally, which
+    // meant a regeneration that changed nothing still dirtied the tree, and a
+    // regeneration that destroyed everything looked exactly the same.
+    //
+    // Compared with the banner stripped, because the banner carries a
+    // generation timestamp: byte equality would never hold and the comparison
+    // would be decoration. This is the same rule `keel generate --check` uses,
+    // and using a different one here is how the two would disagree about
+    // whether a file had changed.
+    let existing = std::fs::read_to_string(&path).ok();
+    if let Some(before) = &existing
+        && keel_core::generate::strip_banner_for_test(before)
+            == keel_core::generate::strip_banner_for_test(&markdown)
+    {
+        println!("{} is already up to date", path.display());
+        return Ok(());
     }
+
+    if let Some(before) = &existing
+        && !force
+        && !before.is_empty()
+        && (markdown.len() as f64) < before.len() as f64 * SHRINK_FLOOR
+    {
+        anyhow::bail!(
+            "refusing to write {}: the new tracker is {} bytes and the file there is {}. \
+             That is the shape of a render pointed at the wrong project — check `{}` is the \
+             one you meant, or pass --force if the shrink is real.",
+            path.display(),
+            markdown.len(),
+            before.len(),
+            project
+        );
+    }
+
+    std::fs::write(&path, &markdown).with_context(|| format!("write {}", path.display()))?;
+    println!("wrote {} ({} bytes)", path.display(), markdown.len());
     Ok(())
 }
 
@@ -810,7 +884,7 @@ fn run_status(home: &PathBuf, json: bool) -> Result<()> {
     let open_tasks = store.list(
         &EntityQuery::default()
             .of_type(EntityType::Task)
-            .with_status(["todo", "in_progress", "blocked", "review"]),
+            .with_status(["todo", "in_progress", "review"]),
     )?;
     let open_questions = store.list(
         &EntityQuery::default()
@@ -903,6 +977,121 @@ mod restore_git_tests {
         assert!(
             !dir.path().join(".gitignore").exists(),
             "and wrote nothing over the existing repo"
+        );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod render_status_tests {
+    //! The one genuine data-loss path in the CLI.
+    //!
+    //! `render-status --out` used to write unconditionally. Point it at a
+    //! near-empty project by accident and it replaced a real tracker with that
+    //! project's stub — no comparison, no backup, no way to tell afterwards.
+
+    use super::*;
+    use keel_core::{Actor, EntityStore, Project, Provenance};
+
+    fn store_with(slugs: &[(&str, &str)]) -> (tempfile::TempDir, DuckStore) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = DuckStore::open(dir.path()).unwrap();
+        for (slug, name) in slugs {
+            store
+                .create(
+                    Project::new(*slug, *name).into(),
+                    &Provenance::anonymous(Actor::Human),
+                )
+                .unwrap();
+        }
+        (dir, store)
+    }
+
+    #[test]
+    fn an_ambiguous_reference_is_refused_rather_than_resolved_to_the_first() {
+        // One project answers to `keel` as its slug, another as its name.
+        // Two projects sharing a *name* cannot both exist — near-duplicate
+        // detection catches that on create — so this is the collision that is
+        // actually reachable, and picking one of the two silently is how a
+        // render lands in the wrong project's file.
+        let (_d, store) = store_with(&[("keel", "Keel Project"), ("other", "keel")]);
+        let err = resolve_project(&store, "keel").unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("matches 2 projects"), "{message}");
+        assert!(message.contains("keel"), "it must name them: {message}");
+    }
+
+    #[test]
+    fn an_exact_slug_still_resolves_when_a_similar_one_exists() {
+        let (_d, store) = store_with(&[("keel", "Keel"), ("keel-web", "Keel Web")]);
+        let found = resolve_project(&store, "keel").unwrap();
+        assert_eq!(found.label(), "Keel");
+    }
+
+    #[test]
+    fn a_reference_that_names_nothing_says_so() {
+        let (_d, store) = store_with(&[("keel", "Keel")]);
+        assert!(resolve_project(&store, "harbour").is_err());
+    }
+
+    #[test]
+    fn a_dramatically_smaller_render_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("STATUS.md");
+        std::fs::write(&path, "x".repeat(10_000)).unwrap();
+
+        let (home, _store) = store_with(&[("empty", "Empty")]);
+        let err = run_render_status(
+            &home.path().to_path_buf(),
+            "empty",
+            Some(path.clone()),
+            false,
+        )
+        .unwrap_err();
+
+        let message = err.to_string();
+        assert!(message.contains("refusing to write"), "{message}");
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap().len(),
+            10_000,
+            "and the file it refused to write is untouched"
+        );
+    }
+
+    #[test]
+    fn force_writes_the_smaller_file_anyway() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("STATUS.md");
+        std::fs::write(&path, "x".repeat(10_000)).unwrap();
+
+        let (home, _store) = store_with(&[("empty", "Empty")]);
+        run_render_status(
+            &home.path().to_path_buf(),
+            "empty",
+            Some(path.clone()),
+            true,
+        )
+        .unwrap();
+        assert!(std::fs::read_to_string(&path).unwrap().len() < 10_000);
+    }
+
+    #[test]
+    fn an_unchanged_render_does_not_rewrite_the_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("STATUS.md");
+        let (home, _store) = store_with(&[("keel", "Keel")]);
+        let home = home.path().to_path_buf();
+
+        run_render_status(&home, "keel", Some(path.clone()), false).unwrap();
+        let first = std::fs::metadata(&path).unwrap().modified().unwrap();
+
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        run_render_status(&home, "keel", Some(path.clone()), false).unwrap();
+        let second = std::fs::metadata(&path).unwrap().modified().unwrap();
+
+        assert_eq!(
+            first, second,
+            "regenerating an unchanged tracker must not dirty the tree"
         );
     }
 }

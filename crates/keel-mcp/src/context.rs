@@ -517,7 +517,6 @@ fn project_line(store: &DuckStore, p: &keel_core::Project) -> Result<ProjectLine
 
     let mut open = 0;
     let mut urgent = 0;
-    let mut blocked = 0;
     for t in &tasks.items {
         if let Entity::Task(t) = t {
             if !t.status.is_open() {
@@ -527,11 +526,13 @@ fn project_line(store: &DuckStore, p: &keel_core::Project) -> Result<ProjectLine
             if t.priority.is_urgent() {
                 urgent += 1;
             }
-            if t.status == TaskStatus::Blocked {
-                blocked += 1;
-            }
         }
     }
+
+    // The one derivation, shared with the ranking and the generated tracker.
+    // Counting a `blocked` status here is what let the digest and the file
+    // state different numbers about the same project (TQ-25).
+    let blocked = keel_core::next::blocked_tasks(store, &p.id)?.len();
 
     let questions = store.list(
         &EntityQuery::in_project(p.id.clone())
@@ -595,23 +596,28 @@ fn needs_attention(
             .with_status([
                 TaskStatus::Todo.as_str(),
                 TaskStatus::InProgress.as_str(),
-                TaskStatus::Blocked.as_str(),
                 TaskStatus::Review.as_str(),
             ])
             .limited(2000),
     )?;
 
+    // Blocked is derived from the edges, so this section asks the graph rather
+    // than reading a column that used to claim the same thing.
+    let blocked_ids = keel_core::next::blocked_tasks(store, project)?;
+
     let mut urgent: Vec<(u8, Item)> = page
         .items
         .iter()
         .filter_map(|e| match e {
-            Entity::Task(t) if t.priority.is_urgent() || t.status == TaskStatus::Blocked => {
+            Entity::Task(t) if t.priority.is_urgent() || blocked_ids.contains(&t.id) => {
                 // Blocked first, then by priority — a blocked p1 needs a human
                 // more than an unblocked p0 does.
-                let rank = match (t.status, t.priority) {
-                    (TaskStatus::Blocked, _) => 0,
-                    (_, keel_core::TaskPriority::P0) => 1,
-                    _ => 2,
+                let rank = if blocked_ids.contains(&t.id) {
+                    0
+                } else if t.priority == keel_core::TaskPriority::P0 {
+                    1
+                } else {
+                    2
                 };
                 Some((rank, item(store, e, Some(format!("{}", t.priority)))))
             }

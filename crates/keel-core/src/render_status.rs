@@ -60,10 +60,11 @@ pub fn render(store: &DuckStore, project_id: &EntityId) -> Result<String> {
         .iter()
         .filter(|t| matches!(t, Entity::Task(t) if t.status.is_open()))
         .collect();
-    let blocked = open
-        .iter()
-        .filter(|t| matches!(t, Entity::Task(t) if t.status == TaskStatus::Blocked))
-        .count();
+    // The one derivation, shared with the digest and the app. Counting a
+    // `blocked` status here is what let this file and the ranking state
+    // different numbers about the same project.
+    let blocked_ids = crate::next::blocked_tasks(store, project_id)?;
+    let blocked = blocked_ids.len();
     let urgent = open
         .iter()
         .filter(|t| matches!(t, Entity::Task(t) if t.priority.is_urgent()))
@@ -141,6 +142,55 @@ pub fn render(store: &DuckStore, project_id: &EntityId) -> Result<String> {
         writeln!(out)?;
     }
 
+    // --- What to do next --------------------------------------------------
+    //
+    // The best computation in the system, and until now it appeared everywhere
+    // except the file a human opens. A tracker whose first question is "what
+    // should I pick up" should answer it before listing ninety-three rows.
+    let next = crate::next::rank(store, project_id)?;
+    if !next.is_empty() {
+        writeln!(out, "---")?;
+        writeln!(out)?;
+        writeln!(out, "## What's next")?;
+        writeln!(out)?;
+        if next.ready.is_empty() {
+            writeln!(
+                out,
+                "Nothing is ready to pick up — everything open is blocked or waiting on a \
+                 decision, so unblocking one of the below is the work."
+            )?;
+            writeln!(out)?;
+        }
+        for item in next.ready.iter().take(5) {
+            writeln!(
+                out,
+                "- **{}** {} — {}",
+                item.reference, item.title, item.why
+            )?;
+        }
+        if !next.waiting_on_you.is_empty() {
+            writeln!(out)?;
+            writeln!(out, "**Waiting on a decision**")?;
+            writeln!(out)?;
+            for item in &next.waiting_on_you {
+                writeln!(out, "- **{}** {}", item.reference, item.title)?;
+            }
+        }
+        if !next.blocked.is_empty() {
+            writeln!(out)?;
+            writeln!(out, "**Blocked**")?;
+            writeln!(out)?;
+            for item in &next.blocked {
+                writeln!(
+                    out,
+                    "- **{}** {} — {}",
+                    item.reference, item.title, item.why
+                )?;
+            }
+        }
+        writeln!(out)?;
+    }
+
     // --- Tasks -----------------------------------------------------------
     writeln!(out, "---")?;
     writeln!(out)?;
@@ -148,16 +198,32 @@ pub fn render(store: &DuckStore, project_id: &EntityId) -> Result<String> {
     writeln!(out)?;
 
     // Grouped by status in lifecycle order, so the file reads like a board
-    // rather than an id dump.
-    for status in TaskStatus::ALL {
-        let group: Vec<&Entity> = tasks
-            .iter()
-            .filter(|t| matches!(t, Entity::Task(t) if t.status == *status))
-            .collect();
+    // rather than an id dump — with blocked work pulled out first, because it
+    // is derived from the edges rather than being one of the statuses.
+    let blocked_group: Vec<&Entity> = tasks
+        .iter()
+        .filter(|t| matches!(t, Entity::Task(t) if blocked_ids.contains(&t.id)))
+        .collect();
+
+    for status in std::iter::once(None).chain(TaskStatus::ALL.iter().map(Some)) {
+        let group: Vec<&Entity> = match status {
+            None => blocked_group.clone(),
+            Some(status) => tasks
+                .iter()
+                .filter(|t| {
+                    matches!(t, Entity::Task(t) if t.status == *status
+                        && !blocked_ids.contains(&t.id))
+                })
+                .collect(),
+        };
         if group.is_empty() {
             continue;
         }
-        writeln!(out, "### {status} ({})", group.len())?;
+        let heading = match status {
+            None => "blocked".to_owned(),
+            Some(status) => status.to_string(),
+        };
+        writeln!(out, "### {heading} ({})", group.len())?;
         writeln!(out)?;
         for t in group {
             let Entity::Task(task) = t else { continue };

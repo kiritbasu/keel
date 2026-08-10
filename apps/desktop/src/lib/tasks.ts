@@ -23,8 +23,15 @@ export function taskRef(key: string | undefined, task: Entity): string {
   return `${key}-${number}`;
 }
 
-/** Lifecycle order, left to right. Matches TaskStatus::ALL. */
-export const COLUMNS = ["todo", "in_progress", "blocked", "review", "done", "wont_do"] as const;
+/**
+ * Lifecycle order, left to right. Matches TaskStatus::ALL.
+ *
+ * No `blocked`. Being blocked is a fact about the graph — something links to
+ * this task with `blocks` — not a value the status column can hold (TQ-25).
+ * The board still has a blocked column; it is derived, and it comes first
+ * because it is the one that needs a person.
+ */
+export const COLUMNS = ["todo", "in_progress", "review", "done", "wont_do"] as const;
 
 export type Column = (typeof COLUMNS)[number];
 
@@ -137,17 +144,28 @@ export function groupTasks(
   tasks: Entity[],
   by: GroupBy,
   names: ReadonlyMap<string, string>,
+  blockedIds: ReadonlySet<string> = new Set(),
 ): Group[] {
   if (by === "none") {
     return [{ key: "all", label: "All", tasks }];
   }
 
   if (by === "status") {
-    return COLUMNS.map((status) => ({
+    // Blocked is its own column and is derived, so a blocked task appears
+    // there rather than under whatever status it also has. Showing it twice
+    // would double the counts; showing it only under `todo` would lose the one
+    // fact a reader is looking for.
+    const blocked = tasks.filter((t) => blockedIds.has(String(t.id)));
+    const columns = COLUMNS.map((status) => ({
       key: status,
       label: status.replace("_", " "),
-      tasks: tasks.filter((t) => String(t.status) === status),
+      tasks: tasks.filter(
+        (t) => String(t.status) === status && !blockedIds.has(String(t.id)),
+      ),
     }));
+    return blocked.length > 0
+      ? [{ key: "blocked", label: "blocked", tasks: blocked }, ...columns]
+      : columns;
   }
 
   if (by === "priority") {

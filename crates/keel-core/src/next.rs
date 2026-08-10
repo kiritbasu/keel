@@ -16,8 +16,9 @@
 //!   cannot start on it, and it should not sit in the same list competing
 //!   with things that can.
 //! - **Blocked** — something concrete is in the way, and that something is
-//!   named. A task marked `blocked` with nothing blocking it is reported as
-//!   its own problem rather than silently ranked.
+//!   named. This is the *only* definition of blocked: a task is blocked when
+//!   something live links to it with `blocks`, and there is no status that can
+//!   disagree (TQ-25).
 //!
 //! Ready work is ordered by **what it unblocks first**, then priority, then
 //! the milestone's own order. Unblocking first is deliberate: a p1 that
@@ -78,6 +79,43 @@ impl NextUp {
     pub fn is_empty(&self) -> bool {
         self.ready.is_empty() && self.waiting_on_you.is_empty() && self.blocked.is_empty()
     }
+}
+
+/// The open tasks in a project that something live is linked to as a blocker.
+///
+/// **The** definition of blocked, and the only one. It used to be two — this,
+/// and a `blocked` value in the status column — which could and did disagree:
+/// two tasks were marked blocked with nothing linked to them at all. The status
+/// is gone (TQ-25) and every count now comes from here, so the app, the digest
+/// and the generated tracker cannot report different numbers.
+///
+/// Only *live* blockers count. A blocker that is finished is not a blocker, and
+/// leaving it in would freeze work forever behind something already done.
+pub fn blocked_tasks(
+    store: &(impl EntityStore + GraphStore),
+    project_id: &EntityId,
+) -> Result<std::collections::HashSet<EntityId>> {
+    let page = store.list(
+        &EntityQuery::in_project(project_id.clone())
+            .of_type(EntityType::Task)
+            .limited(5_000),
+    )?;
+
+    let mut blocked = std::collections::HashSet::new();
+    for entity in &page.items {
+        let Entity::Task(task) = entity else { continue };
+        if is_closed(task.status) {
+            continue;
+        }
+        let has_live_blocker = store
+            .neighbours(&task.id, Direction::Inbound, &[Relation::Blocks], 1)?
+            .into_iter()
+            .any(|n| matches!(store.get(&n.id), Ok(Some(e)) if is_live(&e)));
+        if has_live_blocker {
+            blocked.insert(task.id.clone());
+        }
+    }
+    Ok(blocked)
 }
 
 /// Rank a project's open work.
@@ -141,20 +179,6 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
                 priority,
                 unblocks,
                 why: format!("blocked by {}", join_names(&blockers)),
-            });
-        } else if task.status == TaskStatus::Blocked {
-            // Marked blocked, nothing blocking it. Reported rather than
-            // ranked: the honest answer is that the data is wrong, and
-            // silently treating it as ready would hide that.
-            out.blocked.push(Candidate {
-                id: task.id.clone(),
-                reference: format!("{key}-{}", task.number),
-                title: task.title.clone(),
-                priority,
-                unblocks,
-                why: "marked blocked, but nothing links to it with `blocks` — either link the \
-                      blocker or move it out of blocked"
-                    .to_owned(),
             });
         } else if waiting {
             out.waiting_on_you.push(Candidate {

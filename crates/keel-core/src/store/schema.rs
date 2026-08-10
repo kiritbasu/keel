@@ -568,6 +568,47 @@ CREATE UNIQUE INDEX IF NOT EXISTS tasks_number ON tasks(project_id, number);
 CREATE INDEX IF NOT EXISTS tasks_parent ON tasks(parent_id);
 ",
         },
+        // `blocked` stops being a status (TQ-25, KB confirmed 2026-08-10).
+        //
+        // A task is blocked exactly when something links to it with `blocks`.
+        // Holding it as a status as well meant two facts that had to agree and
+        // did not: at the moment this was decided, two tasks were marked
+        // blocked with nothing linked to them at all.
+        //
+        // The rows move to `todo`, which is what they always were. A task with
+        // a real blocker is still shown as blocked — derived from the edge —
+        // and one without now stops claiming to be.
+        Migration {
+            id: 8,
+            name: "blocked_is_derived",
+            sql: "UPDATE tasks SET status = 'todo' WHERE status = 'blocked';",
+        },
+        // `closed_at` was written by no live code path, so every finished task
+        // in the store had no completion date and nothing about throughput,
+        // cycle time or "what closed this week" was answerable.
+        //
+        // Backfilled from the event log, which has had the answer all along:
+        // the most recent status change into a terminal state. A task closed
+        // before the event log existed, or closed by a path that left no event,
+        // falls back to `updated_at` — later than the truth, but bounded by it,
+        // and a date that is roughly right beats a null that makes every
+        // question unanswerable.
+        Migration {
+            id: 9,
+            name: "backfill_closed_at",
+            sql: "
+UPDATE tasks SET closed_at = (
+  SELECT max(e.created_at) FROM events e
+  WHERE e.entity_id = tasks.id
+    AND e.action = 'status_changed'
+    AND json_extract_string(e.after, '$') IN ('done', 'wont_do')
+)
+WHERE closed_at IS NULL AND status IN ('done', 'wont_do');
+
+UPDATE tasks SET closed_at = updated_at
+WHERE closed_at IS NULL AND status IN ('done', 'wont_do');
+",
+        },
     ]
 }
 

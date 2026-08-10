@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-10T15:21:46.571098+00:00",
+  "generated_at": "2026-08-10T16:06:17.706818+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/kb-confirmed-blocked-is-derived-from-the-links-not-a-status.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZP5189J3N9R1BJESQ0PGJNZ",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "fea3ced30fa3065aaf4cbb618c7a8d939b2e1cefea3f2b43ff76425ba8247be5"
         }
       ]
     },

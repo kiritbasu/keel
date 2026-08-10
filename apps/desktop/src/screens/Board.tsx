@@ -122,7 +122,7 @@ export function BoardScreen({ route, generation }: ScreenProps) {
     // A board with one column is not a board, so `none` degrades to status
     // there rather than being offered and then quietly ignored.
     const by = layout === "board" && group === "none" ? "status" : group;
-    return groupTasks(matching, by, groupNames).map((g) => ({
+    return groupTasks(matching, by, groupNames, blockedIds).map((g) => ({
       ...g,
       tasks: sortTasks(g.tasks, sort, dir, rank),
     }));

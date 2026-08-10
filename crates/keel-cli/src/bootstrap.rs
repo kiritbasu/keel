@@ -160,7 +160,6 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
     // --- Tasks, from STATUS.md -------------------------------------------
     let done = TaskStatus::Done;
     let todo = TaskStatus::Todo;
-    let blocked = TaskStatus::Blocked;
     let rows: Vec<Row<'_>> = vec![
         // Phase 0
         (
@@ -567,7 +566,7 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
             4,
             "GitHub App and webhook receiver",
             "Blocked: registering the App needs KB's GitHub account and credentials.",
-            blocked,
+            TaskStatus::Todo,
             TaskPriority::P2,
             TaskKind::Task,
             &["github"],
@@ -576,7 +575,7 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
             4,
             "Design artifacts with stored images",
             "Blocked behind TQ-6: how an image gets into Keel from a Claude chat session, where there is no filesystem.",
-            blocked,
+            TaskStatus::Todo,
             TaskPriority::P3,
             TaskKind::Task,
             &["design"],
@@ -594,7 +593,7 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
             5,
             "Deployable daemon with auth",
             "Blocked: needs hosting and auth decisions from KB.",
-            blocked,
+            TaskStatus::Todo,
             TaskPriority::P3,
             TaskKind::Task,
             &["remote"],

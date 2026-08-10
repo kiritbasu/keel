@@ -714,6 +714,29 @@ impl EntityStore for DuckStore {
             self.check_task_parent(t)?;
         }
 
+        // `closed_at` follows the status, unless the caller set it explicitly
+        // in the same call. It was written by no live path at all, which is why
+        // every finished task in the store had no completion date and "what
+        // closed this week" was unanswerable.
+        //
+        // Cleared on the way back out, too: a task reopened keeps no stale
+        // completion date, or it would be counted as closed by every question
+        // that filters on one.
+        if let Entity::Task(task) = &mut entity
+            && !changes.contains_key("closed_at")
+            && applied.iter().any(|c| c.field == "status")
+        {
+            let terminal = matches!(
+                task.status,
+                crate::TaskStatus::Done | crate::TaskStatus::WontDo
+            );
+            task.closed_at = match (terminal, task.closed_at) {
+                (true, None) => Some(Utc::now()),
+                (true, existing) => existing,
+                (false, _) => None,
+            };
+        }
+
         let now = Utc::now();
         let next_version = current_version + 1;
         *entity.audit_mut() = entity.audit().touched(provenance, now, next_version);
