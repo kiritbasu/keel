@@ -10,20 +10,24 @@ the primary interface; a Tauri desktop app is the read surface.
 
 ## Where things stand
 
-Phases 0–3 are built: the storage spine, the MCP daemon, the Claude Code
-plugin, and the desktop app. 264 tests, nothing ignored, all four CI gates
-green.
+Phases 0–3 are built — the storage spine, the MCP daemon, the Claude Code
+plugin, and the desktop app — and then rebuilt in places, because the first
+version of the app was seven screens built to seven different rules. **408 Rust
+tests and 146 desktop tests, nothing ignored, all CI gates green.**
 
-Two exit criteria are **not** met, both because they need a human:
+**Phase 2's gate is met and frozen.** The question it asked — will a coding
+agent write to Keel without being told to? — took seven runs to answer, and most
+of that time was spent measuring the harness rather than the agent. It closed at
+18 of 20 across two consecutive independent draws. The code is kept and nobody
+is running it. `product/GATE.md` is the whole story in one page, including the
+part where five evenings went into fixing a problem that turned out not to
+exist.
 
-- **Phase 2's gate** — "≥9 of 10 *unprompted* sessions write to Keel". This is
-  the one the PRD calls the real test of the premise, and it is unrun.
-  `plugin/README.md` has the protocol.
-- **Phase 1's UC-1→UC-4 gate** — passes mechanically (21 tests drive a real
-  daemon over real HTTP), but a scripted client is told which tool to call.
-  Whether the tool descriptions lead a *model* to the right tool is untested.
-
-`product/STATUS.md` has a table making both explicit.
+**Phase 1's UC-1→UC-4 gate** passes mechanically — 21 tests drive a real daemon
+over real HTTP — but a scripted client is told which tool to call. The gate runs
+partly answer the harder question, since those sessions chose tools with no
+instruction and chose them correctly; what has never been tested in isolation is
+whether the *descriptions alone* are what did it.
 
 ---
 
@@ -37,15 +41,27 @@ keel-daemon                  # leave running; binds 127.0.0.1:7654
 Then, in another terminal:
 
 ```bash
-keel --home /tmp/keel-demo fixture          # 212-entity sample corpus
+keel --home /tmp/keel-demo fixture
+```
+
+```bash
 keel --home /tmp/keel-demo render-status keel
+```
+
+```bash
 keel --home /tmp/keel-demo fsck
 ```
 
-The desktop app:
+The desktop app, with the daemon running:
 
 ```bash
-cd apps/desktop && npm install && npm run dev    # with the daemon running
+cd apps/desktop && npm install && npm run dev
+```
+
+Install the pre-commit check once, if you are going to edit anything here:
+
+```bash
+ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
 ```
 
 ---
@@ -54,28 +70,40 @@ cd apps/desktop && npm install && npm run dev    # with the daemon running
 
 ```
 crates/keel-core/     domain types, storage, graph, search, mirror, backup
-crates/keel-mcp/      the nine tools, the digest, protocol handling
+crates/keel-mcp/      the ten tools, the digest, protocol handling
 crates/keel-daemon/   axum: MCP endpoint + local REST/SSE. Owns the write handle
-crates/keel-cli/      backup, restore, fsck, fixture, mirror, render-status
+crates/keel-cli/      backup, restore, fsck, fixture, generate, render-status
 crates/keel-github/   Phase 4 stub
-apps/desktop/         Tauri v2 + React. Read and search only
-plugin/               the skill, the mirror hook, MCP config
-product/              PRD, SPEC, STATUS, DECISIONS, QUESTIONS
+apps/desktop/         Tauri v2 + React. Read and search only, by decision
+plugin/               the skill, the session hooks, MCP config
+product/              PRD, SPEC, STATUS, DECISIONS, GATE, JOURNAL — all generated
+scripts/              the gate harness (frozen), the pre-commit check
 ```
+
+Everything under `product/` and `.keel/` is an **output**. The store is the
+source of truth and the files are written from it; an edit to one is overwritten
+by the next `keel generate`. The one exception is the repository root's
+`CLAUDE.md`, which bootstraps the rule and therefore cannot depend on it.
 
 ---
 
-## The three things most likely to bite
+## The four things most likely to bite
 
 1. **Graph direction.** An inverted traversal returns an empty set that looks
    exactly like "nothing is linked here". `product/SPEC.md` §3.3 is the only
    authority; `crates/keel-core/tests/graph_direction.rs` asserts both
    directions *and* both inversions for all nine relations.
-2. **Silent truncation.** Every list reports what it cut. Open questions and
-   glossary terms are never cut at all — a truncated task list makes an agent
-   less informed, but a truncated question register makes it confidently wrong.
-3. **The mirror is one-directional.** `crates/keel-core/src/mirror.rs` has no
-   function that reads a mirror as truth, and a test asserts that absence.
+2. **Silent truncation.** Every list reports what it cut. Questions and glossary
+   terms are never cut at all — a truncated task list makes an agent less
+   informed, but a truncated question register makes it confidently wrong.
+3. **The mirror is one-directional, with no exceptions.**
+   `crates/keel-core/src/mirror.rs` contains no function that reads a mirror as
+   truth, and a test asserts that absence. There was once a hook that claimed to
+   read one edit back safely; it never worked, and deleting it was the fix. See
+   SPEC §8.1.
+4. **`blocked` is not a status.** It is derived from the `blocks` edges. A
+   status field and a graph that can disagree will disagree — this store had
+   three tasks marked blocked and zero edges.
 
 ---
 
@@ -83,8 +111,17 @@ product/              PRD, SPEC, STATUS, DECISIONS, QUESTIONS
 
 ```bash
 cargo test --workspace
+```
+
+```bash
 cargo clippy --workspace --all-targets -- -D warnings
+```
+
+```bash
 cargo fmt --all --check
+```
+
+```bash
 cargo deny check
 ```
 
@@ -114,7 +151,7 @@ export DUCKDB_LIB_DIR=/opt/homebrew/opt/duckdb/lib DUCKDB_INCLUDE_DIR=/opt/homeb
 cargo test --workspace --no-default-features
 ```
 
-All 264 tests pass either way, Lance extension included. Two caveats: the
-version has to match what `duckdb-rs` ships bindings for, and a later
+The suite passes either way, Lance extension included. Two caveats: the version
+has to match what `duckdb-rs` ships bindings for, and a later
 `brew upgrade duckdb` will break a binary linked this way until you rebuild —
 which is exactly why `plugin/install.sh` still bundles.

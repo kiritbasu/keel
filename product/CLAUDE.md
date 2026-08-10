@@ -12,16 +12,16 @@ This file is loaded automatically into every Claude Code session in this repo. I
 
 **At the start of every session, in this order:**
 
-1. Read `product/STATUS.md`. It tells you the current phase, what's in progress, and what's blocked. It is generated from the task rows — read it, never edit it.
-2. Read `product/QUESTIONS.md`. Do not re-decide anything already listed there. Items in the "Needs KB" table marked `BLOCKED — needs KB` halt work on anything that depends on them; items marked `open` mean ask when convenient and keep going. Items in "Provisionally resolved" are decided — build on the stated assumption.
+1. Read `product/STATUS.md`. It tells you the current phase, what's in progress, and what's blocked. It is rendered from the task rows — read it, never edit it.
+2. Read `.keel/questions.md`. It has two halves and you need both. **Open** is undecided: nothing there may be built on without saying so, and anything marked `blocked` halts work that depends on it. **Settled** is decided, with the reasoning — do not re-litigate it. Both halves are generated from the question rows, so there is nothing to keep in step.
 3. `git log --oneline -15` — see what the last session actually did.
 4. State in one line what you're picking up before you touch anything.
 
 **At the end of every session, without exception:**
 
-1. Update the tracker — task statuses, the changelog entry, and the "next up" line.
+1. Move the task rows — status, and anything you learned recorded as a note on the row it belongs to. The tracker and the changelog both derive from this; there is no second place to update.
 2. Add any decisions you made to the decision log.
-3. Add any new unknowns to the open-questions log.
+3. Add any new unknowns as question rows.
 4. **Regenerate**: `keel generate keel`. See "Keel is the source of truth" below — the files in `product/` are outputs, and an edit that never reaches Keel is lost on the next run.
 5. Commit. Never leave the tree dirty for the next session.
 6. Close with a two-line summary: what landed, what's next.
@@ -32,10 +32,10 @@ This file is loaded automatically into every Claude Code session in this repo. I
 
 ## Keel is the source of truth
 
-Every markdown file in `product/` is **generated**. Each one carries a
-`<!-- keel:generated … -->` banner naming the artifact it came from. Editing one
-directly is not wrong so much as futile: the next `keel generate keel` overwrites
-it from the store.
+Every markdown file in `product/` and `.keel/` is **generated**. Each one carries
+a `<!-- keel:generated … -->` banner naming the artifact it came from. Editing
+one directly is not wrong so much as futile: the next `keel generate keel`
+overwrites it from the store.
 
 The loop is:
 
@@ -43,23 +43,28 @@ The loop is:
 2. `keel generate keel` writes the files.
 3. Commit the result.
 
-An edit made to a file in a Claude Code session is recovered rather than lost:
-the plugin's `PostToolUse` hook turns it into a proper attributed revision and
-then the file is rewritten from the database (SPEC §8.1). That is the one
-permitted read, and it happens once, at the moment of the edit. Outside Claude
-Code there is no hook and the edit is simply gone.
+**An edit made to a generated file is lost, not recovered.** There is no hook
+that captures it. There was one — a `PostToolUse` hook that claimed to turn an
+edit into an attributed revision — and it never worked: it called `keel mirror`,
+a command that had been renamed out from under it, and swallowed the failure.
+Every edit it claimed to capture was silently gone. It was deleted rather than
+repaired, because a safety mechanism that quietly does nothing is worse than
+none: it is *relied upon*. `scripts/pre-commit` now refuses the commit instead,
+which is loud and which cannot be wrong about what it did.
 
 If you have edited files by hand and want them in — during a migration, say —
 `keel import <files> --project keel` writes each one back as a revision. Stop
 the daemon first: it holds DuckDB's write lock, and there is exactly one writer.
 
 `keel generate keel --check` exits non-zero when a file differs from what Keel
-would produce. Run it before committing.
+would produce. The pre-commit hook runs it for you; run it yourself if you are
+committing with `--no-verify`.
 
 **One file is not generated and must not be**: the repository root's
 `CLAUDE.md`. Claude Code loads it before anything else and imports this file
 from it, so it is the bootstrap and cannot itself depend on a generation step
-having run. Everything under `product/`, this file included, is an output.
+having run. Everything under `product/` and `.keel/`, this file included, is an
+output.
 
 ---
 
@@ -72,12 +77,12 @@ KB's primary window into this project is the desktop app, with `product/STATUS.m
 - Move a task to `in_progress` **before** starting it, not after.
 - A task is `done` only when it meets the definition of done below. Not when the code is written.
 - If a task turns out to be bigger than one task, split it and record the split. Don't silently expand scope.
-- If you're blocked, mark it `blocked` with the reason on the same line. Never leave something `in_progress` across sessions without a note.
+- If you're blocked, say so on the row. **`blocked` is not a status** — it is derived from the `blocks` edges, so the way to mark something blocked is to draw the edge that blocks it. Never leave something `in_progress` across sessions without a note.
 - Record what you *found* as a note on the task — `keel_note` over MCP, or `keel note add <task-id> "…"` from a terminal — not as a line in a markdown table. A status without the finding behind it is a colour, not information.
 - The changelog is derived from the event log, so it writes itself. A session that achieved nothing still leaves a trace, which was the point of insisting on the entry.
 - Never delete a task. Mark it `dropped` with a reason.
 
-**Task IDs are stable and never reused.** `P0-7` means the same thing forever.
+**Task IDs are stable and never reused.** `KEEL-42` means the same thing forever, and it is what to use in conversation — the ULID underneath it is for machines.
 
 **The tracker is rows, not prose.** `product/STATUS.md` is rendered from the
 task rows by `keel render-status`. There is no tracker document to edit and no
@@ -89,9 +94,9 @@ that learned them.
 
 Two consequences worth internalising:
 
-- **Never hand-edit `product/STATUS.md`.** It has no stored copy to recover an
-  edit from. Unlike the prose documents, where the `PostToolUse` hook turns an
-  edit into a revision, an edit here is overwritten by the next render and gone.
+- **Never hand-edit `product/STATUS.md`.** It has no stored copy at all — it is
+  a projection of rows, so there is nothing an edit could become a revision
+  *of*. The next render overwrites it.
 - **The narrative moved.** Session-by-session accounts — what was tried, what
   broke, what a measurement actually said — are in `product/JOURNAL.md`, which
   *is* a document and is edited like any other prose. Findings that belong to
@@ -107,7 +112,7 @@ A task is not done until all of these are true:
 - [ ] Code compiles with zero warnings: `cargo clippy --workspace --all-targets -- -D warnings`
       *(was `--all-features`; dropped 2026-08-09 — no workspace crate declares a feature, so it changed nothing except forcing a second full build of the vendored DuckDB, which filled the disk. See DECISIONS B-11.)*
 - [ ] Formatted: `cargo fmt --all --check`
-- [ ] Tests written **and** passing — including at least one failure case, not only the happy path. The one exception is a *forward-looking* test for behaviour a later phase delivers: mark it `#[ignore = "unblocks in Phase N — see STATUS.md P0-x"]` so CI stays green and the intent stays visible. Never `#[ignore]` a test for behaviour the current phase is supposed to deliver.
+- [ ] Tests written **and** passing — including at least one failure case, not only the happy path. The one exception is a *forward-looking* test for behaviour a later phase delivers: mark it `#[ignore = "unblocks in Phase N — see STATUS.md KEEL-x"]` so CI stays green and the intent stays visible. Never `#[ignore]` a test for behaviour the current phase is supposed to deliver.
 - [ ] No `unwrap()`, `expect()`, or `panic!()` in library code (binaries and tests may, with a message)
 - [ ] Public items in `keel-core` have doc comments explaining *why*, not restating the signature
 - [ ] The task row updated **in Keel** — status moved, and anything learned recorded as a note on it — and `keel generate keel` run
@@ -124,7 +129,7 @@ If you can't tick all of them, the task is `in_progress`.
 - Rust stable, edition 2024. One Cargo workspace.
 - `thiserror` for library error types; `anyhow` only in binaries.
 - `tracing` for all logging. No `println!` outside the CLI's user-facing output.
-- `serde` for serialisation. `ulid` for IDs. `jiff` or `chrono` for time — pick one, record it in `product/DECISIONS.md`, never mix.
+- `serde` for serialisation. `ulid` for IDs. `chrono` for time — never `jiff`, and never both (DECISIONS B-1).
 - `cargo deny check` in CI for licences and advisories.
 
 **Structure**
@@ -145,7 +150,7 @@ Write tests as you go, not in a batch at the end of a phase. Required coverage:
 
 - **Round-trip** for every entity type: create → read → update → archive.
 - **Graph direction**: one test per relation in `product/SPEC.md` §3.3 asserting traversal in both directions. This is non-negotiable — see below.
-- **Concurrency**: two simultaneous writers producing zero duplicates and zero lost updates. This is Phase 1's exit criterion; write it in Phase 0 as `#[ignore = "unblocks in Phase 1"]` so the target exists from the start without breaking CI, and un-ignore it when the daemon lands.
+- **Concurrency**: two simultaneous writers producing zero duplicates and zero lost updates.
 - **Idempotency**: the same create called twice returns the same entity with `created: false`.
 - **Optimistic concurrency**: a stale-version update is rejected and returns the current state.
 - **Backup round-trip**: back up, wipe, restore, diff. Assert equality, don't eyeball it.
@@ -180,12 +185,12 @@ Rules:
 Violating these means rework, not a refactor:
 
 1. **The daemon owns the single write path.** No other process writes to DuckDB. Even after Quack lands, writes go through the daemon — six of the seven steps in a write have nothing to do with locking.
-2. **The mirror is one-directional.** The only permitted read is the event-triggered hook in `product/SPEC.md` §8.1. Any code that diffs mirror state against database state is a bug.
+2. **The mirror is one-directional, with no exceptions.** Nothing reads a generated file back into the store on its own. `keel import` exists for deliberate migrations and is run by a person. Any code that diffs mirror state against database state is a bug.
 3. **Soft delete only.** Nothing is ever `DELETE`d, links included.
 4. **No silent truncation.** Every list that can be cut reports that it was cut, with a total.
 5. **`session_id` is caller-supplied.** The daemon never invents one.
 6. **No new artifact types** without KB's agreement. Thirteen is the ceiling.
-7. **No UI before Phase 2 exits.**
+7. **The desktop app is read-only.** Claude and Keel are the only writers. No write endpoints on the daemon for it, no forms in it.
 
 ---
 
@@ -201,7 +206,7 @@ Optimise instead for: correctness, clarity, and how pleasant the MCP surface is 
 
 ## Working with KB
 
-- **He is not always around.** If you're blocked on a question, do the preparatory work you safely can, write the question into `product/QUESTIONS.md` with the specific options and your recommendation, and move to another task. Don't idle.
+- **He is not always around.** If you're blocked on a question, do the preparatory work you safely can, record the question in Keel with the specific options and your recommendation, and move to another task. Don't idle.
 - **Ask about**: anything touching storage format, the MCP tool surface, phase order, or the decisions in `product/SPEC.md` §13.
 - **Decide yourself about**: anything reversible — naming, internal structure, library choices within the constraints above, test approach. Record it in `product/DECISIONS.md` with one line of reasoning.
 - **Don't ask permission to do the obvious.** If a task in `product/STATUS.md` is unambiguous, do it.
@@ -215,8 +220,8 @@ Things that look like progress and aren't:
 
 - Writing the desktop app because the daemon is hard.
 - Adding an artifact type because the modelling is awkward — it's almost always a field or a `kind` value.
-- Building the GitHub integration before Phase 1 exits, because it's more fun.
+- Building the GitHub integration before the surface it decorates is finished, because it's more fun.
 - Expanding the MCP surface past **ten** tools. More tools means worse model selection, not more capability. Nine was the cap until `keel_note` earned the tenth slot — the argument is in the doc comment on `tools::all()`, and an eleventh needs one at least as good.
 - Refactoring for elegance while the tracker says something is blocked.
-- Hand-editing a file under `product/` and committing it without regenerating. It will be reverted by the next `keel generate`, and the reasoning in it is lost.
+- Hand-editing a generated file and committing it with `--no-verify`. The pre-commit check exists to stop exactly this, the next `keel generate` reverts it, and the reasoning in it is lost.
 - Marking a task done because the code exists but the tests don't.

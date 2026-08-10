@@ -103,7 +103,7 @@ documents (Lance)
   status          string   'draft' | 'current' | 'superseded' | 'archived'
   author            string   'human' | 'claude'
   session_id        string?
-  surface           string?  'chat' | 'cowork' | 'code' | 'ui'
+  surface           string?  'chat' | 'cowork' | 'code' | 'ui' | 'cli'
   created_at        timestamp
   embedding         vector(384)
   embedding_model   string   e.g. 'bge-small-en-v1.5'
@@ -141,7 +141,7 @@ Entity headers in DuckDB carry `current_doc_version`; the pointer is relational,
   created_by   VARCHAR NOT NULL,             -- 'human' | 'claude' | 'github' | 'system'
   updated_by   VARCHAR NOT NULL,
   session_id   VARCHAR,                      -- provenance unit, see §6.5
-  surface      VARCHAR,                      -- 'chat' | 'cowork' | 'code' | 'ui'
+  surface      VARCHAR,                      -- 'chat' | 'cowork' | 'code' | 'ui' | 'cli'
   archived_at  TIMESTAMP
 ```
 
@@ -591,7 +591,9 @@ The consequence to accept: attribution is *cooperative*, not enforced. An agent 
 
 ### 7.1 Single writer
 
-The daemon holds the only read-write DuckDB handle. Everything else connects read-only or goes through the daemon's API.
+The daemon holds the only read-write DuckDB handle. Everything else goes through the daemon's API.
+
+> **Corrected 2026-08-10.** This sentence used to offer a second option — "connects read-only or goes through the daemon's API" — and the read-only half does not exist. DuckDB refuses a read-only connection while any process holds the write lock, so no second process can read the store while the daemon runs, which is always. Found by implementing `open_read_only` and watching it fail with the same conflicting-lock error a writer gets. The API is the only path; generation moved inside the daemon and the CLI became a client (DECISIONS B-21, QUESTIONS TQ-15). The remaining read commands that still open the store directly are tracked as KEEL-57.
 
 Inside the daemon, DuckDB permits multiple writer *threads* via MVCC plus optimistic concurrency — appends never conflict, and different tables or row ranges proceed independently. Only same-row simultaneous edits conflict, which surfaces as a transaction error and is retried.
 
@@ -648,22 +650,49 @@ Each file gets a header:
 
 Regenerated on every relevant write, debounced ~2s. Committed or gitignored per PRD Q-3 — recommendation: **commit it**, because it doubles as a legible offline backup and puts specs into repo grep and agent context for free.
 
-### 8.1 The hook path — and why it isn't a sync
+### 8.1 There is no path back — and that is the whole design
 
-A Claude Code `PostToolUse` hook watches for edits to `.keel/**`. When one lands, instead of letting it become a stray file change that gets silently overwritten on the next regeneration, the hook reads the edited file, and calls `keel_write_doc` with its contents as a new revision — then regenerates the file from the database.
+**Superseded 2026-08-10.** This section used to specify a Claude Code
+`PostToolUse` hook that watched for edits to generated files, read the edited
+file, wrote its contents back as a new revision, and then regenerated the file
+from the database. It argued at length that this was safe because it was
+event-triggered rather than reconciliation-triggered, and it promised that "the
+database wins unconditionally afterwards, so if the write was rejected the edit
+is discarded and the file reverts."
 
-This is a read of the mirror, so be honest about it rather than pretending the rule is absolute. What makes it safe is that it's **event-triggered, not reconciliation-triggered**:
+**None of that was ever true, because the hook never ran.** It called
+`keel mirror`, a command that had been renamed to `keel generate` underneath it,
+and swallowed the failure with `|| true`. It read `KEEL_SESSION_ID`, which
+nothing anywhere sets. On the machine this project is developed on it was not
+even installed — it was configured only in `plugin/hooks/hooks.json`, which
+applies when Keel is loaded as a plugin, and it never was. So every edit it
+claimed to capture was lost in silence, and the guarantee written here and in
+the plugin README was a guarantee about nothing.
 
-- It fires only on an observed write by an agent in this session, never on a schedule and never on startup.
-- It reads the file **once, immediately**, as the payload of a known edit — it does not compare mirror state against database state, which is what a sync would do.
-- The database wins unconditionally afterwards: the file is regenerated from the new revision, so if the write was rejected (stale version, validation failure) the edit is discarded and the file reverts.
-- Divergence therefore has no way to accumulate. There is no window in which two versions coexist and something has to decide which is right.
+The hook was **deleted rather than repaired**. A mechanism that quietly does not
+work is worse than no mechanism, because it is relied upon: the one-directional
+rule was being softened here to make room for an exception that did not exist.
 
-Contrast with the thing being avoided: a background watcher that periodically diffs `.keel/` against the database and merges. That has ambiguous authority, and it's exactly what D-3 rejects.
+What replaces it does less and says more. `scripts/pre-commit` runs
+`keel generate --check` when a commit carries a generated file, and refuses the
+commit if the file differs from what Keel would produce. It does not write to
+the store, does not rewrite your files, and does not try to guess what you
+meant — it tells you the edit will be reverted and where to make it instead.
+It also distinguishes "the check could not run" from "the files are wrong",
+because reporting one as the other is how a green check comes to mean nothing.
 
-The payoff is that an agent edits markdown the way it naturally wants to, and the system records a properly attributed, versioned revision. File-editing ergonomics without file-based truth.
+For a deliberate migration there is `keel import <file>`, which is a person
+running a command, not a background mechanism.
 
-**Failure mode to watch:** the hook is unavailable in Claude chat and Cowork, so mirror edits there are simply lost on regeneration. The header text says so, but a stronger guard is making `.keel/` read-only on disk outside Claude Code sessions.
+**The rule is now absolute: nothing reads a generated file back into the store
+on its own.** D-3 no longer has an exception, and the "one permitted read" that
+this section used to define does not exist.
+
+One consequence worth stating plainly, since it is now the failure mode rather
+than a footnote: an edit to a generated file outside a commit is simply gone.
+`product/STATUS.md` is the sharpest case — it is rendered from task rows and has
+no stored body at all, so there is nothing an edit there could even become a
+revision *of*.
 
 ---
 

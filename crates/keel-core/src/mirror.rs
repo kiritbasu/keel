@@ -141,16 +141,16 @@ pub fn generate_except(
         "# {} — generated\n\n\
          <!-- keel:generated project {} -->\n\n\
          **Do not edit these files.** They are regenerated from Keel, which is the source of \
-         truth. An edit made here in a Claude Code session is converted into a proper, \
-         attributed revision by the Keel plugin's hook and the file is then rewritten from the \
-         database — so your words survive, but the file does not. An edit made anywhere else \
-         is simply lost on the next regeneration.\n\n\
+         truth, and an edit here is overwritten by the next `keel generate` — not recovered, \
+         not merged, gone. Change the artifact instead: ask Claude to write it, or edit it in \
+         the app. If you have already edited a file and want the words back, \
+         `keel import <file>` writes it in as a revision.\n\n\
          Tasks are deliberately absent: they churn, and mirroring them would make every repo \
          diff noisy. Run `keel render-status {}` if you want a task-shaped view.\n\n\
          ## Contents\n\n\
          - `specs/` — one file per spec, PRD, RFC, design doc or note\n\
          - `decisions/` — one file per decision record\n\
-         - `questions.md` — every unresolved question and risk\n\
+         - `questions.md` — every question and risk, open and settled\n\
          - `glossary.md` — what the words mean in this project\n\
          - `manifest.json` — which artifacts produced which file\n",
         project.name, project.id, project.slug
@@ -216,7 +216,7 @@ pub fn generate_except(
             .limited(5_000),
     )?;
     let mut open = String::new();
-    writeln!(open, "# Open questions and risks\n").map_err(fmt_err)?;
+    writeln!(open, "# Questions and risks\n").map_err(fmt_err)?;
     writeln!(
         open,
         "<!-- keel:generated questions {} -->\n> Generated from Keel — edits here are not saved.\n",
@@ -224,41 +224,66 @@ pub fn generate_except(
     )
     .map_err(fmt_err)?;
 
+    // Both halves, deliberately. An unresolved question stops someone deciding
+    // something nobody has decided; a *settled* one stops them re-deciding
+    // something that was, which is the more expensive mistake and the one an
+    // agent joining a project makes by default. Emitting only the open half —
+    // as this file did until 2026-08-10 — leaves the second job to a
+    // hand-maintained prose copy, and a register that exists twice is not one.
     let mut contributors = Vec::new();
-    let mut any_open = false;
-    for entity in &questions.items {
-        let Entity::Question(q) = entity else {
-            continue;
-        };
-        if !q.status.is_unresolved() {
-            continue;
+    let mut any = false;
+    for (heading, blurb, unresolved) in [
+        (
+            "Open",
+            "Nothing here is decided. Do not build on any of it without saying so.",
+            true,
+        ),
+        (
+            "Settled",
+            "Decided, with the reasoning. Do not re-litigate these.",
+            false,
+        ),
+    ] {
+        let mut section = false;
+        for entity in &questions.items {
+            let Entity::Question(q) = entity else {
+                continue;
+            };
+            if q.status.is_unresolved() != unresolved {
+                continue;
+            }
+            if !section {
+                writeln!(open, "## {heading}\n\n*{blurb}*\n").map_err(fmt_err)?;
+                section = true;
+                any = true;
+            }
+            let doc = store.revision(&q.id, None)?;
+            let body = doc.as_ref().map(|d| d.body.as_str()).unwrap_or("");
+            writeln!(open, "### {}\n", q.title).map_err(fmt_err)?;
+            writeln!(
+                open,
+                "`{}` · {} · {}{}\n",
+                q.id,
+                q.kind,
+                q.status,
+                q.severity
+                    .map(|s| format!(" · severity {s}"))
+                    .unwrap_or_default()
+            )
+            .map_err(fmt_err)?;
+            if !body.trim().is_empty() {
+                writeln!(open, "{}\n", body.trim()).map_err(fmt_err)?;
+            }
+            contributors.push(Contributor {
+                entity_id: q.id.clone(),
+                entity_type: "question".to_owned(),
+                version: doc.as_ref().map(|d| d.version).unwrap_or(0),
+                hash: crate::body_hash(&q.title, body),
+            });
         }
-        any_open = true;
-        let doc = store.revision(&q.id, None)?;
-        let body = doc.as_ref().map(|d| d.body.as_str()).unwrap_or("");
-        writeln!(open, "## {}\n", q.title).map_err(fmt_err)?;
-        writeln!(
-            open,
-            "`{}` · {}{}\n",
-            q.id,
-            q.kind,
-            q.severity
-                .map(|s| format!(" · severity {s}"))
-                .unwrap_or_default()
-        )
-        .map_err(fmt_err)?;
-        if !body.trim().is_empty() {
-            writeln!(open, "{}\n", body.trim()).map_err(fmt_err)?;
-        }
-        contributors.push(Contributor {
-            entity_id: q.id.clone(),
-            entity_type: "question".to_owned(),
-            version: doc.as_ref().map(|d| d.version).unwrap_or(0),
-            hash: crate::body_hash(&q.title, body),
-        });
     }
-    if !any_open {
-        writeln!(open, "*Nothing unresolved.*").map_err(fmt_err)?;
+    if !any {
+        writeln!(open, "*Nothing recorded.*").map_err(fmt_err)?;
     }
     write_if_changed(
         &repo_root.join(".keel/questions.md"),

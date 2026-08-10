@@ -268,3 +268,63 @@ fn the_tracker_never_overwrites_a_document_that_claimed_the_same_file() {
         report.unrepresented
     );
 }
+
+/// The register has to carry the settled half too.
+///
+/// An unresolved question stops someone deciding what nobody has decided. A
+/// *settled* one stops them re-deciding what was already settled — the more
+/// expensive mistake, and the one an agent joining a project makes by default.
+/// Emitting only the open half is what left `product/QUESTIONS.md` maintaining
+/// the other half by hand, and two registers that must agree is no register.
+#[test]
+fn the_questions_file_carries_settled_questions_as_well_as_open_ones() {
+    use keel_core::{Question, QuestionStatus};
+
+    let repo = tempfile::tempdir().unwrap();
+    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let prov = Provenance::anonymous(Actor::Human);
+
+    let mut still_open = Question::new(project_id.clone(), "Where does the store live?");
+    still_open.status = QuestionStatus::Open;
+    store.create(still_open.into(), &prov).unwrap();
+
+    let mut settled = Question::new(project_id.clone(), "Local or hosted embeddings?");
+    settled.status = QuestionStatus::Answered;
+    let settled_id = store
+        .create(settled.into(), &prov)
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+
+    let doc = Document::first(
+        EntityType::Question,
+        settled_id,
+        Some(project_id.clone()),
+        "Local or hosted embeddings?",
+        "Local. A local-first store that phones an API to index a private spec is not local-first.",
+        Actor::Human,
+        chrono::Utc::now(),
+    )
+    .unwrap();
+    store.write_revision(doc).unwrap();
+
+    generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+    let written = std::fs::read_to_string(repo.path().join(".keel/questions.md")).unwrap();
+
+    assert!(written.contains("Where does the store live?"), "{written}");
+    assert!(written.contains("Local or hosted embeddings?"), "{written}");
+    assert!(written.contains("## Open"), "{written}");
+    assert!(written.contains("## Settled"), "{written}");
+
+    // The answer itself, not just the title — a settled question whose
+    // reasoning is missing invites exactly the re-litigation it exists to stop.
+    assert!(written.contains("is not local-first"), "{written}");
+
+    // Order matters: open first. The file is read top-down by someone
+    // orienting, and what is undecided is what they can still affect.
+    assert!(
+        written.find("## Open").unwrap() < written.find("## Settled").unwrap(),
+        "{written}"
+    );
+}

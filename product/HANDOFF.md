@@ -51,7 +51,7 @@ Skim the rest of `product/SPEC.md`. Read §5–§9 properly when you reach the p
 | D-10 | `session_id` is caller-supplied, never daemon-invented. |
 | D-11 | `blocks`/`depends_on` normalised to one stored direction. |
 
-If you believe one is wrong, say so in `product/QUESTIONS.md` and ask KB. Do not quietly implement something else.
+If you believe one is wrong, record a question in Keel and ask KB. Do not quietly implement something else.
 
 ---
 
@@ -62,7 +62,7 @@ If you believe one is wrong, say so in `product/QUESTIONS.md` and ask KB. Do not
 But **do P0-2 before anything that depends on it.** Several claims in `product/SPEC.md` come from fast-moving sources and were true when written in August 2026. Re-verify them against primary documentation before you build on them:
 
 - The Lance extension for DuckDB — availability, version compatibility, and whether `lance_hybrid_search()` / `ATTACH … (TYPE lance)` work as described in `product/SPEC.md` §5.
-- DuckDB's current version and whether the Lance extension and DuckPGQ can now coexist (if they can, note it in `product/QUESTIONS.md` — it doesn't change D-4 for v1, but it changes the contingency cost).
+- DuckDB's current version and whether the Lance extension and DuckPGQ can now coexist (if they can, record it as a question — it doesn't change D-4 for v1, but it changes the contingency cost).
 - Quack's status. `product/SPEC.md` §7.1 deliberately does *not* depend on it; confirm that's still the right call.
 - The current MCP spec version, its transport model, and the header names in `product/SPEC.md` §6. If the spec has moved past 2026-07-28, build against the current one and record the delta.
 - `fastembed-rs` current version and model availability.
@@ -94,7 +94,7 @@ KB wants to see project status. Keel is the tool for that. Keel doesn't exist ye
 
 So: **`product/STATUS.md` is the tracker until Keel can track itself.** It is deliberately shaped like Keel's own data model — tasks, phases, decisions, questions, a changelog — so that when Phase 1 lands, importing it is a genuine end-to-end test rather than a throwaway migration.
 
-**The moment Phase 1 exits, Keel tracks its own development.** Import `product/STATUS.md`, `product/DECISIONS.md`, and `product/QUESTIONS.md` into Keel as the first real project, with Keel as the source of truth from then on.
+**The moment Phase 1 exits, Keel tracks its own development.** Import `product/STATUS.md`, `product/DECISIONS.md`, and the open questions into Keel as the first real project, with Keel as the source of truth from then on. **Done 2026-08-09**; every file under `product/` is now an output.
 
 Note the mechanism, because it isn't quite the mirror: `product/SPEC.md` §8's mirror is prose-only (TQ-5), so it covers decisions and questions but *not* tasks or status. Regenerating `product/STATUS.md` therefore needs a dedicated `keel-cli render-status` command. Add it as a Phase 1 task when you decompose that phase.
 
@@ -110,7 +110,7 @@ When you find one:
 
 1. **Don't silently work around it.** A workaround that contradicts the spec creates a third source of truth in your head.
 2. If it's an obvious editorial error (typo, wrong section reference, a column named two ways), fix the spec in place and note it in the changelog.
-3. If it's substantive (a design that doesn't work, a query that can't be written, a dependency that doesn't exist), write it into `product/QUESTIONS.md` with the specific failure, and ask KB.
+3. If it's substantive (a design that doesn't work, a query that can't be written, a dependency that doesn't exist), record it as a question in Keel with the specific failure, and ask KB.
 4. If it blocks you and KB isn't around, implement the smallest thing that unblocks you, mark it `PROVISIONAL` in the code with a comment pointing at the question, and flag it prominently in `product/STATUS.md`.
 
 Two areas most likely to be wrong, based on the audit: **the exact Lance/DuckDB integration syntax** in §5, and **the MCP transport details** in §6. Both were written from documentation rather than from running code.
@@ -133,9 +133,11 @@ Two areas most likely to be wrong, based on the audit: **the exact Lance/DuckDB 
 
 ## What to ask KB about, rather than deciding yourself
 
-`product/QUESTIONS.md` is the authority on which questions are open and which have a working answer. Do not re-derive the classification from this file — the two tables there ("Needs KB" vs "Provisionally resolved") are what govern.
+`.keel/questions.md` is the authority on which questions are open and which are settled. Do not re-derive the classification from this file — it is generated from the question rows and this one is not.
 
-In short: **Q-2, Q-5, Q-6, Q-8 and TQ-6 need KB** and have no working answer. **Q-1, Q-3, Q-4 and Q-7 are provisionally resolved** — proceed on the stated assumption and only raise them if implementation shows the assumption is wrong.
+It has two halves. **Open** has no working answer: raise it, or say explicitly what you are assuming. **Settled** is decided with the reasoning attached — proceed on it, and only reopen if implementation shows the reasoning was wrong.
+
+The list here used to name specific questions and went stale within a day. That is why it now names the file instead.
 
 Anything reversible, decide yourself and record it in `product/DECISIONS.md`. Anything that changes the storage format, the MCP tool surface, or the phase order — ask.
 

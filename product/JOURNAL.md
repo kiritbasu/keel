@@ -53,29 +53,6 @@ Unmeasured: whether sessions actually do it. The gate harness could tell us, and
 ---
 
 
-## Step 10 — the hand-judge. 26 of 30 kept, and two defects recall cannot see
-
-Every artifact from Runs B and C judged one at a time. Full write-up: `product/KEEP-RATE.md`.
-
-**39 create calls → 30 distinct artifacts → 26 worth keeping. 87%.** The nine extras were exact-duplicate retries within a session, deduplicated by the idempotency key — REQ-7 working on organic traffic.
-
-*Caveat stated in the document and worth repeating: I did this judging, and I built the harness. One interested judge on 30 rows.*
-
-**The four drops, and two of them matter:**
-
-- **Two speculative validation tasks.** One prompt about validating phases produced three tasks in each run. The `step ≤ 0` guard I kept — a genuine infinite loop found while in the file is what you want. The amplitude/speed task I dropped. That is R-6 in practice: not forty junk rows, but a third plausible one nobody will prioritise.
-- **A clarifying question stored as project knowledge** (C2). Right to say it in the reply, wrong to record it — six months on it captures confusion about a prompt, not something true about the project.
-- **A fabricated cross-reference** (C10). A question filed into Pellet cites "D-9" — which is a *Keel* decision. The store was empty when that session started. **The write happened, looked substantial, and is quietly poisoned.** That is exactly what a recall metric cannot see.
-
-**The finding the gate structurally cannot produce:** Run B wrote *"Validate constituent phases to 0–360 degrees"*; Run C wrote *"Validate constituent phases to 0–360"*. The idempotency key hashes the normalised title, and normalisation lowercases and collapses whitespace — it has no idea those are the same task. Per-session stores hid it completely. **In a shared store, ten sessions on one project would produce near-duplicates idempotency does not catch** — UC-8's failure arriving one level below where everyone was watching. Both runs score it as success.
-
-Both filed as p1. The second fix reuses the fuzzy match `keel_projects` already does, applied one level down.
-
-**What is genuinely good**, since precision cuts both ways: typing is right (the harbourmaster call became `feedback`, blake3 stayed a `question` rather than a decision nobody made), several rows are things nobody asked for and everybody would want (a path-traversal hole in `get()`, "a wrong chart datum is a silent safety failure"), and the bodies carry evidence rather than restatement.
-
----
-
-
 ## Phase 2 is closed, and the p0 is fixed
 
 **Phase 2 shipped 2026-08-10** on 18 of 20 pooled. The decision states what is carried rather than resolved: a 69.9% pooled lower bound, no precision floor yet, chat and Cowork untested.
@@ -112,101 +89,35 @@ Fixed in `keel-cli` rather than `keel-core`, mirroring `plugin/install.sh` — c
 ---
 
 
-## Runs B and C — 9 of 10, twice. The criterion is met.
+## The gate, told once instead of five times
 
-Step 6's Stop hook built and measured on two independent draws. Full write-up: `product/RUN-B-C.md`.
+*2026-08-10.* The account of the seven gate runs — the invalid instrument, the
+validity audit that moved run 4 from 3 of 10 to 5, Run A at 7, Runs B and C at
+9 apiece, and the hand-judged keep-rate of 87% — now lives in one place,
+`product/GATE.md`. Five entries here used to re-tell it section by section,
+alongside the six results documents that told it again at 11,700 words.
 
-| Run | Condition | Wrote | Offers |
-|---|---|---|---|
-| 1–3 | skill only (never loaded) | 0–1 of 10 | 3 each |
-| 4 | SessionStart hook, single-turn harness | 5 of 10 | 8 |
-| A | repaired instrument, no new treatment | 7 of 10 | 1 |
-| **B** | **+ Stop hook** | **9 of 10** | 1 |
-| **C** | **confirmatory** | **9 of 10** | 1 |
+Cutting them is the point rather than housekeeping. The journal's job is what a
+session *did* and what it felt like to be wrong; the gate's job is what was
+measured. Those had merged, and the merged version was longer than the PRD and
+the SPEC together while being harder to answer a question from.
 
-**Pooled 18 of 20 · 90% · 95% CI [69.9%, 97.2%].**
+Two things worth keeping here because they are journal rather than result:
 
-**The hook's specificity is better evidence than the score.** In Run B it fired in sessions 2, 7 and 9 — *exactly* the three that missed in Run A — and in no others, converting two. It stays silent for sessions that already recorded, which is what stops a forcing function becoming noise someone disables. s7 is the one it could not reach: it got the nudge and answered the user's follow-up instead.
+**I built an instrument and then measured it for five evenings without knowing
+that was what I was doing.** Every run from 1 to 4 produced a behavioural
+conclusion — the agent asks permission, the agent will not write, the consent
+prior is the problem — and all of them were reading a harness that ended the
+conversation before the model's next turn. The tell was there from run 1: eleven
+offers to record something, in ten transcripts, addressed to a human the harness
+could not supply. I read that as evidence about the agent for five evenings.
 
-**Three failures, three fixes, none of them the wording:**
-
-- **SessionStart hook** → fixed *noticing and intent*. Ceiling ~30% → 80%.
-- **Continuation turn** → fixed *execution*. Offers 8 → 1.
-- **Stop hook** → fixed the *residual*: heads-down implementation sessions where the digest is thousands of tokens back with no salience.
-
-**Precision, since a recall metric is least trustworthy when recall is high.** 19 create calls → ~15 distinct artifacts across nine sessions, typed correctly (`feedback` for the harbourmaster call, `decision` for the resolution choice). Two honest blemishes: four sessions called `create` twice with identical titles — idempotency deduplicated them, REQ-7 working on organic traffic for the first time, but the retry suggests the success response is not clearly acknowledging the write — and s6 made three tasks from a prompt about one validation, the first organic R-6 instance.
-
-**Phase 2 is not closed, and I have not closed it.** The criterion is met; the precision floor (Step 10) does not exist, the pooled lower bound is 69.9%, and chat and Cowork have neither hook and are untested. Raised as **TQ-22** — "criterion satisfied" and "phase closed" are separable, and the second is KB's.
-
----
-
-
-## Run A — 7 of 10, and the permission failure is gone
-
-Step 2 built, Run A executed against it. No treatment; only committed fixes and instrument repairs. Full write-up: `product/RUN-A.md`.
-
-```
-   3  L1 did not notice
-   7  L5 wrote
-
-  recall      70%    ceiling  70%    offers  1
-```
-
-| Run | Condition | Wrote |
-|---|---|---|
-| 1–3 | skill only (never loaded) | 0–1 of 10 |
-| 4 | hook, single-turn harness | 5 of 10 *(reported as 3)* |
-| **A** | **same treatment, repaired instrument** | **7 of 10** |
-
-**Recall equals ceiling** — every session that formed the intent completed it — and offers fell from eleven to **one**. The panel's central prediction is confirmed: those offers were never refusals, they were addressed to a turn the harness could not supply. Given one, they resolve into writes. Every writing session also created its project unprompted, so the TQ-17 cold-start deadlock is gone too.
-
-The writes are real, not noise — decisions, questions and tasks matching each conversation ("Tide table default resolution is 15 minutes", "Chart datum is hardcoded, not per-station", "Size cap on the store with LRU eviction").
-
-**The residual is a different problem.** The three silent sessions — s2, s7, s9 — are all pure implementation prompts. None offered; none noticed. That is orientation-in-context, not consent. Whether it is even a failure is a human judgement (TQ-21), and it moves the score between 7/10 and 7/7.
-
-**Step 2's repairs:** transcript-based scoring (one file per session, ids cannot collide) · launcher-injected session id · a neutral continuation turn · parallel with one store per session, 7 minutes not 20 · an `observed == launched` assertion · known-answer fixtures · archive before teardown.
-
-**Two bugs the repaired instrument caught in itself**, both flagged by an implausible score rather than a test: scoring checked one store for ten per-session stores (recall 0% against ceiling 70%), and `t0` came from a directory mtime that updated after the events it was meant to bound. Both were fixable without re-running because the stores were kept up.
-
-**All 41 archived sessions rescored**, which separates two changes that had been tangled:
-
-| Run | Condition | Did not notice | Ceiling | Offers | Wrote |
-|---|---|---|---|---|---|
-| 1–3 | skill only | 5 / 4 / 4 | 40% / 30% / 27% | 3 each | 1 / 0 / 0 |
-| 4 | + SessionStart hook | 2 | **80%** | 8 | 5 |
-| A | + continuation turn | 3 | 70% | **1** | **7** |
-
-The hook fixed *noticing and intent* — ceiling from ~30% to 80%. The continuation turn fixed *execution* — run 4 had a **higher** ceiling than Run A and wrote fewer, the whole difference being eight offers versus one. So the single-turn harness was suppressing roughly three writes per run, and run 4's real ceiling of 80% was the highest ever recorded. The run that triggered "the premise may be dead" was the one where the model most reliably worked out what should be recorded.
-
-**Caution:** 7/10 at n=10 from two projects is one draw. It does not establish 70%, and it does not establish that 9 is reachable.
-
----
-
-
-## Step 1 — the validity audit, and the number was wrong
-
-Outside panel review (`product/WAY-FORWARD.md`) said the measurement was invalid. Step 1 audited it against the archived Claude Code transcripts, which survived teardown — 41 gate sessions recoverable in full. Zero build. Output: `product/VALIDITY-AUDIT.md`.
-
-**Run 4 was 5 of 10, not 3.** `keel gate` counts distinct `session_id` values; five sessions called `keel_create` and two pairs collided on date-based ids. Runs 1–3 were reported accurately — the collision can only bite when more than one session writes.
-
-| Run | Condition | Wrote | Never touched Keel |
-|---|---|---|---|
-| 1 | live store, cold | 1 | 7 |
-| 2 | Tideline archived | 0 | 6 |
-| 3 | empty scratch store | 0 | 6 |
-| 4 | SessionStart hook | **5** | **3** |
-
-**The trend is 1 → 0 → 0 → 5**, and orientation moved as much as writing did: sessions never touching Keel fell 7, 6, 6 → 3.
-
-Five checks, all closed:
-
-- **The permission-allowlist confound is dead.** No `keel_*` call was ever denied. That was the check that could kill a confound without spending a run, and it did. Two writes failed on *validation* instead — `priority: "high"` and `"medium"` against an enum of `p0`–`p3` — and both retried successfully. That is the only organic evidence on the enrich-vs-collapse schema question, and it says at least one field is wrong about how a model thinks.
-- **No `--permission-mode`, no `.claude/` in either scratch project.** Nothing silently permitting or denying.
-- **Single-turn confirmed.** `claude -p … </dev/null`, no continuation flags. The panel's central claim holds: *"I'll hold off until you say go"* addressed a turn that could not exist.
-- **All four post-run-4 fixes landed 18–84 minutes after it.** One correction to the panel: a one-sentence anti-asking instruction *was* live in run 4, so the weak form has a number and it is 5, not 3. The expanded form is unmeasured.
-- **Transcripts survived teardown** and are the archive of record, not the `tee`'d logs.
-
-**What it changes.** The gap to the bar is 5→9, not 3→9. "The premise may be dead" rested on 3/10, which was wrong, from an instrument that cannot resolve 55% from 100%. And the `--sessions` denominator fix does not finish the job — the numerator is still model-minted ids, so **the launcher must inject the session id** before any further run.
+**The thing that finally caught it was a rule, not an insight.** `observed ==
+launched`, asserted before a score is reported. Seven silent sessions had been
+vanishing from a run that then announced "3 of 3", because the units that fail
+are exactly the ones that remove themselves from observation. No amount of
+reading transcripts more carefully would have found that; a refusal to report a
+number without accounting for every unit found it immediately.
 
 ---
 
