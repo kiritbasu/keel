@@ -69,6 +69,20 @@ enum Command {
         target: PathBuf,
     },
 
+    /// Copy the DuckDB-and-Lance store into a new SQLite one, and check it.
+    ///
+    /// Reads only. The old store is never modified, so a failed run costs
+    /// nothing and can be repeated. Stop the daemon first — it holds DuckDB's
+    /// write lock, and there is exactly one writer.
+    Migrate {
+        /// Where to write the SQLite store. Defaults to `<home>/keel.sqlite`.
+        #[arg(long)]
+        target: Option<PathBuf>,
+        /// Check an existing SQLite store against the old one without copying.
+        #[arg(long)]
+        verify_only: bool,
+    },
+
     /// Load the realistic fixture corpus into an empty store.
     Fixture,
 
@@ -385,6 +399,10 @@ fn main() -> Result<()> {
         Command::Fsck { daemon } => run_fsck(&home, daemon, cli.json),
         Command::Backup { dest } => run_backup(&home, dest.clone(), cli.json),
         Command::Restore { source, target } => run_restore(source, target, cli.json),
+        Command::Migrate {
+            target,
+            verify_only,
+        } => run_migrate(&home, target.clone(), *verify_only, cli.json),
         Command::Fixture => run_fixture(&home, cli.json),
         Command::Status { daemon } => run_status(&home, daemon, cli.json),
         Command::RenderStatus {
@@ -955,6 +973,55 @@ fn run_fsck(home: &PathBuf, daemon: &str, json: bool) -> Result<()> {
         bail!(
             "{} error-level finding(s); the store is not consistent",
             report.errors().count()
+        );
+    }
+    Ok(())
+}
+
+/// Copy the old store into a new SQLite one, then check the two agree.
+///
+/// Nothing here writes to the DuckDB store. The copy goes into a file beside
+/// it, so the old store stays the working one until someone deliberately
+/// switches over — which is what makes a failed migration cost nothing.
+///
+/// The verification is the point rather than the copy, so it runs every time
+/// and a dirty result is a non-zero exit. A migration that reported success
+/// without comparing anything would be worse than no migration command.
+fn run_migrate(
+    home: &PathBuf,
+    target: Option<PathBuf>,
+    verify_only: bool,
+    json: bool,
+) -> Result<()> {
+    let old = open(home)?;
+    let target = target.unwrap_or_else(|| home.join("keel.sqlite"));
+
+    let mut new = keel_core::store::SqliteStore::open(&target)?;
+
+    if !verify_only {
+        let report = keel_core::migrate::migrate(&old, &mut new)?;
+        if !json {
+            println!("{report}");
+        }
+    }
+
+    let verification = keel_core::migrate::verify(&old, &new)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&verification)?);
+    } else {
+        println!("{verification}");
+        println!("\nold store: {}", home.display());
+        println!("new store: {}", target.display());
+    }
+
+    if !verification.is_clean() {
+        // Non-zero, and loudly. The whole value of this command is that it
+        // refuses to say the two stores agree when they do not.
+        anyhow::bail!(
+            "the two stores do not agree — {} difference(s). The old store is untouched; \
+             delete {} and run again once the cause is understood",
+            verification.differences.len(),
+            target.display()
         );
     }
     Ok(())

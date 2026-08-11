@@ -70,7 +70,7 @@ const TIMESTAMP_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.6fZ";
 /// There is no "what it could not" beside this, and that is a claim rather than
 /// an omission: every column of every table has somewhere to go, so a table
 /// missing from `rows` is a bug and not a known gap.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MigrationReport {
     /// Rows written, per table in the new store.
     pub rows: BTreeMap<String, usize>,
@@ -103,7 +103,7 @@ impl std::fmt::Display for MigrationReport {
 /// A bool would say the migration failed; this says which table, which row, and
 /// what each side held — which is the difference between a verification you can
 /// act on and one you can only rerun.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Difference {
     /// The table it is in.
     pub table: String,
@@ -128,7 +128,7 @@ impl std::fmt::Display for Difference {
 }
 
 /// Both sides' row count for one table.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TableCount {
     /// The table's name in the new store.
     pub table: String,
@@ -139,7 +139,7 @@ pub struct TableCount {
 }
 
 /// What the comparison found.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct VerificationReport {
     /// Every table, both sides, whether it matched or not — so a clean run is
     /// visibly a comparison that happened rather than a check that was skipped.
