@@ -7,6 +7,7 @@
  */
 
 import { api, type Entity, type Page as PageOf } from "../lib/api";
+import { href } from "../lib/router";
 import { useAsync } from "../lib/useAsync";
 import { Badge, Empty, ErrorBox, Spinner, When, statusTone } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
@@ -81,9 +82,21 @@ export function RoadmapScreen({ route, generation }: ScreenProps) {
                             : "var(--color-border-subtle)",
                   }}
                 />
-                <div className="rounded-lg border border-border-subtle bg-surface-raised px-4 py-3">
+                <div className="rounded-card border border-border-subtle bg-surface-raised px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{String(m.name)}</span>
+                    {/* A milestone on the roadmap and a chip on a card describe
+                        the same thing and used not to know about each other. */}
+                    {project ? (
+                      <a
+                        href={`${href({ screen: "board", project })}?milestone=${encodeURIComponent(String(m.id))}`}
+                        className="font-medium hover:text-accent"
+                        title={`Show the tasks in ${String(m.name)}`}
+                      >
+                        {String(m.name)}
+                      </a>
+                    ) : (
+                      <span className="font-medium">{String(m.name)}</span>
+                    )}
                     <Badge tone={statusTone(status)}>{status}</Badge>
                     {String(m.kind) === "release" && m.version_string ? (
                       <Badge>v{String(m.version_string)}</Badge>

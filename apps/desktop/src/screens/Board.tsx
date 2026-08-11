@@ -102,6 +102,15 @@ export function BoardScreen({ route, generation }: ScreenProps) {
     return names;
   }, [milestones.data, data]);
 
+  // Milestone names only. `groupNames` above also carries task titles, because
+  // grouping by parent needs them — looking a card's milestone up in that map
+  // would find a task title for any id that happened to match.
+  const milestoneNames = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const m of milestones.data?.items ?? []) names.set(String(m.id), String(m.name));
+    return names;
+  }, [milestones.data]);
+
   const facets = useMemo<Facets>(() => {
     const labels = new Set<string>();
     for (const task of data?.items ?? []) {
@@ -225,6 +234,10 @@ export function BoardScreen({ route, generation }: ScreenProps) {
             rank={rank}
             sort={sort}
             dir={dir}
+            milestoneNames={milestoneNames}
+            onFilterMilestone={(id) =>
+              setQuery(route, filterToQuery({ ...filter, milestone: id }), { replace: true })
+            }
             onSort={(by) =>
               setQuery(
                 route,
@@ -245,6 +258,10 @@ export function BoardScreen({ route, generation }: ScreenProps) {
             projectKey={projectKey}
             rank={rank}
             noteCounts={noteCounts}
+            milestoneNames={milestoneNames}
+            onFilterMilestone={(id) =>
+              setQuery(route, filterToQuery({ ...filter, milestone: id }), { replace: true })
+            }
           />
         )}
       </div>

@@ -581,6 +581,52 @@ export function when(iso: string, now: number = Date.now()): string {
   });
 }
 
+/**
+ * What a task is part of, as a quiet mono chip.
+ *
+ * Rendered **dashed and faded when there is no milestone**, rather than omitted.
+ * That gap is information: a task nobody placed is usually one that was filed
+ * and then forgotten, and a card that simply leaves the chip out makes an
+ * unplaced task indistinguishable from a planned one.
+ *
+ * A button rather than a link, because it narrows the view you are already in
+ * instead of going somewhere — and because a card is itself an anchor, so a
+ * nested one would be invalid.
+ */
+export function MilestoneChip({
+  name,
+  onClick,
+}: {
+  name: string | undefined;
+  onClick?: () => void;
+}) {
+  const placed = Boolean(name);
+  // "Phase 8 — The working loop" is a heading, not a chip. Everything up to the
+  // dash is the part people say out loud, and the full name stays on hover. A
+  // milestone with no dash keeps its whole name rather than being cut at a
+  // fixed width, which would turn "Q3 Launch" into "Q3 Lau…".
+  const short = name?.split(/\s+[—–-]\s+/)[0] ?? undefined;
+  return (
+    <button
+      type="button"
+      title={placed ? `Show only ${name}` : "Not part of any milestone"}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick?.();
+      }}
+      className={cx(
+        "rounded-control border px-1.5 py-0.5 font-mono text-micro",
+        placed
+          ? "border-border-subtle text-ink-muted hover:border-accent hover:text-accent"
+          : "border-dashed border-border-subtle text-ink-faint/70 hover:text-ink-muted",
+      )}
+    >
+      {placed ? short : "unplaced"}
+    </button>
+  );
+}
+
 /** The exact timestamp, for the tooltip behind a relative one. */
 export function exactly(iso: string): string {
   const date = new Date(iso);

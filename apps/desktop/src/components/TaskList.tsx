@@ -10,7 +10,7 @@
  * to be told about.
  */
 
-import { Badge, cx, priorityTone, statusTone, when } from "./ui";
+import { Badge, MilestoneChip, cx, priorityTone, statusTone, when } from "./ui";
 import { href } from "../lib/router";
 import { taskRef, type Group, type RankMap, type SortBy, type SortDir } from "../lib/tasks";
 import type { Entity } from "../lib/api";
@@ -32,6 +32,8 @@ export function TaskList({
   dir,
   onSort,
   showGroupHeadings,
+  milestoneNames,
+  onFilterMilestone,
 }: {
   groups: Group[];
   project: string;
@@ -41,6 +43,8 @@ export function TaskList({
   dir: SortDir;
   onSort: (by: SortBy) => void;
   showGroupHeadings: boolean;
+  milestoneNames: ReadonlyMap<string, string>;
+  onFilterMilestone: (id: string | "none") => void;
 }) {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -115,6 +119,14 @@ export function TaskList({
                         ))}
                       </span>
                     )}
+                    <span className="ml-2 inline-flex align-middle">
+                      <MilestoneChip
+                        name={milestoneNames.get(String(task.milestone_id ?? ""))}
+                        onClick={() =>
+                          onFilterMilestone((task.milestone_id as string | null) ?? "none")
+                        }
+                      />
+                    </span>
                   </td>
                   <td className="px-2 py-1.5 align-top">
                     <Badge tone={statusTone(String(task.status))}>{String(task.status)}</Badge>

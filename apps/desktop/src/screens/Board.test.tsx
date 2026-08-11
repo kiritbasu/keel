@@ -181,8 +181,25 @@ describe("grouping", () => {
 
   it("groups by milestone, and names it", async () => {
     await show({ group: "milestone" });
-    expect(screen.getByText("Phase 6")).toBeTruthy();
+    // The column heading specifically. Since C7 every card also carries a
+    // milestone chip, so a bare text match now finds the heading *and* the
+    // chips under it — which is the feature working, not a collision.
+    const headings = screen
+      .getAllByText("Phase 6")
+      .filter((el) => el.tagName === "SPAN" && el.className.includes("uppercase"));
+    expect(headings).toHaveLength(1);
     expect(screen.getByText("no milestone")).toBeTruthy();
+  });
+
+  // C7. The single most-asked question about this project is "what is left in
+  // Phase 8", and it used to mean opening every card.
+  it("shows what each task is part of, and marks the ones nobody placed", async () => {
+    await show({});
+    const chips = screen.getAllByRole("button", { name: /Phase 6|unplaced/ });
+    expect(chips.length).toBeGreaterThan(0);
+    // An unassigned task is visibly unassigned rather than silently blank —
+    // that gap usually means something was filed and never placed.
+    expect(screen.getAllByRole("button", { name: "unplaced" }).length).toBeGreaterThan(0);
   });
 
   // Failure case: a board with one column is not a board. `none` is a list

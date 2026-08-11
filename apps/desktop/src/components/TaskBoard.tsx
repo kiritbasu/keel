@@ -6,7 +6,7 @@
  * is a shape you cannot see in a table.
  */
 
-import { Badge, cx, priorityTone } from "./ui";
+import { Badge, MilestoneChip, cx, priorityTone } from "./ui";
 import { href } from "../lib/router";
 import { taskRef, type Group, type RankMap } from "../lib/tasks";
 import type { Entity } from "../lib/api";
@@ -17,12 +17,16 @@ export function TaskBoard({
   projectKey,
   rank,
   noteCounts,
+  milestoneNames,
+  onFilterMilestone,
 }: {
   groups: Group[];
   project: string;
   projectKey: string | undefined;
   rank: RankMap;
   noteCounts: ReadonlyMap<string, number>;
+  milestoneNames: ReadonlyMap<string, string>;
+  onFilterMilestone: (id: string | "none") => void;
 }) {
   return (
     // Flex with fixed-width columns and horizontal scroll, not a grid. A
@@ -36,7 +40,11 @@ export function TaskBoard({
             <span className="text-micro font-medium tracking-wide text-ink-muted uppercase">
               {group.label}
             </span>
-            <span className="text-micro tabular-nums text-ink-faint">{group.tasks.length}</span>
+            <span className="text-micro tabular-nums text-ink-faint">
+              {doneCount(group.tasks) > 0
+                ? `${doneCount(group.tasks)} of ${group.tasks.length}`
+                : group.tasks.length}
+            </span>
           </div>
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {group.tasks.map((task) => (
@@ -47,6 +55,8 @@ export function TaskBoard({
                 projectKey={projectKey}
                 position={rank.get(String(task.id))?.position}
                 notes={noteCounts.get(String(task.id)) ?? 0}
+                milestoneName={milestoneNames.get(String(task.milestone_id ?? ""))}
+                onFilterMilestone={onFilterMilestone}
               />
             ))}
           </div>
@@ -54,6 +64,11 @@ export function TaskBoard({
       ))}
     </div>
   );
+}
+
+/** How many of a group's tasks are finished, so a phase reads "4 of 15". */
+function doneCount(tasks: Entity[]): number {
+  return tasks.filter((t) => String(t.status) === "done").length;
 }
 
 /** How many external links a task carries. */
@@ -67,21 +82,29 @@ function TaskCard({
   projectKey,
   position,
   notes,
+  milestoneName,
+  onFilterMilestone,
 }: {
   task: Entity;
   project: string;
   projectKey: string | undefined;
   position: number | undefined;
   notes: number;
+  milestoneName: string | undefined;
+  onFilterMilestone: (id: string | "none") => void;
 }) {
   const reference = taskRef(projectKey, task);
+  const milestoneId = task.milestone_id as string | null;
   return (
-    <a
-      href={href({ screen: "task", project, taskId: reference })}
+    // A wrapper with a stretched link rather than an anchor around everything:
+    // the milestone chip is a control, and interactive content nested inside an
+    // anchor is invalid. The `after:` overlay keeps the whole card clickable,
+    // and anything that needs to sit above it is `relative`.
+    <div
       className={cx(
-        "block rounded-md border border-border-subtle bg-surface-raised p-2.5",
+        "relative rounded-card border border-border-subtle bg-surface-raised p-2.5",
         "transition-colors hover:border-accent/50 hover:bg-surface-hover",
-        "focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:outline-none",
+        "focus-within:ring-2 focus-within:ring-accent/60",
       )}
     >
       <p className="text-small leading-snug break-words">
@@ -90,7 +113,12 @@ function TaskCard({
             {position}
           </span>
         )}
-        {String(task.title)}
+        <a
+          href={href({ screen: "task", project, taskId: reference })}
+          className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
+        >
+          {String(task.title)}
+        </a>
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <Badge tone={priorityTone(String(task.priority))}>{String(task.priority)}</Badge>
@@ -99,7 +127,7 @@ function TaskCard({
           <Badge key={label}>{label}</Badge>
         ))}
       </div>
-      <div className="mt-1.5 flex items-center gap-2 text-micro text-ink-faint">
+      <div className="relative mt-1.5 flex items-center gap-2 text-micro text-ink-faint">
         <span className="font-mono">{reference}</span>
         {notes > 0 && (
           <span>
@@ -111,7 +139,13 @@ function TaskCard({
             {links(task)} {links(task) === 1 ? "link" : "links"}
           </span>
         )}
+        <span className="ml-auto">
+          <MilestoneChip
+            name={milestoneName}
+            onClick={() => onFilterMilestone(milestoneId ?? "none")}
+          />
+        </span>
       </div>
-    </a>
+    </div>
   );
 }
