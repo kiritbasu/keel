@@ -17,28 +17,20 @@ export default defineConfig({
       "/api": {
         target: "http://127.0.0.1:7654",
         changeOrigin: false,
-        // Server-sent events need the proxy to stop buffering and to stop
-        // compressing. Without this, `/api/events` connects and then sits in
-        // CONNECTING forever: the daemon sends its headers immediately, the
-        // proxy holds them waiting for a response body that will not arrive
-        // until the first event, and the browser's EventSource never fires
-        // `open`. Live refresh was silently dead in `npm run dev` — the app
-        // looked fine because navigating refetches anyway.
+        // Server-sent events must not be compressed, or the proxy buffers a
+        // whole gzip block before anything reaches the browser.
         //
-        // `selfHandleResponse: false` is the default and is stated here only
-        // because setting it true is the usual accidental cause of the same
-        // symptom.
+        // Only `accept-encoding`. An earlier version of this also called
+        // `res.flushHeaders()` in `proxyRes`, which looked like the obvious fix
+        // and was the actual bug: it sends the response head *before* the proxy
+        // has copied the upstream headers onto it, so the reply reached Chrome
+        // with no `content-type` at all. `EventSource` needs
+        // `text/event-stream` to accept a stream, so it sat in CONNECTING
+        // forever — and curl did not care, which is why it looked fixed.
         configure: (proxy) => {
           proxy.on("proxyReq", (proxyReq, req) => {
             if (req.url?.startsWith("/api/events")) {
               proxyReq.setHeader("accept-encoding", "identity");
-            }
-          });
-          proxy.on("proxyRes", (proxyRes, req, res) => {
-            if (req.url?.startsWith("/api/events")) {
-              res.setHeader("cache-control", "no-cache, no-transform");
-              res.setHeader("x-accel-buffering", "no");
-              res.flushHeaders?.();
             }
           });
         },

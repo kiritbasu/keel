@@ -7,6 +7,22 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
+### TQ-29 — a note does not announce, so the app does not live-refresh on one
+
+`que_01KZQQXYTVDN1KCR6DHDEEV36M` · question · open
+
+The daemon announces an SSE change only when the latest `events` id advances (`http.rs`, the `tools/call` arm). `keel_note` writes a note row and no event row, so a note produces no announcement and an open desktop app does not refresh.
+
+Found while verifying live refresh in Chrome: a probe watching the stream received nothing from a `keel_note` write, then received the change from a `keel_update` immediately.
+
+**Is that right?** There is a real argument for it: notes are their own stream, they are append-only, and a task page that reloads on every note would flicker during a session that is writing several. There is also an argument against: the note stream is one of the more valuable things on a task page, and an app showing a stale one is showing the wrong thing.
+
+**Options.** (a) Leave it, and document that notes are not live. (b) Announce notes too, with their own event kind so a client can choose. (c) Give notes an `events` row, which makes them visible to the activity feed as well — a larger change, and it touches the definition of what an event is.
+
+**Recommendation:** (b). It is the smallest change that removes the surprise, and it lets the app decide rather than deciding for it.
+
+**Status:** open. Nothing is blocked; the app refreshes on navigation and on the Refresh button regardless.
+
 ### TQ-3 — Re-embedding strategy when the model changes: background full pass, or lazy on access?
 
 `que_01KZKWMSFKG5316C06B4HNXXBR` · question · open
