@@ -534,16 +534,76 @@ export function TruncationNote({ shown, total }: { shown: number; total: number 
   );
 }
 
-/** Relative time, for feeds. */
-export function when(iso: string): string {
+/**
+ * Relative time, in both directions.
+ *
+ * Three faults are fixed here rather than worked around at call sites:
+ *
+ * 1. **It could not express the future.** It subtracted and had no negative
+ *    branch, so a milestone target date — which is a future date, and the one
+ *    place this helper is most needed — rendered as "-3d ago".
+ * 2. **It dropped the year past seven days.** "Aug 9" stops being an answer the
+ *    moment a project is more than a year old.
+ * 3. **The precise value was unreachable.** For something that shipped four
+ *    minutes ago "4m ago" is right, but sometimes you want the timestamp, and
+ *    only the revision menu offered one. [`When`] puts it on hover.
+ *
+ * `now` is injectable so the tests can assert a boundary without waiting for
+ * the clock to cross it.
+ */
+export function when(iso: string, now: number = Date.now()): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return iso;
-  const seconds = Math.round((Date.now() - then) / 1000);
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  const seconds = Math.round((now - then) / 1000);
+  const ahead = seconds < 0;
+  const magnitude = Math.abs(seconds);
+
+  if (magnitude < 45) return "just now";
+
+  const minutes = Math.floor(magnitude / 60);
+  const hours = Math.floor(magnitude / 3600);
+  const days = Math.floor(magnitude / 86400);
+
+  if (magnitude < 3600) return ahead ? `in ${minutes}m` : `${minutes}m ago`;
+  if (magnitude < 86400) return ahead ? `in ${hours}h` : `${hours}h ago`;
+  if (days === 1) return ahead ? "tomorrow" : "yesterday";
+  if (magnitude < 604800) return ahead ? `in ${days} days` : `${days}d ago`;
+
+  // Past a week, an absolute date — with the year whenever it is not this one,
+  // because "Aug 9" silently means five different days on a project this old.
+  const date = new Date(iso);
+  const sameYear = date.getFullYear() === new Date(now).getFullYear();
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+}
+
+/** The exact timestamp, for the tooltip behind a relative one. */
+export function exactly(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
+}
+
+/**
+ * A relative time with its exact value on hover.
+ *
+ * The component rather than the bare helper is what screens should reach for:
+ * it is the only way the precise timestamp stays available everywhere, and
+ * `<time dateTime>` is what makes the value machine-readable rather than a
+ * string that happens to look like a date.
+ */
+export function When({ iso, prefix }: { iso: string; prefix?: string }) {
+  return (
+    <Tooltip text={exactly(iso)}>
+      <time dateTime={iso} className="tabular">
+        {prefix ? `${prefix} ` : ""}
+        {when(iso)}
+      </time>
+    </Tooltip>
+  );
 }
 
 /** The label an entity goes by, whatever its type calls the column. */

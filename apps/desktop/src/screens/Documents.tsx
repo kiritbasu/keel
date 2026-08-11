@@ -13,7 +13,7 @@
 
 import { api, type Entity, type Neighbour, type Page as PageOf } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
-import { Badge, Empty, ErrorBox, Id, Menu, MenuItem, Spinner, cx, statusTone, when } from "../components/ui";
+import { Badge, Empty, ErrorBox, Id, Menu, MenuItem, Spinner, cx, exactly, statusTone, when } from "../components/ui";
 import { Markdown } from "../components/Markdown";
 import { Page, projectCrumbs } from "../components/Page";
 import { href, navigate, setQuery } from "../lib/router";
@@ -154,7 +154,7 @@ export function DocumentsScreen({ route, generation }: ScreenProps) {
                         <MenuItem
                           key={r.version}
                           selected={showing === r.version}
-                          title={`${r.author}${r.session_id ? ` · ${r.session_id}` : ""} · ${new Date(r.created_at).toLocaleString()}`}
+                          title={`${r.author}${r.session_id ? ` · ${r.session_id}` : ""} · ${exactly(r.created_at)}`}
                           onClick={() => {
                             close();
                             setQuery(route, { v: String(r.version) });

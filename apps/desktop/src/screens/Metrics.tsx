@@ -15,7 +15,7 @@
 import { useMemo } from "react";
 import { api } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
-import { Card, Empty, ErrorBox, Spinner, cx } from "../components/ui";
+import { Card, Empty, ErrorBox, Spinner, When, cx } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
 import type { ScreenProps } from "../App";
 
@@ -209,7 +209,14 @@ export function MetricsScreen({ route, generation }: ScreenProps) {
                     <Chart points={points} target={m.target_value} />
                     <p className="mt-2 text-micro text-ink-faint">
                       {points.length} observation{points.length === 1 ? "" : "s"}
-                      {latest && ` · latest ${new Date(latest.at).toLocaleDateString()}`}
+                      {/* `at` is epoch milliseconds because the chart plots it;
+                          `When` wants the ISO string a human reads. */}
+                      {latest && (
+                        <>
+                          {" · latest "}
+                          <When iso={new Date(latest.at).toISOString()} />
+                        </>
+                      )}
                     </p>
                   </>
                 )}

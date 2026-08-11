@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { Button, Chip, Dialog, Menu, MenuItem, Tooltip, priorityTone, statusTone } from "./ui";
+import { Button, Chip, Dialog, Menu, MenuItem, Tooltip, priorityTone, statusTone, when } from "./ui";
 
 afterEach(cleanup);
 
@@ -138,5 +138,41 @@ describe("tones", () => {
   it("falls back rather than returning nothing for a status it has never seen", () => {
     expect(statusTone("brand_new_status")).toContain("border-border-subtle");
     expect(priorityTone(undefined)).toContain("border-border-subtle");
+  });
+});
+
+describe("when", () => {
+  // A fixed instant, so a boundary can be asserted without waiting for the
+  // clock to cross it.
+  const NOW = Date.parse("2026-08-11T12:00:00Z");
+  const at = (iso: string) => when(iso, NOW);
+
+  it("reads the recent past the way a feed should", () => {
+    expect(at("2026-08-11T11:59:40Z")).toBe("just now");
+    expect(at("2026-08-11T11:56:00Z")).toBe("4m ago");
+    expect(at("2026-08-11T10:00:00Z")).toBe("2h ago");
+    expect(at("2026-08-10T12:00:00Z")).toBe("yesterday");
+    expect(at("2026-08-08T12:00:00Z")).toBe("3d ago");
+  });
+
+  // The failure this existed to fix. A milestone target is a future date, and
+  // the old helper subtracted with no negative branch, so it rendered "-3d ago"
+  // on the one screen most likely to hit it.
+  it("can express the future, which is what a roadmap is made of", () => {
+    expect(at("2026-08-14T12:00:00Z")).toBe("in 3 days");
+    expect(at("2026-08-12T12:00:00Z")).toBe("tomorrow");
+    expect(at("2026-08-11T14:00:00Z")).toBe("in 2h");
+    expect(at("2026-08-11T12:04:00Z")).toBe("in 4m");
+  });
+
+  // "Aug 9" silently means five different days on a project more than a year
+  // old, so the year appears whenever it is not the current one.
+  it("keeps the year when it is not this year", () => {
+    expect(at("2026-01-04T12:00:00Z")).not.toMatch(/2026/);
+    expect(at("2025-08-09T12:00:00Z")).toMatch(/2025/);
+  });
+
+  it("hands back anything it cannot parse rather than rendering NaN", () => {
+    expect(at("not a date")).toBe("not a date");
   });
 });

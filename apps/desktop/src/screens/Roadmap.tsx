@@ -8,7 +8,7 @@
 
 import { api, type Entity, type Page as PageOf } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
-import { Badge, Empty, ErrorBox, Spinner, statusTone } from "../components/ui";
+import { Badge, Empty, ErrorBox, Spinner, When, statusTone } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
 import type { ScreenProps } from "../App";
 
@@ -89,11 +89,15 @@ export function RoadmapScreen({ route, generation }: ScreenProps) {
                       <Badge>v{String(m.version_string)}</Badge>
                     ) : null}
                     <span className="ml-auto text-small text-ink-faint">
-                      {shipped
-                        ? `shipped ${new Date(shipped).toLocaleDateString()}`
-                        : date
-                          ? `target ${date}`
-                          : "no target"}
+                      {shipped ? (
+                        <When iso={shipped} prefix="shipped" />
+                      ) : date ? (
+                        // A target is a future date, which is exactly the case
+                        // the old helper rendered as "-3d ago".
+                        <When iso={new Date(date).toISOString()} prefix="due" />
+                      ) : (
+                        "no target"
+                      )}
                     </span>
                   </div>
                   {m.summary ? (
