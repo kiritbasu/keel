@@ -234,6 +234,21 @@ export const api = {
   projects: () => get<{ projects: Entity[] }>("/api/projects"),
 
   /**
+   * What can be worked on right now, ranked.
+   *
+   * The same `keel_ready` a session calls, not a second ranking computed here.
+   * That is the point of the endpoint existing at all — an app that ordered the
+   * work differently from the tool would make "what next" a question with two
+   * answers.
+   */
+  ready: (params: {
+    project: string;
+    unclaimed?: string;
+    milestone?: string;
+    limit?: number;
+  }) => get<{ ready: NextItem[]; total: number; truncated: boolean }>("/api/ready", params),
+
+  /**
    * A project's notes, in one call.
    *
    * Fetched for the whole project rather than per card: a board showing

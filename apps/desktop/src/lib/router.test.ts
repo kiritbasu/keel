@@ -168,6 +168,9 @@ describe("NEEDS_PROJECT", () => {
       project: true,
       roadmap: false,
       board: true,
+      // Ready ranks one project's work. Across every project it would be a
+      // list with no shared ordering to be best-first in.
+      ready: true,
       task: true,
       documents: true,
       search: false,

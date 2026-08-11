@@ -29,6 +29,7 @@ import { ProjectScreen } from "./screens/Project";
 import { MetricsScreen } from "./screens/Metrics";
 import { RoadmapScreen } from "./screens/Roadmap";
 import { BoardScreen } from "./screens/Board";
+import { ReadyScreen } from "./screens/Ready";
 import { TaskScreen } from "./screens/Task";
 import { DocumentsScreen } from "./screens/Documents";
 import { SearchScreen } from "./screens/Search";
@@ -48,10 +49,14 @@ type NavItem = { id: ScreenId; label: string; key: string };
  */
 const PROJECT_SCREENS: NavItem[] = [
   { id: "project", label: "Overview", key: "1" },
-  { id: "board", label: "Board", key: "2" },
-  { id: "roadmap", label: "Roadmap", key: "3" },
-  { id: "documents", label: "Library", key: "4" },
-  { id: "metrics", label: "Metrics", key: "5" },
+  // Second, ahead of the board. The board is every task; this is the handful
+  // that can be started now, which is the question actually being asked when
+  // someone opens the app.
+  { id: "ready", label: "Ready", key: "2" },
+  { id: "board", label: "Board", key: "3" },
+  { id: "roadmap", label: "Roadmap", key: "4" },
+  { id: "documents", label: "Library", key: "5" },
+  { id: "metrics", label: "Metrics", key: "6" },
 ];
 
 /**
@@ -63,9 +68,9 @@ const PROJECT_SCREENS: NavItem[] = [
  * is TQ-35's to decide along with whether it survives at all.
  */
 const GLOBAL_SCREENS: NavItem[] = [
-  { id: "home", label: "All projects", key: "6" },
-  { id: "search", label: "Search", key: "7" },
-  { id: "activity", label: "Activity", key: "8" },
+  { id: "home", label: "All projects", key: "7" },
+  { id: "search", label: "Search", key: "8" },
+  { id: "activity", label: "Activity", key: "9" },
 ];
 
 const SCREENS: NavItem[] = [...PROJECT_SCREENS, ...GLOBAL_SCREENS];
@@ -286,6 +291,8 @@ export function App() {
         return <MetricsScreen {...shared} />;
       case "board":
         return <BoardScreen {...shared} />;
+      case "ready":
+        return <ReadyScreen {...shared} />;
       case "task":
         return <TaskScreen {...shared} />;
       case "documents":

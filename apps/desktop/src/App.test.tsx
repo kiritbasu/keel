@@ -47,6 +47,7 @@ vi.mock("./lib/api", () => {
         estimated_tokens: 1200,
       }),
       entities: async () => empty,
+      ready: async () => ({ ready: [], total: 0, truncated: false }),
       notes: async () => ({ notes: [], total: 0 }),
       activity: async () => ({ events: [], total: 0, truncated: false, cursor: null }),
       document: async () => ({ revisions: [], document: null, diff: null }),
@@ -116,7 +117,7 @@ describe("navigation keys", () => {
   it("moves to a global screen and puts it in the address", async () => {
     render(<App />);
     await settle();
-    fireEvent.keyDown(window, { key: "7" });
+    fireEvent.keyDown(window, { key: "8" });
     await waitFor(() => expect(window.location.hash).toBe("#/search"));
   });
 
@@ -131,7 +132,7 @@ describe("navigation keys", () => {
     window.location.hash = "#/projects/keel";
     render(<App />);
     await settle();
-    fireEvent.keyDown(window, { key: "2" });
+    fireEvent.keyDown(window, { key: "3" });
     await waitFor(() => expect(window.location.hash).toBe("#/projects/keel/board"));
   });
 
@@ -141,7 +142,7 @@ describe("navigation keys", () => {
   it("falls back to the remembered project rather than doing nothing", async () => {
     render(<App />);
     await settle();
-    fireEvent.keyDown(window, { key: "2" });
+    fireEvent.keyDown(window, { key: "3" });
     await waitFor(() => expect(window.location.hash).toBe("#/projects/keel/board"));
   });
 
