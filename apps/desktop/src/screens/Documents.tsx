@@ -11,10 +11,26 @@
  * so the answer to that question is something you can send to someone.
  */
 
+import { useState } from "react";
 import { api, type Entity, type Neighbour, type Page as PageOf } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
-import { Badge, Empty, ErrorBox, Id, Menu, MenuItem, Spinner, cx, exactly, statusTone, when } from "../components/ui";
+import {
+  Badge,
+  Chip,
+  Empty,
+  ErrorBox,
+  Id,
+  Input,
+  Menu,
+  MenuItem,
+  Spinner,
+  cx,
+  exactly,
+  statusTone,
+  when,
+} from "../components/ui";
 import { Markdown } from "../components/Markdown";
+import { LIBRARY_TYPES, LibraryIndex, type LibraryType } from "../components/LibraryIndex";
 import { Page, projectCrumbs } from "../components/Page";
 import { href, navigate, setQuery } from "../lib/router";
 import type { ScreenProps } from "../App";
@@ -31,6 +47,11 @@ function asVersion(value: string | undefined): number | undefined {
 export function DocumentsScreen({ route, generation }: ScreenProps) {
   const project = route.project;
   const selected = route.documentId ?? null;
+  // Which kind you are looking at lives in the address, so a link to the
+  // decision register is a link rather than a place you have to navigate to.
+  const kind = (LIBRARY_TYPES.find((t) => t.id === route.query.kind)?.id ??
+    "spec") as LibraryType;
+  const [filter, setFilter] = useState("");
   const version = asVersion(route.query.v);
   const compare = asVersion(route.query.diff);
 
@@ -70,27 +91,63 @@ export function DocumentsScreen({ route, generation }: ScreenProps) {
   }
 
   const documents = list.data?.items ?? [];
+  const ofKind = documents.filter((d) => String(d.type) === kind);
+  const needle = filter.trim().toLowerCase();
+  // Filter narrows what is already on screen, instantly and literally. Search
+  // queries the whole store and understands meaning. The words have to make
+  // that difference obvious — see C6.
+  const shown = needle
+    ? ofKind.filter((d) =>
+        String(d.title ?? d.name ?? d.summary ?? "").toLowerCase().includes(needle),
+      )
+    : ofKind;
   const current = doc.data?.document;
   const revisions = doc.data?.revisions ?? [];
   const showing = version ?? current?.version;
 
   return (
     <Page
-      title="Documents"
-      crumbs={projectCrumbs(route, "Documents")}
+      title="Library"
+      crumbs={projectCrumbs(route, "Library")}
       width="full"
-      meta={<span className="text-small text-ink-faint">{documents.length}</span>}
+      toolbar={
+        <div className="flex flex-wrap items-center gap-1.5">
+          {LIBRARY_TYPES.map((t) => {
+            const count = documents.filter((d) => String(d.type) === t.id).length;
+            return (
+              <Chip
+                key={t.id}
+                selected={kind === t.id}
+                onClick={() => {
+                  setFilter("");
+                  navigate({ screen: "documents", project, query: { kind: t.id } });
+                }}
+              >
+                {t.label}
+                <span className="ml-1 tabular-nums text-ink-faint">{count}</span>
+              </Chip>
+            );
+          })}
+        </div>
+      }
     >
       <div className="flex h-full">
-        <aside className="w-72 shrink-0 overflow-y-auto border-r border-border-subtle p-3">
-          {documents.length === 0 ? (
-            <Empty
-              message="No documents."
-              hint="Specs, decisions, questions and feedback appear here."
-            />
+        <aside className="flex w-72 shrink-0 flex-col border-r border-border-subtle p-3">
+          <Input
+            variant="sm"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder={`Filter ${ofKind.length} ${ofKind.length === 1 ? "document" : "documents"}`}
+            aria-label="Filter this list"
+            className="mb-2"
+          />
+          {shown.length === 0 ? (
+            <p className="px-2 py-1 text-small text-ink-faint">
+              {ofKind.length === 0 ? "None of this kind yet." : "Nothing matches that."}
+            </p>
           ) : (
-            <ul className="space-y-0.5">
-              {documents.map((d) => {
+            <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
+              {shown.map((d) => {
                 const label = String(d.title ?? d.name ?? d.summary ?? "(unnamed)");
                 return (
                   <li key={d.id}>
@@ -101,13 +158,15 @@ export function DocumentsScreen({ route, generation }: ScreenProps) {
                         selected === d.id ? "bg-surface-hover" : "hover:bg-surface-hover",
                       )}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <Badge>{String(d.type)}</Badge>
-                        {d.status ? (
+                      {/* No type badge: the switcher above already says which
+                          kind this list is, so repeating it on every row is
+                          the same word sixty times. */}
+                      <div className="truncate text-small">{label}</div>
+                      {d.status ? (
+                        <div className="mt-1">
                           <Badge tone={statusTone(String(d.status))}>{String(d.status)}</Badge>
-                        ) : null}
-                      </div>
-                      <div className="mt-1 truncate text-small">{label}</div>
+                        </div>
+                      ) : null}
                     </a>
                   </li>
                 );
@@ -118,7 +177,12 @@ export function DocumentsScreen({ route, generation }: ScreenProps) {
 
         <div className="min-w-0 flex-1 overflow-y-auto">
           {!selected ? (
-            <Empty message="Pick a document." />
+            // Nothing picked: the index for this kind, laid out the way this
+            // kind is actually read. The reader takes the pane the moment
+            // something is selected, so nothing about it changes.
+            <div className="p-6">
+              <LibraryIndex type={kind} items={shown} project={project} />
+            </div>
           ) : doc.loading && !doc.data ? (
             <Spinner />
           ) : doc.error ? (
