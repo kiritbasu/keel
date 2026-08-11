@@ -49,6 +49,7 @@ vi.mock("./lib/api", () => {
       entities: async () => empty,
       ready: async () => ({ ready: [], total: 0, truncated: false }),
       notes: async () => ({ notes: [], total: 0 }),
+      noteCounts: async () => ({ counts: {}, total: 0 }),
       activity: async () => ({ events: [], total: 0, truncated: false, cursor: null }),
       document: async () => ({ revisions: [], document: null, diff: null }),
       graph: async () => ({ neighbours: [] }),

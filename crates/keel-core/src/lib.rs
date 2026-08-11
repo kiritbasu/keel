@@ -42,6 +42,9 @@ pub mod next;
 pub mod note;
 pub mod render_decisions;
 pub mod render_status;
+// Beside `backup` only while both engines are in the tree. KEEL-130 deletes
+// that one and renames this to `backup`.
+pub mod sqlite_backup;
 pub mod store;
 pub mod style;
 pub mod types;

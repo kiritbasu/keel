@@ -9,6 +9,9 @@
 //! until `keel migrate` has proved the two hold the same data, per row count
 //! and per content hash (KEEL-127).
 
+pub mod docs;
+pub mod graph;
+pub mod rows;
 pub mod schema;
 pub mod vector;
 
@@ -206,6 +209,225 @@ impl SqliteStore {
 mod tests {
     use super::*;
 
+    /// Every column the row mapping declares must exist in the schema, for all
+    /// thirteen types.
+    ///
+    /// This is the highest-value test in the file. `TableSpec` drives both the
+    /// `SELECT` list and the `INSERT` parameter order, so a column the spec
+    /// names and the schema lacks is not a compile error and not a nice
+    /// message — it is an insert that fails at runtime for one entity type
+    /// while the other twelve work, or worse, a select that silently returns
+    /// nothing for a field nobody looks at often.
+    ///
+    /// Asked of a real database via `PRAGMA table_info` rather than by
+    /// grepping the DDL string, because the question is what SQLite actually
+    /// built, not what the text appears to say.
+    #[test]
+    fn the_schema_has_every_column_the_row_specs_declare() {
+        let store = SqliteStore::in_memory().unwrap();
+        let mut missing: Vec<String> = Vec::new();
+
+        for ty in crate::EntityType::ALL {
+            let spec = crate::store::rows::spec_for(ty);
+
+            let mut stmt = store
+                .connection()
+                .prepare(&format!("PRAGMA table_info({})", spec.table))
+                .unwrap();
+            let actual: Vec<String> = stmt
+                .query_map([], |r| r.get::<_, String>(1))
+                .unwrap()
+                .collect::<std::result::Result<_, _>>()
+                .unwrap();
+
+            assert!(
+                !actual.is_empty(),
+                "the schema has no table called {} for {}",
+                spec.table,
+                ty.as_str()
+            );
+
+            // The audit block is shared and is appended to every insert, so it
+            // has to be present on every entity table too.
+            const AUDIT: &[&str] = &[
+                "created_at",
+                "updated_at",
+                "version",
+                "created_by",
+                "updated_by",
+                "session_id",
+                "surface",
+                "archived_at",
+            ];
+
+            let wanted = spec
+                .cols
+                .iter()
+                .map(|c| match c {
+                    crate::store::rows::Col::Plain(n) | crate::store::rows::Col::Array(n) => *n,
+                })
+                .chain(AUDIT.iter().copied());
+
+            for col in wanted {
+                if !actual.iter().any(|a| a == col) {
+                    missing.push(format!("{}.{col} (for {})", spec.table, ty.as_str()));
+                }
+            }
+        }
+
+        assert!(
+            missing.is_empty(),
+            "the row specs name columns the schema does not have:\n  {}",
+            missing.join("\n  ")
+        );
+    }
+
+    /// The keyword index updates as rows change, with no rebuild.
+    ///
+    /// This is the whole of KEEL-123's stall, asserted. The DuckDB store could
+    /// not do this: its full-text index does not update when its table changes,
+    /// so the first search after *any* write rebuilt the entire index — 217 ms
+    /// against a 13 ms mean, measured on the live store while a decision was
+    /// being written.
+    ///
+    /// A test that only inserted would pass against an index that is never
+    /// maintained again, so this also changes a row and archives one.
+    #[test]
+    fn the_keyword_index_follows_the_rows_without_a_rebuild() {
+        let store = SqliteStore::in_memory().unwrap();
+        let conn = store.connection();
+
+        // Quoted, because `MATCH` takes a query *language*, not a string.
+        // `local-first` unquoted parses as the term `local` with a column
+        // filter, and fails with "no such column: first" — which names a word
+        // from the text and sounds like a schema problem. Whatever lands
+        // KEEL-126 has to quote caller input for exactly this reason.
+        let matches = |q: &str| -> i64 {
+            conn.query_row(
+                "SELECT count(*) FROM fts_entities WHERE fts_entities MATCH ?1",
+                [format!("\"{q}\"")],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+
+        conn.execute_batch(
+            "INSERT INTO projects
+               (id, slug, key, name, description, idempotency_key, created_at,
+                updated_at, created_by, updated_by, version)
+             VALUES ('prj_1','keel','KEEL','Keel','a local-first store','k1',
+                     '2026-08-11T00:00:00.000000Z','2026-08-11T00:00:00.000000Z',
+                     'claude','claude',1);
+             INSERT INTO tasks
+               (id, project_id, number, title, body, summary, idempotency_key,
+                created_at, updated_at, created_by, updated_by, version)
+             VALUES ('tsk_1','prj_1',1,'The board is slow',
+                     'the keyword index is rebuilt on every write','a summary','k2',
+                     '2026-08-11T00:00:00.000000Z','2026-08-11T00:00:00.000000Z',
+                     'claude','claude',1);",
+        )
+        .unwrap();
+
+        // Findable immediately, in the very next statement, with nothing having
+        // asked the index to catch up.
+        assert_eq!(
+            matches("keyword"),
+            1,
+            "a row written should be findable at once"
+        );
+        assert_eq!(
+            matches("local-first"),
+            1,
+            "the project should be indexed too"
+        );
+
+        // An update has to move the index with it, or search keeps returning
+        // text that is no longer there.
+        conn.execute(
+            "UPDATE tasks SET body = 'now it says something else entirely' WHERE id = 'tsk_1'",
+            [],
+        )
+        .unwrap();
+        assert_eq!(
+            matches("keyword"),
+            0,
+            "the old text should have left the index"
+        );
+        assert_eq!(matches("entirely"), 1, "the new text should be in it");
+
+        // Archiving takes it out. Search must not offer something a person put
+        // away, and doing that here means no query has to remember to filter.
+        conn.execute(
+            "UPDATE tasks SET archived_at = '2026-08-11T01:00:00.000000Z' WHERE id = 'tsk_1'",
+            [],
+        )
+        .unwrap();
+        assert_eq!(
+            matches("entirely"),
+            0,
+            "an archived row should leave the index"
+        );
+    }
+
+    /// A prose type is indexed from its document, not its row, and a new
+    /// revision replaces its predecessor rather than piling up beside it.
+    ///
+    /// Without the replace, a heavily-edited spec would appear once per version
+    /// and outrank everything by sheer repetition.
+    #[test]
+    fn a_document_is_indexed_once_however_many_revisions_it_has() {
+        let store = SqliteStore::in_memory().unwrap();
+        let conn = store.connection();
+
+        conn.execute_batch(
+            "INSERT INTO documents
+               (doc_id, entity_type, entity_id, project_id, version, title, body,
+                body_hash, status, author, created_at)
+             VALUES ('doc_1','spec','spc_1','prj_1',1,'A spec','the original wording',
+                     'h1','current','claude','2026-08-11T00:00:00.000000Z');",
+        )
+        .unwrap();
+
+        conn.execute_batch(
+            "UPDATE documents SET status = 'superseded' WHERE doc_id = 'doc_1';
+             INSERT INTO documents
+               (doc_id, entity_type, entity_id, project_id, version, title, body,
+                body_hash, status, author, created_at)
+             VALUES ('doc_2','spec','spc_1','prj_1',2,'A spec','the replacement wording',
+                     'h2','current','claude','2026-08-11T00:00:01.000000Z');",
+        )
+        .unwrap();
+
+        let count = |q: &str| -> i64 {
+            conn.query_row(
+                "SELECT count(*) FROM fts_entities WHERE fts_entities MATCH ?1",
+                [q],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+
+        assert_eq!(
+            count("replacement"),
+            1,
+            "the current revision should be findable"
+        );
+        assert_eq!(
+            count("original"),
+            0,
+            "the superseded revision should not still be in the index"
+        );
+
+        let rows: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM fts_source WHERE entity_id = 'spc_1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(rows, 1, "two revisions should occupy one slot, not two");
+    }
+
     #[test]
     fn a_new_store_has_every_table() {
         let store = SqliteStore::in_memory().unwrap();
@@ -228,7 +450,7 @@ mod tests {
             "questions",
             "terms",
             "feedback",
-            "designs",
+            "design_artifacts",
             "environments",
             "artifacts",
             "metrics",

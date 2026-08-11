@@ -240,13 +240,23 @@ export const api = {
    * That is the point of the endpoint existing at all — an app that ordered the
    * work differently from the tool would make "what next" a question with two
    * answers.
+   *
+   * `blocked: "true"` asks for the ids of what is stuck as well. The board wants
+   * both and used to get them from the digest, which meant fetching a whole
+   * project briefing — every open question, every recent decision, the glossary
+   * — to draw one column and rank three cards.
    */
   ready: (params: {
     project: string;
     unclaimed?: string;
     milestone?: string;
+    blocked?: string;
     limit?: number;
-  }) => get<{ ready: NextItem[]; total: number; truncated: boolean }>("/api/ready", params),
+  }) =>
+    get<{ ready: NextItem[]; total: number; truncated: boolean; blocked?: string[] }>(
+      "/api/ready",
+      params,
+    ),
 
   /**
    * A project's notes, in one call.
@@ -255,6 +265,20 @@ export const api = {
    * seventy tasks would otherwise open seventy requests to render a count.
    */
   notes: (project?: string) => get<{ notes: Note[]; total: number }>("/api/notes", { project }),
+
+  /**
+   * How many notes each row in a project carries, and nothing else.
+   *
+   * The board puts a number on every card and never shows a body, so it was
+   * pulling a hundred and fifty kilobytes of prose across the wire to run
+   * `length` on it. This is the same read against the store with the bodies left
+   * behind — which is the part the browser was waiting for.
+   */
+  noteCounts: (project?: string) =>
+    get<{ counts: Record<string, number>; total: number }>("/api/notes", {
+      project,
+      counts: "true",
+    }),
 
   /**
    * One row's notes, retracted ones included.

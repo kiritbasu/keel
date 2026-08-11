@@ -286,8 +286,17 @@ export function App() {
     return typeof noun === "string" && noun.trim() ? noun.trim() : undefined;
   }, [projects, activeProject]);
 
+  // The `KEEL` of `KEEL-42`. Taken from the project list the shell already
+  // holds rather than from the digest: the board used to fetch a whole project
+  // briefing partly to learn this one string.
+  const projectKey = useMemo(() => {
+    const match = projects.find((p) => String(p.slug ?? "") === activeProject);
+    const key = match?.key;
+    return typeof key === "string" && key.trim() ? key.trim() : undefined;
+  }, [projects, activeProject]);
+
   const current = useMemo(() => {
-    const shared = { route, generation, milestoneNoun };
+    const shared = { route, generation, milestoneNoun, projectKey };
     switch (route.screen) {
       case "home":
         return <HomeScreen {...shared} />;
@@ -310,7 +319,7 @@ export function App() {
       case "changed":
         return <ChangedScreen {...shared} />;
     }
-  }, [route, generation, milestoneNoun]);
+  }, [route, generation, milestoneNoun, projectKey]);
 
   return (
     <div className="flex h-full">
@@ -389,4 +398,11 @@ export interface ScreenProps {
    * be a request per screen for a label.
    */
   milestoneNoun?: string;
+  /**
+   * The prefix of this project's readable identifiers — the `KEEL` of `KEEL-42`.
+   *
+   * Threaded for the same reason as `milestoneNoun`, and it removed a real cost:
+   * the board's only other source for it was the digest.
+   */
+  projectKey?: string;
 }

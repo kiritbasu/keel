@@ -11,7 +11,7 @@
  */
 
 import { useMemo } from "react";
-import { api, type Digest, type Entity, type Note, type Page as PageOf } from "../lib/api";
+import { api, type Entity, type NextItem, type Page as PageOf } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
 import { Empty, ErrorBox, Spinner } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
@@ -32,7 +32,7 @@ import {
 import { applyFilter, filterToQuery, isFiltering, parseFilter } from "../lib/filters";
 import type { ScreenProps } from "../App";
 
-export function BoardScreen({ route, generation, milestoneNoun }: ScreenProps) {
+export function BoardScreen({ route, generation, milestoneNoun, projectKey }: ScreenProps) {
   const project = route.project;
 
   // The whole view comes out of the address. Anything unrecognised falls back
@@ -56,41 +56,49 @@ export function BoardScreen({ route, generation, milestoneNoun }: ScreenProps) {
   // The same ranking the digest gives an agent, rather than a second opinion
   // computed in the browser. A board that disagrees with what Claude was told
   // is worse than a board with no ordering at all.
-  const digest = useAsync<Digest>(() => api.context(project), [project, generation]);
+  //
+  // This was `api.context(project)` — the whole digest, 27 KB and the slowest
+  // read the board waited on, for the ranking and the blocked set and nothing
+  // else. `/api/ready` is the same computation with the briefing left off. The
+  // limit matches the digest's own cap of three, so the ranking a card shows is
+  // the ranking a session was given rather than a longer list the app invented.
+  const next = useAsync<{ ready: NextItem[]; blocked?: string[] }>(
+    () => api.ready({ project: project ?? "", blocked: "true", limit: 3 }),
+    [project, generation],
+  );
 
   const milestones = useAsync<PageOf<Entity>>(
     () => api.entities({ project, type: "milestone", limit: 200 }),
     [project, generation],
   );
 
-  // Every stream in one request. Seventy cards asking individually is seventy
-  // round trips to render a count.
-  const notes = useAsync<{ notes: Note[]; total: number }>(
-    () => api.notes(project),
+  // Every count in one request. Seventy cards asking individually is seventy
+  // round trips to render a number — and asking for the bodies was 150 KB of
+  // prose to run `length` on, which is what `counts` leaves behind.
+  const notes = useAsync<{ counts: Record<string, number>; total: number }>(
+    () => api.noteCounts(project),
     [project, generation],
   );
-  const noteCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const note of notes.data?.notes ?? []) {
-      counts.set(note.entity_id, (counts.get(note.entity_id) ?? 0) + 1);
-    }
-    return counts;
-  }, [notes.data]);
+  const noteCounts = useMemo(
+    () => new Map(Object.entries(notes.data?.counts ?? {})),
+    [notes.data],
+  );
 
-  const ranked = digest.data?.next_up ?? null;
-  const projectKey = digest.data?.project?.key;
+  const ready = next.data?.ready ?? null;
 
   const rank = useMemo<RankMap>(() => {
     const m: RankMap = new Map();
-    ranked?.ready.forEach((item, i) => m.set(item.id, { position: i + 1, why: item.why }));
+    ready?.forEach((item, i) => m.set(item.id, { position: i + 1, why: item.why }));
     return m;
-  }, [ranked]);
+  }, [ready]);
 
   // What "blocked" means here is what it means to the ranking: something is
-  // linked to it as a blocker. The app must not grow a second opinion.
+  // linked to it as a blocker. The app must not grow a second opinion, so these
+  // are the ids `keel_core::next::blocked_tasks` returns — the same function the
+  // digest and the generated tracker count from.
   const blockedIds = useMemo(
-    () => new Set((ranked?.blocked ?? []).map((item) => item.id)),
-    [ranked],
+    () => new Set(next.data?.blocked ?? []),
+    [next.data],
   );
 
   // Milestones and tasks share one lookup, because grouping needs a name for
@@ -200,13 +208,13 @@ export function BoardScreen({ route, generation, milestoneNoun }: ScreenProps) {
         {/* Shown whatever is filtered. The ranking answers "what should I do
             next", and that does not stop being the question because you
             narrowed the board to look at something else. */}
-        {ranked && ranked.ready.length > 0 && (
+        {ready && ready.length > 0 && (
           <section className="mb-4 shrink-0 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2.5">
             <h2 className="mb-1.5 text-micro font-semibold tracking-wide text-accent uppercase">
               Next
             </h2>
             <ol className="space-y-1">
-              {ranked.ready.slice(0, 3).map((item, i) => (
+              {ready.slice(0, 3).map((item, i) => (
                 <li key={item.id} className="flex gap-2 text-small">
                   <span className="w-3 shrink-0 text-right tabular-nums text-ink-faint">
                     {i + 1}

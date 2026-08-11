@@ -216,47 +216,53 @@ CREATE UNIQUE INDEX terms_idem ON terms(COALESCE(project_id, ''), idempotency_ke
 
     // ---- Inputs and surfaces ------------------------------------------
     sql.push_str(&format!(
+        // `summary` rather than `title`, and it is the label `v_entities`
+        // resolves for this type — a piece of feedback is what someone said,
+        // and giving it a title would mean inventing one.
         "CREATE TABLE feedback (
   id                  TEXT PRIMARY KEY,
   project_id          TEXT NOT NULL,
   kind                TEXT NOT NULL DEFAULT 'observation',
-  title               TEXT NOT NULL,
+  summary             TEXT NOT NULL,
   source              TEXT,
   contact             TEXT,
   sentiment           TEXT,
   occurred_at         TEXT,
   triaged             INTEGER DEFAULT 0,
   current_doc_version INTEGER NOT NULL DEFAULT 0,
-  mirror_path         TEXT,
   idempotency_key     TEXT NOT NULL,
   {AUDIT}
 ) STRICT;
 CREATE UNIQUE INDEX feedback_idem ON feedback(project_id, idempotency_key);
 CREATE INDEX feedback_project ON feedback(project_id);
 
-CREATE TABLE designs (
+-- `design_artifacts`, not `designs`. The table has been called that since
+-- migration 1 of the DuckDB store, every `TableSpec` names it, and renaming it
+-- here would mean the migration had to translate a table name for no gain.
+CREATE TABLE design_artifacts (
   id                  TEXT PRIMARY KEY,
   project_id          TEXT NOT NULL,
-  title               TEXT NOT NULL,
+  name                TEXT NOT NULL,
   state               TEXT NOT NULL DEFAULT 'concept',
+  figma_ref           TEXT,
   blob_id             TEXT,
-  url                 TEXT,
   current_doc_version INTEGER NOT NULL DEFAULT 0,
-  mirror_path         TEXT,
   idempotency_key     TEXT NOT NULL,
   {AUDIT}
 ) STRICT;
-CREATE UNIQUE INDEX designs_idem ON designs(project_id, idempotency_key);
-CREATE INDEX designs_project ON designs(project_id);
+CREATE UNIQUE INDEX design_artifacts_idem
+  ON design_artifacts(project_id, idempotency_key);
+CREATE INDEX design_artifacts_project ON design_artifacts(project_id);
 
 CREATE TABLE environments (
   id               TEXT PRIMARY KEY,
   project_id       TEXT NOT NULL,
   name             TEXT NOT NULL,
   url              TEXT,
-  status           TEXT NOT NULL DEFAULT 'unknown',
   deployed_version TEXT,
-  deployed_at      TEXT,
+  deployed_commit  TEXT,
+  status           TEXT NOT NULL DEFAULT 'unknown',
+  last_deployed_at TEXT,
   idempotency_key  TEXT NOT NULL,
   {AUDIT}
 ) STRICT;
@@ -433,7 +439,7 @@ CREATE INDEX blobs_sha ON blobs(sha256);
     );
 
     sql.push_str(&vertex_view());
-    sql.push_str(FTS_SCHEMA);
+    sql.push_str(&fts_schema());
     sql
 }
 
@@ -453,8 +459,10 @@ fn vertex_view() -> String {
         ("decisions", "decision", "title"),
         ("questions", "question", "title"),
         ("terms", "term", "term"),
-        ("feedback", "feedback", "title"),
-        ("designs", "design", "title"),
+        // `label` unifies the four different column names — `name`, `title`,
+        // `term`, `summary` — that all mean "what this is called".
+        ("feedback", "feedback", "summary"),
+        ("design_artifacts", "design", "name"),
         ("environments", "environment", "name"),
         ("artifacts", "artifact", "name"),
         ("metrics", "metric", "name"),
@@ -509,24 +517,166 @@ fn vertex_view() -> String {
 /// score are computed per index. Thirteen indexes would give thirteen
 /// incomparable scores and the fusion would be ranking noise.
 ///
-/// **Contentless-delete rather than external content.** An external-content
-/// table (`content='tasks'`) reads the source row back when it needs the old
-/// terms, which means the triggers have to fire before the row changes and the
-/// index has to be rebuilt if it ever drifts. `content=''` with
-/// `contentless_delete=1` stores its own copy — a few hundred kilobytes here —
-/// and cannot drift.
-const FTS_SCHEMA: &str = "
+/// **Why there is a `fts_source` table in the middle.** FTS5 indexes rows by an
+/// integer rowid, and Keel's ids are ULID text. Something has to hold the
+/// mapping, and making it a real table rather than hiding it inside the index
+/// buys two things: the index becomes external-content, so it stores no second
+/// copy of every body, and "what is in the index" is a question answerable with
+/// an ordinary `SELECT` rather than only through a `MATCH`.
+///
+/// It is also where archiving is handled. An archived row leaves `fts_source`,
+/// so it leaves the index — searching should not return something a person put
+/// away, and doing it here means no query has to remember to filter.
+///
+/// **Which tables feed it, and why prose types are not among them.** Specs,
+/// decisions, questions, feedback and designs carry their text in `documents`,
+/// not on their own row, so they are indexed from there — exactly as the DuckDB
+/// version did. The six that appear directly are the ones whose text *is* their
+/// row. Nothing is indexed twice, because `fts_source` is keyed by entity id.
+fn fts_schema() -> String {
+    // (table, entity type, the label expression, the body expression)
+    //
+    // Matches the UNION the DuckDB store rebuilt on every search. The
+    // difference is only that this one is maintained as rows change.
+    // Every column reference is `new.`-qualified, and it has to be. Inside a
+    // trigger body a bare column name is not resolved against the row being
+    // written — SQLite looks it up in the table being *inserted into*, which
+    // here is `fts_source`, and fails with "no such column: title". That error
+    // names the right column and points at entirely the wrong table.
+    const SOURCES: &[(&str, &str, &str, &str)] = &[
+        (
+            "projects",
+            "project",
+            "new.name",
+            "COALESCE(new.description, '')",
+        ),
+        (
+            "milestones",
+            "milestone",
+            "new.name",
+            "COALESCE(new.summary, '')",
+        ),
+        ("tasks", "task", "new.title", "COALESCE(new.body, '')"),
+        ("terms", "term", "new.term", "new.definition"),
+        (
+            "environments",
+            "environment",
+            "new.name",
+            "COALESCE(new.url, '') || ' ' || COALESCE(new.deployed_version, '')",
+        ),
+        ("artifacts", "artifact", "new.name", "COALESCE(new.url, '')"),
+    ];
+
+    let mut sql = String::from(
+        "CREATE TABLE fts_source (
+  rowid       INTEGER PRIMARY KEY,
+  entity_id   TEXT NOT NULL UNIQUE,
+  entity_type TEXT NOT NULL,
+  project_id  TEXT NOT NULL DEFAULT '',
+  label       TEXT NOT NULL DEFAULT '',
+  body        TEXT NOT NULL DEFAULT ''
+) STRICT;
+CREATE INDEX fts_source_project ON fts_source(project_id);
+
 CREATE VIRTUAL TABLE fts_entities USING fts5(
   label,
   body,
-  entity_id UNINDEXED,
-  entity_type UNINDEXED,
-  project_id UNINDEXED,
-  content='',
-  contentless_delete=1,
+  content='fts_source',
+  content_rowid='rowid',
   tokenize='porter unicode61'
 );
-";
+
+-- The three that keep the index in step with the table under it. FTS5's
+-- external-content mode does not do this itself; it trusts these to be right,
+-- which is why the delete has to carry the *old* text — the index needs the
+-- terms it is removing, and `old` is the only place they still exist.
+CREATE TRIGGER fts_source_ai AFTER INSERT ON fts_source BEGIN
+  INSERT INTO fts_entities(rowid, label, body)
+    VALUES (new.rowid, new.label, new.body);
+END;
+CREATE TRIGGER fts_source_ad AFTER DELETE ON fts_source BEGIN
+  INSERT INTO fts_entities(fts_entities, rowid, label, body)
+    VALUES ('delete', old.rowid, old.label, old.body);
+END;
+CREATE TRIGGER fts_source_au AFTER UPDATE ON fts_source BEGIN
+  INSERT INTO fts_entities(fts_entities, rowid, label, body)
+    VALUES ('delete', old.rowid, old.label, old.body);
+  INSERT INTO fts_entities(rowid, label, body)
+    VALUES (new.rowid, new.label, new.body);
+END;
+",
+    );
+
+    for (table, ty, label, body) in SOURCES {
+        // The upsert is keyed on `entity_id`, so a row that changes twenty
+        // times occupies one slot in the index rather than twenty.
+        let upsert = format!(
+            "INSERT INTO fts_source (entity_id, entity_type, project_id, label, body)
+     VALUES (new.id, '{ty}', {project}, {label}, {body})
+   ON CONFLICT(entity_id) DO UPDATE SET
+     label = excluded.label, body = excluded.body, project_id = excluded.project_id;",
+            project = if *table == "projects" {
+                "new.id"
+            } else if *table == "terms" {
+                "COALESCE(new.project_id, '')"
+            } else {
+                "new.project_id"
+            }
+        );
+
+        sql.push_str(&format!(
+            "
+CREATE TRIGGER {table}_fts_ai AFTER INSERT ON {table}
+  WHEN new.archived_at IS NULL
+BEGIN
+  {upsert}
+END;
+CREATE TRIGGER {table}_fts_au AFTER UPDATE ON {table}
+  WHEN new.archived_at IS NULL
+BEGIN
+  {upsert}
+END;
+-- Archiving removes it from the index. Doing it here rather than in every
+-- query is what stops one forgotten `WHERE archived_at IS NULL` from putting
+-- put-away rows back in front of someone.
+CREATE TRIGGER {table}_fts_archived AFTER UPDATE ON {table}
+  WHEN new.archived_at IS NOT NULL
+BEGIN
+  DELETE FROM fts_source WHERE entity_id = new.id;
+END;
+"
+        ));
+    }
+
+    // Documents carry the text for the five prose types. Keyed by `entity_id`
+    // rather than `doc_id`, so a new revision replaces its predecessor in the
+    // index instead of accumulating one entry per version — which would make a
+    // heavily-edited spec outrank everything by sheer repetition.
+    sql.push_str(
+        "
+CREATE TRIGGER documents_fts_ai AFTER INSERT ON documents
+  WHEN new.status = 'current'
+BEGIN
+  INSERT INTO fts_source (entity_id, entity_type, project_id, label, body)
+    VALUES (new.entity_id, new.entity_type, COALESCE(new.project_id, ''),
+            new.title, new.body)
+  ON CONFLICT(entity_id) DO UPDATE SET
+    label = excluded.label, body = excluded.body, project_id = excluded.project_id;
+END;
+CREATE TRIGGER documents_fts_au AFTER UPDATE ON documents
+  WHEN new.status = 'current'
+BEGIN
+  INSERT INTO fts_source (entity_id, entity_type, project_id, label, body)
+    VALUES (new.entity_id, new.entity_type, COALESCE(new.project_id, ''),
+            new.title, new.body)
+  ON CONFLICT(entity_id) DO UPDATE SET
+    label = excluded.label, body = excluded.body, project_id = excluded.project_id;
+END;
+",
+    );
+
+    sql
+}
 
 /// Every migration, in order.
 ///

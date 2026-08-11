@@ -48,6 +48,9 @@ const TASKS = [
   },
 ];
 
+/** Counted so the board's appetite is asserted rather than assumed. */
+const called = { ready: 0, context: 0, notes: 0, noteCounts: 0 };
+
 vi.mock("../lib/api", () => ({
   ApiError: class ApiError extends Error {},
   subscribe: () => () => {},
@@ -60,17 +63,29 @@ vi.mock("../lib/api", () => ({
       total: type === "milestone" ? 1 : TASKS.length,
       truncated: false,
     }),
-    context: async () => ({
-      project: { id: "prj_1", name: "Keel", slug: "keel", key: "KEEL" },
-      next_up: {
+    context: async () => {
+      called.context += 1;
+      return { project: null, next_up: null };
+    },
+    ready: async () => {
+      called.ready += 1;
+      return {
         ready: [
           { id: "tsk_3", reference: "KEEL-3", title: "Delete the file-edit hook", why: "p0" },
         ],
-        waiting_on_you: [],
-        blocked: [{ id: "tsk_2", reference: "KEEL-2", title: "Filters", why: "blocked by X" }],
-      },
-    }),
-    notes: async () => ({ notes: [], total: 0 }),
+        total: 1,
+        truncated: false,
+        blocked: ["tsk_2"],
+      };
+    },
+    notes: async () => {
+      called.notes += 1;
+      return { notes: [], total: 0 };
+    },
+    noteCounts: async () => {
+      called.noteCounts += 1;
+      return { counts: { tsk_2: 3 }, total: 3 };
+    },
   },
 }));
 
@@ -81,7 +96,7 @@ function at(query: Record<string, string>): Route {
 }
 
 async function show(query: Record<string, string> = {}) {
-  render(<BoardScreen route={at(query)} generation={0} />);
+  render(<BoardScreen route={at(query)} generation={0} projectKey="KEEL" />);
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
@@ -89,8 +104,43 @@ async function show(query: Record<string, string> = {}) {
 
 beforeEach(() => {
   window.location.hash = "#/projects/keel/board";
+  called.ready = 0;
+  called.context = 0;
+  called.notes = 0;
+  called.noteCounts = 0;
 });
 afterEach(cleanup);
+
+describe("what the board asks the daemon for", () => {
+  // KEEL-123. The board used to wait on the whole digest — 27 KB of project
+  // briefing — for the ranking and the blocked set, and pull every note body in
+  // the project to put a number on a card. Both are cheap calls now, and this is
+  // what stops either creeping back: the shapes still work, so nothing else
+  // would fail if they did.
+  it("reads the ranking from /api/ready and never the digest", async () => {
+    await show();
+    expect(called.ready).toBe(1);
+    expect(called.context).toBe(0);
+  });
+
+  it("asks for note counts, not note bodies", async () => {
+    await show();
+    expect(called.noteCounts).toBe(1);
+    expect(called.notes).toBe(0);
+  });
+
+  // The blocked column is the reason `/api/ready` had to grow a `blocked`
+  // parameter at all. If the ids stopped arriving the column would quietly
+  // vanish and every card would look fine.
+  it("still draws the blocked column from the ids /api/ready returns", async () => {
+    await show();
+    // The column heading, not the filter menu that shares the word.
+    const headings = screen
+      .getAllByText("blocked")
+      .filter((el) => el.tagName === "SPAN" && el.className.includes("uppercase"));
+    expect(headings).toHaveLength(1);
+  });
+});
 
 describe("the filter, read from the address", () => {
   it("shows everything when the address carries no filter", async () => {

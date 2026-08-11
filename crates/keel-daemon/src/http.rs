@@ -580,19 +580,83 @@ async fn api_search(
 /// own schema. That is what makes "the app agrees with the session" a property of
 /// the code rather than a thing to keep checking — there is one ranking, and all
 /// three surfaces read it.
+///
+/// `?blocked=true` adds the ids of the tasks something live is blocking. It is
+/// not a tool parameter and deliberately not one: a model asking "what can I
+/// pick up" does not want the stuck list, and the board does — it draws a
+/// blocked column. The board's alternative was the whole digest, which costs
+/// twenty-seven kilobytes and every section of a project summary to read one
+/// field, so the parameter exists to stop a view paying for a briefing (B-15:
+/// the local API may have more than the tool surface does, because a UI knows
+/// what it wants).
+///
+/// The ids come from [`keel_core::next::blocked_tasks`], which is *the*
+/// definition of blocked. Recomputing it here in any other way is how the app
+/// and the digest would come to disagree.
+///
+/// It is not free, and the cost is written down rather than left to be
+/// rediscovered. Asking for blocked walks the `blocks` edges a second time: the
+/// ranking inside the tool has already walked them and thrown that half away.
+/// Measured over fifteen rounds against a copy of the live store, all three on
+/// the same build — ranking alone 316 ms, ranking with blocked 558 ms, the
+/// digest this replaces 724 ms and twenty-three times the bytes.
+///
+/// So it is still the cheaper call, and it is one of four the board makes in
+/// parallel. The version with no second walk means either the daemon stops
+/// going through the tool — and the app's ranking stops being the tool's by
+/// construction — or `keel_ready` starts returning a stuck list no model asked
+/// for. Neither is worth 240 ms on a screen that loads once. If it ever is, the
+/// fix is a `blocked` field on [`keel_core::Ready`] carrying what the ranking
+/// already computed, not a second ranking here.
 async fn api_ready(
     State(state): State<AppState>,
-    Query(params): Query<std::collections::HashMap<String, String>>,
+    Query(mut params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
+    // Taken out before the arguments are built: `keel_ready` has no `blocked`
+    // in its schema, and passing an undeclared parameter through to a tool is
+    // how a filter gets silently ignored.
+    let want_blocked = params.remove("blocked").is_some_and(|v| v == "true");
+    let project = params.get("project").cloned();
+
     let args = params_to_json("keel_ready", params);
     let mut store = state.store();
-    as_api(keel_mcp::dispatch(
+    let mut result = keel_mcp::dispatch(
         &mut store,
         keel_mcp::ToolCall {
             name: "keel_ready",
             arguments: &args,
         },
-    ))
+    );
+
+    if want_blocked && let Ok(value) = &mut result {
+        let Some(slug) = project else {
+            return bad_request("`blocked=true` needs `project` — blocked is per project");
+        };
+        let project_id = match keel_mcp::dispatch::resolve_project(&store, &slug) {
+            Ok(id) => id,
+            Err(e) => {
+                return (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))).into_response();
+            }
+        };
+        match keel_core::next::blocked_tasks(&*store, &project_id) {
+            Ok(ids) => {
+                // Sorted so two identical stores answer identically. The set is
+                // a `HashSet`, and an order that wobbles between calls would
+                // make a snapshot test flap for no reason.
+                let mut ids: Vec<String> = ids.iter().map(ToString::to_string).collect();
+                ids.sort();
+                if let Some(obj) = value
+                    .get_mut("structuredContent")
+                    .and_then(Value::as_object_mut)
+                {
+                    obj.insert("blocked".to_owned(), json!(ids));
+                }
+            }
+            Err(e) => return internal_error(&format!("list what is blocked in {slug}: {e}")),
+        }
+    }
+
+    as_api(result)
 }
 
 /// One row's whole history — every field change, with its before and after.
@@ -1004,12 +1068,20 @@ async fn api_entity(
 ///
 /// `entity` fetches one stream; `project` fetches every live note in a project,
 /// which is what a view showing several cards at once actually needs.
+///
+/// `?counts=true` returns `{entity_id: n}` instead of the notes themselves. The
+/// board renders a hundred and twenty cards and puts a number on each one; it
+/// was reading a hundred and fifty kilobytes of note prose across the wire to
+/// count them and then throwing every body away. The read against the store is
+/// the same either way — the saving is the transfer and the parse, which is the
+/// part the browser was actually waiting on.
 async fn api_notes(
     State(state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
     use keel_core::EntityStore;
 
+    let counts_only = params.get("counts").is_some_and(|v| v == "true");
     let store = state.store();
     let notes = if let Some(entity) = params.get("entity") {
         match resolve_path_id(&store, entity) {
@@ -1035,6 +1107,17 @@ async fn api_notes(
     };
 
     match notes {
+        Ok(notes) if counts_only => {
+            let mut counts: std::collections::BTreeMap<String, usize> = Default::default();
+            for note in &notes {
+                *counts.entry(note.entity_id.to_string()).or_default() += 1;
+            }
+            (
+                StatusCode::OK,
+                Json(json!({ "data": { "counts": counts, "total": notes.len() } })),
+            )
+                .into_response()
+        }
         Ok(notes) => (
             StatusCode::OK,
             Json(json!({ "data": { "notes": notes, "total": notes.len() } })),
