@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-11T20:07:47.012818+00:00",
+  "generated_at": "2026-08-11T20:59:54.817976+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/phase-9-runs-before-phase-10-and-duckdb-and-lance-come-out-of-the-tree-entirely.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZS7XBT5GZXPG7CGYN75WWYZ",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "bb779b245c2f492fd84f551021b9a36b065c69a08738f6e723418dbe56858918"
         }
       ]
     },
