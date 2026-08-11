@@ -376,6 +376,17 @@ CREATE INDEX notes_project ON notes(project_id);
   op          TEXT NOT NULL,
   before      TEXT,
   after       TEXT,
+  -- The sentence a person reads. Not derivable from the columns beside it:
+  -- \"created task “Fix the board filter”\" is written at the point the write
+  -- happens, and nothing downstream can reconstruct it once the row it
+  -- described has moved on. `render_status` puts it in the changelog and the
+  -- activity feed returns it, so an events table without this column makes
+  -- both go blank — plausibly, and only for history written after the move.
+  summary     TEXT NOT NULL DEFAULT '',
+  -- Whatever else the write wanted to say about itself. `unlink` marks its
+  -- event `{\"removed\": true}`, and without that an unlink is indistinguishable
+  -- from a link in the log.
+  meta        TEXT,
   actor       TEXT NOT NULL,
   session_id  TEXT,
   surface     TEXT,

@@ -17,15 +17,21 @@
 //!
 //! # What did not translate cleanly
 //!
-//! The SQLite `events` table has no `summary` and no `meta` column, and it
-//! names the other two differently: `op` for the action and `at` for the
-//! timestamp. The names are mapped here. The two missing columns cannot be —
-//! [`crate::Event`] carries both, `render_status` renders the summary into the
-//! changelog and the daemon's activity feed returns it, so until migration 1
-//! grows `summary TEXT NOT NULL DEFAULT ''` and `meta TEXT` those two fields
-//! read back empty. That is stated here rather than worked around, because a
-//! silent empty summary is exactly the kind of plausible-looking loss this
-//! codebase keeps warning about.
+//! The SQLite `events` table names two columns differently from the struct:
+//! `op` for the action and `at` for the timestamp. Both are mapped in
+//! [`EVENT_COLUMNS`] rather than in the reader, so the row reader stays a
+//! line-for-line match with the DuckDB one.
+//!
+//! It also, for a while, had no `summary` and no `meta` column at all. That was
+//! found here and fixed in migration 1 rather than documented and left, because
+//! the consequence was not a missing feature: [`crate::Event`] carries both,
+//! `render_status` renders the summary into the changelog and the daemon's
+//! activity feed returns it, so every event written after the move would have
+//! read back with an empty sentence. The changelog would have gone blank
+//! quietly, for new history only, which is exactly the plausible-looking loss
+//! this codebase keeps warning about. `meta` matters for a narrower reason:
+//! `unlink` marks its event `{"removed": true}`, and without it an unlink is
+//! indistinguishable from a link in the log.
 //!
 //! # Why every helper is a free function
 //!
@@ -67,7 +73,8 @@ pub const DEFAULT_LIST_LIMIT: usize = 200;
 /// aliasing them here means the row reader below matches the DuckDB one
 /// line for line.
 const EVENT_COLUMNS: &str = "SELECT id, project_id, entity_type, entity_id, op AS action, field, \
-                             before, after, actor, session_id, surface, at AS created_at";
+                             before, after, summary, meta, actor, session_id, surface, \
+                             at AS created_at";
 
 /// The note projection, named once for the same reason.
 const NOTE_COLUMNS: &str = "SELECT id, project_id, entity_type, entity_id, body, author, \
@@ -196,9 +203,9 @@ fn link_params(l: &Link) -> Vec<Value> {
 
 /// Rebuild an event from a row selected through [`EVENT_COLUMNS`].
 ///
-/// `summary` and `meta` are not read because the table has no such columns —
-/// see the module doc. They are the two fields a reader should expect to find
-/// empty until migration 1 grows them.
+/// `summary` is `NOT NULL DEFAULT ''`, so a row written before that column
+/// existed reads back as an empty sentence rather than failing — which is the
+/// right behaviour for a store that has just been migrated into.
 fn read_event(row: &Row<'_>) -> Result<Event> {
     let json = |v: Option<String>| v.and_then(|s| serde_json::from_str(&s).ok());
     Ok(Event {
@@ -244,8 +251,13 @@ fn read_event(row: &Row<'_>) -> Result<Event> {
             Some(s) => Some(Surface::parse(&s)?),
             None => None,
         },
-        summary: String::new(),
-        meta: None,
+        summary: row
+            .get::<_, String>("summary")
+            .map_err(col_err("events", "summary"))?,
+        meta: json(
+            row.get::<_, Option<String>>("meta")
+                .map_err(col_err("events", "meta"))?,
+        ),
         created_at: get_ts(row, "events", "created_at")?,
     })
 }
@@ -617,9 +629,6 @@ fn append_event_inner(
         created_at: now,
     };
 
-    // `summary` and `meta` are absent from the parameter list because they are
-    // absent from the table. See the module doc: they are returned to this
-    // caller intact and are lost to the next reader.
     let params: Vec<Value> = vec![
         text(stored.id.as_str()),
         stored
@@ -633,6 +642,8 @@ fn append_event_inner(
         text(stored.action.as_str()),
         json_param(stored.before.as_ref()),
         json_param(stored.after.as_ref()),
+        text(&stored.summary),
+        json_param(stored.meta.as_ref()),
         text(stored.actor.as_str()),
         otext(stored.session_id.clone()),
         otext(stored.surface.map(|s| s.as_str())),
@@ -643,8 +654,8 @@ fn append_event_inner(
         .connection()
         .execute(
             "INSERT INTO events (id, project_id, entity_id, entity_type, field, op, \
-             before, after, actor, session_id, surface, at) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             before, after, summary, meta, actor, session_id, surface, at) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             params_from_iter(params),
         )
         .map_err(Error::sqlite(format!(
@@ -1767,6 +1778,56 @@ mod tests {
         Provenance::anonymous(Actor::Claude)
             .with_session("ses_test")
             .with_surface(Surface::Code)
+    }
+
+    /// An event's sentence and its metadata have to survive being written.
+    ///
+    /// This is a regression test for a real gap: the `events` table was built
+    /// without `summary` or `meta`, and nothing failed. Every write succeeded,
+    /// every count was right, and every event read back with an empty sentence
+    /// — so `render_status` would have written a changelog of blank lines and
+    /// the activity feed would have returned rows saying nothing, for new
+    /// history only, while the old history still read correctly.
+    ///
+    /// Forty-two tests passed over that hole, because they all asserted on
+    /// rows and statuses rather than on the sentence a person reads.
+    #[test]
+    fn an_events_summary_and_meta_survive_the_write() {
+        let mut s = store();
+        let project_id = project(&mut s);
+
+        let created = s.events_for(&project_id, 10).expect("read the events");
+        let first = created
+            .items
+            .first()
+            .expect("creating a project logs an event");
+        assert!(
+            !first.summary.is_empty(),
+            "a created event should carry the sentence it was written with"
+        );
+        assert!(
+            first.summary.contains("Keel"),
+            "the summary should name what was created, got {:?}",
+            first.summary
+        );
+
+        // `meta` is what tells an unlink apart from a link in the log, so it
+        // gets its own assertion rather than riding on the summary's.
+        let event = NewEvent::new(project_id.clone(), Action::Linked, "unlinked something")
+            .with_meta(serde_json::json!({ "removed": true }));
+        s.append_event(event, &claude()).expect("append the event");
+
+        let back = s.events_for(&project_id, 10).expect("read the events");
+        let marked = back
+            .items
+            .iter()
+            .find(|e| e.summary == "unlinked something")
+            .expect("the appended event should be readable");
+        assert_eq!(
+            marked.meta,
+            Some(serde_json::json!({ "removed": true })),
+            "meta should survive the round trip"
+        );
     }
 
     fn project(store: &mut SqliteStore) -> EntityId {
