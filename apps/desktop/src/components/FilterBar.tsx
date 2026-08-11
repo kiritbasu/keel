@@ -35,11 +35,14 @@ export interface View {
 export function FilterBar({
   view,
   facets,
+  total,
   onFilter,
   onView,
 }: {
   view: View;
   facets: Facets;
+  /** How many tasks the box is narrowing, so it can say so. */
+  total: number;
   onFilter: (next: TaskFilter) => void;
   onView: (next: Partial<Omit<View, "filter">>) => void;
 }) {
@@ -62,7 +65,7 @@ export function FilterBar({
           variant="sm"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Filter…"
+          placeholder={`Filter ${total} ${total === 1 ? "task" : "tasks"}`}
           aria-label="Filter by text"
           className="w-40"
         />

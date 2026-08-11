@@ -307,11 +307,19 @@ export function App() {
 
         {/* The project first, because five of the eight screens below are
             about one and choosing it used to be the last thing on the rail. */}
-        {activeProject && (
-          <div className="px-2 pb-2">
-            <ProjectSwitcher projects={projects} current={activeProject} />
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 px-2 pb-2">
+          {activeProject && <ProjectSwitcher projects={projects} current={activeProject} />}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto"
+            onClick={() => setPaletteOpen(true)}
+            title="Jump to a project, screen, document or task"
+          >
+            Jump to…
+            <kbd className="font-mono text-micro text-ink-faint">⌘K</kbd>
+          </Button>
+        </div>
 
         <div className="px-2">
           {activeProject &&
@@ -333,15 +341,9 @@ export function App() {
         )}
 
         <div className="mt-auto px-3 py-3">
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={() => setPaletteOpen(true)}>
-              Jump to…
-              <kbd className="font-mono text-micro text-ink-faint">⌘K</kbd>
-            </Button>
-            <Button size="sm" variant="ghost" onClick={refresh}>
-              Refresh
-            </Button>
-          </div>
+          <Button size="sm" variant="ghost" onClick={refresh}>
+            Refresh
+          </Button>
           <div className="mt-cosy">
             <ThemeControl />
           </div>

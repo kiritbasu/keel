@@ -173,6 +173,7 @@ export function BoardScreen({ route, generation }: ScreenProps) {
         <FilterBar
           view={view}
           facets={facets}
+          total={(data?.items ?? []).length}
           onFilter={(next) => setQuery(route, filterToQuery(next), { replace: true })}
           onView={(next) =>
             setQuery(
