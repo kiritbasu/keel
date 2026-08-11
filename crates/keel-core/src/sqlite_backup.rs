@@ -377,6 +377,84 @@ mod tests {
         assert_eq!(manifest.migrations, vec![1]);
     }
 
+    /// The keyword index has to survive the round trip, and nothing about row
+    /// counts would notice if it did not.
+    ///
+    /// FTS5 keeps its index in shadow tables — `fts_entities_data`,
+    /// `fts_entities_idx` and the rest — which are ordinary tables that
+    /// `VACUUM INTO` copies like any other. That is the expectation, and this
+    /// asserts it rather than assuming it, because the failure would be a
+    /// restored store that answers every query correctly *except* search, and
+    /// returns nothing rather than erroring. Silent, plausible, and only
+    /// discovered by someone who searched for something they knew was there.
+    #[test]
+    fn search_still_works_after_a_restore() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = seeded(&dir.path().join("keel.sqlite"));
+
+        let found_before: i64 = store
+            .connection()
+            .query_row(
+                "SELECT count(*) FROM fts_entities WHERE fts_entities MATCH ?1",
+                ["task"],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            found_before > 0,
+            "the fixture should be findable to begin with"
+        );
+
+        let dest = dir.path().join("backup");
+        backup(&store, &dest).unwrap();
+        drop(store);
+
+        let restored_path = dir.path().join("restored").join("keel.sqlite");
+        restore(&dest, &restored_path).unwrap();
+        let restored = SqliteStore::open(&restored_path).unwrap();
+
+        let found_after: i64 = restored
+            .connection()
+            .query_row(
+                "SELECT count(*) FROM fts_entities WHERE fts_entities MATCH ?1",
+                ["task"],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            found_after, found_before,
+            "the keyword index did not survive the backup round trip"
+        );
+
+        // And it must still be *live* afterwards, not merely present. A copied
+        // index with dead triggers would pass the assertion above and then
+        // quietly stop tracking every row written from here on.
+        restored
+            .connection()
+            .execute(
+                "INSERT INTO tasks
+                   (id, project_id, number, title, summary, idempotency_key, created_at,
+                    updated_at, created_by, updated_by, version)
+                 VALUES ('tsk_2','prj_1',2,'A brandnewthing','also a summary','k9',
+                         '2026-08-11T00:00:00.000000Z','2026-08-11T00:00:00.000000Z',
+                         'claude','claude',1)",
+                [],
+            )
+            .unwrap();
+        let fresh: i64 = restored
+            .connection()
+            .query_row(
+                "SELECT count(*) FROM fts_entities WHERE fts_entities MATCH ?1",
+                ["brandnewthing"],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            fresh, 1,
+            "the triggers should still be maintaining the index"
+        );
+    }
+
     #[test]
     fn a_backup_restores_to_a_store_holding_the_same_rows() {
         let dir = tempfile::tempdir().unwrap();

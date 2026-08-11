@@ -10,6 +10,7 @@
 //! and per content hash (KEEL-127).
 
 pub mod docs;
+pub mod entity;
 pub mod graph;
 pub mod rows;
 pub mod schema;
