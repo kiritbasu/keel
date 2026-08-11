@@ -38,7 +38,15 @@ fn prov() -> Provenance {
 
 fn task(store: &mut DuckStore, project: &EntityId, title: &str) -> Task {
     match store
-        .create(Task::new(project.clone(), title).into(), &prov())
+        .create(
+            Task::new(
+                project.clone(),
+                title,
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov(),
+        )
         .unwrap()
         .entity
     {

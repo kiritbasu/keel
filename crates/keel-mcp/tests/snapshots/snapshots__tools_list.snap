@@ -355,7 +355,7 @@ expression: "keel_mcp::list_result()"
             "type": "string"
           },
           "summary": {
-            "description": "Milestones: REQUIRED. One or two plain sentences saying what this phase covers, in the words someone who has not seen the code would use. It is what shows on the roadmap, so a phase without one is a bare name that means something only to whoever wrote it.\n\nWrite it like a person, not like a release note. No section references, no internal names, no rule-of-three lists, no sentence that exists to sound considered.\n\nGood: \"Make the everyday loop work: file a bug in seconds, see what's ready to start, and read the board without opening every card.\"\n\nBad: \"Deliver 8A/8C capability uplift, constituting the actions that do the work rather than describe it, across six workstreams.\"",
+            "description": "Tasks and milestones: REQUIRED. One or two plain sentences a colleague could read cold six weeks from now, without having been in this conversation. For a task: what is wrong or wanted, what it affects, and what done looks like. For a milestone: what the phase covers. It is what lists show, so a row without one means something only to whoever wrote it.\n\nWrite it like a person, not like a release note. No section references, no internal names, no rule-of-three lists, no sentence that exists to sound considered.\n\nGood: \"The board shows a task's priority but never which phase it belongs to, so you have to open each one to find out. Done when every row shows its milestone and you can group by it.\"\n\nBad: \"Implement milestone surfacing on the board view per TQ-31 to improve organisational legibility.\"",
             "type": "string"
           },
           "surface": {

@@ -36,10 +36,26 @@ fn the_same_create_twice_returns_the_same_entity_with_created_false() {
     let p = project(&mut s);
 
     let first = s
-        .create(Task::new(p.clone(), "Add the login page").into(), &prov())
+        .create(
+            Task::new(
+                p.clone(),
+                "Add the login page",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov(),
+        )
         .unwrap();
     let second = s
-        .create(Task::new(p, "Add the login page").into(), &prov())
+        .create(
+            Task::new(
+                p,
+                "Add the login page",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov(),
+        )
         .unwrap();
 
     assert!(first.created);
@@ -55,10 +71,26 @@ fn idempotency_survives_trivial_title_differences() {
     let p = project(&mut s);
 
     let a = s
-        .create(Task::new(p.clone(), "Add the login page").into(), &prov())
+        .create(
+            Task::new(
+                p.clone(),
+                "Add the login page",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov(),
+        )
         .unwrap();
     let b = s
-        .create(Task::new(p, "  add   THE   Login   Page  ").into(), &prov())
+        .create(
+            Task::new(
+                p,
+                "  add   THE   Login   Page  ",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov(),
+        )
         .unwrap();
     assert_eq!(a.entity.id(), b.entity.id());
     assert!(!b.created);
@@ -70,9 +102,10 @@ fn a_caller_supplied_key_overrides_the_derived_one() {
     let p = project(&mut s);
 
     // Two genuinely different tasks that happen to share a title.
-    let mut one: Entity = Task::new(p.clone(), "Deploy").into();
+    let mut one: Entity =
+        Task::new(p.clone(), "Deploy", "A row this test needs in the store.").into();
     one.set_idempotency_key("deploy-staging");
-    let mut two: Entity = Task::new(p, "Deploy").into();
+    let mut two: Entity = Task::new(p, "Deploy", "A row this test needs in the store.").into();
     two.set_idempotency_key("deploy-production");
 
     let a = s.create(one, &prov()).unwrap();
@@ -96,8 +129,18 @@ fn idempotency_does_not_leak_across_projects() {
         .id()
         .clone();
 
-    let a = s.create(Task::new(p1, "Ship it").into(), &prov()).unwrap();
-    let b = s.create(Task::new(p2, "Ship it").into(), &prov()).unwrap();
+    let a = s
+        .create(
+            Task::new(p1, "Ship it", "A row this test needs in the store.").into(),
+            &prov(),
+        )
+        .unwrap();
+    let b = s
+        .create(
+            Task::new(p2, "Ship it", "A row this test needs in the store.").into(),
+            &prov(),
+        )
+        .unwrap();
     assert!(a.created && b.created);
     assert_ne!(a.entity.id(), b.entity.id());
 }
@@ -111,13 +154,29 @@ fn recreating_an_archived_entity_returns_the_archived_one() {
     let p = project(&mut s);
 
     let original = s
-        .create(Task::new(p.clone(), "Retire the importer").into(), &prov())
+        .create(
+            Task::new(
+                p.clone(),
+                "Retire the importer",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov(),
+        )
         .unwrap()
         .entity;
     s.archive(original.id(), 1, &prov()).unwrap();
 
     let again = s
-        .create(Task::new(p, "Retire the importer").into(), &prov())
+        .create(
+            Task::new(
+                p,
+                "Retire the importer",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov(),
+        )
         .unwrap();
     assert!(!again.created);
     assert_eq!(again.entity.id(), original.id());
@@ -131,7 +190,10 @@ fn a_stale_update_is_rejected_and_reports_the_current_version() {
     let (mut s, _d) = store();
     let p = project(&mut s);
     let task = s
-        .create(Task::new(p, "Ship the daemon").into(), &prov())
+        .create(
+            Task::new(p, "Ship the daemon", "A row this test needs in the store.").into(),
+            &prov(),
+        )
         .unwrap()
         .entity;
 
@@ -182,7 +244,10 @@ fn the_loser_can_merge_by_re_reading_and_retrying() {
     let (mut s, _d) = store();
     let p = project(&mut s);
     let task = s
-        .create(Task::new(p, "Ship the daemon").into(), &prov())
+        .create(
+            Task::new(p, "Ship the daemon", "A row this test needs in the store.").into(),
+            &prov(),
+        )
         .unwrap()
         .entity;
 
@@ -217,7 +282,10 @@ fn a_stale_archive_is_rejected_too() {
     let (mut s, _d) = store();
     let p = project(&mut s);
     let task = s
-        .create(Task::new(p, "Temp").into(), &prov())
+        .create(
+            Task::new(p, "Temp", "A row this test needs in the store.").into(),
+            &prov(),
+        )
         .unwrap()
         .entity;
 
@@ -259,7 +327,10 @@ fn every_mutation_writes_an_event() {
     let (mut s, _d) = store();
     let p = project(&mut s);
     let task = s
-        .create(Task::new(p.clone(), "Ship it").into(), &prov())
+        .create(
+            Task::new(p.clone(), "Ship it", "A row this test needs in the store.").into(),
+            &prov(),
+        )
         .unwrap()
         .entity;
     s.update(
@@ -288,7 +359,7 @@ fn an_event_records_the_actor_and_session_of_the_write_that_caused_it() {
     let p = project(&mut s);
     let task = s
         .create(
-            Task::new(p, "Ship it").into(),
+            Task::new(p, "Ship it", "A row this test needs in the store.").into(),
             &Provenance::anonymous(Actor::Human)
                 .with_session("ses_human")
                 .with_surface(Surface::Ui),
@@ -318,7 +389,10 @@ fn a_field_change_records_both_sides() {
     let (mut s, _d) = store();
     let p = project(&mut s);
     let task = s
-        .create(Task::new(p, "Ship it").into(), &prov())
+        .create(
+            Task::new(p, "Ship it", "A row this test needs in the store.").into(),
+            &prov(),
+        )
         .unwrap()
         .entity;
     s.update(
@@ -345,7 +419,10 @@ fn a_no_op_update_writes_no_event() {
     let (mut s, _d) = store();
     let p = project(&mut s);
     let task = s
-        .create(Task::new(p, "Ship it").into(), &prov())
+        .create(
+            Task::new(p, "Ship it", "A row this test needs in the store.").into(),
+            &prov(),
+        )
         .unwrap()
         .entity;
     let before = s.events(&Cursor::Beginning, None, 1000).unwrap().total;
@@ -373,8 +450,16 @@ fn events_can_be_read_from_a_cursor_without_gaps_or_repeats() {
     let (mut s, _d) = store();
     let p = project(&mut s);
     for i in 0..30 {
-        s.create(Task::new(p.clone(), format!("Task {i}")).into(), &prov())
-            .unwrap();
+        s.create(
+            Task::new(
+                p.clone(),
+                format!("Task {i}"),
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov(),
+        )
+        .unwrap();
     }
 
     let all = s.events(&Cursor::Beginning, None, 1000).unwrap();
@@ -412,12 +497,19 @@ fn events_can_be_read_from_a_cursor_without_gaps_or_repeats() {
 fn events_can_be_filtered_by_time() {
     let (mut s, _d) = store();
     let p = project(&mut s);
-    s.create(Task::new(p.clone(), "Early").into(), &prov())
-        .unwrap();
+    s.create(
+        Task::new(p.clone(), "Early", "A row this test needs in the store.").into(),
+        &prov(),
+    )
+    .unwrap();
 
     let boundary = chrono::Utc::now();
     std::thread::sleep(std::time::Duration::from_millis(5));
-    s.create(Task::new(p, "Late").into(), &prov()).unwrap();
+    s.create(
+        Task::new(p, "Late", "A row this test needs in the store.").into(),
+        &prov(),
+    )
+    .unwrap();
 
     let since = s.events(&Cursor::Since(boundary), None, 100).unwrap();
     assert_eq!(since.items.len(), 1);
@@ -438,10 +530,16 @@ fn events_are_scoped_by_project() {
         .entity
         .id()
         .clone();
-    s.create(Task::new(p1.clone(), "One").into(), &prov())
-        .unwrap();
-    s.create(Task::new(p2.clone(), "Two").into(), &prov())
-        .unwrap();
+    s.create(
+        Task::new(p1.clone(), "One", "A row this test needs in the store.").into(),
+        &prov(),
+    )
+    .unwrap();
+    s.create(
+        Task::new(p2.clone(), "Two", "A row this test needs in the store.").into(),
+        &prov(),
+    )
+    .unwrap();
 
     let first = s.events(&Cursor::Beginning, Some(&p1), 100).unwrap();
     assert!(
@@ -463,10 +561,19 @@ fn a_link_writes_an_event_naming_the_stored_direction() {
     let (mut s, _d) = store();
     let p = project(&mut s);
     let a = s
-        .create(Task::new(p.clone(), "A").into(), &prov())
+        .create(
+            Task::new(p.clone(), "A", "A row this test needs in the store.").into(),
+            &prov(),
+        )
         .unwrap()
         .entity;
-    let b = s.create(Task::new(p, "B").into(), &prov()).unwrap().entity;
+    let b = s
+        .create(
+            Task::new(p, "B", "A row this test needs in the store.").into(),
+            &prov(),
+        )
+        .unwrap()
+        .entity;
 
     s.link(
         NewLink::new(a.id().clone(), Relation::DependsOn, b.id().clone()),
@@ -493,8 +600,16 @@ fn an_event_page_reports_its_total() {
     let (mut s, _d) = store();
     let p = project(&mut s);
     for i in 0..10 {
-        s.create(Task::new(p.clone(), format!("T{i}")).into(), &prov())
-            .unwrap();
+        s.create(
+            Task::new(
+                p.clone(),
+                format!("T{i}"),
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov(),
+        )
+        .unwrap();
     }
     let page = s.events(&Cursor::Beginning, None, 3).unwrap();
     assert_eq!(page.items.len(), 3);

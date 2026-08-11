@@ -109,6 +109,8 @@ async fn concurrent_identical_creates_produce_exactly_one_entity() {
                         "type": "task",
                         "project": project,
                         "title": "Fix the rounding bug",
+                        "summary": "Totals are a penny out on some invoices. Done when the \
+                                    arithmetic matches the ledger.",
                         "session_id": format!("ses_concurrent_{i}")
                     }),
                 )
@@ -169,7 +171,10 @@ async fn concurrent_updates_lose_nothing_when_each_writer_retries() {
     let task = client
         .ok(
             "keel_create",
-            json!({"type": "task", "project": project, "title": "Accumulate labels"}),
+            json!({
+                "type": "task", "project": project, "title": "Accumulate labels",
+                "summary": "Two writers add labels at once. Done when neither drops the other's."
+            }),
         )
         .await["entity"]["id"]
         .as_str()
@@ -296,6 +301,7 @@ async fn concurrent_writers_produce_a_gapless_event_log() {
                             "type": "task",
                             "project": project,
                             "title": format!("Task {i}-{j}"),
+                            "summary": "A row this test needs in the store.",
                             "session_id": format!("ses_concurrent_{i}")
                         }),
                     )
@@ -357,7 +363,10 @@ async fn concurrent_links_between_the_same_pair_produce_one_edge() {
     let task = client
         .ok(
             "keel_create",
-            json!({"type": "task", "project": project, "title": "Implement it"}),
+            json!({
+                "type": "task", "project": project, "title": "Implement it",
+                "summary": "A row this test needs, so an edge has something to point at."
+            }),
         )
         .await["entity"]["id"]
         .as_str()

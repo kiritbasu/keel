@@ -410,6 +410,81 @@ impl Milestone {
     }
 }
 
+impl Task {
+    /// Refuse a task whose summary is missing, empty, or a restatement of its
+    /// own title.
+    ///
+    /// **Two checks and only two**, which is KB's call in TQ-34. The mechanism
+    /// is the required property on the tool, not this function: a model cannot
+    /// complete the call without confronting it, on every surface, whether or
+    /// not any skill loaded. This is the backstop.
+    ///
+    /// Checking harder was the other option and it was declined for a reason
+    /// worth keeping: refused for something it does not agree with, a model
+    /// satisfies the letter of the rule — swaps the word, keeps the same weak
+    /// sentence — so the prose ends up both bad and compliant while the check
+    /// reports success. A false rejection is worse than a mediocre summary.
+    ///
+    /// Existing rows are exempt by construction: this runs on the create path,
+    /// and the ninety-four that predate the rule are reported by `keel lint`
+    /// rather than rewritten. A machine inventing a summary would produce
+    /// exactly the confident, plausible, wrong prose the rule exists to stop.
+    pub fn validate_summary(&self) -> Result<()> {
+        let summary = self.summary.as_deref().unwrap_or("").trim();
+
+        if summary.is_empty() {
+            return Err(Error::invalid(
+                EntityType::Task,
+                "summary",
+                "a task needs one or two plain sentences and this one is empty",
+                "what is wrong or wanted, what it affects, and what done looks like — \
+                 readable cold by someone who was not in this conversation. For example: \
+                 \"The board shows a task's priority but never which phase it belongs to, \
+                 so you have to open each one to find out. Done when every row shows its \
+                 milestone.\"",
+            ));
+        }
+
+        if restates(&self.title, summary) {
+            return Err(Error::invalid(
+                EntityType::Task,
+                "summary",
+                "this summary only reorders the title — it adds nothing a reader does not \
+                 already have",
+                "say what the title cannot: why it matters, what it affects, or what done \
+                 looks like",
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+/// Whether `summary` says nothing `title` did not already say.
+///
+/// Containment rather than similarity, reusing the rule KEEL-65 arrived at for
+/// near-duplicate titles. One token set must be a subset of the other, so the
+/// difference can only be *added* words — never substituted ones. That is what
+/// makes it safe to refuse on: "Fix the board filter so it survives a reload"
+/// against the title "Fix the board filter" is an addition and passes, where an
+/// overlap score would have called it a duplicate.
+fn restates(title: &str, summary: &str) -> bool {
+    let words = |s: &str| -> Vec<String> {
+        s.to_lowercase()
+            .split(|c: char| !c.is_alphanumeric())
+            .filter(|w| w.len() > 2)
+            .map(str::to_owned)
+            .collect()
+    };
+    let title_words = words(title);
+    let summary_words = words(summary);
+
+    if title_words.is_empty() || summary_words.is_empty() {
+        return false;
+    }
+    summary_words.iter().all(|w| title_words.contains(w))
+}
+
 /// A unit of work.
 ///
 /// `PartialEq` but not `Eq`: `rank` is a float, and a total equality on a type
@@ -434,6 +509,17 @@ pub struct Task {
     /// Short detail. Anything long-form belongs in a spec, linked with
     /// `implements`.
     pub body: Option<String>,
+    /// One or two plain sentences a colleague could read cold six weeks later,
+    /// without having been in the conversation.
+    ///
+    /// Required on the create path and nullable in storage, which is not a
+    /// compromise: ninety-four rows predate the rule, and a NOT NULL column
+    /// would make them unreadable rather than merely unlabelled. The
+    /// requirement belongs where it can be met.
+    ///
+    /// Lists render this and never fall back to `body`. A silent fallback is
+    /// how a requirement quietly stops being one — the gap has to show.
+    pub summary: Option<String>,
     /// Where it stands.
     pub status: TaskStatus,
     /// How urgent.
@@ -466,7 +552,18 @@ pub struct Task {
 
 impl Task {
     /// A new task with the required fields.
-    pub fn new(project_id: EntityId, title: impl Into<String>) -> Self {
+    ///
+    /// `summary` is positional for the same reason `Milestone::new`'s is: the
+    /// compiler finds any call site that forgets, which is the check that
+    /// cannot itself be forgotten. It was a settable field first, and the cost
+    /// showed immediately — the create path refused, and the missing summaries
+    /// surfaced one failing test at a time across thirteen files instead of all
+    /// at once in a build error.
+    ///
+    /// Not validated here — see [`Task::validate_summary`], which the store
+    /// calls on the way in so the CLI and MCP cannot disagree about what is
+    /// acceptable.
+    pub fn new(project_id: EntityId, title: impl Into<String>, summary: impl Into<String>) -> Self {
         let title = title.into();
         Task {
             id: EntityId::generate(EntityType::Task),
@@ -477,6 +574,7 @@ impl Task {
             kind: TaskKind::default(),
             title,
             body: None,
+            summary: Some(summary.into()),
             status: TaskStatus::default(),
             priority: TaskPriority::default(),
             labels: Vec::new(),
@@ -1240,7 +1338,12 @@ mod tests {
         vec![
             Project::new("keel", "Keel").into(),
             Milestone::new(p.clone(), "Phase 0", "The spine.").into(),
-            Task::new(p.clone(), "Wire up the schema").into(),
+            Task::new(
+                p.clone(),
+                "Wire up the schema",
+                "A row this test needs in the store.",
+            )
+            .into(),
             Spec::new(p.clone(), "Storage spec").into(),
             Decision::new(p.clone(), "Use DuckDB").into(),
             Question::new(p.clone(), "Where does the store live?").into(),
@@ -1291,7 +1394,8 @@ mod tests {
 
     #[test]
     fn setting_a_doc_version_on_a_task_is_an_error_not_a_no_op() {
-        let mut task: Entity = Task::new(project(), "t").into();
+        let mut task: Entity =
+            Task::new(project(), "t", "A row this test needs in the store.").into();
         let err = task.set_current_doc_version(3).unwrap_err();
         assert!(err.to_string().contains("no prose body"), "{err}");
 
@@ -1323,14 +1427,22 @@ mod tests {
     #[test]
     fn idempotency_keys_ignore_case_and_whitespace() {
         let p = project();
-        let a = Task::new(p.clone(), "Add login page");
-        let b = Task::new(p.clone(), "  add   LOGIN   page ");
+        let a = Task::new(
+            p.clone(),
+            "Add login page",
+            "A row this test needs in the store.",
+        );
+        let b = Task::new(
+            p.clone(),
+            "  add   LOGIN   page ",
+            "A row this test needs in the store.",
+        );
         assert_eq!(
             a.idempotency_key, b.idempotency_key,
             "trivially different titles must collapse to one task (R-6)"
         );
 
-        let c = Task::new(p, "Add logout page");
+        let c = Task::new(p, "Add logout page", "A row this test needs in the store.");
         assert_ne!(a.idempotency_key, c.idempotency_key);
     }
 
@@ -1339,12 +1451,12 @@ mod tests {
         let p1 = project();
         let p2 = project();
         assert_ne!(
-            Task::new(p1.clone(), "Ship it").idempotency_key,
-            Task::new(p2, "Ship it").idempotency_key,
+            Task::new(p1.clone(), "Ship it", "A row this test needs in the store.").idempotency_key,
+            Task::new(p2, "Ship it", "A row this test needs in the store.").idempotency_key,
             "the same title in two projects is two tasks"
         );
         assert_ne!(
-            Task::new(p1.clone(), "Ship it").idempotency_key,
+            Task::new(p1.clone(), "Ship it", "A row this test needs in the store.").idempotency_key,
             Milestone::new(p1, "Ship it", "Get it out of the door.").idempotency_key,
             "a task and a milestone with one name are two things"
         );
@@ -1392,7 +1504,8 @@ mod tests {
 
     #[test]
     fn entity_serialisation_is_tagged_by_type() {
-        let e: Entity = Task::new(project(), "Ship it").into();
+        let e: Entity =
+            Task::new(project(), "Ship it", "A row this test needs in the store.").into();
         let json = serde_json::to_value(&e).unwrap();
         assert_eq!(json["type"], "task");
         assert_eq!(json["title"], "Ship it");

@@ -33,7 +33,15 @@ fn a_note_round_trips_with_its_attribution_intact() {
     let (_d, mut store, project) = store();
     let prov = Provenance::anonymous(Actor::Claude);
     let task = store
-        .create(Task::new(project.clone(), "Hybrid search").into(), &prov)
+        .create(
+            Task::new(
+                project.clone(),
+                "Hybrid search",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov,
+        )
         .unwrap()
         .entity
         .id()
@@ -70,7 +78,10 @@ fn the_stream_reads_back_in_the_order_it_was_written() {
     let (_d, mut store, project) = store();
     let prov = Provenance::anonymous(Actor::Claude);
     let task = store
-        .create(Task::new(project, "Restore").into(), &prov)
+        .create(
+            Task::new(project, "Restore", "A row this test needs in the store.").into(),
+            &prov,
+        )
         .unwrap()
         .entity
         .id()
@@ -96,7 +107,10 @@ fn the_session_falls_back_to_provenance_when_the_note_does_not_carry_one() {
     let (_d, mut store, project) = store();
     let prov = Provenance::anonymous(Actor::Claude).with_session("ses_from_provenance");
     let task = store
-        .create(Task::new(project, "Anything").into(), &prov)
+        .create(
+            Task::new(project, "Anything", "A row this test needs in the store.").into(),
+            &prov,
+        )
         .unwrap()
         .entity
         .id()
@@ -143,7 +157,15 @@ fn a_note_on_an_archived_row_is_refused_with_a_usable_message() {
     let (_d, mut store, project) = store();
     let prov = Provenance::anonymous(Actor::Claude);
     let task = store
-        .create(Task::new(project, "Dropped work").into(), &prov)
+        .create(
+            Task::new(
+                project,
+                "Dropped work",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov,
+        )
         .unwrap()
         .entity
         .id()
@@ -169,7 +191,10 @@ fn an_empty_note_never_reaches_the_store() {
     let (_d, mut store, project) = store();
     let prov = Provenance::anonymous(Actor::Claude);
     let task = store
-        .create(Task::new(project, "Anything").into(), &prov)
+        .create(
+            Task::new(project, "Anything", "A row this test needs in the store.").into(),
+            &prov,
+        )
         .unwrap()
         .entity
         .id()
@@ -186,7 +211,15 @@ fn retraction_hides_a_note_without_destroying_it() {
     let (_d, mut store, project) = store();
     let prov = Provenance::anonymous(Actor::Claude);
     let task = store
-        .create(Task::new(project, "Wrong diagnosis").into(), &prov)
+        .create(
+            Task::new(
+                project,
+                "Wrong diagnosis",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov,
+        )
         .unwrap()
         .entity
         .id()
@@ -213,7 +246,10 @@ fn retracting_the_same_note_twice_is_an_error_rather_than_a_silent_success() {
     let (_d, mut store, project) = store();
     let prov = Provenance::anonymous(Actor::Claude);
     let task = store
-        .create(Task::new(project, "Anything").into(), &prov)
+        .create(
+            Task::new(project, "Anything", "A row this test needs in the store.").into(),
+            &prov,
+        )
         .unwrap()
         .entity
         .id()
@@ -237,7 +273,15 @@ fn a_projects_notes_come_back_in_one_call_across_every_row() {
     let mut tasks = Vec::new();
     for title in ["one", "two", "three"] {
         let id = store
-            .create(Task::new(project.clone(), title).into(), &prov)
+            .create(
+                Task::new(
+                    project.clone(),
+                    title,
+                    "A row this test needs in the store.",
+                )
+                .into(),
+                &prov,
+            )
             .unwrap()
             .entity
             .id()
@@ -263,7 +307,15 @@ fn a_retracted_note_is_excluded_from_the_project_wide_read() {
     let (_d, mut store, project) = store();
     let prov = Provenance::anonymous(Actor::Claude);
     let task = store
-        .create(Task::new(project.clone(), "Anything").into(), &prov)
+        .create(
+            Task::new(
+                project.clone(),
+                "Anything",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov,
+        )
         .unwrap()
         .entity
         .id()
@@ -290,7 +342,15 @@ fn the_rendered_tracker_is_byte_identical_across_runs() {
     let (_d, mut store, project) = store();
     let prov = Provenance::anonymous(Actor::Claude);
     let task = store
-        .create(Task::new(project.clone(), "Something").into(), &prov)
+        .create(
+            Task::new(
+                project.clone(),
+                "Something",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov,
+        )
         .unwrap()
         .entity
         .id()
@@ -315,7 +375,15 @@ fn the_rendered_tracker_carries_the_notes() {
     let (_d, mut store, project) = store();
     let prov = Provenance::anonymous(Actor::Claude);
     let task = store
-        .create(Task::new(project.clone(), "Hybrid search").into(), &prov)
+        .create(
+            Task::new(
+                project.clone(),
+                "Hybrid search",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov,
+        )
         .unwrap()
         .entity
         .id()

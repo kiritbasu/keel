@@ -39,7 +39,11 @@ fn setup() -> Fixture {
 
 impl Fixture {
     fn task(&mut self, title: &str, priority: TaskPriority, status: TaskStatus) -> EntityId {
-        let mut t = Task::new(self.project.clone(), title);
+        let mut t = Task::new(
+            self.project.clone(),
+            title,
+            "A row this test needs in the store.",
+        );
         t.priority = priority;
         t.status = status;
         self.store
@@ -51,7 +55,11 @@ impl Fixture {
     }
 
     fn decision_task(&mut self, title: &str, priority: TaskPriority) -> EntityId {
-        let mut t = Task::new(self.project.clone(), title);
+        let mut t = Task::new(
+            self.project.clone(),
+            title,
+            "A row this test needs in the store.",
+        );
         t.priority = priority;
         t.labels = vec![next::DECISION_LABEL.to_owned()];
         self.store

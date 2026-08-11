@@ -30,7 +30,12 @@ fn store() -> (tempfile::TempDir, DuckStore, EntityId) {
 fn task(store: &mut DuckStore, project: &EntityId, title: &str) -> EntityId {
     store
         .create(
-            Task::new(project.clone(), title).into(),
+            Task::new(
+                project.clone(),
+                title,
+                "A row this test needs in the store.",
+            )
+            .into(),
             &Provenance::anonymous(Actor::Claude),
         )
         .unwrap()

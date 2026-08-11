@@ -38,6 +38,7 @@ fn the_exact_pair_two_gate_runs_produced_becomes_one_row() {
             Task::new(
                 project.clone(),
                 "Validate constituent phases to 0–360 degrees",
+                "A row this test needs in the store.",
             )
             .into(),
             &prov,
@@ -47,7 +48,12 @@ fn the_exact_pair_two_gate_runs_produced_becomes_one_row() {
 
     let second = store
         .create(
-            Task::new(project.clone(), "Validate constituent phases to 0–360").into(),
+            Task::new(
+                project.clone(),
+                "Validate constituent phases to 0–360",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov,
         )
         .unwrap();
@@ -72,19 +78,34 @@ fn genuinely_different_work_that_shares_words_stays_separate() {
 
     let a = store
         .create(
-            Task::new(project.clone(), "Validate constituent phases to 0–360").into(),
+            Task::new(
+                project.clone(),
+                "Validate constituent phases to 0–360",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov,
         )
         .unwrap();
     let b = store
         .create(
-            Task::new(project.clone(), "Validate constituent amplitude and speed").into(),
+            Task::new(
+                project.clone(),
+                "Validate constituent amplitude and speed",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov,
         )
         .unwrap();
     let c = store
         .create(
-            Task::new(project.clone(), "Guard high_waters against a step of zero").into(),
+            Task::new(
+                project.clone(),
+                "Guard high_waters against a step of zero",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov,
         )
         .unwrap();
@@ -109,7 +130,12 @@ fn a_near_match_of_a_different_type_is_not_the_same_thing() {
         .unwrap();
     let task = store
         .create(
-            Task::new(project.clone(), "Switch the content-address hash to blake3").into(),
+            Task::new(
+                project.clone(),
+                "Switch the content-address hash to blake3",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov,
         )
         .unwrap();
@@ -129,13 +155,23 @@ fn a_near_match_in_another_project_is_not_the_same_thing() {
 
     store
         .create(
-            Task::new(first, "Add a size cap with LRU eviction").into(),
+            Task::new(
+                first,
+                "Add a size cap with LRU eviction",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov,
         )
         .unwrap();
     let elsewhere = store
         .create(
-            Task::new(second, "Add a size cap with LRU eviction").into(),
+            Task::new(
+                second,
+                "Add a size cap with LRU eviction",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov,
         )
         .unwrap();

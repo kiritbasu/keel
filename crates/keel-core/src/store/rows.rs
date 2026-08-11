@@ -326,6 +326,7 @@ pub fn spec_for(entity_type: EntityType) -> TableSpec {
                 Plain("kind"),
                 Plain("title"),
                 Plain("body"),
+                Plain("summary"),
                 Plain("status"),
                 Plain("priority"),
                 Array("labels"),
@@ -511,6 +512,7 @@ pub fn insert_params(entity: &Entity) -> Vec<Value> {
             s(e.kind.as_str()),
             s(&e.title),
             os(e.body.clone()),
+            os(e.summary.clone()),
             s(e.status.as_str()),
             s(e.priority.as_str()),
             arr(&e.labels),
@@ -673,6 +675,7 @@ pub fn from_row(entity_type: EntityType, row: &Row<'_>) -> Result<Entity> {
             kind: TaskKind::parse(&get_s(row, t, "kind")?)?,
             title: get_s(row, t, "title")?,
             body: get_os(row, t, "body")?,
+            summary: get_os(row, t, "summary")?,
             status: TaskStatus::parse(&get_s(row, t, "status")?)?,
             priority: match get_os(row, t, "priority")? {
                 Some(p) => TaskPriority::parse(&p)?,
@@ -844,7 +847,7 @@ mod tests {
         let entities: Vec<Entity> = vec![
             Project::new("k", "Keel").into(),
             Milestone::new(p.clone(), "P0", "The first phase, for a store test.").into(),
-            Task::new(p.clone(), "t").into(),
+            Task::new(p.clone(), "t", "A row this test needs in the store.").into(),
             Spec::new(p.clone(), "s").into(),
             Decision::new(p.clone(), "d").into(),
             Question::new(p.clone(), "q").into(),

@@ -170,7 +170,12 @@ mod tests {
     use serde_json::json;
 
     fn task() -> Entity {
-        Task::new(EntityId::generate(EntityType::Project), "Ship the daemon").into()
+        Task::new(
+            EntityId::generate(EntityType::Project),
+            "Ship the daemon",
+            "A row this test needs in the store.",
+        )
+        .into()
     }
 
     fn changes(v: Value) -> Map<String, Value> {
@@ -315,7 +320,11 @@ mod tests {
                 "status",
                 json!("active"),
             ),
-            (Task::new(p.clone(), "t").into(), "status", json!("done")),
+            (
+                Task::new(p.clone(), "t", "A row this test needs in the store.").into(),
+                "status",
+                json!("done"),
+            ),
             (
                 Spec::new(p.clone(), "s").into(),
                 "status",

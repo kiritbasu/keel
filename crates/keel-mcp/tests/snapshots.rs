@@ -52,7 +52,12 @@ fn seeded() -> (DuckStore, tempfile::TempDir) {
         .unwrap();
     store
         .create(
-            Task::new(project, "Dedupe usage events by idempotency key").into(),
+            Task::new(
+                project,
+                "Dedupe usage events by idempotency key",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov,
         )
         .unwrap();

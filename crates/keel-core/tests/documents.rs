@@ -321,7 +321,12 @@ fn search_spans_prose_and_non_prose_types_alike() {
     let task = f
         .store
         .create(
-            Task::new(f.project_id.clone(), "Shorten the onboarding flow").into(),
+            Task::new(
+                f.project_id.clone(),
+                "Shorten the onboarding flow",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov(),
         )
         .unwrap()
@@ -381,7 +386,12 @@ fn newly_created_entities_are_searchable_immediately() {
     let mut f = Fixture::new();
     f.store
         .create(
-            Task::new(f.project_id.clone(), "Investigate flaky deploys").into(),
+            Task::new(
+                f.project_id.clone(),
+                "Investigate flaky deploys",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov(),
         )
         .unwrap();
@@ -391,7 +401,12 @@ fn newly_created_entities_are_searchable_immediately() {
     // Create another and search again without any explicit reindex.
     f.store
         .create(
-            Task::new(f.project_id.clone(), "Fix flaky integration tests").into(),
+            Task::new(
+                f.project_id.clone(),
+                "Fix flaky integration tests",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov(),
         )
         .unwrap();
@@ -409,7 +424,12 @@ fn archived_entities_drop_out_of_search() {
     let task = f
         .store
         .create(
-            Task::new(f.project_id.clone(), "Retire the legacy importer").into(),
+            Task::new(
+                f.project_id.clone(),
+                "Retire the legacy importer",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov(),
         )
         .unwrap()
@@ -450,13 +470,23 @@ fn search_can_be_filtered_by_project_and_type() {
 
     f.store
         .create(
-            Task::new(f.project_id.clone(), "Shared word alpha").into(),
+            Task::new(
+                f.project_id.clone(),
+                "Shared word alpha",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov(),
         )
         .unwrap();
     f.store
         .create(
-            Task::new(other.clone(), "Shared word alpha").into(),
+            Task::new(
+                other.clone(),
+                "Shared word alpha",
+                "A row this test needs in the store.",
+            )
+            .into(),
             &prov(),
         )
         .unwrap();

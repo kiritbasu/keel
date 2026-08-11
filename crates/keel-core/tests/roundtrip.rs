@@ -48,7 +48,11 @@ fn one_of_each(project_id: &EntityId, metric_id: &EntityId) -> Vec<Entity> {
     milestone.version_string = Some("0.1.0".into());
     milestone.sort_order = Some(1);
 
-    let mut task = Task::new(project_id.clone(), "Wire up the DuckDB schema");
+    let mut task = Task::new(
+        project_id.clone(),
+        "Wire up the DuckDB schema",
+        "A row this test needs in the store.",
+    );
     task.kind = TaskKind::Chore;
     task.body = Some("Forward-only migrations, tested.".into());
     task.priority = TaskPriority::P0;
@@ -273,7 +277,15 @@ fn archived_entities_are_excluded_from_lists_but_not_deleted() {
     let project_id = project(&mut store);
 
     let task = store
-        .create(Task::new(project_id.clone(), "Temporary").into(), &claude())
+        .create(
+            Task::new(
+                project_id.clone(),
+                "Temporary",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &claude(),
+        )
         .unwrap()
         .entity;
     store.archive(task.id(), 1, &claude()).unwrap();
@@ -358,7 +370,12 @@ fn a_page_that_is_cut_reports_the_total() {
     for i in 0..12 {
         store
             .create(
-                Task::new(project_id.clone(), format!("Task {i}")).into(),
+                Task::new(
+                    project_id.clone(),
+                    format!("Task {i}"),
+                    "A row this test needs in the store.",
+                )
+                .into(),
                 &claude(),
             )
             .unwrap();
@@ -643,5 +660,130 @@ mod milestone_summary {
             panic!("expected a milestone");
         };
         assert_eq!(m.summary.as_deref(), Some("Make the everyday loop work."));
+    }
+}
+
+/// A task carries a summary, and cannot be created without one.
+///
+/// TQ-34: required on the create path, nullable in storage. The asymmetry is
+/// the point — ninety-four rows predate the rule and a NOT NULL column would
+/// make them unreadable rather than merely unlabelled.
+mod task_summary {
+    use super::*;
+
+    fn task_with(project: EntityId, title: &str, summary: &str) -> Task {
+        let mut t = Task::new(project, title, "A row this test needs in the store.");
+        t.summary = Some(summary.to_owned());
+        t
+    }
+
+    #[test]
+    fn round_trips_to_storage_and_back() {
+        let (mut store, _dir) = store();
+        let p = project(&mut store);
+        let created = store
+            .create(
+                task_with(
+                    p,
+                    "Show the milestone on every row",
+                    "The board never says which phase a task is in, so you have to open each \
+                     one. Done when every row shows it.",
+                )
+                .into(),
+                &claude(),
+            )
+            .expect("create a task with a summary");
+
+        let Entity::Task(read) = store.get(created.entity.id()).unwrap().unwrap() else {
+            panic!("expected a task");
+        };
+        assert!(read.summary.unwrap().starts_with("The board never says"));
+    }
+
+    // Failure case: the requirement itself.
+    #[test]
+    fn create_refuses_a_task_with_no_summary() {
+        let (mut store, _dir) = store();
+        let p = project(&mut store);
+        // Cleared explicitly rather than never set: `Task::new` takes the
+        // summary positionally now, so "a task with no summary" is a state you
+        // have to construct on purpose. That is the constructor doing its job —
+        // this is the only place in the codebase that wants the bad state.
+        let mut bare = Task::new(p, "Do the thing", "placeholder");
+        bare.summary = None;
+        let err = store.create(bare.into(), &claude()).unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("summary"), "{message}");
+        // A model reading only the "Expected" half must be able to retry.
+        assert!(message.contains("done looks like"), "{message}");
+    }
+
+    // Failure case: a summary that adds nothing.
+    #[test]
+    fn create_refuses_a_summary_that_only_restates_the_title() {
+        let (mut store, _dir) = store();
+        let p = project(&mut store);
+        let err = store
+            .create(
+                task_with(p, "Fix the board filter", "Board filter fix").into(),
+                &claude(),
+            )
+            .unwrap_err();
+        assert!(err.to_string().contains("reorders the title"), "{err}");
+    }
+
+    #[test]
+    fn a_summary_that_adds_anything_is_accepted() {
+        // Containment, not similarity: added words pass. An overlap score would
+        // have refused this, and it is a perfectly good summary.
+        let (mut store, _dir) = store();
+        let p = project(&mut store);
+        store
+            .create(
+                task_with(
+                    p,
+                    "Fix the board filter",
+                    "Fix the board filter so it survives a reload, which it does not today.",
+                )
+                .into(),
+                &claude(),
+            )
+            .expect("added detail is not a restatement");
+    }
+
+    /// The exemption, and the reason validation runs on create and not update.
+    ///
+    /// Ninety-four rows predate the rule. If the check ran on every write, none
+    /// of them could ever be touched again — moving one to `done` would be
+    /// refused for a summary nobody was being asked to write. Freezing a third
+    /// of the tracker is a worse failure than the hole this leaves.
+    #[test]
+    fn a_task_that_predates_the_rule_can_still_be_updated() {
+        let (mut store, _dir) = store();
+        let p = project(&mut store);
+
+        // Stand in for a row written before the column existed.
+        let created = store
+            .create(
+                task_with(p, "An older task", "Written before the rule existed.").into(),
+                &claude(),
+            )
+            .unwrap();
+        let mut blank = serde_json::Map::new();
+        blank.insert("summary".to_owned(), json!(null));
+        let cleared = store
+            .update(
+                created.entity.id(),
+                created.entity.audit().version,
+                &blank,
+                &claude(),
+            )
+            .expect("clearing is possible, which is what makes the old rows reachable");
+
+        let mut changes = serde_json::Map::new();
+        changes.insert("status".to_owned(), json!("done"));
+        store
+            .update(cleared.id(), cleared.audit().version, &changes, &claude())
+            .expect("a summary-less task must still be closable");
     }
 }

@@ -57,7 +57,7 @@ impl Fixture {
     fn make(&mut self, entity_type: EntityType, label: &str) -> EntityId {
         let p = self.project_id.clone();
         let entity: Entity = match entity_type {
-            EntityType::Task => Task::new(p, label).into(),
+            EntityType::Task => Task::new(p, label, "A row this test needs in the store.").into(),
             EntityType::Spec => Spec::new(p, label).into(),
             EntityType::Decision => Decision::new(p, label).into(),
             EntityType::Question => Question::new(p, label).into(),

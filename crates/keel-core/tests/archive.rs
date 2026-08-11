@@ -31,7 +31,15 @@ fn listing_projects_still_works_after_one_is_archived() {
 
     // The live failure had a task left behind under the archived project.
     store
-        .create(Task::new(drop.clone(), "Left behind").into(), &prov)
+        .create(
+            Task::new(
+                drop.clone(),
+                "Left behind",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov,
+        )
         .unwrap();
 
     store.archive(&drop, 1, &prov).unwrap();
@@ -67,7 +75,15 @@ fn a_checkpointed_store_reopens_and_accepts_writes() {
             .id()
             .clone();
         store
-            .create(Task::new(id.clone(), "Something to update").into(), &prov)
+            .create(
+                Task::new(
+                    id.clone(),
+                    "Something to update",
+                    "A row this test needs in the store.",
+                )
+                .into(),
+                &prov,
+            )
             .unwrap();
         store.checkpoint().unwrap();
         id
@@ -112,7 +128,15 @@ fn a_task_claimed_and_left_is_reported_as_stale() {
         .id()
         .clone();
     let task = store
-        .create(Task::new(project, "Claimed and abandoned").into(), &prov)
+        .create(
+            Task::new(
+                project,
+                "Claimed and abandoned",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov,
+        )
         .unwrap()
         .entity
         .id()

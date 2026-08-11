@@ -599,6 +599,25 @@ fn validate_entity(entity: &Entity) -> Result<()> {
     }
 }
 
+/// Validation that applies when a row is *created* and not when it is changed.
+///
+/// The asymmetry is deliberate and it is the whole reason this is a second
+/// function. A task summary is required (TQ-34), but ninety-four rows predate
+/// the rule. Running the check on update as well would mean none of those rows
+/// could ever be touched again — moving one to `done` would be refused for a
+/// summary nobody was being asked to write. The requirement belongs where it
+/// can be met.
+///
+/// The cost, stated: an update can still blank a summary that was required at
+/// creation. That is a smaller hole than freezing a third of the tracker, and
+/// `keel lint` reports whatever falls through it.
+fn validate_on_create(entity: &Entity) -> Result<()> {
+    match entity {
+        Entity::Task(t) => t.validate_summary(),
+        _ => Ok(()),
+    }
+}
+
 fn json_param(v: Option<&serde_json::Value>) -> Value {
     v.map(|j| Value::Text(j.to_string())).unwrap_or(Value::Null)
 }
@@ -638,6 +657,7 @@ impl EntityStore for DuckStore {
         // Before the idempotency lookup, so a bad write is refused rather than
         // quietly matching an existing row and reporting success.
         validate_entity(&entity)?;
+        validate_on_create(&entity)?;
 
         let entity_type = entity.entity_type();
         let project_id = entity.project_id().cloned();

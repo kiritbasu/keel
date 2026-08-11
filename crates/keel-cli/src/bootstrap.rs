@@ -629,8 +629,18 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
 
     let mut tasks: Vec<(String, EntityId)> = Vec::new();
     for (phase, title, body, status, priority, kind, labels) in rows {
-        let mut t = Task::new(project_id.clone(), title);
+        let mut t = Task::new(
+            project_id.clone(),
+            title,
+            "A row this test needs in the store.",
+        );
         t.body = Some(body.to_owned());
+        // The body is the summary here. These rows carry real prose written
+        // when the work was planned, and duplicating it into a second field
+        // would give two answers to one question. The create path refuses an
+        // empty or title-restating summary either way, so a bad body is caught
+        // rather than smuggled in through the back door.
+        t.summary = Some(body.to_owned());
         t.status = status;
         t.priority = priority;
         t.kind = kind;

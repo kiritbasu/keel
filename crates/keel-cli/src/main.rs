@@ -676,7 +676,11 @@ fn run_task_add(
     let found = resolve_project(&store, project)?;
     let prov = Provenance::anonymous(Actor::Human).with_surface(Surface::Cli);
 
-    let mut task = Task::new(found.id().clone(), title);
+    let mut task = Task::new(
+        found.id().clone(),
+        title,
+        "A row this test needs in the store.",
+    );
     task.status = TaskStatus::parse(status)?;
     task.priority = TaskPriority::parse(priority)?;
     task.body = body;

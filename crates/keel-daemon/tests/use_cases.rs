@@ -374,6 +374,7 @@ async fn uc2_conversational_capture() {
                     "type": "task",
                     "project": project_id,
                     "title": title,
+                    "summary": format!("{title} — one of the pieces this milestone breaks down into."),
                     "fields": { "priority": "p0", "milestone_id": milestone_id }
                 })),
             )
@@ -674,6 +675,8 @@ async fn uc4_customer_feedback_triage() {
             args(json!({
                 "type": "task", "project": project_id,
                 "title": "Shorten the onboarding flow",
+                "summary": "New users drop out partway through signup. Done when the flow is \
+                            shorter and completion is measured.",
                 "fields": { "priority": "p1" }
             })),
         )
@@ -745,13 +748,19 @@ async fn a_retried_create_does_not_duplicate() {
     let first = d
         .call(
             "keel_create",
-            args(json!({"type": "task", "project": project_id, "title": "Ship the thing"})),
+            args(
+                json!({"type": "task", "project": project_id, "title": "Ship the thing",
+                "summary": "The thing is built and not released. Done when it is on the server."}),
+            ),
         )
         .await;
     let second = d
         .call(
             "keel_create",
-            args(json!({"type": "task", "project": project_id, "title": "Ship the thing"})),
+            args(
+                json!({"type": "task", "project": project_id, "title": "Ship the thing",
+                "summary": "The thing is built and not released. Done when it is on the server."}),
+            ),
         )
         .await;
 
@@ -767,7 +776,8 @@ async fn a_stale_update_returns_409_with_enough_to_merge() {
     let task = d
         .call(
             "keel_create",
-            args(json!({"type": "task", "project": project_id, "title": "Contended"})),
+            args(json!({"type": "task", "project": project_id, "title": "Contended",
+                "summary": "Two writers touch this row at once. Done when neither loses an update."})),
         )
         .await;
     let id = task["entity"]["id"].as_str().unwrap().to_owned();
@@ -806,7 +816,8 @@ async fn depends_on_is_stored_as_blocks_and_the_response_says_so() {
     let a = d
         .call(
             "keel_create",
-            args(json!({"type": "task", "project": project_id, "title": "A"})),
+            args(json!({"type": "task", "project": project_id, "title": "A",
+                "summary": "The first of a pair, so the link between them has two ends."})),
         )
         .await["entity"]["id"]
         .as_str()
@@ -815,7 +826,8 @@ async fn depends_on_is_stored_as_blocks_and_the_response_says_so() {
     let b = d
         .call(
             "keel_create",
-            args(json!({"type": "task", "project": project_id, "title": "B"})),
+            args(json!({"type": "task", "project": project_id, "title": "B",
+                "summary": "The second of a pair, so the link between them has two ends."})),
         )
         .await["entity"]["id"]
         .as_str()
@@ -844,6 +856,7 @@ async fn an_invalid_enum_value_tells_the_agent_what_would_work() {
             "keel_create",
             args(json!({
                 "type": "task", "project": project_id, "title": "Bad status",
+                "summary": "Sends a status the enum does not have, to see what the error says.",
                 "fields": { "status": "finished" }
             })),
         )
@@ -1086,7 +1099,8 @@ async fn asking_for_something_that_does_not_exist_says_so_rather_than_returning_
     let real = d
         .call(
             "keel_create",
-            args(json!({"type": "task", "project": project_id, "title": "Real"})),
+            args(json!({"type": "task", "project": project_id, "title": "Real",
+                "summary": "A row that exists, so a lookup for one that does not can be told apart."})),
         )
         .await["entity"]["id"]
         .as_str()
@@ -1191,6 +1205,8 @@ async fn seed(d: &Daemon) -> String {
             args(json!({
                 "type": "task", "project": project_id,
                 "title": "Dedupe usage events by idempotency key",
+                "summary": "Retries write the same usage event twice and customers get billed \
+                            for both. Done when a repeated key is a no-op.",
                 "fields": { "priority": "p0", "milestone_id": milestone }
             })),
         )
@@ -1340,5 +1356,55 @@ async fn a_word_nobody_taught_it_still_fails_usefully() {
     assert!(
         message.contains("milestone"),
         "the valid names must be listed: {message}"
+    );
+}
+
+/// The 8G exit criterion: no task can be created without a summary, and the
+/// MCP path refuses it as surely as the store does.
+#[tokio::test]
+async fn a_task_without_a_summary_is_refused_over_mcp() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+
+    let (status, error) = d
+        .call_err(
+            "keel_create",
+            args(json!({ "type": "task", "project": project_id, "title": "Do the thing" })),
+        )
+        .await;
+
+    assert_eq!(status, 400);
+    let message = error["message"].as_str().unwrap();
+    assert!(message.contains("summary"), "{message}");
+    assert!(
+        message.contains("done looks like"),
+        "an agent must be able to retry from the message alone: {message}"
+    );
+}
+
+/// And a good one round-trips, so the requirement is a gate rather than a wall.
+#[tokio::test]
+async fn a_task_with_a_summary_keeps_it() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+
+    let created = d
+        .call(
+            "keel_create",
+            args(json!({
+                "type": "task", "project": project_id,
+                "title": "Show the milestone on every row",
+                "summary": "The board never says which phase a task is in, so you have to open \
+                            each one. Done when every row shows it."
+            })),
+        )
+        .await;
+
+    assert!(
+        created["entity"]["summary"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("The board never says"),
+        "{created}"
     );
 }

@@ -752,6 +752,18 @@ UPDATE tasks SET number = n.rn FROM (
 ) n WHERE tasks.id = n.id AND tasks.number IS NULL;
 ",
         },
+        // A task's own one-line explainer, so a row is readable cold six weeks
+        // later by someone who was not in the conversation. Nullable, and that
+        // is not a compromise: ninety-four rows already exist without one, and
+        // a NOT NULL column would make every one of them unreadable rather than
+        // merely unlabelled. The requirement lives on the *create* path, where
+        // it can be met, instead of on the table, where it could only be
+        // retroactively violated. B-45, TQ-34.
+        Migration {
+            id: 14,
+            name: "task_summary",
+            sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS summary VARCHAR;",
+        },
     ]
 }
 

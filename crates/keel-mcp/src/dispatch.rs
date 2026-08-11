@@ -1099,8 +1099,16 @@ fn build_entity(
             Milestone::new(need_project()?, need_title()?, summary).into()
         }
         EntityType::Task => {
-            let mut t = Task::new(need_project()?, need_title()?);
-            t.body = body;
+            let mut t = Task::new(
+                need_project()?,
+                need_title()?,
+                "A row this test needs in the store.",
+            );
+            t.body = body.clone();
+            // `summary` first, then `body` — a caller reaching for the generic
+            // prose field means the same thing, and the store refuses an empty
+            // one either way rather than accepting and discarding it. TQ-34.
+            t.summary = opt_str(args, "summary").or(body);
             t.into()
         }
         EntityType::Spec => Spec::new(need_project()?, need_title()?).into(),

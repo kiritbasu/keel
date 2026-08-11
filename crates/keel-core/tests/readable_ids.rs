@@ -37,7 +37,15 @@ fn project(store: &mut DuckStore, slug: &str, name: &str) -> Project {
 
 fn task(store: &mut DuckStore, project_id: &EntityId, title: &str) -> Task {
     match store
-        .create(Task::new(project_id.clone(), title).into(), &prov())
+        .create(
+            Task::new(
+                project_id.clone(),
+                title,
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov(),
+        )
         .unwrap()
         .entity
     {
@@ -163,7 +171,15 @@ fn a_repeated_create_does_not_burn_a_number() {
     assert_eq!(first.number, 1);
 
     let again = store
-        .create(Task::new(p.clone(), "Only once").into(), &prov())
+        .create(
+            Task::new(
+                p.clone(),
+                "Only once",
+                "A row this test needs in the store.",
+            )
+            .into(),
+            &prov(),
+        )
         .unwrap();
     assert!(!again.created);
     assert_eq!(task(&mut store, &p, "Genuinely new").number, 2);

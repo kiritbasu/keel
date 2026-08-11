@@ -848,8 +848,17 @@ pub fn load(store: &mut DuckStore) -> Result<FixtureSummary> {
     ];
     let mut task_ids = Vec::new();
     for (project, milestone_idx, title, body, status, priority, kind, labels) in tasks {
-        let mut t = Task::new(project.clone(), title);
+        let mut t = Task::new(
+            project.clone(),
+            title,
+            "A row this test needs in the store.",
+        );
         t.body = Some(body.to_owned());
+        // Same reasoning as the bootstrap: the body is real prose written for
+        // the row, so it is the summary rather than something duplicated
+        // beside it. A fixture that could not satisfy the product's own rule
+        // would be a fixture worth distrusting.
+        t.summary = Some(body.to_owned());
         t.status = status;
         t.priority = priority;
         t.kind = kind;
