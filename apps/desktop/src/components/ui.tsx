@@ -143,8 +143,8 @@ export function Button({
  *
  * This is the component whose six hand-copied duplicates were the clearest
  * evidence the app had no design system. The board's "urgent only", the board's
- * label chips, Search's project scope, Search's type facets, Activity's project
- * scope and Activity's actor filters were six near-identical blocks of class
+ * label chips, Search's project scope, Search's type facets, the change feed's
+ * project scope and its actor filters were six near-identical blocks of class
  * names — and three of them had drifted, so an unselected facet was `ink-faint`
  * on one screen and `ink-muted` on another.
  */

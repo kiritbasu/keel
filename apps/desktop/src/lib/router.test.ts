@@ -104,7 +104,7 @@ describe("toHash", () => {
       { screen: "project", project: "keel", query: {} },
       { screen: "board", project: "keel", query: {} },
       { screen: "roadmap", project: "keel", query: {} },
-      { screen: "activity", project: "keel", query: { actor: "claude" } },
+      { screen: "changed", project: "keel", query: { actor: "claude" } },
       { screen: "documents", project: "keel", documentId: "spc_1", query: { v: "3", diff: "1" } },
       { screen: "task", project: "keel", taskId: "tsk_1", query: {} },
       { screen: "search", query: { q: "why is billing slow", types: "spec" } },
@@ -178,7 +178,7 @@ describe("NEEDS_PROJECT", () => {
       // something inside one, and merging two projects' series would be a
       // chart of nothing.
       metrics: true,
-      activity: false,
+      changed: false,
     });
   });
 });

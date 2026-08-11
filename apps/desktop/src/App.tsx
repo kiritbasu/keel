@@ -33,7 +33,7 @@ import { ReadyScreen } from "./screens/Ready";
 import { TaskScreen } from "./screens/Task";
 import { DocumentsScreen } from "./screens/Documents";
 import { SearchScreen } from "./screens/Search";
-import { ActivityScreen } from "./screens/Activity";
+import { ChangedScreen } from "./screens/Changed";
 
 export type { ScreenId } from "./lib/router";
 
@@ -62,15 +62,15 @@ const PROJECT_SCREENS: NavItem[] = [
 /**
  * The screens that mean something without a project.
  *
- * `activity` keeps its own name for now. §C4 would call it "What changed", but
- * that name promises the grouped-by-session view it does not yet have, and the
- * screen already carries one header claiming a job it does not do. Renaming it
- * is TQ-35's to decide along with whether it survives at all.
+ * "What changed" earned its name when it started answering the question. It was
+ * called Activity while it was a feed of the last 300 events, deliberately —
+ * the better name would have promised the grouped-by-session view it did not
+ * have, and the screen already carried one header claiming a job it did not do.
  */
 const GLOBAL_SCREENS: NavItem[] = [
   { id: "home", label: "All projects", key: "7" },
   { id: "search", label: "Search", key: "8" },
-  { id: "activity", label: "Activity", key: "9" },
+  { id: "changed", label: "What changed", key: "9" },
 ];
 
 const SCREENS: NavItem[] = [...PROJECT_SCREENS, ...GLOBAL_SCREENS];
@@ -299,8 +299,8 @@ export function App() {
         return <DocumentsScreen {...shared} />;
       case "search":
         return <SearchScreen {...shared} />;
-      case "activity":
-        return <ActivityScreen {...shared} />;
+      case "changed":
+        return <ChangedScreen {...shared} />;
     }
   }, [route, generation]);
 

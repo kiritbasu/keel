@@ -3,7 +3,7 @@
  *
  * Before this existed, seven screens were built to seven different rules: the
  * board full-bleed with horizontal scroll, Home and Project centred at one
- * width, Roadmap, Search and Activity at a narrower one, Documents a two-pane
+ * width, Roadmap, Search and What changed at a narrower one, Documents a two-pane
  * split — and no two of them put the title in the same place. That is most of
  * what made the app read as seven applications sharing a sidebar.
  *

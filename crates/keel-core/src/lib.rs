@@ -24,6 +24,7 @@
 
 pub mod audit;
 pub mod backup;
+pub mod changes;
 pub mod document;
 pub mod embed;
 pub mod entity;
@@ -48,6 +49,10 @@ pub mod work;
 
 pub use audit::{Audit, Provenance};
 pub use backup::{BackupManifest, backup, restore, verify_restore};
+// `by_session` keeps its module path at call sites rather than being re-exported
+// bare: `changes` is already a local name in `store::patch`, and a crate-root
+// function of that name shadows it inside that module.
+pub use changes::{Change, ChangeKind, ChangeLog, ChangeQuery, SessionChanges};
 pub use document::{
     DocStatus, Document, DocumentDiff, EMBEDDING_DIM, EMBEDDING_MODEL, EMBEDDING_VERSION,
     body_hash, sha256_hex,

@@ -116,7 +116,7 @@ describe("rank", () => {
 describe("screenItems", () => {
   it("offers only the screens that work without a project", () => {
     const labels = screenItems(undefined).map((i) => i.route.screen);
-    expect(labels).toEqual(["home", "roadmap", "search", "activity"]);
+    expect(labels).toEqual(["home", "roadmap", "search", "changed"]);
   });
 
   it("offers every screen once a project is named, and carries the project into the route", () => {

@@ -105,7 +105,7 @@ export function screenItems(project: string | undefined): PaletteItem[] {
     { screen: "board", label: "Board" },
     { screen: "documents", label: "Documents" },
     { screen: "search", label: "Search" },
-    { screen: "activity", label: "Activity" },
+    { screen: "changed", label: "What changed" },
   ];
   return screens
     .filter((s) => !NEEDS_PROJECT[s.screen] || project)

@@ -334,6 +334,45 @@ export const api = {
       "/api/activity",
       params,
     ),
+
+  /**
+   * What changed, grouped by the session that changed it.
+   *
+   * Its own endpoint rather than a shape on `/api/activity`, because that URL is
+   * the `keel_activity` tool and this is a different question: the tool pages
+   * every mutation from a cursor for a model catching up, and this answers "what
+   * did each session do" for a person who left Claude working.
+   *
+   * The union with notes is the part that cannot be done here: a note leaves no
+   * row in `events` (TQ-29), so a per-session count built from the feed alone
+   * silently misses the part most worth reading.
+   */
+  changed: (params: {
+    project?: string;
+    actor?: string;
+    since?: string;
+    limit?: number;
+  }) =>
+    get<{
+      sessions: Array<{
+        session_id: string | null;
+        actor: string;
+        started_at: string;
+        ended_at: string;
+        headline: string;
+        changes: Array<{
+          id: string;
+          kind: "field" | "created" | "note";
+          entity_id: string;
+          entity_type: string;
+          reference: string;
+          summary: string;
+          at: string;
+        }>;
+      }>;
+      changes: number;
+      truncated: boolean;
+    }>("/api/changes", params),
 };
 
 /**

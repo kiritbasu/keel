@@ -33,6 +33,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/search", get(api_search))
         .route("/api/ready", get(api_ready))
         .route("/api/activity", get(api_activity))
+        .route("/api/changes", get(api_changes))
         .route("/api/entity/{id}", get(api_entity))
         .route("/api/entity/{id}/history", get(api_entity_history))
         .route("/api/entities", get(api_entities))
@@ -681,6 +682,105 @@ async fn api_blob(State(state): State<AppState>, Path(id): Path<String>) -> Resp
 }
 
 /// Cross-engine integrity, run inside the process that holds the lock.
+/// What changed, grouped by the conversation that changed it.
+///
+/// Its own endpoint rather than a shape on `/api/activity`, because that URL *is*
+/// the `keel_activity` tool and this is a different question: the tool answers
+/// "every mutation since a cursor", paged, for a model catching up, and this
+/// answers "what did each session do", for a person who left Claude working and
+/// came back. B-15 is the rule — the local API has more endpoints than the tool
+/// surface has tools, because a UI knows exactly what it wants.
+///
+/// The union with notes is the part that could not be done client-side: notes
+/// leave no row in `events` (TQ-29), so a per-session count built from the feed
+/// alone silently misses the part most worth reading.
+async fn api_changes(
+    State(state): State<AppState>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    let store = state.store();
+
+    let project_id = match params.get("project") {
+        None => None,
+        Some(reference) => match keel_mcp::resolve_project(&store, reference) {
+            Ok(id) => Some(id),
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "error": { "code": e.code, "message": e.message } })),
+                )
+                    .into_response();
+            }
+        },
+    };
+
+    let since = match params.get("since") {
+        None => None,
+        Some(raw) => match chrono::DateTime::parse_from_rfc3339(raw) {
+            Ok(t) => Some(t.with_timezone(&chrono::Utc)),
+            Err(_) => {
+                return api_error(
+                    StatusCode::BAD_REQUEST,
+                    codes::INVALID_PARAMS,
+                    keel_core::Error::Invariant {
+                        operation: "read what changed".to_owned(),
+                        problem: format!("`since` is not an RFC 3339 timestamp: {raw}"),
+                    },
+                );
+            }
+        },
+    };
+
+    let actor = match params.get("actor") {
+        None => None,
+        Some(raw) => match keel_core::Actor::parse(raw) {
+            Ok(a) => Some(a),
+            Err(e) => return api_error(StatusCode::BAD_REQUEST, codes::INVALID_PARAMS, e),
+        },
+    };
+
+    let query = keel_core::ChangeQuery {
+        project_id,
+        since,
+        actor,
+        limit: params
+            .get("limit")
+            .and_then(|l| l.parse::<usize>().ok())
+            .unwrap_or(300)
+            .clamp(1, 2_000),
+    };
+
+    match keel_core::changes::by_session(&store, &query) {
+        Ok(log) => (
+            StatusCode::OK,
+            Json(json!({
+                "data": {
+                    "sessions": log.sessions.iter().map(|s| json!({
+                        "session_id": s.session_id,
+                        "actor": s.actor.as_str(),
+                        "started_at": s.started_at,
+                        "ended_at": s.ended_at,
+                        "headline": s.headline,
+                        "changes": s.changes.iter().map(|c| json!({
+                            "id": c.id,
+                            "kind": c.kind.as_str(),
+                            "entity_id": c.entity_id.to_string(),
+                            "entity_type": c.entity_type.as_str(),
+                            "reference": c.reference,
+                            "summary": c.summary,
+                            "at": c.at,
+                        })).collect::<Vec<_>>(),
+                    })).collect::<Vec<_>>(),
+                    "changes": log.changes,
+                    "truncated": log.truncated,
+                }
+            })),
+        )
+            .into_response(),
+        Err(e) => api_error(StatusCode::INTERNAL_SERVER_ERROR, codes::INTERNAL_ERROR, e),
+    }
+}
+
 /// Which rows a reader would struggle with.
 ///
 /// Served here for the same reason `fsck` is: the CLI cannot open the store while
