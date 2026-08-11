@@ -993,6 +993,20 @@ async fn api_events_stream(
     let rx = state.changes.subscribe();
     let stream = async_stream::stream! {
         let mut rx = rx;
+
+        // Say something immediately, before waiting for a change.
+        //
+        // Nothing else would flow until the first write or the first keep-alive
+        // fifteen seconds later, and a stream that sends no bytes is one an
+        // intermediary is free to sit on: a proxy that buffers until it has a
+        // body holds the *headers* too, so the browser's EventSource never
+        // fires `open` and live refresh is silently dead. That is exactly what
+        // happened behind the dev server's proxy.
+        //
+        // A comment rather than an event: `EventSource` ignores it, so no
+        // client has to know this exists, and it costs one line on the wire.
+        yield Ok(SseEvent::default().comment("keel"));
+
         loop {
             match rx.recv().await {
                 Ok(change) => {

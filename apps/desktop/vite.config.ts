@@ -17,6 +17,31 @@ export default defineConfig({
       "/api": {
         target: "http://127.0.0.1:7654",
         changeOrigin: false,
+        // Server-sent events need the proxy to stop buffering and to stop
+        // compressing. Without this, `/api/events` connects and then sits in
+        // CONNECTING forever: the daemon sends its headers immediately, the
+        // proxy holds them waiting for a response body that will not arrive
+        // until the first event, and the browser's EventSource never fires
+        // `open`. Live refresh was silently dead in `npm run dev` — the app
+        // looked fine because navigating refetches anyway.
+        //
+        // `selfHandleResponse: false` is the default and is stated here only
+        // because setting it true is the usual accidental cause of the same
+        // symptom.
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            if (req.url?.startsWith("/api/events")) {
+              proxyReq.setHeader("accept-encoding", "identity");
+            }
+          });
+          proxy.on("proxyRes", (proxyRes, req, res) => {
+            if (req.url?.startsWith("/api/events")) {
+              res.setHeader("cache-control", "no-cache, no-transform");
+              res.setHeader("x-accel-buffering", "no");
+              res.flushHeaders?.();
+            }
+          });
+        },
       },
     },
   },
