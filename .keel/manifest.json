@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-11T06:33:03.774208+00:00",
+  "generated_at": "2026-08-11T10:22:45.168103+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/every-milestone-carries-a-plain-english-explainer-required-at-creation.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZR4KZQ8BXFXA1PRFTXEPE07",
+          "entity_type": "decision",
+          "version": 2,
+          "hash": "fd553a64ea544b29c62aa808d4e74a92c5d154bda86ffb4758850dec7d134f21"
         }
       ]
     },
@@ -500,6 +511,42 @@
     {
       "path": ".keel/questions.md",
       "contributors": [
+        {
+          "entity_id": "que_01KZR4EZ97WRY0QFGAQ7DPPSZH",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "bf968546c86ac4a8878b8290e0d186b3f270e9a936b6342a4010a89ca080f2b7"
+        },
+        {
+          "entity_id": "que_01KZR4E6MV7W8PYDRXWWSN8VZ1",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "6051a12aed6f28fb36f811fa09e596d068886da6347a63179ba9a19375a96408"
+        },
+        {
+          "entity_id": "que_01KZR4D9DFQ3MCKMF72Q7Y8N8D",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "58ea289dedc50f0079b97cd8a7db8cfa95911565759239e54f6847a44fb55a4e"
+        },
+        {
+          "entity_id": "que_01KZR4CNDT72K8AXJV55KFNEMP",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "c5808625f04239e7e780afea5b5de595d7cb4a327228547092e3d4885f841fdc"
+        },
+        {
+          "entity_id": "que_01KZR4B6DX3572F0WS6ZAB0HWA",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "122b883f3562d1081f01931ed5a53de67d90401aaa56af4088cfcbf2f0b219b9"
+        },
+        {
+          "entity_id": "que_01KZR4AHS7GC45EM0HSNN20SDM",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "4fe1b9108326a60d4b7559e102b8ec7d5f4a197ca179bcf9a03e3cc4702631f9"
+        },
         {
           "entity_id": "que_01KZKWMSFKG5316C06B4HNXXBR",
           "entity_type": "question",
