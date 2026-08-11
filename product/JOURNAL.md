@@ -13,6 +13,43 @@ Newest first.
 
 ---
 
+## Phase 8's working loop, and the instruction that became a mechanism
+
+Twenty-one of Phase 8's twenty-three rows are closed. What landed is the loop itself — `keel ready`, `keel claim`, `keel close` — plus the last of §8C, `keel lint`, and the image path that makes a real screenshot possible.
+
+**The numbers that made the three verbs worth building.** `product/CLAUDE.md` has told every session to move a task to `in_progress` before starting it. Across sixty-six tasks, the number of transitions into that state before work began was zero. The definition of done is a seven-item checklist an agent is *asked* to honour, and a hundred and seven closed tasks carry no record of what happened. Both are instructions, and instructions in a file lose to a model's own momentum every time.
+
+So both became mechanisms, and the mechanism is in the storage layer rather than in the tool. A task cannot reach `done` or `wont_do` without a reason, a message and — for `done` — evidence, and a caller reaching for `keel_update(status: done)` to get round the tool is refused by the same check. That is what separates an invariant from a second convention.
+
+**Ten tools became thirteen** (TQ-31, KB's call). I recommended twelve and the reasoning did not survive: I argued that two ways to close a task is how the two come to disagree, and the storage-layer check makes drift impossible under any option. With that gone, twelve was the least principled of the three — a front door for claiming and none for closing, purely to match a number.
+
+**A claim needed no lock.** It goes through the ordinary optimistic-concurrency update with the version it read, so two sessions racing both read version 7, the first writes 8, and the second is rejected naming the current holder. Releasing lives in the store's update path, not in `close`, so no route into a terminal status can leave a claim standing.
+
+**One ranking, three doors.** `keel ready` is a CLI command, an MCP tool and a screen, and a daemon test asserts the tool and the endpoint return the same references in the same order. Verified against the live store too: both said 11 ready, and 9 under Phase 8. An app that disagreed with the session about what to do next would be worse than one that stayed silent.
+
+### The exit criteria, honestly
+
+`keel lint` reports zero unexpanded identifiers, which was one criterion. It reported nine, and those nine task bodies said things like "Waiting on TQ-35." and "Decision B-45." — a sentence that names a thing and says nothing about it. Glossed by hand, because a machine writing them is precisely the failure the rule exists to prevent. The other 231 findings are missing summaries and historical closes, and those are not this task's to invent.
+
+**The 30-second stopwatch criterion cannot be claimed, and will not be.** It measured filing a bug with a pasted screenshot from a cold start, and KB declined app filing (TQ-30). Hard constraint 7 stands unamended, so nothing has to be reversed if it comes back — but the criterion goes with it, and pretending otherwise would be the more expensive lie.
+
+### Three things that only showed up by running it
+
+**A test's margin depended on a response's size.** `a_client_in_a_loop_is_rate_limited` hammered `tools/list` a thousand times and relied on outrunning a fifty-per-second refill, which needs every call under 20ms. Adding three tool definitions made each call slower than that and the test began failing — the limiter was fine and the test was not. It fires `ping` in concurrent batches now.
+
+**A count described the page rather than the project.** `keel lint --limit 12` reported "12 task_without_summary" under a total of 240, because the per-rule tally was derived from the truncated list. That number is what a person reads to decide what to work on. Caught by writing the test after the code, which is the wrong order and worked anyway.
+
+**A close reads as five rows on the new What changed screen**, because the store writes one event per field and `keel_close` sets four. Collapsing them needs something identifying the call that produced them, and an event carries no correlation id. Left alone and recorded rather than papered over.
+
+### Where a decision and a ceiling disagreed
+
+TQ-33 approved `keel_attach(id, path)` by name. TQ-31, hours earlier, set thirteen tools as the ceiling. Both KB's. B-49 resolves them in favour of the capability without spending the slot: `image_path` is a field on `keel_create` and on `keel_update`, because the substance of TQ-33 is that the daemon may read a local file and the form is naming — the reversible half.
+
+The boundary TQ-33 named is held with a test. Anything URL-shaped is refused with the reason in the message, for `https:`, `http:` and `file:`, because a path argument that quietly starts accepting a URL is that decision reversed by accident.
+
+Verified against a live daemon: a 683 KB PNG went from a path to the store and back out of `/api/blob/{id}` byte-identical. Through base64 that file would have cost the model roughly 240,000 output tokens, which is why the description now states 100 KB rather than the 1 MB nobody could reach.
+
+
 ## The three decisions, and what removing MCP cost
 
 **TQ-9 — idempotency keys stay on all thirteen tables.** Confirmed. B-10 is no longer provisional. It earned it on organic traffic: across the gate runs, sessions called `create` twice with an identical title on nine occasions and the key deduplicated every one.
