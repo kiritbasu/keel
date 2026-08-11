@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-11T15:56:54.520223+00:00",
+  "generated_at": "2026-08-11T16:16:24.399416+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -523,42 +523,6 @@
       "path": ".keel/questions.md",
       "contributors": [
         {
-          "entity_id": "que_01KZR4EZ97WRY0QFGAQ7DPPSZH",
-          "entity_type": "question",
-          "version": 1,
-          "hash": "bf968546c86ac4a8878b8290e0d186b3f270e9a936b6342a4010a89ca080f2b7"
-        },
-        {
-          "entity_id": "que_01KZR4E6MV7W8PYDRXWWSN8VZ1",
-          "entity_type": "question",
-          "version": 1,
-          "hash": "6051a12aed6f28fb36f811fa09e596d068886da6347a63179ba9a19375a96408"
-        },
-        {
-          "entity_id": "que_01KZR4D9DFQ3MCKMF72Q7Y8N8D",
-          "entity_type": "question",
-          "version": 1,
-          "hash": "58ea289dedc50f0079b97cd8a7db8cfa95911565759239e54f6847a44fb55a4e"
-        },
-        {
-          "entity_id": "que_01KZR4CNDT72K8AXJV55KFNEMP",
-          "entity_type": "question",
-          "version": 1,
-          "hash": "c5808625f04239e7e780afea5b5de595d7cb4a327228547092e3d4885f841fdc"
-        },
-        {
-          "entity_id": "que_01KZR4B6DX3572F0WS6ZAB0HWA",
-          "entity_type": "question",
-          "version": 1,
-          "hash": "122b883f3562d1081f01931ed5a53de67d90401aaa56af4088cfcbf2f0b219b9"
-        },
-        {
-          "entity_id": "que_01KZR4AHS7GC45EM0HSNN20SDM",
-          "entity_type": "question",
-          "version": 1,
-          "hash": "4fe1b9108326a60d4b7559e102b8ec7d5f4a197ca179bcf9a03e3cc4702631f9"
-        },
-        {
           "entity_id": "que_01KZKWMSFKG5316C06B4HNXXBR",
           "entity_type": "question",
           "version": 1,
@@ -587,6 +551,42 @@
           "entity_type": "question",
           "version": 1,
           "hash": "2658bbe846f41efece327f5b14da526cabbda64653ae996e0c29a2f9fe3e8e5f"
+        },
+        {
+          "entity_id": "que_01KZR4EZ97WRY0QFGAQ7DPPSZH",
+          "entity_type": "question",
+          "version": 2,
+          "hash": "47af463931fab90f7ab376058d176d8b5b877fdb94164cf3489d177d46bbbcb5"
+        },
+        {
+          "entity_id": "que_01KZR4E6MV7W8PYDRXWWSN8VZ1",
+          "entity_type": "question",
+          "version": 2,
+          "hash": "51e46bbc659c71e7d879909859c65d50e932a0483bcb6d75cc6dcc0e9c64f237"
+        },
+        {
+          "entity_id": "que_01KZR4D9DFQ3MCKMF72Q7Y8N8D",
+          "entity_type": "question",
+          "version": 2,
+          "hash": "c7e1f49693d62eec2315a0d79dc1abdce6e83dbf22de0aee6bd9f936d3570e56"
+        },
+        {
+          "entity_id": "que_01KZR4CNDT72K8AXJV55KFNEMP",
+          "entity_type": "question",
+          "version": 2,
+          "hash": "4ba301566535a72e9c6f36c8c18ab4c1bef1c930984932d8785e1d3f09824a83"
+        },
+        {
+          "entity_id": "que_01KZR4B6DX3572F0WS6ZAB0HWA",
+          "entity_type": "question",
+          "version": 2,
+          "hash": "1cfc1b2eb5e49b358a4f22b7c1ee57ca781f25c5e861d344a89be27ed1e75992"
+        },
+        {
+          "entity_id": "que_01KZR4AHS7GC45EM0HSNN20SDM",
+          "entity_type": "question",
+          "version": 2,
+          "hash": "3a7fcd7d440de7908bc690c2da00a2ee8c4199d5159633f4452557d009bbddfe"
         },
         {
           "entity_id": "que_01KZQQXYTVDN1KCR6DHDEEV36M",

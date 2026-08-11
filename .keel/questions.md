@@ -7,146 +7,6 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
-### TQ-35 — Activity: rework into "What changed", or delete the screen
-
-`que_01KZR4EZ97WRY0QFGAQ7DPPSZH` · question · open
-
-§C4 raises this itself and calls it close. It is the only one of the five that is purely a use-of-time question — nothing depends on it and either answer is buildable.
-
-**Verified against the code.** `screens/Activity.tsx` contains no `href` and no anchor of any kind, so the spec's claim that the rows are dead text is accurate. It is a reverse-chronological feed of up to 300 mutations, filterable by actor, with a timestamp, an actor badge, a one-line summary and a session id per row.
-
-**The case for rework.** "What happened while I was away" is a real question with no answer anywhere in the product, and `session_id` is already threaded through every write, so the grouping key exists. §C4's sketch — *"Claude · 2 hours ago · 14 changes / closed KEEL-93, opened KEEL-97, wrote 3 notes, answered TQ-29"* — is a genuinely different screen from what is there.
-
-**The case for deletion.** Per-task history landed on the task detail view in KEEL-75, which serves the per-entity case better than the feed ever did. What is left is a firehose whose own header claims a purpose it does not fulfil.
-
-**One thing worth knowing before choosing, which §C4 does not mention.** TQ-29 established that **notes leave no row in `events`**. So a session's note-writing is invisible to the event log, and a "14 changes" summary built from events alone would under-count exactly the kind of work that is most worth reading — the findings. Grouping by session would need to union events with notes, which is more than a regrouping of what is already fetched. That does not change the recommendation, but it moves the cost up.
-
-**Options**
-
-1. **Rework as "What changed", grouped by session**, every row a link, a new-since-last-visit marker from local storage, and a today/this-week/everything range. Requires unioning notes into the feed.
-2. **Delete the screen** and its route. Per-task history remains on the task.
-3. **Minimal fix**: keep the flat feed, make every row a link, add the time range. An hour of work rather than a day, and it removes the most-cited defect without claiming to answer the returning-user question.
-
-**Recommendation: option 3 now, option 1 later if it is still wanted.** §C4's own reasoning is that a half-useful firehose is worse than nothing — but the specific thing that makes it half-useful is that the rows go nowhere, and that is cheap to fix. Grouping by session is the expensive half and it is the half whose value is untested. Making the rows links first means the next session's judgement about whether to group is made against a screen that at least works.
-
-Deletion I would not recommend: the screen is the only place the event log is visible at all, and the event log is the attribution spine.
-
-### TQ-34 — a required, validated `summary` on tasks: a new column and a write-path refusal
-
-`que_01KZR4E6MV7W8PYDRXWWSN8VZ1` · question · open
-
-§8G wants every task readable cold by a human six weeks later, enforced at the tool boundary rather than caught by a later check.
-
-**Verified against the code.** `crates/keel-core/src/types.rs:354` — `Task` has `title`, `body`, and no `summary`. `Milestone` *does* have one, so the column name and its serialisation already have a precedent in the schema. So this is a new nullable column on `tasks`, a required property on `keel_create` when `type: "task"`, and a synchronous rejection in the storage layer.
-
-Two things make it larger than it looks:
-
-- **Roughly 94 existing task rows have no summary.** They cannot be made invalid retroactively without breaking every read, so the column must be nullable in storage and required only on the *create* path. §8G already accepts this — `keel lint` is described as "a backfill, not the mechanism", and it "reports and never rewrites".
-- **It is a required field on the most-used tool in the surface.** Every create gets longer. §8G's evidence that this works is real and worth repeating: two gate sessions sent `priority: "high"` against an enum of p0–p3 and **both retried successfully in the same turn**, so an actionable rejection costs one round trip, not a human.
-
-**Options**
-
-1. **Required, with the four structural validators** §8G lists — empty or a restatement of the title, a bare `TQ-15`/`KEEL-96` with no gloss, a banned-phrase list, and unexplained `snake_case`. Reject synchronously in the storage layer so CLI and MCP cannot diverge.
-2. **Required, but validated only for emptiness and title-restatement.** The other two validators are style judgements a machine makes badly: a banned-phrase list will reject a legitimate sentence eventually, and "utilize" in a summary is a smaller cost than a false rejection teaching the model to write around the validator rather than write clearly.
-3. **Required on the schema, not enforced beyond non-empty.** The tool description carries the contract and the worked good/bad pair; the storage layer only refuses empty.
-
-**Recommendation: option 2.** The mechanism §8G correctly identifies is *the required property on the schema* — a model physically cannot complete the call without confronting it. That does the work whether or not four validators sit behind it. The two structural checks I would keep are the ones with an objective referent and existing machinery: title-restatement reuses the containment rule already written for near-duplicate titles (KEEL-65), and the bare-identifier check reuses the `unresolved_id_reference` parser (KEEL-66). The banned-phrase list and the case check are taste encoded as a rule, and §8G concedes the general point itself: "A validator catches structure, not quality. It cannot tell a good sentence from a bad one and never will."
-
-A false rejection is worse than a mediocre summary, because the model's recovery from a rejection it does not agree with is to satisfy the letter of it.
-
-**This gates 8G. §8G argues 8G should come early** — "every task written after it lands is one that never needs fixing" — so this is worth answering before 8C finishes.
-
-### TQ-33 — may `keel_attach` fetch a URL? TQ-6 already answered no, this morning
-
-`que_01KZR4D9DFQ3MCKMF72Q7Y8N8D` · question · open
-
-§8B proposes three paths for getting an image in, the third being `keel_attach(id, url)` — "the daemon fetches, behind a size cap and a flag that is off by default, since the daemon otherwise makes no outbound calls". The start-of-phase instructions list this as one of five decisions for KB.
-
-**It has already been decided, and the answer was no.** TQ-6 (`que_01KZKMPVYBQVZG4MSWFSKHCNTB`) was answered by KB on **2026-08-11 — the same day PHASE-8.md was written** — and the answer explicitly disposes of the URL option:
-
-> Fetching a URL would have made the daemon issue outbound network requests on a model's instruction, which is a larger capability than this needed, and requires the image to be public first.
-
-So §8B's claim that this work "closes TQ-6, open since Phase 0" is stale by a matter of hours. TQ-6 is `answered`, KEEL-46 is closed, and the base64 path shipped in commit 20e6052.
-
-**What is actually still open, and worth deciding**
-
-The URL question is settled unless KB reverses it. The *other* two paths in §8B's table are not the same question and one of them is genuinely new:
-
-1. **`keel_attach(id, path)` — the daemon reads a local file.** Not covered by TQ-6's reasoning at all: no outbound network, no public hosting, bytes never enter the model's context. TQ-6 rejected a filesystem path as the *only* mechanism ("works only where there is a filesystem, which excludes chat and Cowork"), which is an argument against it being the sole path, not against it being an additional one. This is the path that makes a 2 MB retina screenshot possible from Claude Code, and §8B's token table is the argument for it: 1 MB of base64 costs the model 350–450k output tokens, so the shipped ceiling describes something no session can reach.
-2. **Correcting the base64 description to state the real ceiling** — §8B asks for this and it needs no decision. The declared cap is 1 MB decoded; the *reachable* cap is nearer 100 KB. A description that advertises ten times what is usable is a trap, and fixing it is ordinary work.
-
-**Recommendation:** treat the URL fetch as **closed by TQ-6 — no**, and do not re-litigate it. Build `keel_attach(id, path)` and fix the base64 description, both of which are consistent with TQ-6 rather than reversals of it. If KB does want to reopen the URL path, that is a reversal of a decision taken hours earlier and should be recorded as one.
-
-**Blocks nothing outside 8B.**
-
-### TQ-32 — a `triage` status: the sixth value, not the seventh, and `dropped` does not exist either
-
-`que_01KZR4CNDT72K8AXJV55KFNEMP` · question · open
-
-§8A asks for one new status value ahead of `todo`. Issues filed from the app land there; it means "a human threw this in, unrefined"; `keel ready` excludes it. §8A calls it "a seventh value on the task status enum".
-
-**It would be the sixth.** `crates/keel-core/src/enums.rs:136` declares five: `todo`, `in_progress`, `review`, `done`, `wont_do`. There is deliberately no `blocked` — that was removed in KEEL-82 and settled in TQ-25, because being blocked is a fact about the graph. The spec is counting a `blocked` that no longer exists.
-
-**And a second, unrelated defect found while checking.** `product/CLAUDE.md` says under Tracker discipline: *"Never delete a task. Mark it `dropped` with a reason."* **There is no `dropped` status.** A session following that instruction literally gets an enum rejection listing five values, none of them `dropped`. The intended value is `wont_do`. This is live in the contract loaded into every session and should be corrected whichever way this question goes.
-
-**Options**
-
-1. **Add `triage` as the sixth value.** Default for app-filed issues; `keel ready` and the digest's counts exclude it; the board gets a column for it.
-2. **Use a label instead.** `labels: ["triage"]` needs no schema change and no migration. But a label is not excluded from `ready` by construction — every consumer has to remember to filter it, which is the same class of "two facts that must agree" that `blocked` was removed for.
-3. **Do not distinguish.** Filed issues land in `todo` and compete with planned work. §8A's argument against this is the one to weigh: "Without it everything you file competes with planned work on equal footing."
-
-**Recommendation: option 1.** It is a status because it is a position in the workflow, and the alternative reproduces exactly the failure mode TQ-25 was settled to remove. The migration is additive — no existing row changes — and the default stays `todo`, so only the intake path writes `triage`.
-
-**One consequence to accept:** `is_open()` returns true for `triage`, so triaged-but-unrefined work counts as open in the digest and the tracker. That is correct — it is open — but it means the open count rises the moment intake ships, and that should be expected rather than read as a regression.
-
-**This gates 8A, and 8B depends on it** (filed issues have nowhere to land without it).
-
-### TQ-31 — Ten MCP tools becomes twelve, or thirteen? The spec's arithmetic does not close
-
-`que_01KZR4B6DX3572F0WS6ZAB0HWA` · question · open
-
-§8A is headed "The tool count" and says **"Ten tools becomes twelve."** It then argues for **three** new verbs — `keel ready`, `keel claim`, `keel close` — and justifies them together: "these three are the only actions in the product that constitute *doing the work* rather than describing it, they map to three unambiguous non-overlapping intents".
-
-Ten plus three is thirteen. So either the count is wrong or one of the three is not becoming a tool, and the spec does not say which.
-
-**Verified against the code:** `keel_delete` appears in `crates/keel-mcp/src/tools.rs` only inside a test asserting it does *not* exist, so the surface really is ten today. The standing rule is in `product/CLAUDE.md` under Anti-patterns: an eleventh needs an argument at least as good as the one that earned `keel_note` the tenth slot.
-
-**Options**
-
-1. **Thirteen — all three as tools.** Takes §8A's argument at face value and fixes the arithmetic. Each verb is one intent and a model choosing between "what should I do next", "I am starting this" and "I am finished with this" is not choosing among near-synonyms.
-2. **Twelve — `ready` and `claim` as tools, `close` folded into `keel_update`.** `keel_update` already does status transitions, so closing is a transition it can already express; what §8A adds is the *required reason, message and evidence*, which can be enforced in the storage layer on any path into a terminal status. This is the reading that makes "twelve" literally true.
-3. **Eleven — only `keel_ready`.** It is the one with no other front door; claim and close are both reachable through `keel_update` today.
-
-**Recommendation: option 2, twelve.** It is what the spec's own number says, and the split is principled rather than arithmetic: `ready` and `claim` have no existing tool that expresses them, while `close` is a status transition and `keel_update` is the status-transition tool. Adding a second way to move a task to `done` is how the two paths come to disagree — which is the exact failure §8A is trying to prevent when it says the enforcement must sit in the storage layer "so the CLI and MCP cannot diverge". Enforce there, and `keel close` stays a CLI convenience over `keel_update` rather than a twelfth and thirteenth tool.
-
-Note that all three remain **CLI commands** under any option — the CLI has no ten-command ceiling and no model choosing among them.
-
-**This gates 8A.**
-
-### TQ-30 — 8B contradicts hard constraint 7: the desktop app is read-only
-
-`que_01KZR4AHS7GC45EM0HSNN20SDM` · question · open
-
-**This is not on the spec's list of five decisions, and it is the largest of them.**
-
-`product/CLAUDE.md`, Hard constraints, item 7, reads in full:
-
-> **The desktop app is read-only.** Claude and Keel are the only writers. No write endpoints on the daemon for it, no forms in it.
-
-§8B proposes exactly the three things that sentence forbids: a **New issue form** in the app, a **write endpoint** on the daemon (`POST /api/intake`), and the app as a writer. It is not a reinterpretation of the constraint — it is its three clauses, negated one by one.
-
-§8B is aware it is fencing something, and argues the fence well: the app may only *file*, never manage. But a hard constraint in this repo is defined as "violating these means rework, not a refactor", and the standing rules say to bring anything touching the MCP tool surface or storage format to KB. A constraint being repealed is at least that large.
-
-**Options**
-
-1. **Amend constraint 7 to a capture exception.** Reword it as "the desktop app may capture, never manage" and enumerate the fence in the constraint itself, so the boundary lives with the rule rather than only in an endpoint's doc comment. `POST /api/intake` is the single permitted write, it creates tasks in `triage` and nothing else, and any second write endpoint is a new decision.
-2. **Keep constraint 7 and drop 8B.** File via Claude Code as today. Loses the pasted-screenshot path, which is the one §8B calls "the primary path, and the only one with no size problem" — and the 30-second stopwatch exit criterion goes with it.
-3. **Keep constraint 7 literally and file through MCP from the app** — the app calls the MCP endpoint as a client rather than gaining its own route. This is a distinction without a difference at the storage layer and adds a hop; noted only so the option is on the record as considered.
-
-**Recommendation: option 1.** The constraint's purpose is to stop the app growing into a second management surface that competes with Claude for authority over the same rows — and a capture-only intake does not do that. But the repeal has to be written down as a repeal, in the constraint, with its fence. §8B's own instinct — "that boundary belongs in the endpoint's own doc comment so nobody widens it by accident later" — puts the fence one level too low: a doc comment is read by whoever is already editing the endpoint, which is exactly the person about to widen it.
-
-**This gates all of 8B.** Nothing else in Phase 8 depends on it.
-
 ### TQ-3 — Re-embedding strategy when the model changes: background full pass, or lazy on access?
 
 `que_01KZKWMSFKG5316C06B4HNXXBR` · question · open
@@ -194,6 +54,164 @@ It grows forever. Keep everything, which is probably fine for a decade at this w
 ## Settled
 
 *Decided, with the reasoning. Do not re-litigate these.*
+
+### TQ-35 — Activity is rebuilt as "What changed", grouped by session
+
+`que_01KZR4EZ97WRY0QFGAQ7DPPSZH` · question · answered
+
+**Answered — rebuild it, grouped by session.** KB's call, 2026-08-11, against my recommendation of the cheaper fix.
+
+## What gets built
+
+The screen becomes "What changed": sessions newest first, each a one-line summary of what that session did, expandable to the full list.
+
+> **Claude · 2 hours ago · 14 changes**
+> closed KEEL-93, opened KEEL-97, wrote 3 notes, answered TQ-29
+
+Every row links to the thing it changed — today none of them do. A marker for what is new since you were last here, from a timestamp in local storage. A today / this week / everything range, keeping the actor filter.
+
+The "written outside a tracked session" treatment moves into the tooltip. That is a build-time concern showing as product copy, the same class KEEL-85 cleaned up elsewhere.
+
+## The thing that makes this bigger than it looks
+
+**Notes leave no row in `events`.** TQ-29 established that, and it is why the daemon announces notes under their own kind. So a per-session change count built from the event log alone would silently miss every note — which is exactly the part most worth reading, since a note is where a session records what it found.
+
+Grouping by session therefore means unioning events with notes, not regrouping what is already fetched. That is the real cost, and the spec does not mention it.
+
+## Why I recommended otherwise, and why that is fine
+
+I argued for making the rows links and adding a time range first — an hour of work removing the most-cited defect — then deciding about grouping against a screen that worked. KB chose the full rebuild.
+
+That is a reasonable call and the reasoning is on the record either way: "what happened while I was away" is the single most valuable question this app could answer for someone who leaves Claude working and comes back, and nothing else in the product answers it. The half-measure would have removed a complaint without answering the question.
+
+Deletion was the third option and is now closed. The screen is the only place the event log is visible at all, and the event log is the attribution spine.
+
+### TQ-34 — a task needs a summary, checked lightly rather than hard
+
+`que_01KZR4E6MV7W8PYDRXWWSN8VZ1` · question · answered
+
+**Answered — required, with light checking.** KB's call, 2026-08-11.
+
+## What gets built
+
+`summary` becomes a required property on `keel_create` for tasks: one or two plain sentences a colleague could read cold six weeks later, without having been in the conversation. The column is nullable in storage, because roughly 94 rows already exist without one and making them retroactively invalid would break every read.
+
+**Two things are refused, and only two:** an empty summary, and one that only restates the title. The second reuses the containment rule written for near-duplicate titles (KEEL-65) pointed at a different pair of strings — one token set must be a subset of the other, so added words pass and a genuine restatement does not.
+
+Nothing else is refused. No banned-phrase list on this field, no jargon check.
+
+## Why light rather than hard
+
+The mechanism is the required property, not the validator. A model physically cannot complete the call without confronting it, on every surface, whether or not any skill loaded — and that is what changes what gets written.
+
+Checking harder trades that for a real risk: when a model is refused for something it does not agree with, its recovery is to satisfy the letter of the rule. It swaps the word and keeps the same weak sentence, so the prose ends up both bad and compliant while the check reports success. A false rejection is worse than a mediocre summary.
+
+The evidence that a rejection works at all is on the record: two gate sessions sent `priority: "high"` against an enum of p0–p3 and both retried successfully in the same turn. One round trip, no human.
+
+## What this does not settle
+
+The house style itself is B-46 and already shipped for prose bodies, notes and documents. This decides that tasks must carry a summary and how strictly that one field is judged. The existing 94 rows are reported by `keel lint`, never rewritten — a machine inventing a summary produces exactly the confident, plausible, wrong prose the requirement exists to prevent.
+
+## The honest limit, unchanged
+
+A validator catches structure, not quality. It cannot tell a good sentence from a bad one and never will. What the requirement does is put the standard in front of the model at the moment of writing, every time, with no dependence on anyone remembering.
+
+### TQ-33 — no URL fetching, and the daemon may read a file off the disk
+
+`que_01KZR4D9DFQ3MCKMF72Q7Y8N8D` · question · answered
+
+**Answered — the URL fetch stays closed, and `keel_attach(id, path)` is approved.** KB's call, 2026-08-11.
+
+## The URL half was never open
+
+TQ-6 settled it the same morning: the daemon does not make outbound network requests on a model's instruction. Phase 8 listed it as an open decision, which was stale by hours rather than wrong in principle. Confirmed, unchanged.
+
+## The half that was genuinely new
+
+The daemon may read a file already on the same machine. TQ-6's reasoning does not touch this: there is no outbound request, nothing has to be published first, and the bytes never enter the model's context.
+
+This is the path that makes a real screenshot possible from Claude Code, which matters more now that app filing is declined (TQ-30). Base64 through a tool call costs the model 350,000 to 450,000 output tokens for a 1 MB image, so the useful ceiling there is nearer 100 KB — a small mockup, not a screenshot.
+
+## Also agreed, and needing no decision
+
+The base64 description advertises a 1 MB cap when roughly 100 KB is the most any session can actually reach. A description promising ten times what is usable is a trap, and correcting it is ordinary work rather than a change of policy.
+
+## The boundary to hold
+
+Reading a local path and fetching a URL look similar and are not. One touches the machine Keel is already running on; the other gives a model the ability to make the daemon talk to the internet. If a future change makes the path argument accept anything URL-shaped, that is this decision being reversed by accident.
+
+### TQ-32 — no `triage` status for now, and `dropped` still needs correcting
+
+`que_01KZR4CNDT72K8AXJV55KFNEMP` · question · answered
+
+**Answered — not now.** KB's call, 2026-08-11: "since we are not doing new task right now let's skip."
+
+## What this settles
+
+The task status enum stays at five: `todo`, `in_progress`, `review`, `done`, `wont_do`. No sixth value, no migration.
+
+The reasoning follows TQ-30 rather than standing on its own. `triage` existed so that something filed in a hurry from the app did not land in the same pile as planned work and compete with it. With app filing declined, nothing files in a hurry, so the holding pen has nothing to hold.
+
+Worth keeping for whenever app filing returns: this would be the **sixth** value, not the seventh. The spec called it a seventh because it was counting a `blocked` status that KEEL-82 removed and TQ-25 settled.
+
+## Still outstanding, and unrelated to the decision
+
+`product/CLAUDE.md` tells every session: *"Never delete a task. Mark it `dropped` with a reason."* **There is no `dropped` status and never has been.** A session following that instruction literally gets an enum rejection listing five values, none of them the word. The intended value is `wont_do`.
+
+That line sits in the contract loaded into every session, so it has been quietly failing for as long as it has been written down. It is a one-word correction and it does not depend on this question's answer.
+
+### TQ-31 — Ten MCP tools becomes thirteen: all three verbs get their own tool
+
+`que_01KZR4B6DX3572F0WS6ZAB0HWA` · question · answered
+
+**Answered — thirteen. All three verbs become tools.** KB's call, 2026-08-11.
+
+## The question
+
+Phase 8 adds three verbs: "what should I work on", "I am starting this", "I am finished with this". The spec said that takes ten tools to twelve, but ten plus three is thirteen, and it never said which one was not meant to be a tool.
+
+## What settled it
+
+The thing that decides this is **findability at the moment of use**, not the count. This project already settled the same trade once: `keel_note` earned the tenth slot because a note *parameter* on `keel_update` was not findable, while a tool named for findings was — and note-writing went up when it got one.
+
+That argument applies word for word to claiming and closing. Both are already possible through `keel_update`; both are simply not done. Across 66 tasks, the number of transitions into `in_progress` before work began was zero.
+
+The two effects KB will actually see:
+
+- A task visibly sitting in `in_progress` while it is being worked on, so the app answers "what is happening right now" rather than only "what has finished".
+- A commit attached to every completed task, because the tool asks for one.
+
+## What I got wrong first
+
+I recommended twelve, on the grounds that two ways to close a task is how the two come to disagree. That reasoning does not survive: **the storage layer enforces the reason-message-evidence rule on every path into a terminal status regardless**, so drift is impossible under any option. With that removed, twelve is the least principled of the three — it gives claiming a front door and closing none, when they are the same shape of thing, purely to match a number in the spec.
+
+## The cost, accepted
+
+Thirteen tools rather than ten means a slightly larger menu and marginally more chance of a wrong selection on an unrelated call, plus roughly 200 tokens per request. `keel_update`'s description must point at the close tool so the overlap is signposted rather than left to chance.
+
+**Thirteen is the new ceiling** and it should be defended the way ten was. The argument for a fourteenth has to be at least as good as this one.
+
+### TQ-30 — filing issues from the app: not now, and the read-only rule stands
+
+`que_01KZR4AHS7GC45EM0HSNN20SDM` · question · answered
+
+**Answered — not now.** KB's call, 2026-08-11: "let's skip the ability to create a new issue at this time."
+
+## What this settles
+
+Hard constraint 7 stands unchanged. The desktop app stays read-only: no forms, no write endpoints on the daemon for it, Claude and Keel remain the only writers. Nothing in §8B is built.
+
+The constraint was never amended, so there is nothing to reverse if this comes back.
+
+## What it costs, stated plainly
+
+- **The 30-second stopwatch exit criterion goes with it.** Filing a bug with a pasted screenshot from a cold start is not possible, and Phase 8 cannot claim that criterion.
+- **The paste-a-screenshot path is the only one with no size problem.** Bytes going straight from the app to the daemon involve no model, where a real retina screenshot sent as base64 through a tool call costs 350,000 to 450,000 output tokens. Declining the app path means large images have no route in at all — except the file-path variant settled in TQ-33, which does cover Claude Code.
+- **The `triage` status is moot for now** and TQ-32 is closed on the same reasoning: it existed so that things filed in a hurry did not compete with planned work, and nothing files in a hurry any more.
+
+## If it returns
+
+The argument in §8B is good and worth keeping: the app may *capture*, never *manage*. If that is wanted later, the thing to do is amend constraint 7 with the fence written into the rule itself rather than into an endpoint's doc comment — a comment is read by whoever is already editing the endpoint, which is exactly the person about to widen it.
 
 ### TQ-29 — a note does not announce, so the app does not live-refresh on one
 
