@@ -23,6 +23,8 @@ workspace = true
 
 [dependencies]
 duckdb.workspace = true
+rusqlite.workspace = true
+sqlite-vec.workspace = true
 ulid.workspace = true
 chrono.workspace = true
 serde.workspace = true

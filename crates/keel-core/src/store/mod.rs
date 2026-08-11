@@ -16,9 +16,11 @@ pub mod duck;
 pub mod patch;
 pub mod rows;
 pub mod schema;
+pub mod sqlite;
 
 pub use duck::DuckStore;
 pub use patch::{FieldChange, apply_changes};
+pub use sqlite::SqliteStore;
 
 use crate::{
     Cursor, Direction, Document, DocumentDiff, Entity, EntityId, EntityType, Event, Link, NewEvent,

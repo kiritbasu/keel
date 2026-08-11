@@ -106,6 +106,27 @@ pub enum Error {
         source: duckdb::Error,
     },
 
+    /// The SQLite store failed.
+    ///
+    /// A second variant beside [`Error::Storage`] only for as long as both
+    /// engines are in the tree. The two carry the same shape and the same
+    /// contract about `context`; they differ solely in the source type they
+    /// wrap, and KEEL-130 collapses them back into one when DuckDB goes.
+    ///
+    /// Kept separate rather than boxed behind a trait object because a
+    /// `#[source]` that has lost its type is a `#[source]` no caller can match
+    /// on — and the migration needs to tell a "no such table" apart from a
+    /// "database is locked" while both engines are live.
+    #[error("{context}")]
+    Sqlite {
+        /// What the caller was attempting, in the imperative. Never just the
+        /// SQL.
+        context: String,
+        /// The underlying engine error.
+        #[source]
+        source: rusqlite::Error,
+    },
+
     /// Reading or writing the store's directory failed.
     #[error("{context}")]
     Io {
@@ -162,6 +183,16 @@ impl Error {
     pub fn storage(context: impl Into<String>) -> impl FnOnce(duckdb::Error) -> Self {
         let context = context.into();
         move |source| Error::Storage { context, source }
+    }
+
+    /// Wrap a SQLite error with what the caller was trying to do.
+    ///
+    /// The same contract as [`Error::storage`]: the context says what was being
+    /// attempted, in the imperative, and never restates the SQL. A reader who
+    /// wanted the SQL has it in the source.
+    pub fn sqlite(context: impl Into<String>) -> impl FnOnce(rusqlite::Error) -> Self {
+        let context = context.into();
+        move |source| Error::Sqlite { context, source }
     }
 
     /// The full chain, root cause included.

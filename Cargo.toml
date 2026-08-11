@@ -29,7 +29,20 @@ publish = false
 # Storage
 # `bundled` is not enabled here — `keel-core` owns that choice as a feature, so
 # it can be turned off in favour of a system libduckdb. See its Cargo.toml.
+#
+# On its way out. Phase 9 replaces both engines with the single SQLite file
+# below; this entry survives only until `keel migrate` has been verified against
+# the real store, and KEEL-130 is the task that deletes it.
 duckdb = { version = "1.10505", features = ["chrono", "serde_json"] }
+
+# The replacement. `bundled` compiles the SQLite amalgamation, which is what
+# makes the release artifact one static file with no library to ship beside it —
+# measured at 23s for a cold release build of every dependency, against DuckDB's
+# 22m11s. `sqlite-vec` is the vector index and `serde_json` the array columns:
+# DuckDB's `VARCHAR[]` has no SQLite equivalent, and JSON in a TEXT column is
+# what `rows.rs` already sends over the wire in both directions anyway.
+rusqlite = { version = "0.40", features = ["bundled", "chrono", "serde_json", "functions", "blob"] }
+sqlite-vec = "0.1.9"
 
 # Domain
 ulid = { version = "1", features = ["serde"] }
@@ -74,7 +87,17 @@ proptest = "1"
 tempfile = "3"
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+# `deny`, not `forbid`, since Phase 9. `sqlite-vec` is registered through
+# SQLite's `sqlite3_auto_extension` hook, which takes a raw function pointer and
+# is unsafe by construction — there is no safe wrapper in `rusqlite` and no way
+# to load the extension without one. `forbid` exists precisely so that an
+# `#[allow]` cannot override it, so keeping it would have meant no vector search
+# rather than a tidy lint setting.
+#
+# The exception is one block, in `store::sqlite::vector`, and it is the only
+# `unsafe` in the workspace. Anything else that wants one has to argue for
+# itself here first.
+unsafe_code = "deny"
 missing_docs = "warn"
 
 [workspace.lints.clippy]
