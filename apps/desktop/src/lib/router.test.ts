@@ -171,6 +171,10 @@ describe("NEEDS_PROJECT", () => {
       task: true,
       documents: true,
       search: false,
+      // Metrics belong to a project: a target and a direction only mean
+      // something inside one, and merging two projects' series would be a
+      // chart of nothing.
+      metrics: true,
       activity: false,
     });
   });

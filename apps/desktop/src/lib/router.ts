@@ -31,6 +31,7 @@ export type ScreenId =
   | "task"
   | "documents"
   | "search"
+  | "metrics"
   | "activity";
 
 /** Where the user is. Everything the app needs to render a screen. */
@@ -60,10 +61,12 @@ const ROUTES: Array<{ pattern: string; screen: ScreenId }> = [
   { pattern: "/projects/:project/roadmap", screen: "roadmap" },
   { pattern: "/projects/:project/board", screen: "board" },
   { pattern: "/projects/:project/search", screen: "search" },
+  { pattern: "/projects/:project/metrics", screen: "metrics" },
   { pattern: "/projects/:project/activity", screen: "activity" },
   { pattern: "/projects/:project", screen: "project" },
   { pattern: "/roadmap", screen: "roadmap" },
   { pattern: "/search", screen: "search" },
+  { pattern: "/metrics", screen: "metrics" },
   { pattern: "/activity", screen: "activity" },
   { pattern: "/", screen: "home" },
 ];
@@ -77,6 +80,7 @@ export const NEEDS_PROJECT: Record<ScreenId, boolean> = {
   task: true,
   documents: true,
   search: false,
+  metrics: true,
   activity: false,
 };
 
@@ -172,6 +176,9 @@ export function toHash(route: Route): string {
       break;
     case "search":
       path = project ? `/projects/${project}/search` : "/search";
+      break;
+    case "metrics":
+      path = project ? `/projects/${project}/metrics` : "/metrics";
       break;
     case "activity":
       path = project ? `/projects/${project}/activity` : "/activity";

@@ -24,6 +24,7 @@ import { Button, Tooltip, cx } from "./components/ui";
 import { CommandPalette } from "./components/CommandPalette";
 import { HomeScreen } from "./screens/Home";
 import { ProjectScreen } from "./screens/Project";
+import { MetricsScreen } from "./screens/Metrics";
 import { RoadmapScreen } from "./screens/Roadmap";
 import { BoardScreen } from "./screens/Board";
 import { TaskScreen } from "./screens/Task";
@@ -40,7 +41,8 @@ const SCREENS: Array<{ id: ScreenId; label: string; key: string }> = [
   { id: "board", label: "Board", key: "4" },
   { id: "documents", label: "Documents", key: "5" },
   { id: "search", label: "Search", key: "6" },
-  { id: "activity", label: "Activity", key: "7" },
+  { id: "metrics", label: "Metrics", key: "7" },
+  { id: "activity", label: "Activity", key: "8" },
 ];
 
 export function App() {
@@ -140,6 +142,8 @@ export function App() {
         return <ProjectScreen {...shared} />;
       case "roadmap":
         return <RoadmapScreen {...shared} />;
+      case "metrics":
+        return <MetricsScreen {...shared} />;
       case "board":
         return <BoardScreen {...shared} />;
       case "task":
