@@ -43,6 +43,7 @@ pub mod render_status;
 pub mod store;
 pub mod style;
 pub mod types;
+pub mod work;
 
 pub use audit::{Audit, Provenance};
 pub use backup::{BackupManifest, backup, restore, verify_restore};
@@ -53,9 +54,9 @@ pub use document::{
 pub use embed::{Embedder, FastEmbedder, HashEmbedder};
 pub use entity::{Actor, EntityType, ProjectScope, Surface};
 pub use enums::{
-    ArtifactKind, DecisionStatus, DesignState, EnvironmentStatus, FeedbackKind, MetricDirection,
-    MilestoneKind, MilestoneStatus, ProjectStatus, QuestionKind, QuestionStatus, RiskSeverity,
-    Sentiment, SpecKind, SpecStatus, TaskKind, TaskPriority, TaskStatus,
+    ArtifactKind, CloseReason, DecisionStatus, DesignState, EnvironmentStatus, FeedbackKind,
+    MetricDirection, MilestoneKind, MilestoneStatus, ProjectStatus, QuestionKind, QuestionStatus,
+    RiskSeverity, Sentiment, SpecKind, SpecStatus, TaskKind, TaskPriority, TaskStatus,
 };
 pub use error::{Error, Result};
 pub use event::{Action, Cursor, Event, NewEvent};
@@ -64,7 +65,7 @@ pub use generate::{GenerateReport, Mode};
 pub use id::{BlobId, DocId, EntityId, EventId, LinkId, NoteId};
 pub use link::{DEFAULT_DEPTH, Direction, Link, MAX_DEPTH, NewLink, Relation};
 pub use mirror::{Manifest, MirrorFile, MirrorReport};
-pub use next::{Candidate, NextUp};
+pub use next::{Candidate, NextUp, Ready, ReadyFilter, ready};
 pub use note::{NewNote, Note};
 pub use store::{
     Blob, Created, DocumentStore, DuckStore, EntityQuery, EntityStore, GraphStore, Neighbour, Page,
@@ -72,6 +73,8 @@ pub use store::{
 };
 pub use style::{Warning, check as check_style};
 pub use types::{
-    Artifact, Decision, Design, Entity, Environment, Feedback, Metric, MetricObservation,
-    Milestone, Project, Question, Spec, Task, Term, derive_idempotency_key,
+    Artifact, CLAIM_STALE_AFTER, Decision, Design, EVIDENCE_KINDS, Entity, Environment, Feedback,
+    Metric, MetricObservation, Milestone, Project, Question, Spec, Task, Term,
+    derive_idempotency_key, validate_evidence,
 };
+pub use work::{Claimed, Close, Closed, claim, close};

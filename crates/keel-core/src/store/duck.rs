@@ -849,18 +849,41 @@ impl EntityStore for DuckStore {
         // completion date, or it would be counted as closed by every question
         // that filters on one.
         if let Entity::Task(task) = &mut entity
-            && !changes.contains_key("closed_at")
             && applied.iter().any(|c| c.field == "status")
         {
             let terminal = matches!(
                 task.status,
                 crate::TaskStatus::Done | crate::TaskStatus::WontDo
             );
-            task.closed_at = match (terminal, task.closed_at) {
-                (true, None) => Some(Utc::now()),
-                (true, existing) => existing,
-                (false, _) => None,
-            };
+            if !changes.contains_key("closed_at") {
+                task.closed_at = match (terminal, task.closed_at) {
+                    (true, None) => Some(Utc::now()),
+                    (true, existing) => existing,
+                    (false, _) => None,
+                };
+            }
+            // A finished task is not being worked on. Released here rather than
+            // only in `close_task` so that every path into a terminal status
+            // agrees — otherwise a plain `keel_update(status: done)` would leave
+            // a claim standing and `keel ready --unclaimed` would keep skipping
+            // work nobody is doing.
+            if terminal {
+                task.claimed_by = None;
+                task.claimed_at = None;
+            }
+            // The rule that makes the definition of done an invariant rather
+            // than a checklist someone is asked to honour: nothing reaches a
+            // terminal status without saying why, and `done` needs evidence.
+            //
+            // Checked on the *transition* only. A hundred and seven tasks
+            // closed before this existed and carry none of it; running the
+            // check on every write would freeze every one of them, and
+            // backfilling would mean inventing a reason for work nobody
+            // remembers. A store that cannot tell an invented reason from a
+            // stated one is worse than one with visible holes.
+            if terminal {
+                task.validate_close()?;
+            }
         }
 
         let now = Utc::now();

@@ -55,9 +55,26 @@ fn task(store: &mut DuckStore, project: &EntityId, title: &str) -> Task {
     }
 }
 
+/// Move a task's status, supplying whatever a close now demands.
+///
+/// A terminal status needs a reason, a message and — for `done` — evidence, so
+/// the helper carries them. Written here rather than in each test because the
+/// subject of these tests is `closed_at`, and a close that says why is now
+/// simply what a close looks like.
 fn set_status(store: &mut DuckStore, t: &Task, status: &str) -> Task {
     let mut changes = serde_json::Map::new();
     changes.insert("status".to_owned(), serde_json::json!(status));
+    if status == "done" || status == "wont_do" {
+        changes.insert("close_reason".to_owned(), serde_json::json!(status));
+        changes.insert(
+            "close_message".to_owned(),
+            serde_json::json!("Closed by a test that is about the completion date."),
+        );
+        changes.insert(
+            "evidence".to_owned(),
+            serde_json::json!(["test:cargo test -p keel-core --test one_truth"]),
+        );
+    }
     match store
         .update(&t.id, t.audit.version, &changes, &prov())
         .unwrap()
@@ -190,6 +207,15 @@ fn an_explicit_date_wins_over_the_derived_one() {
     changes.insert(
         "closed_at".to_owned(),
         serde_json::json!("2026-01-01T00:00:00Z"),
+    );
+    changes.insert("close_reason".to_owned(), serde_json::json!("done"));
+    changes.insert(
+        "close_message".to_owned(),
+        serde_json::json!("Backfilled from the event log, with the date it actually closed."),
+    );
+    changes.insert(
+        "evidence".to_owned(),
+        serde_json::json!(["test:cargo test -p keel-core --test one_truth"]),
     );
     let updated = match store
         .update(&t.id, t.audit.version, &changes, &prov())

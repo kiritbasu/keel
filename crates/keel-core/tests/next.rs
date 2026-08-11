@@ -94,6 +94,72 @@ impl Fixture {
     fn rank(&self) -> keel_core::NextUp {
         next::rank(&self.store, &self.project).unwrap()
     }
+
+    fn ready(&self, filter: &keel_core::ReadyFilter) -> keel_core::Ready {
+        keel_core::ready(&self.store, &self.project, filter).unwrap()
+    }
+
+    /// Finish a task through the close path, which is the only way to reach a
+    /// terminal status now that a reason is required.
+    fn close(&mut self, id: &EntityId) {
+        let Some(Entity::Task(t)) = self.store.get(id).unwrap() else {
+            panic!("{id} is a task")
+        };
+        keel_core::close(
+            &mut self.store,
+            &t.id,
+            &keel_core::Close {
+                reason: keel_core::CloseReason::Done,
+                message: "Finished, so that what it was blocking becomes ready.".to_owned(),
+                evidence: vec!["test:cargo test -p keel-core --test next".to_owned()],
+                other: None,
+            },
+            &Provenance::anonymous(Actor::Human),
+        )
+        .unwrap();
+    }
+
+    fn claim_as(&mut self, id: &EntityId, session: &str) {
+        keel_core::claim(
+            &mut self.store,
+            id,
+            false,
+            &Provenance::anonymous(Actor::Claude).with_session(session),
+        )
+        .unwrap();
+    }
+
+    fn set_parent(&mut self, child: &EntityId, parent: &EntityId) {
+        let Some(Entity::Task(t)) = self.store.get(child).unwrap() else {
+            panic!("{child} is a task")
+        };
+        let mut changes = serde_json::Map::new();
+        changes.insert("parent_id".to_owned(), serde_json::json!(parent.as_str()));
+        self.store
+            .update(
+                child,
+                t.audit.version,
+                &changes,
+                &Provenance::anonymous(Actor::Human),
+            )
+            .unwrap();
+    }
+
+    fn label(&mut self, id: &EntityId, labels: &[&str]) {
+        let Some(Entity::Task(t)) = self.store.get(id).unwrap() else {
+            panic!("{id} is a task")
+        };
+        let mut changes = serde_json::Map::new();
+        changes.insert("labels".to_owned(), serde_json::json!(labels));
+        self.store
+            .update(
+                id,
+                t.audit.version,
+                &changes,
+                &Provenance::anonymous(Actor::Human),
+            )
+            .unwrap();
+    }
 }
 
 #[test]
@@ -170,19 +236,7 @@ fn finishing_the_blocker_releases_the_work() {
     let downstream = f.task("Build the integration", TaskPriority::P0, TaskStatus::Todo);
     f.blocks(&gate, &downstream);
 
-    let Some(Entity::Task(t)) = f.store.get(&gate).unwrap() else {
-        panic!("the gate exists")
-    };
-    let mut changes = serde_json::Map::new();
-    changes.insert("status".to_owned(), serde_json::json!("done"));
-    f.store
-        .update(
-            &gate,
-            t.audit.version,
-            &changes,
-            &Provenance::anonymous(Actor::Human),
-        )
-        .unwrap();
+    f.close(&gate);
 
     let up = f.rank();
     assert_eq!(
@@ -283,5 +337,136 @@ fn done_work_is_not_ranked_and_an_empty_project_says_so() {
     assert!(
         f.rank().is_empty(),
         "closed work must not reappear as something to pick up"
+    );
+}
+
+// --- keel ready ----------------------------------------------------------
+//
+// The ranking was good and had no front door: the only way to reach it was
+// inside the ~3,500-token digest, so "what should I do next" cost a full
+// digest. These tests are about the door and its filters. The order they
+// return is `rank`'s, tested above.
+
+#[test]
+fn ready_offers_the_children_and_not_the_parent() {
+    let mut f = setup();
+    let parent = f.task("Make the app legible", TaskPriority::P0, TaskStatus::Todo);
+    let child = f.task("Fix the date format", TaskPriority::P2, TaskStatus::Todo);
+    f.set_parent(&child, &parent);
+
+    let ready = f.ready(&keel_core::ReadyFilter::default());
+    let ids: Vec<_> = ready.items.iter().map(|c| c.id.clone()).collect();
+    assert!(
+        ids.contains(&child),
+        "the child is the work, so it is what gets offered"
+    );
+    assert!(
+        !ids.contains(&parent),
+        "a parent is a container for its children — offering both puts one job in the \
+         list twice, with the vaguer of the two ranked higher"
+    );
+}
+
+#[test]
+fn unclaimed_hides_what_somebody_is_already_doing() {
+    let mut f = setup();
+    let mine = f.task("Being worked on", TaskPriority::P0, TaskStatus::Todo);
+    let free = f.task("Nobody on it", TaskPriority::P1, TaskStatus::Todo);
+    f.claim_as(&mine, "ses_someone_else");
+
+    let all = f.ready(&keel_core::ReadyFilter::default());
+    assert_eq!(all.items.len(), 2, "a claim does not stop work being ready");
+
+    let unclaimed = f.ready(&keel_core::ReadyFilter {
+        unclaimed: true,
+        ..Default::default()
+    });
+    assert_eq!(unclaimed.items.len(), 1);
+    assert_eq!(unclaimed.items[0].id, free);
+}
+
+#[test]
+fn labels_narrow_the_list_in_both_directions() {
+    let mut f = setup();
+    let app = f.task("Restyle the rail", TaskPriority::P1, TaskStatus::Todo);
+    let store_work = f.task("Add a column", TaskPriority::P1, TaskStatus::Todo);
+    f.label(&app, &["desktop", "phase8"]);
+    f.label(&store_work, &["storage", "phase8"]);
+
+    let only_desktop = f.ready(&keel_core::ReadyFilter {
+        labels: vec!["desktop".to_owned()],
+        ..Default::default()
+    });
+    assert_eq!(only_desktop.items.len(), 1);
+    assert_eq!(only_desktop.items[0].id, app);
+
+    let not_desktop = f.ready(&keel_core::ReadyFilter {
+        without_labels: vec!["desktop".to_owned()],
+        ..Default::default()
+    });
+    assert_eq!(not_desktop.items.len(), 1);
+    assert_eq!(not_desktop.items[0].id, store_work);
+
+    let both_wanted = f.ready(&keel_core::ReadyFilter {
+        labels: vec!["desktop".to_owned(), "storage".to_owned()],
+        ..Default::default()
+    });
+    assert!(
+        both_wanted.items.is_empty(),
+        "labels are required together, not alternatives — otherwise `--label` on two \
+         labels would widen the list, which is the opposite of filtering"
+    );
+}
+
+// Failure case, and hard constraint 4: a list that was cut says so. Ten of ten
+// is indistinguishable from ten of ninety otherwise, and a session that reads
+// the first is entitled to believe it has seen everything.
+#[test]
+fn a_limited_list_reports_that_it_was_cut_and_how_much_there_was() {
+    let mut f = setup();
+    for n in 0..5 {
+        f.task(
+            &format!("Task number {n}"),
+            TaskPriority::P2,
+            TaskStatus::Todo,
+        );
+    }
+
+    let cut = f.ready(&keel_core::ReadyFilter {
+        limit: Some(2),
+        ..Default::default()
+    });
+    assert_eq!(cut.items.len(), 2);
+    assert_eq!(
+        cut.total, 5,
+        "the total is what was ready, not what was returned"
+    );
+    assert!(cut.truncated);
+
+    let whole = f.ready(&keel_core::ReadyFilter {
+        limit: Some(5),
+        ..Default::default()
+    });
+    assert!(
+        !whole.truncated,
+        "a limit that happens to equal the count did not cut anything"
+    );
+}
+
+#[test]
+fn ready_skips_what_is_blocked_and_what_is_waiting_on_a_person() {
+    let mut f = setup();
+    let gate = f.task("Must happen first", TaskPriority::P2, TaskStatus::Todo);
+    let waiting = f.task("Downstream", TaskPriority::P0, TaskStatus::Todo);
+    f.blocks(&gate, &waiting);
+    let decide = f.decision_task("Decide TQ-40", TaskPriority::P0);
+
+    let ready = f.ready(&keel_core::ReadyFilter::default());
+    let ids: Vec<_> = ready.items.iter().map(|c| c.id.clone()).collect();
+    assert!(ids.contains(&gate));
+    assert!(!ids.contains(&waiting), "something live is in its way");
+    assert!(
+        !ids.contains(&decide),
+        "a decision is not work — nothing can start on it until a person answers"
     );
 }

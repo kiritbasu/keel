@@ -395,10 +395,13 @@ fn a_field_change_records_both_sides() {
         )
         .unwrap()
         .entity;
+    // A non-terminal move, so this stays a test about one field's two sides.
+    // Closing writes four fields at once and would make "the status event" a
+    // matter of which of the four the search happened to reach first.
     s.update(
         task.id(),
         1,
-        json!({"status": "done"}).as_object().unwrap(),
+        json!({"status": "review"}).as_object().unwrap(),
         &prov(),
     )
     .unwrap();
@@ -411,7 +414,7 @@ fn a_field_change_records_both_sides() {
         .unwrap();
     assert_eq!(change.field.as_deref(), Some("status"));
     assert_eq!(change.before, Some(json!("todo")));
-    assert_eq!(change.after, Some(json!("done")));
+    assert_eq!(change.after, Some(json!("review")));
 }
 
 #[test]

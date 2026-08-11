@@ -152,8 +152,11 @@ fn a_rows_history_is_its_own_and_reads_forwards() {
     changes.insert("priority".to_owned(), serde_json::json!("p0"));
     store.update(&mine, 2, &changes, &prov).unwrap();
 
+    // `review` rather than `done`: the subject here is whose history an event
+    // lands in, and closing would drag in the reason, message and evidence a
+    // terminal transition now demands.
     let mut changes = serde_json::Map::new();
-    changes.insert("status".to_owned(), serde_json::json!("done"));
+    changes.insert("status".to_owned(), serde_json::json!("review"));
     store.update(&other, 1, &changes, &prov).unwrap();
 
     let page = store.events_for(&mine, 50).unwrap();

@@ -10,7 +10,7 @@
 //! rules apply whether a value arrived from MCP, the CLI or a fixture.
 
 use crate::{
-    ArtifactKind, Audit, BlobId, DecisionStatus, DesignState, EntityId, EntityType,
+    ArtifactKind, Audit, BlobId, CloseReason, DecisionStatus, DesignState, EntityId, EntityType,
     EnvironmentStatus, Error, FeedbackKind, MetricDirection, MilestoneKind, MilestoneStatus,
     ProjectStatus, Provenance, QuestionKind, QuestionStatus, Result, RiskSeverity, Sentiment,
     SpecKind, SpecStatus, TaskKind, TaskPriority, TaskStatus,
@@ -458,6 +458,126 @@ impl Task {
 
         Ok(())
     }
+
+    /// Whether a claim on this task is still standing.
+    ///
+    /// A claim goes stale after [`CLAIM_STALE_AFTER`], which is the same three
+    /// days `fsck` already warns on for a task sitting in `in_progress`. Reusing
+    /// that number rather than choosing a second one is deliberate: two
+    /// thresholds for "this session is probably gone" would eventually disagree,
+    /// and the disagreement would show as work that `fsck` calls abandoned and
+    /// `keel claim` refuses to take.
+    pub fn claim_is_live(&self, now: DateTime<Utc>) -> bool {
+        match (&self.claimed_by, self.claimed_at) {
+            (Some(_), Some(at)) => now.signed_duration_since(at) < CLAIM_STALE_AFTER,
+            // A session with no timestamp is a claim from before this column
+            // existed. Treated as live so a claim is never silently ignored;
+            // `--force` is the way past it.
+            (Some(_), None) => true,
+            _ => false,
+        }
+    }
+
+    /// Check that a close carries what its reason demands.
+    ///
+    /// Called by the store on every path into a terminal status, which is what
+    /// makes this an invariant rather than a convention. The definition of done
+    /// in `product/CLAUDE.md` is a seven-item checklist an agent is *asked* to
+    /// honour; a message and a piece of evidence being arguments of the
+    /// transition is a rule that cannot be forgotten.
+    pub fn validate_close(&self) -> Result<()> {
+        let Some(reason) = self.close_reason else {
+            return Err(Error::invalid(
+                EntityType::Task,
+                "close_reason",
+                "a task cannot become done or wont_do without saying why",
+                format!(
+                    "one of {} — use keel_close, which asks for the reason, the message and \
+                     the evidence together",
+                    CloseReason::options()
+                ),
+            ));
+        };
+
+        if self
+            .close_message
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+        {
+            return Err(Error::invalid(
+                EntityType::Task,
+                "close_message",
+                format!("closing as `{reason}` needs a message and this one is empty"),
+                "one or two sentences on what actually happened — what was built, or why it \
+                 is not being done. It is what the next session reads instead of guessing \
+                 from a status.",
+            ));
+        }
+
+        if reason.needs_evidence() && self.evidence.is_empty() {
+            return Err(Error::invalid(
+                EntityType::Task,
+                "evidence",
+                "a task cannot be done with nothing to show for it",
+                format!("at least one of {EVIDENCE_KINDS_HELP}"),
+            ));
+        }
+
+        for item in &self.evidence {
+            validate_evidence(item)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// How long a claim stands before another session may take it.
+///
+/// Three days, matching `fsck`'s existing warning for work parked in
+/// `in_progress`. See [`Task::claim_is_live`] for why it is not a second number.
+pub const CLAIM_STALE_AFTER: chrono::TimeDelta = chrono::TimeDelta::days(3);
+
+/// The evidence prefixes, in the order they are worth reaching for.
+pub const EVIDENCE_KINDS: &[&str] = &["commit", "pr", "test", "doc", "url", "image"];
+
+/// The evidence prefixes as an error message says them.
+const EVIDENCE_KINDS_HELP: &str = "commit:<sha>, pr:<url>, test:<command>, doc:<entity-id>, \
+                                   url:<url>, image:<blob-id>";
+
+/// Check one piece of evidence.
+///
+/// Typed rather than free text, and checked rather than merely documented. The
+/// point of the prefix is that "what shipped this week, with the commits" is a
+/// query; a bare sha in the list makes that query wrong in a way nothing
+/// reports.
+pub fn validate_evidence(item: &str) -> Result<()> {
+    let Some((kind, value)) = item.split_once(':') else {
+        return Err(Error::invalid(
+            EntityType::Task,
+            "evidence",
+            format!("`{item}` does not say what kind of evidence it is"),
+            format!("one of {EVIDENCE_KINDS_HELP}"),
+        ));
+    };
+    if !EVIDENCE_KINDS.contains(&kind) {
+        return Err(Error::invalid(
+            EntityType::Task,
+            "evidence",
+            format!("`{kind}` is not a kind of evidence Keel records"),
+            format!("one of {EVIDENCE_KINDS_HELP}"),
+        ));
+    }
+    if value.trim().is_empty() {
+        return Err(Error::invalid(
+            EntityType::Task,
+            "evidence",
+            format!("`{item}` names a kind of evidence but no evidence"),
+            format!("a value after the colon, as in {EVIDENCE_KINDS_HELP}"),
+        ));
+    }
+    Ok(())
 }
 
 /// Whether `summary` says nothing `title` did not already say.
@@ -544,6 +664,43 @@ pub struct Task {
     pub rank: f64,
     /// When it reached a terminal status.
     pub closed_at: Option<DateTime<Utc>>,
+    /// The session that claimed this task, if it is claimed.
+    ///
+    /// A claim is what makes "in progress" mean something. Before it existed,
+    /// moving a task to `in_progress` was an instruction in the contract that
+    /// sessions had to remember, and across sixty-six tasks the number of
+    /// transitions into that state before work began was zero.
+    ///
+    /// Cleared on close, so a finished task is not reported as being worked on.
+    pub claimed_by: Option<String>,
+    /// When the claim was taken.
+    ///
+    /// Carried alongside the session rather than derived from the event log,
+    /// because staleness is the whole reason the field exists: a claim from a
+    /// session that died three days ago must not hold work hostage, and asking
+    /// the event log that question means a scan per task.
+    pub claimed_at: Option<DateTime<Utc>>,
+    /// Why it stopped being open.
+    ///
+    /// Set only by the close path, which is what makes it trustworthy. `done`
+    /// and `wont_do` are the two terminal statuses; this says which of the five
+    /// reasons put the task in one of them.
+    pub close_reason: Option<CloseReason>,
+    /// What the person or session closing it said about why.
+    ///
+    /// A column rather than a note, and the reason is enforcement: the storage
+    /// layer refuses a close with no message, and it cannot check that a note
+    /// was written in some other call. Notes remain the place for everything
+    /// learned along the way; this is the one sentence that belongs to the
+    /// transition itself.
+    pub close_message: Option<String>,
+    /// Typed, repeatable proof that the work happened.
+    ///
+    /// `commit:<sha>`, `pr:<url>`, `test:<command>`, `doc:<entity-id>`,
+    /// `url:<url>` or `image:<blob-id>`. Typed rather than free text so that
+    /// "what shipped this week, with the commits" is answerable by a query
+    /// instead of by reading prose.
+    pub evidence: Vec<String>,
     /// Idempotency key, unique within the project.
     pub idempotency_key: String,
     /// The audit block.
@@ -584,6 +741,11 @@ impl Task {
             // constructing a `Task` and storing it.
             rank: 0.0,
             closed_at: None,
+            claimed_by: None,
+            claimed_at: None,
+            close_reason: None,
+            close_message: None,
+            evidence: Vec::new(),
             audit: provisional_audit(),
         }
     }

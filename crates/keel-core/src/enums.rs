@@ -160,6 +160,66 @@ impl TaskStatus {
 }
 
 string_enum! {
+    /// Why a task stopped being open.
+    ///
+    /// Five reasons over two terminal statuses, which is the whole point of the
+    /// column existing. `done` maps to [`TaskStatus::Done`]; the other four all
+    /// map to [`TaskStatus::WontDo`], because "not doing it", "already done
+    /// elsewhere", "the plan changed" and "nothing needed doing" are four
+    /// different things that a single status cannot tell apart. Adding four
+    /// statuses instead was the alternative, and it would have put the same
+    /// information somewhere every query filtering on `is_open` has to learn
+    /// about.
+    ///
+    /// The default is `Done` only because the macro requires one. Nothing reads
+    /// it — the reason is an argument of the close, never inferred.
+    CloseReason for EntityType::Task, field "close_reason", default Done {
+        /// Finished. Needs a message and at least one piece of evidence.
+        Done = "done",
+        /// Deliberately not doing it. Needs a message.
+        WontDo = "wont_do",
+        /// The same work as another task, which keeps the history.
+        Duplicate = "duplicate",
+        /// Replaced by another task that says it better.
+        Superseded = "superseded",
+        /// Looked at it, and there was nothing to do.
+        NoChange = "no_change",
+    }
+}
+
+impl CloseReason {
+    /// The status a task lands in when closed for this reason.
+    pub const fn status(self) -> TaskStatus {
+        match self {
+            CloseReason::Done => TaskStatus::Done,
+            _ => TaskStatus::WontDo,
+        }
+    }
+
+    /// Whether this reason names another task, and therefore draws an edge.
+    ///
+    /// `duplicate` writes `duplicates` and `superseded` writes `supersedes`.
+    /// Both relations already exist, so the automatic link needs no schema —
+    /// and drawing it here is what stops "closed as a duplicate of what?"
+    /// being a question only the message can answer.
+    pub const fn relation(self) -> Option<crate::Relation> {
+        match self {
+            CloseReason::Duplicate => Some(crate::Relation::Duplicates),
+            CloseReason::Superseded => Some(crate::Relation::Supersedes),
+            _ => None,
+        }
+    }
+
+    /// Whether closing for this reason demands evidence.
+    ///
+    /// Only `done` does. A task nobody did has nothing to show, and demanding
+    /// a commit for "we decided not to" would teach people to invent one.
+    pub const fn needs_evidence(self) -> bool {
+        matches!(self, CloseReason::Done)
+    }
+}
+
+string_enum! {
     /// How urgent a task is.
     TaskPriority for EntityType::Task, field "priority", default P2 {
         /// Drop everything.

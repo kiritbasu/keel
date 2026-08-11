@@ -782,6 +782,12 @@ mod task_summary {
 
         let mut changes = serde_json::Map::new();
         changes.insert("status".to_owned(), json!("done"));
+        changes.insert("close_reason".to_owned(), json!("done"));
+        changes.insert(
+            "close_message".to_owned(),
+            json!("Finished, and the row predates the summary requirement."),
+        );
+        changes.insert("evidence".to_owned(), json!(["commit:deadbeef"]));
         store
             .update(cleared.id(), cleared.audit().version, &changes, &claude())
             .expect("a summary-less task must still be closable");

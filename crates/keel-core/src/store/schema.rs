@@ -764,6 +764,28 @@ UPDATE tasks SET number = n.rn FROM (
             name: "task_summary",
             sql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS summary VARCHAR;",
         },
+        // The three verbs of Phase 8 need somewhere to put what they record.
+        //
+        // Additive and nullable throughout, and no existing row changes. That
+        // matters more here than it did for `summary`: 107 tasks are already
+        // closed and none of them carries a reason, a message or evidence. A
+        // backfill would have to invent all three, and a store that cannot tell
+        // an invented reason from a stated one is worse than one with holes in
+        // it — the holes are at least visible.
+        //
+        // So the rule is enforced on the *transition* rather than on the table.
+        // Rows that closed before it existed stay as they are and stay editable.
+        Migration {
+            id: 15,
+            name: "task_claim_and_close",
+            sql: "
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS claimed_by VARCHAR;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMP;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS close_reason VARCHAR;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS close_message VARCHAR;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS evidence VARCHAR[];
+",
+        },
     ]
 }
 

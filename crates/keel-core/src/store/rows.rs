@@ -15,11 +15,12 @@
 //! and a separator that is safe today is a corruption bug later.
 
 use crate::{
-    Actor, Artifact, ArtifactKind, Audit, BlobId, Decision, DecisionStatus, Design, DesignState,
-    Entity, EntityId, EntityType, Environment, EnvironmentStatus, Error, Feedback, FeedbackKind,
-    Metric, MetricDirection, MetricObservation, Milestone, MilestoneKind, MilestoneStatus, Project,
-    ProjectStatus, Question, QuestionKind, QuestionStatus, Result, RiskSeverity, Sentiment, Spec,
-    SpecKind, SpecStatus, Surface, Task, TaskKind, TaskPriority, TaskStatus,
+    Actor, Artifact, ArtifactKind, Audit, BlobId, CloseReason, Decision, DecisionStatus, Design,
+    DesignState, Entity, EntityId, EntityType, Environment, EnvironmentStatus, Error, Feedback,
+    FeedbackKind, Metric, MetricDirection, MetricObservation, Milestone, MilestoneKind,
+    MilestoneStatus, Project, ProjectStatus, Question, QuestionKind, QuestionStatus, Result,
+    RiskSeverity, Sentiment, Spec, SpecKind, SpecStatus, Surface, Task, TaskKind, TaskPriority,
+    TaskStatus,
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use duckdb::Row;
@@ -334,6 +335,11 @@ pub fn spec_for(entity_type: EntityType) -> TableSpec {
                 Plain("parent_id"),
                 Plain("rank"),
                 Plain("closed_at"),
+                Plain("claimed_by"),
+                Plain("claimed_at"),
+                Plain("close_reason"),
+                Plain("close_message"),
+                Array("evidence"),
                 Plain("idempotency_key"),
             ],
         },
@@ -520,6 +526,11 @@ pub fn insert_params(entity: &Entity) -> Vec<Value> {
             os(e.parent_id.as_ref().map(EntityId::as_str)),
             Value::Double(e.rank),
             ots(e.closed_at),
+            os(e.claimed_by.clone()),
+            ots(e.claimed_at),
+            os(e.close_reason.map(|r| r.as_str())),
+            os(e.close_message.clone()),
+            arr(&e.evidence),
             s(&e.idempotency_key),
         ],
         Entity::Spec(e) => vec![
@@ -688,6 +699,14 @@ pub fn from_row(entity_type: EntityType, row: &Row<'_>) -> Result<Entity> {
             // panicking; `fsck` reports it, because the store never writes one.
             rank: get_od(row, t, "rank")?.unwrap_or_default(),
             closed_at: get_ots(row, t, "closed_at")?,
+            claimed_by: get_os(row, t, "claimed_by")?,
+            claimed_at: get_ots(row, t, "claimed_at")?,
+            close_reason: match get_os(row, t, "close_reason")? {
+                Some(r) => Some(CloseReason::parse(&r)?),
+                None => None,
+            },
+            close_message: get_os(row, t, "close_message")?,
+            evidence: get_arr(row, t, "evidence")?,
             idempotency_key: get_s(row, t, "idempotency_key")?,
             audit,
         }),

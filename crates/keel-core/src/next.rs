@@ -221,6 +221,133 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
     Ok(out)
 }
 
+/// What to narrow `keel ready` to.
+///
+/// Every field is "no opinion" by default, so an empty filter is the whole ready
+/// list. That matters for the promise the three surfaces make: the CLI, the tool
+/// and the app all call [`ready`], and a default that meant something would be a
+/// fourth answer nobody asked for.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ReadyFilter {
+    /// Only tasks nobody is holding.
+    pub unclaimed: bool,
+    /// Only tasks carrying all of these labels.
+    pub labels: Vec<String>,
+    /// Exclude tasks carrying any of these labels.
+    pub without_labels: Vec<String>,
+    /// Only tasks under this milestone — "what is next in Phase 8".
+    pub milestone: Option<EntityId>,
+    /// How many to return. `None` means every one of them.
+    pub limit: Option<usize>,
+}
+
+/// The ready list, and what it left out.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Ready {
+    /// Pick these up, best first.
+    pub items: Vec<Candidate>,
+    /// How many were ready before the limit was applied.
+    pub total: usize,
+    /// Whether the limit cut the list.
+    ///
+    /// Reported rather than inferred from `items.len() == limit`, because
+    /// hard constraint 4 is that no list is ever silently truncated: a caller
+    /// who sees ten of ten has no way to tell that from ten of ninety.
+    pub truncated: bool,
+}
+
+/// What can be worked on right now.
+///
+/// Open, nothing live blocking it, and not a parent — because a parent's
+/// children are the actual work, and offering both puts the same job in the list
+/// twice with the vaguer of the two ranked higher.
+///
+/// The ranking is [`rank`]'s, unchanged: most-unblocking first, then priority.
+/// This adds the front door and the filters, and it is the one computation the
+/// CLI, the MCP tool and the app all read — which is what stops the app showing
+/// a different answer from the one a session was given.
+pub fn ready(
+    store: &(impl EntityStore + GraphStore),
+    project_id: &EntityId,
+    filter: &ReadyFilter,
+) -> Result<Ready> {
+    let ranked = rank(store, project_id)?;
+
+    // Parents are excluded by id, which needs the whole task list rather than
+    // only the ranked one: a parent whose children are all done is still a
+    // parent, and its child may be closed and therefore absent from `ranked`.
+    let page = store.list(
+        &EntityQuery::in_project(project_id.clone())
+            .of_type(EntityType::Task)
+            .limited(5_000),
+    )?;
+    let parents: std::collections::HashSet<EntityId> = page
+        .items
+        .iter()
+        .filter_map(|e| match e {
+            Entity::Task(t) => t.parent_id.clone(),
+            _ => None,
+        })
+        .collect();
+    let by_id: std::collections::HashMap<&EntityId, &crate::Task> = page
+        .items
+        .iter()
+        .filter_map(|e| match e {
+            Entity::Task(t) => Some((&t.id, t)),
+            _ => None,
+        })
+        .collect();
+
+    let now = chrono::Utc::now();
+    let mut items: Vec<Candidate> = Vec::new();
+    for candidate in ranked.ready {
+        let Some(task) = by_id.get(&candidate.id) else {
+            continue;
+        };
+        if parents.contains(&candidate.id) {
+            continue;
+        }
+        if filter.unclaimed && task.claim_is_live(now) {
+            continue;
+        }
+        if !filter
+            .labels
+            .iter()
+            .all(|want| task.labels.iter().any(|l| l == want))
+        {
+            continue;
+        }
+        if filter
+            .without_labels
+            .iter()
+            .any(|skip| task.labels.iter().any(|l| l == skip))
+        {
+            continue;
+        }
+        if let Some(milestone) = &filter.milestone
+            && task.milestone_id.as_ref() != Some(milestone)
+        {
+            continue;
+        }
+        items.push(candidate);
+    }
+
+    let total = items.len();
+    let truncated = match filter.limit {
+        Some(limit) if total > limit => {
+            items.truncate(limit);
+            true
+        }
+        _ => false,
+    };
+
+    Ok(Ready {
+        items,
+        total,
+        truncated,
+    })
+}
+
 /// Why a ready task sits where it does.
 fn reason(unblocks: usize, priority: &str) -> String {
     match (unblocks, priority) {
