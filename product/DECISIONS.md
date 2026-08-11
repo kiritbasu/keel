@@ -57,6 +57,8 @@ Every decision made while building, with the reasoning and what was rejected. In
 | B-44 | [A missing readable number is read as unassigned, not as an error](#b-44) | `proposed` |
 | B-45 | [Every milestone carries a plain-English explainer, required at creation](#b-45) | `accepted` |
 | B-46 | [The plain-English rule covers every prose field, not just milestone summaries](#b-46) | `accepted` |
+| B-47 | [The close reason is a column, and closing is checked on the transition](#b-47) | `accepted` |
+| B-48 | [A claim is optimistic concurrency, not a lock](#b-48) | `accepted` |
 
 ## Reversals
 
@@ -1054,5 +1056,57 @@ Fenced code, inline code and block quotes are stripped before any check. A note 
 - The SessionStart hook states the house rule in one line, since that is the channel measured to reach the model — thirty gate sessions invoked the skill zero times.
 - The existing rows are not rewritten. A machine inventing replacement prose would produce exactly the confident, plausible, wrong text this rule exists to prevent, which is the same reasoning that stops the mirror ever reading a file back. `keel lint` reports them.
 - This does not settle TQ-34, which asks whether a task `summary` is required at all. This decides how prose is judged once written, not which fields must exist.
+
+
+### B-47 — The close reason is a column, and closing is checked on the transition
+
+`accepted` · `dec_01KZS0SFC4YAGPC58TGDG677T9`
+
+KEEL-110's body left one thing open: `duplicate`, `superseded` and `no_change` are reasons, but only `done` and `wont_do` are statuses, so where the reason lives had to be settled when the task was picked up. It is a `close_reason` column on the task.
+
+#### What was chosen
+
+Five reasons over two statuses. `done` maps to `Done`; `wont_do`, `duplicate`, `superseded` and `no_change` all map to `WontDo`, and the column says which of the four it was. `close_message` and `evidence` sit beside it.
+
+The alternative was mapping the last three onto `wont_do` and recording the reason nowhere, which loses the only thing that distinguishes them. Adding four statuses was the other alternative, and it would have put the same information somewhere every query filtering on `is_open` has to learn about.
+
+#### Where the rule is enforced, and why it matters
+
+In `DuckStore::update`, not in `work::close`. Any path into a terminal status is held to it, so a caller reaching for `keel_update(status: done)` to avoid answering the question is refused by the same check. That is the difference between an invariant and a second convention, and it is what makes the definition of done in this file more than a list somebody is asked to honour.
+
+#### Checked on the transition only
+
+A hundred and seven tasks closed before any of this existed and carry no reason, no message and no evidence. Two things follow.
+
+Running the check on every write would freeze every one of them: moving an old row's priority would be refused for a message nobody was being asked to write. And backfilling would mean inventing a reason for work nobody remembers — a store that cannot tell an invented reason from a stated one is worse than one with holes, because the holes are at least visible.
+
+So the rule sits on the transition, and `keel lint` reports what falls through. That is the same shape TQ-34 settled for task summaries, for the same reason.
+
+#### The hole left open on purpose
+
+`keel_create` with `status: done` still bypasses the rule. `bootstrap` and `import` both create already-closed rows, and enforcing on create would break both. Creating a task that is already finished is a migration shape rather than doing work, but it is a hole and it belongs on `keel lint`'s list.
+
+
+### B-48 — A claim is optimistic concurrency, not a lock
+
+`accepted` · `dec_01KZS0SZ6V2YCKKGX3ANTW777B`
+
+`keel claim` had to be atomic, and the obvious reading of that is a lock. It is not one.
+
+Claiming reads the task, checks whether anybody is holding it, and writes through the ordinary update with the version it read. Two sessions racing for the same task both read version 7; the first writes 8 and the second is rejected with a stale-version error carrying the current state and the events in between. That is already how every other write in Keel behaves, and it is exactly the property a lock would have been added to provide.
+
+A lock would also have needed a release path of its own, and something to release it when the holder dies. Both of those already exist here and neither is new machinery: closing clears the claim in the store's update path, and a claim goes stale after three days.
+
+#### The three days are fsck's number, not a second one
+
+`fsck` already warns about a task parked in `in_progress` for three days. Choosing a different threshold here would have meant two answers to "this session is probably gone", and the disagreement would surface as work `fsck` calls abandoned and `keel claim` refuses to take.
+
+#### The one write refused for want of a session
+
+A claim with no `session_id` is refused outright. Everywhere else in Keel an anonymous write is merely less traceable — SPEC §6.5 says to fall back to the transport's identity rather than decline. Here the session is the content: a claim naming nobody excludes the task from `keel ready --unclaimed` while telling no one who to ask about it, which is worse than leaving it unclaimed.
+
+#### Releasing lives in the store, not in the close path
+
+Any transition into a terminal status clears `claimed_by` and `claimed_at`, wherever it came from. Putting that only in `keel_close` would have let a plain `keel_update(status: done)` leave a claim standing, and `ready --unclaimed` would have gone on skipping work nobody was doing.
 
 

@@ -15,11 +15,11 @@ This file is loaded automatically into every Claude Code session in this repo. I
 1. Read `product/STATUS.md`. It tells you the current phase, what's in progress, and what's blocked. It is rendered from the task rows — read it, never edit it.
 2. Read `.keel/questions.md`. It has two halves and you need both. **Open** is undecided: nothing there may be built on without saying so, and anything marked `blocked` halts work that depends on it. **Settled** is decided, with the reasoning — do not re-litigate it. Both halves are generated from the question rows, so there is nothing to keep in step.
 3. `git log --oneline -15` — see what the last session actually did.
-4. State in one line what you're picking up before you touch anything.
+4. State in one line what you're picking up before you touch anything, and `keel_claim` it. `keel_ready` is what to ask if the tracker leaves the choice open.
 
 **At the end of every session, without exception:**
 
-1. Move the task rows — status, and anything you learned recorded as a note on the row it belongs to. The tracker and the changelog both derive from this; there is no second place to update.
+1. Move the task rows — `keel_close` what you finished, with the reason, a message and the evidence, and put anything you learned as a note on the row it belongs to. The tracker and the changelog both derive from this; there is no second place to update.
 2. Add any decisions you made to the decision log.
 3. Add any new unknowns as question rows.
 4. **Regenerate**: `keel generate keel`. See "Keel is the source of truth" below — the files in `product/` are outputs, and an edit that never reaches Keel is lost on the next run.
@@ -74,13 +74,16 @@ KB's primary window into this project is the desktop app, with `product/STATUS.m
 
 **Rules:**
 
-- Move a task to `in_progress` **before** starting it, not after.
+- **Claim a task before starting it**, not after: `keel_claim` over MCP, or `keel claim KEEL-42` from a terminal. That records who is on it as well as moving the status, so the app answers "what is happening right now" and not only "what has finished". This used to be an instruction you had to remember, and across sixty-six tasks the number of transitions into `in_progress` before work began was zero — which is why it is a tool now.
+- **Ask `keel_ready` what to pick up.** It is the ranking the digest carries, with a front door of its own and filters: unclaimed, by label, by milestone. Reaching for it costs a fraction of a full digest, and it orders by what a task unblocks before its priority.
 - A task is `done` only when it meets the definition of done below. Not when the code is written.
 - If a task turns out to be bigger than one task, split it and record the split. Don't silently expand scope.
 - If you're blocked, say so on the row. **`blocked` is not a status** — it is derived from the `blocks` edges, so the way to mark something blocked is to draw the edge that blocks it. Never leave something `in_progress` across sessions without a note.
 - Record what you *found* as a note on the task — `keel_note` over MCP, or `keel note add <task-id> "…"` from a terminal — not as a line in a markdown table. A status without the finding behind it is a colour, not information.
 - The changelog is derived from the event log, so it writes itself. A session that achieved nothing still leaves a trace, which was the point of insisting on the entry.
-- Never delete a task. Mark it `dropped` with a reason.
+- **Never delete a task.** Close it with `keel_close` and a reason. The five reasons are `done`, `wont_do`, `duplicate`, `superseded` and `no_change`; every one needs a message, and `done` needs at least one piece of evidence — `commit:<sha>`, `pr:<url>`, `test:<command>`, `doc:<id>`, `url:<url>` or `image:<blob-id>`. `duplicate` and `superseded` name the other task and draw the edge themselves.
+
+  This line used to say "mark it `dropped` with a reason". There has never been a `dropped` status, so a session following it literally got an enum rejection listing five values, none of them the word — quietly, for as long as it was written down.
 
 **Task IDs are stable and never reused.** `KEEL-42` means the same thing forever, and it is what to use in conversation — the ULID underneath it is for machines.
 
@@ -115,8 +118,10 @@ A task is not done until all of these are true:
 - [ ] Tests written **and** passing — including at least one failure case, not only the happy path. The one exception is a *forward-looking* test for behaviour a later phase delivers: mark it `#[ignore = "unblocks in Phase N — see STATUS.md KEEL-x"]` so CI stays green and the intent stays visible. Never `#[ignore]` a test for behaviour the current phase is supposed to deliver.
 - [ ] No `unwrap()`, `expect()`, or `panic!()` in library code (binaries and tests may, with a message)
 - [ ] Public items in `keel-core` have doc comments explaining *why*, not restating the signature
-- [ ] The task row updated **in Keel** — status moved, and anything learned recorded as a note on it — and `keel generate keel` run
+- [ ] The task **closed in Keel** with `keel_close` — reason `done`, a message saying what happened, and at least one piece of evidence — plus anything learned recorded as a note on it, and `keel generate keel` run
 - [ ] Committed with a message that explains the change, not the diff
+
+Three of these are now enforced rather than asked for. A task cannot reach a terminal status without a reason, a message and — for `done` — evidence: the check is in the storage layer, so the CLI and MCP cannot disagree and moving the status by hand does not get round it. The rest of this list is still a list.
 
 If you can't tick all of them, the task is `in_progress`.
 
@@ -221,7 +226,7 @@ Things that look like progress and aren't:
 - Writing the desktop app because the daemon is hard.
 - Adding an artifact type because the modelling is awkward — it's almost always a field or a `kind` value.
 - Building the GitHub integration before the surface it decorates is finished, because it's more fun.
-- Expanding the MCP surface past **ten** tools. More tools means worse model selection, not more capability. Nine was the cap until `keel_note` earned the tenth slot — the argument is in the doc comment on `tools::all()`, and an eleventh needs one at least as good.
+- Expanding the MCP surface past **thirteen** tools. More tools means worse model selection, not more capability. Nine was the cap, then ten when `keel_note` earned a slot, then thirteen when the three work verbs did (TQ-31). Each rise needed KB's agreement and an argument at least as good as the last — both are in the doc comment on `tools::all()`.
 - Refactoring for elegance while the tracker says something is blocked.
 - Hand-editing a generated file and committing it with `--no-verify`. The pre-commit check exists to stop exactly this, the next `keel generate` reverts it, and the reasoning in it is lost.
 - Marking a task done because the code exists but the tests don't.
