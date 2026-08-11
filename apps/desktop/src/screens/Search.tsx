@@ -7,8 +7,8 @@
  * a second mechanism that means the same thing.
  */
 
-import { useEffect, useState } from "react";
-import { api, type Entity, type SearchHit } from "../lib/api";
+import { useEffect, useMemo, useState } from "react";
+import { api, type Digest, type Entity, type SearchHit } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
 import { Badge, Chip, Empty, ErrorBox, Input, Menu, MenuItem, Spinner, Tooltip } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
@@ -34,6 +34,59 @@ const SOURCE_EXPLANATION: Record<string, string> = {
   semantic: "Found by meaning rather than by words",
   keyword: "Found by keyword",
 };
+
+
+/**
+ * Three or four questions drawn from what this project actually contains.
+ *
+ * The screen used to suggest "why is billing slow" — copied from the MCP tool
+ * description, which is written for a generic project. On the one screen whose
+ * whole job is to invite a question, that taught the reader nothing and named
+ * nothing they had ever seen.
+ *
+ * The three sources are chosen because each demonstrates a different thing
+ * semantic search is for: an open question is prose you can search for by
+ * meaning, a decision framed as a "why" finds reasoning whose title never uses
+ * those words, and a glossary term shows that the store knows the project's own
+ * vocabulary.
+ *
+ * Returns nothing for an empty project, so the caller can fall back to prose
+ * rather than offering chips built from nothing.
+ */
+function starterQueries(digest: Digest | null | undefined): string[] {
+  if (!digest) return [];
+  const out: string[] = [];
+
+  const open = digest.questions?.find((q) => q.status === "open");
+  if (open) {
+    // Verbatim, minus the "TQ-30 — " prefix: the identifier is how the row is
+    // filed, not how anyone would ask about it.
+    out.push(open.label.replace(/^[A-Z]+-\d+\s*[—–-]\s*/, ""));
+  }
+
+  const decision = digest.decisions?.[0];
+  if (decision) {
+    // "why did we decide that X", not "why did we X". Decision titles in this
+    // store are statements — "The plain-English rule covers every prose field"
+    // — so the shorter template produced "why did we the plain-English rule
+    // covers…", which is not a sentence anyone would type.
+    const title = decision.label.charAt(0).toLowerCase() + decision.label.slice(1);
+    out.push(`why did we decide that ${title}`);
+  }
+
+  const term = digest.terms?.find((t) => !t.global) ?? digest.terms?.[0];
+  // "what does X mean" rather than "what is a X", which produced "what is a
+  // anchor". Choosing a/an correctly needs more than a vowel check, and the
+  // phrasing that needs no article is the one that cannot be wrong.
+  if (term) out.push(`what does "${term.term}" mean`);
+
+  return out.filter(Boolean);
+}
+
+/** Shorten a chip's label without changing the query it runs. */
+function chipLabel(query: string): string {
+  return query.length > 70 ? `${query.slice(0, 67)}…` : query;
+}
 
 export function SearchScreen({ route, generation }: ScreenProps) {
   const project = route.project;
@@ -67,6 +120,14 @@ export function SearchScreen({ route, generation }: ScreenProps) {
   // search, which it never was — the old chip only appeared when a project
   // happened to be selected elsewhere in the app.
   const projects = useAsync<{ projects: Entity[] }>(() => api.projects(), [generation]);
+
+  // Starter queries come from the project's own content. The digest already
+  // knows its open questions, recent decisions and glossary, so this costs one
+  // call and teaches what semantic search is for using material the reader
+  // recognises — rather than the billing example, which was lifted from a tool
+  // description written for a generic project and had nothing to do with Keel.
+  const digest = useAsync(() => api.context(project), [project, generation]);
+  const starters = useMemo(() => starterQueries(digest.data), [digest.data]);
 
   return (
     <Page
@@ -125,19 +186,41 @@ export function SearchScreen({ route, generation }: ScreenProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             aria-label="Search"
-            placeholder="Ask a question — 'why is billing slow', 'what did customers say about onboarding'"
+            placeholder={
+              starters[0] ? `Ask a question — e.g. “${chipLabel(starters[0])}”` : "Ask a question"
+            }
           />
         </form>
 
         {error && <ErrorBox error={error} />}
         {loading && query && <Spinner label="Searching…" />}
 
-        {!query && (
-          <Empty
-            message="Type a question."
-            hint="Prefer a natural question over keywords. Searching by meaning is what makes 'why is billing slow' find a decision titled 'Aggregate hourly, not per-minute'."
-          />
-        )}
+        {!query &&
+          (starters.length > 0 ? (
+            <div className="mt-6">
+              <p className="mb-2 text-small text-ink-muted">
+                Search understands meaning, not just words. Try one of these:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {starters.map((q) => (
+                  <Chip
+                    key={q}
+                    onClick={() => {
+                      setInput(q);
+                      setQuery(route, { q }, { replace: false });
+                    }}
+                  >
+                    {chipLabel(q)}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <Empty
+              message="Type a question."
+              hint="Prefer a natural question over keywords — searching by meaning is what finds a decision whose title never uses your words."
+            />
+          ))}
 
         {query && !loading && data && data.hits.length === 0 && (
           <Empty

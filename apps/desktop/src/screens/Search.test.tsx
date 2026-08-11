@@ -56,6 +56,18 @@ vi.mock("../lib/api", () => ({
       projects: [{ id: "prj_1", type: "project", name: "Keel", slug: "keel", audit: {} }],
     }),
     search: async () => ({ hits: HITS, items: HITS, total: HITS.length, truncated: false }),
+    // The starter chips are built from the digest, so the screen reads it on
+    // mount. Real shapes rather than empties, so the chips actually render and
+    // the assertions below are about a screen someone would recognise.
+    context: async () => ({
+      questions: [
+        { id: "que_1", entity_type: "question", label: "TQ-30 — Does the app stay read-only?", status: "open" },
+      ],
+      decisions: [
+        { id: "dec_1", entity_type: "decision", label: "Choose DuckDB over SQLite", status: "accepted" },
+      ],
+      terms: [{ term: "Mirror", definition: "Generated read-only markdown.", global: false }],
+    }),
   },
 }));
 
@@ -114,5 +126,26 @@ describe("where a hit leads", () => {
     for (const hit of HITS) {
       expect(screen.getByText(hit.title).closest("a")).toBeTruthy();
     }
+  });
+});
+
+describe("starter queries", () => {
+  // The screen used to suggest "why is billing slow", copied from a tool
+  // description written for a generic project. On the one screen whose whole
+  // job is to invite a question, that named nothing the reader had ever seen.
+  it("offers questions built from this project's own content", async () => {
+    await show({});
+    // An open question, verbatim, without the identifier it is filed under.
+    expect(screen.getByText("Does the app stay read-only?")).toBeTruthy();
+    // A decision framed as a why — the case where semantic search earns its
+    // keep, because the answer's title never uses the word "why".
+    expect(screen.getByText("why did we decide that choose DuckDB over SQLite")).toBeTruthy();
+    // A glossary term, which shows the store knows the project's vocabulary.
+    expect(screen.getByText('what does "Mirror" mean')).toBeTruthy();
+  });
+
+  it("no longer mentions billing anywhere", async () => {
+    await show({});
+    expect(document.body.textContent).not.toContain("billing");
   });
 });
