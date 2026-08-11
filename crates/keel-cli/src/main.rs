@@ -729,6 +729,17 @@ fn read_via_daemon(base: &str, path: &str) -> Result<Option<serde_json::Value>> 
         .call()
     {
         Ok(r) => r,
+        // A 404 is not the daemon declining — it is a daemon that predates the
+        // endpoint, which means it is older than this binary. Falling back would
+        // open the store it is holding the lock on and fail with a
+        // conflicting-lock error that names none of this.
+        Err(ureq::Error::Status(404, _)) => {
+            bail!(
+                "the daemon at {base} does not know {path}, so it is older than this binary.\n\n\
+                 Restart it from a current build: `./plugin/install.sh` then `keel-daemon`.\n\
+                 Until then this command can only run with the daemon stopped."
+            );
+        }
         Err(ureq::Error::Status(code, r)) => {
             let body = r.into_string().unwrap_or_default();
             let message = serde_json::from_str::<serde_json::Value>(&body)
