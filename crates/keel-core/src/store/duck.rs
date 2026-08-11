@@ -189,6 +189,42 @@ impl DuckStore {
                 .map_err(Error::storage("read the applied migration list"))?
         };
 
+        // Refuse to run against a store newer than this binary understands.
+        //
+        // The failure this prevents happened on 2026-08-10 and cost another
+        // project a working `keel_create`. A migration added a column; a daemon
+        // built before that migration kept running, found every migration it
+        // knew about already applied, concluded it was up to date, and carried
+        // on inserting rows with the new column left NULL. Nothing anywhere
+        // said the binary was behind — the corruption surfaced two days later
+        // as an unrelated-looking read error.
+        //
+        // An older binary is not merely missing features: it writes rows that
+        // are *wrong* in ways the schema cannot express and the newer code will
+        // trip over. Refusing to open turns a silent corruption into a startup
+        // error, which is the whole trade.
+        //
+        // Checked here rather than in the daemon because the CLI is the same
+        // hazard with a shorter fuse — `keel import` and `keel generate` write
+        // too, and a stale one on `$PATH` is exactly how this repository's
+        // deleted mirror hook came to call a command that no longer existed.
+        let shipped = migrations().iter().map(|m| m.id).max().unwrap_or(0);
+        if let Some(&newest) = applied.iter().max()
+            && newest > shipped
+        {
+            return Err(Error::Invariant {
+                operation: "open the store".to_owned(),
+                problem: format!(
+                    "this store is at schema {newest}; this binary only understands {shipped}, \
+                     so it is older than the store.\n\n\
+                     It would write rows the newer schema expects to be populated and leave them \
+                     empty, which does not fail until something else reads them.\n\n\
+                     Rebuild and reinstall: ./plugin/install.sh\n\
+                     To run an old binary deliberately, point it at another store with --home."
+                ),
+            });
+        }
+
         for m in migrations() {
             if applied.contains(&m.id) {
                 continue;

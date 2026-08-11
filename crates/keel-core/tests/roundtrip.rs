@@ -504,3 +504,66 @@ fn a_row_with_no_number_is_still_readable_and_gets_repaired() {
         other => panic!("expected a decision, got {other:?}"),
     }
 }
+
+/// A binary older than the store refuses to open it.
+///
+/// The failure this prevents is the one reported on 2026-08-10. A migration
+/// added `decisions.number`; a daemon built before it kept running, found every
+/// migration it knew about already applied, concluded it was up to date, and
+/// inserted rows leaving the new column NULL. Nothing said the binary was
+/// behind, and the corruption surfaced later as an unrelated-looking read error
+/// in a different project.
+///
+/// Simulated the only way that is honest without shipping a second binary: a
+/// migration id from the future in the bookkeeping table, which is exactly what
+/// an old binary sees when it opens a store a newer one has migrated.
+#[test]
+fn a_binary_older_than_the_store_refuses_to_open_it() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    {
+        let store = DuckStore::open(dir.path()).expect("open a fresh store");
+        store
+            .connection()
+            .execute(
+                "INSERT INTO _keel_migrations (id, name, applied_at) VALUES (?, ?, ?)",
+                duckdb::params![9_999, "from_the_future", chrono::Utc::now().naive_utc()],
+            )
+            .expect("record a migration this binary does not ship");
+    }
+
+    let err = DuckStore::open(dir.path())
+        .expect_err("a store newer than the binary must not open")
+        .to_string();
+
+    // The message has to be actionable, because whoever hits this is holding a
+    // binary and has no idea it is the old one.
+    assert!(err.contains("9999"), "name the store's schema: {err}");
+    assert!(
+        err.contains("install.sh") || err.contains("Rebuild"),
+        "say how to fix it: {err}"
+    );
+    assert!(
+        err.contains("--home"),
+        "and name the deliberate escape: {err}"
+    );
+}
+
+/// A store at the binary's own schema still opens.
+///
+/// The guard must refuse *newer*, not *different*. A version check that also
+/// blocks the equal case is a check nobody can ship past.
+#[test]
+fn a_store_at_the_current_schema_opens_normally() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    {
+        let mut store = DuckStore::open(dir.path()).expect("first open");
+        store
+            .create(Project::new("keel", "Keel").into(), &claude())
+            .expect("write to it");
+    }
+    let store = DuckStore::open(dir.path()).expect("reopening at the same schema must work");
+    let page = store
+        .list(&EntityQuery::default().of_type(EntityType::Project))
+        .expect("read it back");
+    assert_eq!(page.items.len(), 1);
+}
