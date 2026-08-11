@@ -49,6 +49,17 @@ export function DocumentsScreen({ route, generation }: ScreenProps) {
     [selected, generation],
   );
 
+  // A design's image lives on the entity, not on the document, so it needs its
+  // own read. Swallowing the failure is right here and only here: a missing
+  // image should cost the image, not the page — the caption and the revision
+  // history are still worth showing.
+  const entity = useAsync(
+    async () => (selected ? api.entity(selected).catch(() => null) : null),
+    [selected, generation],
+  );
+  const blobId = entity.data?.artifacts?.[0]?.entity?.blob_id;
+  const imageSrc = typeof blobId === "string" ? `/api/blob/${blobId}` : null;
+
   if (list.loading && !list.data) return <Spinner />;
   if (list.error) {
     return (
@@ -211,9 +222,19 @@ export function DocumentsScreen({ route, generation }: ScreenProps) {
                 </section>
               ) : null}
 
+              {imageSrc && (
+                <figure className="mb-6">
+                  <img
+                    src={imageSrc}
+                    alt={current?.title ?? "Design"}
+                    className="max-h-[70vh] w-auto max-w-full rounded-lg border border-border-subtle bg-surface-raised"
+                  />
+                </figure>
+              )}
+
               {current ? (
                 <Markdown>{current.body}</Markdown>
-              ) : (
+              ) : imageSrc ? null : (
                 <Empty
                   message="Nothing has been written here yet."
                   hint="Ask Claude to write it."

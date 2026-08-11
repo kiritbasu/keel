@@ -46,7 +46,8 @@ pub mod types;
 pub use audit::{Audit, Provenance};
 pub use backup::{BackupManifest, backup, restore, verify_restore};
 pub use document::{
-    DocStatus, Document, DocumentDiff, EMBEDDING_DIM, EMBEDDING_MODEL, EMBEDDING_VERSION, body_hash,
+    DocStatus, Document, DocumentDiff, EMBEDDING_DIM, EMBEDDING_MODEL, EMBEDDING_VERSION,
+    body_hash, sha256_hex,
 };
 pub use embed::{Embedder, FastEmbedder, HashEmbedder};
 pub use entity::{Actor, EntityType, ProjectScope, Surface};

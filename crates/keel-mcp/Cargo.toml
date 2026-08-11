@@ -17,6 +17,7 @@ bundled = ["keel-core/bundled"]
 workspace = true
 
 [dependencies]
+base64.workspace = true
 keel-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true

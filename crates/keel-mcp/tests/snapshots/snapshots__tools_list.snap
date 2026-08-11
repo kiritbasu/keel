@@ -334,6 +334,10 @@ expression: "keel_mcp::list_result()"
             "description": "Makes a retry a no-op instead of a duplicate. Derived from the project, type and normalised title when omitted, which is usually what you want — supply one only when two genuinely different things share a title.",
             "type": "string"
           },
+          "image": {
+            "description": "Design and artifact only: the image itself, base64 encoded, or a `data:image/png;base64,…` URL. Under 1 MB decoded — an oversized one is refused with its actual size rather than truncated. Use this for a mockup or screenshot you are holding; put a Figma or web link in `body` instead when the image lives somewhere already.",
+            "type": "string"
+          },
           "name": {
             "description": "An alias for `title`, for the types whose column is called `name`.",
             "type": "string"

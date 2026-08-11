@@ -765,6 +765,121 @@ fn keel_activity(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
     ))
 }
 
+/// The largest image accepted through a tool call, decoded.
+///
+/// A tool call is model context, and base64 costs about a third again on top of
+/// the bytes — so a 1 MB image is roughly 1.4 MB of a context window. That is
+/// the real constraint, not storage: Lance would happily take a 50 MB
+/// screenshot, and the model would drown carrying it there.
+///
+/// Refused with the actual size rather than truncated. A truncated image is a
+/// corrupt file that looks like a successful write.
+const MAX_IMAGE_BYTES: usize = 1_048_576;
+
+/// Decode an inline base64 image, if one was supplied.
+///
+/// Base64 in the tool call is the only ingestion path that works from every
+/// surface (TQ-6, KB's call). A filesystem path works only where there is a
+/// filesystem, which excludes chat and Cowork — the two places design images
+/// actually come from — and fetching a URL would make the daemon issue outbound
+/// requests on a model's instruction, which is a larger capability than this
+/// needs.
+///
+/// Accepts a bare base64 payload or a full `data:` URL, because a model that
+/// has just been handed an image will produce either.
+fn decode_image(args: &Value) -> Result<Option<(Vec<u8>, String)>, RpcError> {
+    use base64::Engine as _;
+
+    let Some(raw) = opt_str(args, "image") else {
+        return Ok(None);
+    };
+
+    let (declared_type, payload) = match raw.strip_prefix("data:") {
+        Some(rest) => match rest.split_once(";base64,") {
+            Some((mime, data)) => (Some(mime.to_owned()), data.to_owned()),
+            None => {
+                return Err(bad_arg(
+                    "image",
+                    "a `data:` URL must be base64-encoded",
+                    "`data:image/png;base64,<data>`, or the bare base64 payload",
+                ));
+            }
+        },
+        None => (None, raw),
+    };
+
+    // Whitespace is stripped first: a model wrapping a long payload across
+    // lines is producing valid intent and invalid base64, and failing on it
+    // would be a papercut with no upside.
+    let cleaned: String = payload.chars().filter(|c| !c.is_whitespace()).collect();
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(cleaned.as_bytes())
+        .map_err(|e| {
+            bad_arg(
+                "image",
+                &format!("could not decode as base64: {e}"),
+                "standard base64, optionally as a `data:` URL",
+            )
+        })?;
+
+    if bytes.len() > MAX_IMAGE_BYTES {
+        return Err(bad_arg(
+            "image",
+            &format!(
+                "the image is {} bytes, over the {} byte limit",
+                bytes.len(),
+                MAX_IMAGE_BYTES
+            ),
+            "an image under 1 MB — resize or crop it, or store it elsewhere and \
+             put the URL in the body",
+        ));
+    }
+    if bytes.is_empty() {
+        return Err(bad_arg(
+            "image",
+            "decoded to zero bytes",
+            "a non-empty base64 payload",
+        ));
+    }
+
+    // Sniffed from the bytes rather than trusted from the caller: a `data:`
+    // URL's declared type is whatever the sender wrote, and the app decides how
+    // to render from this. Falls back to the declaration, then to a type that
+    // makes a browser download rather than guess.
+    let media_type = sniff_media_type(&bytes)
+        .map(str::to_owned)
+        .or(declared_type)
+        .unwrap_or_else(|| "application/octet-stream".to_owned());
+
+    Ok(Some((bytes, media_type)))
+}
+
+/// Identify an image from its magic bytes.
+fn sniff_media_type(bytes: &[u8]) -> Option<&'static str> {
+    match bytes {
+        [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a, ..] => Some("image/png"),
+        [0xff, 0xd8, 0xff, ..] => Some("image/jpeg"),
+        [b'G', b'I', b'F', b'8', ..] => Some("image/gif"),
+        [
+            b'R',
+            b'I',
+            b'F',
+            b'F',
+            _,
+            _,
+            _,
+            _,
+            b'W',
+            b'E',
+            b'B',
+            b'P',
+            ..,
+        ] => Some("image/webp"),
+        _ if bytes.starts_with(b"<svg") || bytes.starts_with(b"<?xml") => Some("image/svg+xml"),
+        _ => None,
+    }
+}
+
 fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
     let type_name = req_str(args, "type")?;
     let entity_type = EntityType::parse(&type_name)
@@ -787,6 +902,17 @@ fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
             "project",
             &format!("{entity_type} must belong to a project"),
             "a project id or slug; call keel_projects to list them",
+        ));
+    }
+
+    // Decoded and size-checked before anything is written, so a bad image
+    // fails without leaving a half-made design behind for someone to find.
+    let image = decode_image(args)?;
+    if image.is_some() && !matches!(entity_type, EntityType::Design | EntityType::Artifact) {
+        return Err(bad_arg(
+            "image",
+            &format!("{entity_type} does not hold an image"),
+            "type `design` for a mockup or screenshot, or `artifact` for anything else",
         ));
     }
 
@@ -835,6 +961,45 @@ fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
             .write_revision(doc)
             .map_err(|e| to_rpc_error(store, e))?;
         document = serde_json::to_value(&written).unwrap_or(Value::Null);
+    }
+
+    // The blob is stored after the entity so it can name its owner, then the
+    // entity is pointed at it. Two writes rather than one because a blob whose
+    // `entity_id` is null is invisible to `fsck`'s referential checks, and an
+    // image nothing can trace back to an artifact is how a store fills with
+    // bytes nobody dares delete.
+    if let Some((bytes, media_type)) = image
+        && created.created
+    {
+        let byte_length = bytes.len();
+        let blob = keel_core::store::Blob::new(bytes, media_type.clone(), chrono::Utc::now())
+            .owned_by(
+                created.entity.id().clone(),
+                created
+                    .entity
+                    .project_id()
+                    .cloned()
+                    .unwrap_or_else(|| created.entity.id().clone()),
+            );
+        let blob_id = store.put_blob(blob).map_err(|e| to_rpc_error(store, e))?;
+
+        let mut changes = Map::new();
+        changes.insert("blob_id".to_owned(), json!(blob_id.as_str()));
+        store
+            .update(
+                created.entity.id(),
+                created.entity.audit().version,
+                &changes,
+                &provenance,
+            )
+            .map_err(|e| to_rpc_error(store, e))?;
+        tracing::info!(
+            entity = %created.entity.id(),
+            %blob_id,
+            media_type,
+            byte_length,
+            "stored an inline image"
+        );
     }
 
     // Re-read so `current_doc_version` reflects the revision just written.

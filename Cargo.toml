@@ -46,6 +46,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Content
 similar = "2"
 sha2 = "0.10"
+base64 = "0.22"
 fastembed = "5"
 
 # Daemon

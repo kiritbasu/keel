@@ -256,6 +256,33 @@ pub struct Blob {
     pub created_at: DateTime<Utc>,
 }
 
+impl Blob {
+    /// A blob from raw bytes, content-addressed.
+    ///
+    /// `sha256` is computed here rather than accepted from the caller: it is
+    /// what makes a re-upload of the same image detectable, and a hash the
+    /// caller supplies is a hash nobody has checked.
+    pub fn new(bytes: Vec<u8>, media_type: impl Into<String>, at: DateTime<Utc>) -> Self {
+        let sha256 = crate::sha256_hex(&bytes);
+        Blob {
+            blob_id: crate::BlobId::generate(),
+            entity_id: None,
+            project_id: None,
+            media_type: media_type.into(),
+            bytes,
+            sha256,
+            created_at: at,
+        }
+    }
+
+    /// Attach this blob to an entity and its project.
+    pub fn owned_by(mut self, entity_id: EntityId, project_id: EntityId) -> Self {
+        self.entity_id = Some(entity_id);
+        self.project_id = Some(project_id);
+        self
+    }
+}
+
 /// DuckDB entity CRUD, links and events.
 pub trait EntityStore {
     /// Create an entity, or return the existing one with the same idempotency

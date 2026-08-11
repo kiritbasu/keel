@@ -439,6 +439,16 @@ pub fn all() -> Vec<Tool> {
                             "description": "Glossary entries only: what the word means in this \
                                             project. `body` is accepted for the same thing."
                         },
+                        "image": {
+                            "type": "string",
+                            "description": "Design and artifact only: the image itself, base64 \
+                                            encoded, or a `data:image/png;base64,…` URL. Under \
+                                            1 MB decoded — an oversized one is refused with its \
+                                            actual size rather than truncated. Use this for a \
+                                            mockup or screenshot you are holding; put a Figma or \
+                                            web link in `body` instead when the image lives \
+                                            somewhere already."
+                        },
                         "body": {
                             "type": "string",
                             "description": "For prose-bearing types (spec, decision, question, \

@@ -39,12 +39,6 @@ Row `Q-1` of the open-questions log.
 
 **Watch for:** SPEC D-8, §9; PRD REQ-12
 
-### TQ-6 — How does a design image get into Keel from a Claude chat session?
-
-`que_01KZKMPVYBQVZG4MSWFSKHCNTB` · question · open
-
-There is no filesystem in chat. Cowork can send files and Claude Code can read them. Unsolved; blocks part of Phase 4.
-
 ### Q-6 — Should Keel ingest anything automatically, or only explicit writes?
 
 `que_01KZKMPVXPKW1KXV9KMG36C6F8` · question · open
@@ -564,6 +558,28 @@ TQ-10. Implemented in DuckDB because lance_hybrid_search's keyword half could no
 `que_01KZKMPVZ3AQ0BNVV5BQKV3QY8` · question · answered
 
 TQ-9. Implemented on all thirteen. The one storage-format change made without KB, because the alternative silently breaks a v1 must-have for twelve types.
+
+### TQ-6 — How does a design image get into Keel from a Claude chat session?
+
+`que_01KZKMPVYBQVZG4MSWFSKHCNTB` · question · answered
+
+**Question:** How does a design artifact's image get *into* Keel from a Claude session? Cowork can send files; Claude Code can read them; Claude chat is harder.
+
+**Answered — base64 in the tool call.** KB's call, 2026-08-11. Built the same day; KEEL-46 closed.
+
+`keel_create` with type `design` or `artifact` takes an `image` field: standard base64, or a full `data:image/png;base64,…` URL, because a model that has just been handed an image will produce either. Whitespace is stripped first — a payload wrapped across lines is valid intent and invalid base64, and failing on it would be a papercut with no upside.
+
+It won on the one criterion that mattered: it is the only path that works from **every** surface. A filesystem path works only where there is a filesystem, which excludes chat and Cowork — the two places design images actually come from — so it would have answered the question by declining it. Fetching a URL would have made the daemon issue outbound network requests on a model's instruction, which is a larger capability than this needed, and requires the image to be public first.
+
+**Capped at 1 MB decoded.** The constraint is context, not storage: base64 costs about a third again on top of the bytes, so a 1 MB image is roughly 1.4 MB of a context window. Lance would happily take 50 MB and the model would drown carrying it there. An oversized image is refused **with its actual size and the limit**, never truncated — a truncated image is a corrupt file that looks like a successful write.
+
+Three details worth keeping:
+
+- **The media type is sniffed from the magic bytes**, not taken from the `data:` URL's declaration. The declared type is whatever the sender wrote, and the app decides how to render from it.
+- **Validation happens before anything is written**, so a refused image leaves no half-made design behind.
+- **The blob names its owner.** Stored after the entity exists and then linked, rather than in one write, because a blob with a null `entity_id` is invisible to `fsck`'s referential checks — and an image nothing can trace back to an artifact is how a store fills with bytes nobody dares delete.
+
+The bytes are served raw at `GET /api/blob/{id}`, with `immutable` caching since a blob id names one sequence of bytes forever. That is what the app's `<img src>` points at; base64 in JSON would have paid the encoding tax twice.
 
 ### Q-2 — Where does the store live, and does ~/.keel get a git remote?
 

@@ -85,12 +85,29 @@ impl fmt::Display for DocStatus {
     }
 }
 
+/// Content-address raw bytes, as lowercase hex.
+///
+/// Used for blobs, where it is what makes a re-upload of the same image
+/// recognisable as the same image.
+pub fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hasher
+        .finalize()
+        .iter()
+        .fold(String::with_capacity(64), |mut acc, b| {
+            use std::fmt::Write as _;
+            let _ = write!(acc, "{b:02x}");
+            acc
+        })
+}
+
 /// Content-address a body, so identical revisions can be recognised.
 ///
 /// Used to short-circuit a `keel_write_doc` that would append a revision
-/// byte-identical to the current one. That happens more than it sounds: the
-/// mirror hook in SPEC §8.1 regenerates a file and re-reads it, and without
-/// this every no-op save would grow the history.
+/// byte-identical to the current one. That happens more than it sounds: a
+/// caller that regenerates a file and re-reads it would otherwise grow the
+/// history on every no-op save.
 pub fn body_hash(title: &str, body: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(title.as_bytes());

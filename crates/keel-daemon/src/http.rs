@@ -47,6 +47,7 @@ pub fn router(state: AppState) -> Router {
         // always (TQ-15, KEEL-57). `fsck` is the one that matters: an integrity
         // check you have to stop the thing you want to check in order to run is
         // not much of a check.
+        .route("/api/blob/{id}", get(api_blob))
         .route("/api/fsck", get(api_fsck))
         .route("/api/status", get(api_status))
         .route("/api/render-status", get(api_render_status))
@@ -575,6 +576,43 @@ async fn api_entity_history(
             }})),
         )
             .into_response(),
+        Err(e) => api_error(StatusCode::INTERNAL_SERVER_ERROR, codes::INTERNAL_ERROR, e),
+    }
+}
+
+/// The bytes of a stored blob, with its own content type.
+///
+/// Served raw rather than base64 in JSON: this is what an `<img src>` points
+/// at, and making the app decode a megabyte of JSON to show a screenshot would
+/// be paying the tool-call tax twice for no reason.
+async fn api_blob(State(state): State<AppState>, Path(id): Path<String>) -> Response {
+    use keel_core::DocumentStore as _;
+
+    let blob_id = match keel_core::BlobId::parse(&id) {
+        Ok(b) => b,
+        Err(e) => return api_error(StatusCode::BAD_REQUEST, codes::INVALID_PARAMS, e),
+    };
+    let store = state.store();
+    match store.get_blob(&blob_id) {
+        Ok(Some(blob)) => (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, blob.media_type.clone()),
+                // Content-addressed and never rewritten, so it can be cached
+                // hard. A blob id names one sequence of bytes forever.
+                (
+                    header::CACHE_CONTROL,
+                    "public, max-age=31536000, immutable".to_owned(),
+                ),
+            ],
+            blob.bytes,
+        )
+            .into_response(),
+        Ok(None) => api_error(
+            StatusCode::NOT_FOUND,
+            codes::INVALID_PARAMS,
+            format!("no blob `{id}`"),
+        ),
         Err(e) => api_error(StatusCode::INTERNAL_SERVER_ERROR, codes::INTERNAL_ERROR, e),
     }
 }
