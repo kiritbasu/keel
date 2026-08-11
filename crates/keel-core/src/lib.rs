@@ -41,6 +41,7 @@ pub mod note;
 pub mod render_decisions;
 pub mod render_status;
 pub mod store;
+pub mod style;
 pub mod types;
 
 pub use audit::{Audit, Provenance};
@@ -69,6 +70,7 @@ pub use store::{
     Blob, Created, DocumentStore, DuckStore, EntityQuery, EntityStore, GraphStore, Neighbour, Page,
     SearchHit, SearchQuery, SearchSource,
 };
+pub use style::{Warning, check as check_style};
 pub use types::{
     Artifact, Decision, Design, Entity, Environment, Feedback, Metric, MetricObservation,
     Milestone, Project, Question, Spec, Task, Term, derive_idempotency_key,

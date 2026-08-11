@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-11T14:38:39.988125+00:00",
+  "generated_at": "2026-08-11T15:07:52.106335+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/the-plain-english-rule-covers-every-prose-field-not-just-milestone-summaries.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZRMFKQARKG1K6NEW1MD5222",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "3f187510e44c3b02088b4da2213b51ad2e2c29b7c0374d9f294530907c984333"
         }
       ]
     },

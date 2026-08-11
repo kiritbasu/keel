@@ -945,7 +945,15 @@ fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
 
     // A prose body becomes the first document revision rather than a column.
     let mut document = Value::Null;
+    let mut style_warnings = Vec::new();
     if let Some(text) = body.filter(|_| entity_type.has_document()) {
+        // House style, B-46. At the authoring boundary rather than inside
+        // `write_revision`, because `keel import` writes revisions too and that
+        // is a person deliberately migrating text they did not write — the same
+        // carve-out the mirror rule already makes for it.
+        style_warnings = keel_core::check_style(entity_type, "body", &text, title.as_deref())
+            .map_err(|e| to_rpc_error(store, e))?;
+
         let doc = keel_core::Document::first(
             entity_type,
             created.entity.id().clone(),
@@ -1010,7 +1018,7 @@ fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
 
     let identifier =
         readable_ref(store, &entity).unwrap_or_else(|| entity.id().as_str().to_owned());
-    let summary = if created.created {
+    let mut summary = if created.created {
         format!(
             "Created {} “{}” — {}",
             entity_type,
@@ -1025,13 +1033,15 @@ fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
             identifier
         )
     };
+    summary.push_str(&style_note(&style_warnings));
 
     Ok(tool_result(
         summary,
         json!({
             "entity": entity_json(&entity),
             "created": created.created,
-            "document": document
+            "document": document,
+            "style_warnings": style_warnings,
         }),
     ))
 }
@@ -1359,6 +1369,11 @@ fn keel_write_doc(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError
         .map_err(|e| to_rpc_error(store, e))?
         .map(|d| d.version);
 
+    // House style, B-46. See the note on the same check in `create`: this is the
+    // authoring door, and `keel import` deliberately does not come through it.
+    let style_warnings = keel_core::check_style(id.entity_type(), "body", &body, Some(&title))
+        .map_err(|e| to_rpc_error(store, e))?;
+
     let doc = keel_core::Document::first(
         id.entity_type(),
         id.clone(),
@@ -1376,7 +1391,7 @@ fn keel_write_doc(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError
         .map_err(|e| to_rpc_error(store, e))?;
 
     let unchanged = previous == Some(written.version);
-    let summary = if unchanged {
+    let mut summary = if unchanged {
         format!(
             "Body of “{}” is unchanged; still at revision {}.",
             written.title, written.version
@@ -1389,11 +1404,37 @@ fn keel_write_doc(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError
             written.body.len()
         )
     };
+    summary.push_str(&style_note(&style_warnings));
 
     Ok(tool_result(
         summary,
-        json!({ "document": written, "created_revision": !unchanged }),
+        json!({
+            "document": written,
+            "created_revision": !unchanged,
+            "style_warnings": style_warnings,
+        }),
     ))
+}
+
+/// Render style warnings as a line appended to a successful write's summary.
+///
+/// Attached to the write rather than raised instead of it. These are signals,
+/// not rules — "crucial" is common in machine-written prose and also in good
+/// human prose — and refusing on a signal is how a model learns to write around
+/// the check rather than to write plainly. Saying it out loud on a write that
+/// landed teaches at the only moment the lesson is cheap.
+fn style_note(warnings: &[keel_core::Warning]) -> String {
+    if warnings.is_empty() {
+        return String::new();
+    }
+    let items: Vec<String> = warnings
+        .iter()
+        .map(|w| format!("“{}” — {}", w.found, w.instead))
+        .collect();
+    format!(
+        "\n\nHouse style, worth a look next time: {}.",
+        items.join("; ")
+    )
 }
 
 /// Append to an artifact's running commentary, list it, or retract one entry.

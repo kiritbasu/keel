@@ -858,6 +858,87 @@ async fn an_invalid_enum_value_tells_the_agent_what_would_work() {
     );
 }
 
+/// House style is refused at the authoring boundary, on every prose field.
+///
+/// B-46. The check lives in `keel-core` so the CLI and MCP cannot diverge, but
+/// it is asserted here because the tool surface is where prose is authored.
+#[tokio::test]
+async fn machine_written_prose_is_refused_with_a_replacement() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+    let (status, error) = d
+        .call_err(
+            "keel_create",
+            args(json!({
+                "type": "decision", "project": project_id, "title": "Use one parser",
+                "body": "We should leverage the existing parser in order to avoid duplication."
+            })),
+        )
+        .await;
+
+    assert_eq!(status, 400);
+    let message = error["message"].as_str().unwrap();
+    assert!(message.contains("leverage"), "{message}");
+    assert!(
+        message.contains("use"),
+        "an agent must be able to retry from the message alone: {message}"
+    );
+}
+
+/// Quoted material is someone else's words, and refusing it would stop the
+/// store recording the world as it is.
+///
+/// This is the exemption that makes the rule usable at all: without it, a note
+/// carrying an error message or a decision quoting what a customer said becomes
+/// unwritable.
+#[tokio::test]
+async fn a_quoted_error_message_is_not_refused_as_house_style() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+    let created = d
+        .call(
+            "keel_create",
+            args(json!({
+                "type": "decision", "project": project_id, "title": "Pin the pool size",
+                "body": "The driver said:\n\n> Failed to utilize the connection pool\n\n\
+                         That wording is theirs, and the fix is to pin the size at eight."
+            })),
+        )
+        .await;
+
+    assert_eq!(
+        created["created"],
+        json!(true),
+        "quotation is not authorship"
+    );
+}
+
+/// A soft tell warns rather than refusing, and the warning rides along with the
+/// write that landed.
+///
+/// Refusing on a signal is how a model learns to write around the check instead
+/// of writing plainly — it swaps the word and keeps the shape.
+#[tokio::test]
+async fn a_soft_tell_lands_the_write_and_says_so() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+    let created = d
+        .call(
+            "keel_create",
+            args(json!({
+                "type": "decision", "project": project_id, "title": "Cache the digest",
+                "body": "Recomputing the digest per call is a crucial cost we can avoid by \
+                         caching it against the latest event id."
+            })),
+        )
+        .await;
+
+    assert_eq!(created["created"], json!(true), "a signal must not block");
+    let warnings = created["style_warnings"].as_array().unwrap();
+    assert_eq!(warnings.len(), 1, "{warnings:?}");
+    assert_eq!(warnings[0]["found"], json!("crucial"));
+}
+
 /// A milestone reaches the roadmap with an explainer or it does not reach it.
 ///
 /// This is asserted at the daemon rather than only in `keel-core` because the

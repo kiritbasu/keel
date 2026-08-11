@@ -55,6 +55,7 @@ expression: result
       "title": "Aggregate hourly, not per-minute",
       "type": "decision",
       "version": 1
-    }
+    },
+    "style_warnings": []
   }
 }

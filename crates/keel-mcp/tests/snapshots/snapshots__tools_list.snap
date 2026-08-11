@@ -318,7 +318,7 @@ expression: "keel_mcp::list_result()"
       "inputSchema": {
         "properties": {
           "body": {
-            "description": "For prose-bearing types (spec, decision, question, feedback, design) this is written as the first document revision. For a task it is the short detail field — anything long-form belongs in a spec.",
+            "description": "For prose-bearing types (spec, decision, question, feedback, design) this is written as the first document revision. For a task it is the short detail field — anything long-form belongs in a spec.\n\nWrite it the way you would say it to a colleague. Plain words, no padding, no sentence that exists to sound considered. Avoid \"leverage\", \"utilize\", \"robust\", \"seamless\", \"delve\", \"in order to\", \"it's worth noting\" — these are refused. Quoting an error message or what someone actually said is fine: put it in a code fence or a block quote and it is exempt.",
             "type": "string"
           },
           "definition": {
@@ -470,7 +470,7 @@ expression: "keel_mcp::list_result()"
       "inputSchema": {
         "properties": {
           "body": {
-            "description": "The full markdown body.",
+            "description": "The full markdown body.\n\nWrite it the way you would say it to a colleague. Plain words, no padding, no sentence that exists to sound considered. Avoid \"leverage\", \"utilize\", \"robust\", \"seamless\", \"delve\", \"in order to\", \"it's worth noting\" — these are refused. Quoting an error message or what someone actually said is fine: put it in a code fence or a block quote and it is exempt.",
             "type": "string"
           },
           "id": {
@@ -519,7 +519,7 @@ expression: "keel_mcp::list_result()"
       "inputSchema": {
         "properties": {
           "body": {
-            "description": "The note. One or two sentences beats a heading — say what you found and why it matters.",
+            "description": "The note. One or two sentences beats a heading — say what you found and why it matters.\n\nWrite it the way you would say it to a colleague. Plain words, no padding, no sentence that exists to sound considered. Avoid \"leverage\", \"utilize\", \"robust\", \"seamless\", \"delve\", \"in order to\", \"it's worth noting\" — these are refused. Quoting an error message or what someone actually said is fine: put it in a code fence or a block quote and it is exempt.",
             "type": "string"
           },
           "id": {

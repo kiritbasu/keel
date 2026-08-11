@@ -110,6 +110,20 @@ fn with_ambient(mut schema: Value, write: bool) -> Value {
     schema
 }
 
+/// The house style, stated once and attached to every prose field.
+///
+/// This is the layer that actually changes what gets written. A validator can
+/// refuse an empty field or a body that restates its title, but it cannot tell
+/// a limp sentence from a sharp one — so the register has to reach the model at
+/// the moment of writing, which is here. Short on purpose: this string is paid
+/// for on every `tools/list`, and a style guide nobody finishes reading teaches
+/// less than three lines that land. B-46.
+const HOUSE_STYLE: &str = "Write it the way you would say it to a colleague. Plain words, \
+     no padding, no sentence that exists to sound considered. Avoid \"leverage\", \"utilize\", \
+     \"robust\", \"seamless\", \"delve\", \"in order to\", \"it's worth noting\" — these are \
+     refused. Quoting an error message or what someone actually said is fine: put it in a code \
+     fence or a block quote and it is exempt.";
+
 /// Enumerate a closed set for a schema.
 fn enum_of<T: AsRef<str>>(values: impl IntoIterator<Item = T>) -> Value {
     Value::Array(
@@ -475,10 +489,12 @@ pub fn all() -> Vec<Tool> {
                         },
                         "body": {
                             "type": "string",
-                            "description": "For prose-bearing types (spec, decision, question, \
-                                            feedback, design) this is written as the first \
-                                            document revision. For a task it is the short detail \
-                                            field — anything long-form belongs in a spec."
+                            "description": format!(
+                                "For prose-bearing types (spec, decision, question, feedback, \
+                                 design) this is written as the first document revision. For a \
+                                 task it is the short detail field — anything long-form belongs \
+                                 in a spec.\n\n{HOUSE_STYLE}"
+                            )
                         },
                         "fields": {
                             "type": "object",
@@ -577,7 +593,10 @@ pub fn all() -> Vec<Tool> {
                             "type": "string",
                             "description": "Update the title alongside the body. Omit to keep it."
                         },
-                        "body": { "type": "string", "description": "The full markdown body." }
+                        "body": {
+                            "type": "string",
+                            "description": format!("The full markdown body.\n\n{HOUSE_STYLE}")
+                        }
                     }
                 }),
                 true,
@@ -616,8 +635,10 @@ pub fn all() -> Vec<Tool> {
                         },
                         "body": {
                             "type": "string",
-                            "description": "The note. One or two sentences beats a heading — \
-                                            say what you found and why it matters."
+                            "description": format!(
+                                "The note. One or two sentences beats a heading — say what you \
+                                 found and why it matters.\n\n{HOUSE_STYLE}"
+                            )
                         },
                         "list": {
                             "type": "boolean",

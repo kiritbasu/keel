@@ -152,6 +152,14 @@ impl NewNote {
                     .to_owned(),
             });
         }
+
+        // House style, B-46. Here rather than at the two call sites so the CLI's
+        // `keel note add` and MCP's `keel_note` cannot disagree about what a
+        // note may say. Warnings are discarded on this path: a note is a single
+        // field and there is nowhere to hand a warning back, so only the
+        // refusals apply.
+        crate::style::check(EntityType::Task, "body", &self.body, None)?;
+
         Ok(())
     }
 }
