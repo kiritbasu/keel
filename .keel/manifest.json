@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-11T18:43:04.114386+00:00",
+  "generated_at": "2026-08-11T18:56:12.580109+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/reading-an-image-off-the-disk-is-a-field-not-a-fourteenth-tool.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZS2VXYGZ35YVV56QZ4AYNC0",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "54965ede46bc2fe81d445d70269f65b868088aa73870b22d5d198f0049363539"
         }
       ]
     },

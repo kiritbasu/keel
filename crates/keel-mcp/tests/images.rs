@@ -177,3 +177,225 @@ fn a_type_that_holds_no_image_says_which_ones_do() {
         err.message
     );
 }
+
+// --- Reading a file off the disk (TQ-33) ----------------------------------
+//
+// Base64 through a tool call is capped by *context*, not storage: the model
+// emits every character, so 1 MB costs it 350,000 to 450,000 output tokens and
+// the useful ceiling is nearer 100 KB — a small mockup, not a screenshot. The
+// daemon reading a file on the same machine has none of that cost, which is what
+// makes a real screenshot possible from Claude Code.
+
+/// Write bytes to a real file and return its absolute path.
+fn file_with(dir: &std::path::Path, name: &str, bytes: &[u8]) -> String {
+    let path = dir.join(name);
+    std::fs::write(&path, bytes).unwrap();
+    path.to_string_lossy().into_owned()
+}
+
+#[test]
+fn a_design_can_be_created_from_a_file_on_disk() {
+    let (mut store, _d) = store();
+    let scratch = tempfile::tempdir().unwrap();
+    let path = file_with(scratch.path(), "screenshot.png", PNG);
+
+    let result = call(
+        &mut store,
+        json!({
+            "type": "design", "project": "harbour", "name": "Board, dark",
+            "image_path": path, "session_id": "ses_t", "surface": "code"
+        }),
+    )
+    .expect("a design created from a path");
+
+    let blob_id = result["structuredContent"]["entity"]["blob_id"]
+        .as_str()
+        .expect("the design points at a blob")
+        .to_owned();
+    let blob = store
+        .get_blob(&keel_core::BlobId::parse(&blob_id).unwrap())
+        .unwrap()
+        .expect("the bytes are in the store");
+    assert_eq!(blob.bytes, PNG, "the file's bytes, unchanged");
+    assert_eq!(blob.media_type, "image/png");
+}
+
+#[test]
+fn an_existing_design_can_be_given_an_image_afterwards() {
+    let (mut store, _d) = store();
+    let scratch = tempfile::tempdir().unwrap();
+    let path = file_with(scratch.path(), "later.png", PNG);
+
+    let created = call(
+        &mut store,
+        json!({
+            "type": "design", "project": "harbour", "name": "Added later",
+            "session_id": "ses_t", "surface": "code"
+        }),
+    )
+    .unwrap();
+    let id = created["structuredContent"]["entity"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let version = created["structuredContent"]["entity"]["version"]
+        .as_i64()
+        .unwrap();
+
+    let attached = dispatch(
+        &mut store,
+        ToolCall {
+            name: "keel_update",
+            arguments: &json!({
+                "id": id, "version": version,
+                "changes": { "image_path": path },
+                "session_id": "ses_t", "surface": "code"
+            }),
+        },
+    )
+    .expect("attaching to something that already exists");
+
+    assert!(
+        attached["structuredContent"]["entity"]["blob_id"].is_string(),
+        "the design now points at a blob: {attached}"
+    );
+    assert_eq!(
+        attached["structuredContent"]["attached"]["bytes"],
+        PNG.len()
+    );
+    // Said out loud, because the whole reason to use this path rather than
+    // base64 is that the bytes cost the caller nothing.
+    assert!(
+        attached["content"][0]["text"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("your context"),
+        "{attached}"
+    );
+}
+
+// The boundary TQ-33 names explicitly: "if a future change makes the path
+// argument accept anything URL-shaped, that is this decision being reversed by
+// accident". Reading a local file and fetching a URL look similar and are not —
+// the second would give a model the ability to make the daemon talk to the
+// internet, which TQ-6 declined.
+#[test]
+fn a_url_is_refused_rather_than_fetched() {
+    let (mut store, _d) = store();
+    for url in [
+        "https://example.com/screenshot.png",
+        "http://127.0.0.1/x.png",
+        "file:///etc/passwd",
+    ] {
+        let err = call(
+            &mut store,
+            json!({
+                "type": "design", "project": "harbour", "name": format!("From {url}"),
+                "image_path": url, "session_id": "ses_t", "surface": "code"
+            }),
+        )
+        .expect_err("a URL must not be fetched");
+        assert!(
+            err.message.contains("outbound") || err.message.contains("URL"),
+            "the refusal has to say why, or the next person will widen it: {}",
+            err.message
+        );
+    }
+}
+
+#[test]
+fn a_relative_path_is_refused_because_the_daemon_has_its_own_directory() {
+    let (mut store, _d) = store();
+    let err = call(
+        &mut store,
+        json!({
+            "type": "design", "project": "harbour", "name": "Relative",
+            "image_path": "screenshot.png", "session_id": "ses_t", "surface": "code"
+        }),
+    )
+    .expect_err("a relative path resolves against something the caller cannot see");
+    assert!(err.message.contains("relative"), "{}", err.message);
+}
+
+#[test]
+fn a_file_that_is_not_an_image_is_refused_on_its_bytes_not_its_extension() {
+    let (mut store, _d) = store();
+    let scratch = tempfile::tempdir().unwrap();
+    // Named `.png`, and it is a text file. The extension is whatever somebody
+    // typed; the magic bytes are what the app will try to render.
+    let path = file_with(scratch.path(), "lies.png", b"this is not a picture");
+
+    let err = call(
+        &mut store,
+        json!({
+            "type": "design", "project": "harbour", "name": "Not a picture",
+            "image_path": path, "session_id": "ses_t", "surface": "code"
+        }),
+    )
+    .expect_err("bytes decide, not the name");
+    assert!(err.message.contains("not an image"), "{}", err.message);
+}
+
+#[test]
+fn a_missing_file_says_what_to_do_instead() {
+    let (mut store, _d) = store();
+    let err = call(
+        &mut store,
+        json!({
+            "type": "design", "project": "harbour", "name": "Ghost",
+            "image_path": "/nonexistent/definitely/not/here.png",
+            "session_id": "ses_t", "surface": "code"
+        }),
+    )
+    .expect_err("a path that names nothing");
+    assert!(err.message.contains("could not read"), "{}", err.message);
+    assert!(
+        err.message.contains("base64"),
+        "the error points at the other path, since a session on a machine the daemon cannot \
+         see has one: {}",
+        err.message
+    );
+}
+
+// Two answers to one question. Silently preferring one would mean a caller who
+// sent both sometimes got the file and sometimes the payload, depending on an
+// ordering nothing documents.
+#[test]
+fn giving_both_an_inline_image_and_a_path_is_refused() {
+    let (mut store, _d) = store();
+    let scratch = tempfile::tempdir().unwrap();
+    let path = file_with(scratch.path(), "both.png", PNG);
+
+    let err = call(
+        &mut store,
+        json!({
+            "type": "design", "project": "harbour", "name": "Both at once",
+            "image": b64(PNG), "image_path": path,
+            "session_id": "ses_t", "surface": "code"
+        }),
+    )
+    .expect_err("both is ambiguous");
+    assert!(err.message.contains("two answers"), "{}", err.message);
+}
+
+#[test]
+fn a_task_cannot_be_given_an_image_by_path_either() {
+    let (mut store, _d) = store();
+    let scratch = tempfile::tempdir().unwrap();
+    let path = file_with(scratch.path(), "wrong-type.png", PNG);
+
+    let err = call(
+        &mut store,
+        json!({
+            "type": "task", "project": "harbour", "title": "Not an image holder",
+            "summary": "A task used to check that only designs and artifacts take an image.",
+            "image_path": path, "session_id": "ses_t", "surface": "code"
+        }),
+    )
+    .expect_err("only designs and artifacts hold images");
+    assert!(
+        err.message.contains("does not hold an image"),
+        "{}",
+        err.message
+    );
+}

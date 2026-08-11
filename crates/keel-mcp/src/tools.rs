@@ -504,15 +504,34 @@ pub fn all() -> Vec<Tool> {
                             "description": "Glossary entries only: what the word means in this \
                                             project. `body` is accepted for the same thing."
                         },
+                        // The stated ceiling used to be 1 MB, which no session
+                        // can reach: base64 inflates by a third and the *model*
+                        // emits every character, so 1 MB is 350,000 to 450,000
+                        // output tokens. A description promising ten times what
+                        // is usable is a trap, so it now says the reachable
+                        // number and points at the path that has no such cost.
                         "image": {
                             "type": "string",
-                            "description": "Design and artifact only: the image itself, base64 \
-                                            encoded, or a `data:image/png;base64,…` URL. Under \
-                                            1 MB decoded — an oversized one is refused with its \
-                                            actual size rather than truncated. Use this for a \
-                                            mockup or screenshot you are holding; put a Figma or \
-                                            web link in `body` instead when the image lives \
-                                            somewhere already."
+                            "description": "Design and artifact only: a small image, base64 \
+                                            encoded, or a `data:image/png;base64,…` URL.\n\n\
+                                            **Keep this under about 100 KB.** You have to emit \
+                                            every base64 character, so 100 KB costs you roughly \
+                                            35,000–45,000 output tokens and 1 MB costs 350,000 \
+                                            or more. The hard limit is 1 MB decoded and it is \
+                                            not a target. If the file is on the same machine, \
+                                            use `image_path` instead and none of this applies.\n\n\
+                                            Put a Figma or web link in `body` when the image \
+                                            already lives somewhere."
+                        },
+                        "image_path": {
+                            "type": "string",
+                            "description": "Design and artifact only: an absolute path to an \
+                                            image on the machine Keel is running on. The daemon \
+                                            reads the file itself, so the bytes never enter your \
+                                            context and a real screenshot costs you nothing.\n\n\
+                                            This is the right way to attach anything bigger than \
+                                            a small mockup — up to 10 MB. Not a URL: the daemon \
+                                            makes no outbound requests on a model's instruction."
                         },
                         "body": {
                             "type": "string",
@@ -560,7 +579,10 @@ pub fn all() -> Vec<Tool> {
                  `keel_claim`, which records who is on it; finishing is `keel_close`, which asks \
                  for the reason, the message and the evidence together. A `status` of `done` or \
                  `wont_do` sent here is refused without all three, so reaching for this tool to \
-                 close something only costs you a round trip."
+                 close something only costs you a round trip.\n\n\
+                 To attach an image to a design or artifact that already exists, put \
+                 `image_path` in `changes` with an absolute path — the daemon reads the file, so \
+                 the bytes never enter your context."
                     .to_owned(),
             read_only: false,
             destructive: true,
@@ -584,7 +606,11 @@ pub fn all() -> Vec<Tool> {
                                             `rank_after` and `rank_before` each name another task \
                                             and put this one next to it in the deliberate order. \
                                             They resolve to `rank`, which you should not set \
-                                            directly.",
+                                            directly.\n\n\
+                                            One more is an instruction rather than a value: \
+                                            `image_path`, on a design or artifact, is an absolute \
+                                            path the daemon reads the image from. Do not set \
+                                            `blob_id` yourself.",
                             "additionalProperties": true
                         },
                         "archive": {

@@ -779,6 +779,107 @@ fn keel_activity(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
 /// corrupt file that looks like a successful write.
 const MAX_IMAGE_BYTES: usize = 1_048_576;
 
+/// The largest image the daemon will read off the disk.
+///
+/// Ten times the base64 ceiling, and the asymmetry is the whole point of this
+/// path: nothing here enters model context, so the constraint stops being the
+/// context window and becomes only "is this a picture or a mistake". A retina
+/// screenshot is 300 KB to 2 MB and is the case this exists for.
+const MAX_FILE_BYTES: usize = 10 * 1_048_576;
+
+/// Read an image the caller named by path, if they named one.
+///
+/// TQ-33, KB's call: the daemon may read a file that is already on the same
+/// machine. TQ-6's reasoning does not reach this — there is no outbound request,
+/// nothing has to be published first, and the bytes never pass through the model.
+/// That is what makes a real screenshot possible from Claude Code, where base64
+/// through a tool call would cost 350,000 to 450,000 output tokens for 1 MB.
+///
+/// # The boundary this must keep
+///
+/// A local path and a URL look similar and are not. One touches the machine Keel
+/// is already running on; the other gives a model the ability to make the daemon
+/// talk to the internet, which TQ-6 declined. So anything URL-shaped is refused
+/// here explicitly rather than left to whatever the filesystem makes of it — if
+/// that check ever goes, TQ-33 has been reversed by accident.
+fn read_image_file(args: &Value) -> Result<Option<(Vec<u8>, String)>, RpcError> {
+    let Some(raw) = opt_str(args, "image_path") else {
+        return Ok(None);
+    };
+    let path = raw.trim();
+
+    if let Some((scheme, _)) = path.split_once("://") {
+        return Err(bad_arg(
+            "image_path",
+            &format!(
+                "`{scheme}://…` is a URL, and this reads a file on the machine Keel is running \
+                 on. The daemon makes no outbound requests on a model's instruction (TQ-6)"
+            ),
+            "an absolute path such as /Users/you/Desktop/screenshot.png",
+        ));
+    }
+    if path.is_empty() {
+        return Err(bad_arg(
+            "image_path",
+            "is empty",
+            "a path to a file on disk",
+        ));
+    }
+
+    let file = std::path::Path::new(path);
+    if !file.is_absolute() {
+        // The daemon's working directory is its own, not the caller's, so a
+        // relative path resolves against something the caller cannot see. Better
+        // to refuse than to read the wrong file or none.
+        return Err(bad_arg(
+            "image_path",
+            &format!("`{path}` is relative, and the daemon's working directory is not yours"),
+            "an absolute path",
+        ));
+    }
+
+    let bytes = std::fs::read(file).map_err(|e| {
+        bad_arg(
+            "image_path",
+            &format!("could not read `{path}`: {e}"),
+            "a readable file on this machine. If the image is somewhere the daemon cannot \
+             reach, pass it as base64 in `image` instead",
+        )
+    })?;
+
+    if bytes.is_empty() {
+        return Err(bad_arg(
+            "image_path",
+            &format!("`{path}` is empty"),
+            "a file with an image in it",
+        ));
+    }
+    if bytes.len() > MAX_FILE_BYTES {
+        return Err(bad_arg(
+            "image_path",
+            &format!(
+                "the file is {} bytes, over the {} byte limit",
+                bytes.len(),
+                MAX_FILE_BYTES
+            ),
+            "an image under 10 MB",
+        ));
+    }
+
+    // Sniffed, never inferred from the extension. A `.png` that is a text file is
+    // a corrupt blob the app will try to render, and the extension is whatever
+    // somebody typed.
+    let Some(media_type) = sniff_media_type(&bytes) else {
+        return Err(bad_arg(
+            "image_path",
+            &format!("`{path}` is not an image Keel recognises"),
+            "a PNG, JPEG, GIF, WebP or SVG file",
+        ));
+    };
+
+    Ok(Some((bytes, media_type.to_owned())))
+}
+
 /// Decode an inline base64 image, if one was supplied.
 ///
 /// Base64 in the tool call is the only ingestion path that works from every
@@ -792,6 +893,16 @@ const MAX_IMAGE_BYTES: usize = 1_048_576;
 /// has just been handed an image will produce either.
 fn decode_image(args: &Value) -> Result<Option<(Vec<u8>, String)>, RpcError> {
     use base64::Engine as _;
+
+    if args.get("image_path").is_some() && args.get("image").is_some() {
+        return Err(bad_arg(
+            "image",
+            "both `image` and `image_path` were given, and they are two answers to one \
+             question",
+            "one of them — `image_path` for a file on this machine, `image` for base64 you \
+             are already holding",
+        ));
+    }
 
     let Some(raw) = opt_str(args, "image") else {
         return Ok(None);
@@ -914,7 +1025,10 @@ fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
 
     // Decoded and size-checked before anything is written, so a bad image
     // fails without leaving a half-made design behind for someone to find.
-    let image = decode_image(args)?;
+    let image = match decode_image(args)? {
+        Some(inline) => Some(inline),
+        None => read_image_file(args)?,
+    };
     if image.is_some() && !matches!(entity_type, EntityType::Design | EntityType::Artifact) {
         return Err(bad_arg(
             "image",
@@ -1329,9 +1443,96 @@ fn keel_update(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
     resolve_reference_fields(store, &mut changes)?;
     resolve_rank_placement(store, &mut changes)?;
 
-    let updated = store
-        .update(&id, version, &changes, &provenance)
-        .map_err(|e| to_rpc_error(store, e))?;
+    // Attaching an image to something that already exists. TQ-33 approved this
+    // as a `keel_attach(id, path)` tool; it is a field on `keel_update` instead,
+    // because TQ-31 set thirteen tools as the ceiling hours earlier and the
+    // standing rule is that an awkward capability is almost always a field. The
+    // capability is the one KB approved and the count is the one KB set — see
+    // B-49 for the argument, and note that `keel_create` takes `image_path` too,
+    // so a design born with its screenshot needs no second call.
+    //
+    // Read before the update, so a bad path refuses the whole call rather than
+    // leaving a version bump behind with no image attached to it.
+    let attachment = match changes.remove("image_path") {
+        Some(Value::String(path)) => {
+            if !matches!(id.entity_type(), EntityType::Design | EntityType::Artifact) {
+                return Err(bad_arg(
+                    "image_path",
+                    &format!("{} does not hold an image", id.entity_type()),
+                    "a design or an artifact",
+                ));
+            }
+            read_image_file(&json!({ "image_path": path }))?
+        }
+        Some(other) => {
+            return Err(bad_arg(
+                "image_path",
+                &format!("must be a path, got {other}"),
+                "an absolute path to an image on this machine",
+            ));
+        }
+        None => None,
+    };
+
+    // An update whose only instruction was the attachment has nothing to change
+    // on the row itself, and `update` would reject an empty change set as a
+    // missing argument. The blob write below is the change.
+    let attach_only = attachment.is_some() && changes.is_empty();
+    let updated = if attach_only {
+        store
+            .get(&id)
+            .map_err(|e| to_rpc_error(store, e))?
+            .ok_or_else(|| {
+                bad_arg(
+                    "id",
+                    &format!("{id} does not exist"),
+                    "an existing artifact",
+                )
+            })?
+    } else {
+        store
+            .update(&id, version, &changes, &provenance)
+            .map_err(|e| to_rpc_error(store, e))?
+    };
+
+    if let Some((bytes, media_type)) = attachment {
+        let byte_length = bytes.len();
+        let project = updated
+            .project_id()
+            .cloned()
+            .unwrap_or_else(|| updated.id().clone());
+        let blob = keel_core::store::Blob::new(bytes, media_type.clone(), chrono::Utc::now())
+            .owned_by(updated.id().clone(), project);
+        let blob_id = store.put_blob(blob).map_err(|e| to_rpc_error(store, e))?;
+
+        let mut pointer = Map::new();
+        pointer.insert("blob_id".to_owned(), json!(blob_id.as_str()));
+        let repointed = store
+            .update(updated.id(), updated.audit().version, &pointer, &provenance)
+            .map_err(|e| to_rpc_error(store, e))?;
+        tracing::info!(
+            entity = %repointed.id(),
+            %blob_id,
+            media_type,
+            byte_length,
+            "attached an image the daemon read from disk"
+        );
+        return Ok(tool_result(
+            format!(
+                "Attached a {media_type} of {byte_length} bytes to “{}”. The bytes went \
+                 straight from the file to the store, so none of them entered your context.",
+                repointed.label()
+            ),
+            json!({
+                "entity": entity_json(&repointed),
+                "attached": {
+                    "blob_id": blob_id.as_str(),
+                    "media_type": media_type,
+                    "bytes": byte_length,
+                },
+            }),
+        ));
+    }
 
     let changed: Vec<&String> = changes.keys().collect();
     let summary = if changed.is_empty() {
