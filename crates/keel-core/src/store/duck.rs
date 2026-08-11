@@ -595,6 +595,14 @@ impl DuckStore {
 fn validate_entity(entity: &Entity) -> Result<()> {
     match entity {
         Entity::Milestone(m) => m.validate(),
+        // A project calling milestones "tasks" would make every
+        // `keel_create(type: "task")` ambiguous, and the resolution order hides
+        // that rather than surfacing it — the canonical name wins, so the noun
+        // silently does nothing. Refused where it is set instead.
+        Entity::Project(p) => match p.milestone_noun.as_deref() {
+            Some(noun) => crate::vocabulary::validate_milestone_noun(noun),
+            None => Ok(()),
+        },
         _ => Ok(()),
     }
 }

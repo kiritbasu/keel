@@ -32,7 +32,7 @@ import {
 import { applyFilter, filterToQuery, isFiltering, parseFilter } from "../lib/filters";
 import type { ScreenProps } from "../App";
 
-export function BoardScreen({ route, generation }: ScreenProps) {
+export function BoardScreen({ route, generation, milestoneNoun }: ScreenProps) {
   const project = route.project;
 
   // The whole view comes out of the address. Anything unrecognised falls back
@@ -173,6 +173,7 @@ export function BoardScreen({ route, generation }: ScreenProps) {
         <FilterBar
           view={view}
           facets={facets}
+          milestoneNoun={milestoneNoun}
           total={(data?.items ?? []).length}
           onFilter={(next) => setQuery(route, filterToQuery(next), { replace: true })}
           onView={(next) =>

@@ -82,9 +82,14 @@ pub fn render(store: &DuckStore, project_id: &EntityId) -> Result<String> {
     writeln!(out, "| | |")?;
     writeln!(out, "|---|---|")?;
     writeln!(out, "| **Status** | {} |", project.status)?;
+    // The project's own word, not Keel's. This one says "Phase" on every screen
+    // and the tracker said "milestone" anyway, so the vocabulary in the committed
+    // shadow of the board was the store's rather than the project's (KEEL-121).
+    let noun = project.milestone_word();
     writeln!(
         out,
-        "| **Active milestone** | {} |",
+        "| **Active {}** | {} |",
+        noun.to_lowercase(),
         active_milestone.map_or("none".to_owned(), |m| m.label().to_owned())
     )?;
     writeln!(
@@ -105,9 +110,9 @@ pub fn render(store: &DuckStore, project_id: &EntityId) -> Result<String> {
     if !milestones.is_empty() {
         writeln!(out, "---")?;
         writeln!(out)?;
-        writeln!(out, "## Milestones")?;
+        writeln!(out, "## {}", plural(noun))?;
         writeln!(out)?;
-        writeln!(out, "| Milestone | Status | Target | Tasks done |")?;
+        writeln!(out, "| {noun} | Status | Target | Tasks done |")?;
         writeln!(out, "|---|---|---|---|")?;
 
         let mut sorted: Vec<&Entity> = milestones.iter().collect();
@@ -368,6 +373,27 @@ pub fn render(store: &DuckStore, project_id: &EntityId) -> Result<String> {
 }
 
 /// Every live entity of one type in a project.
+/// A heading for more than one of something.
+///
+/// English enough for the words a project actually uses — Phase, Cycle, Release,
+/// Milestone, Sprint. Not a general pluraliser and not trying to be: a project
+/// whose noun ends awkwardly gets a slightly wrong heading, which is a smaller
+/// cost than a dependency or a table of irregulars nobody maintains.
+fn plural(noun: &str) -> String {
+    let lower = noun.to_lowercase();
+    if lower.ends_with('s')
+        || lower.ends_with("ch")
+        || lower.ends_with("sh")
+        || lower.ends_with('x')
+    {
+        return format!("{noun}es");
+    }
+    if lower.ends_with('y') && !lower.ends_with("ay") && !lower.ends_with("ey") {
+        return format!("{}ies", &noun[..noun.len() - 1]);
+    }
+    format!("{noun}s")
+}
+
 fn collect(
     store: &DuckStore,
     project_id: &EntityId,

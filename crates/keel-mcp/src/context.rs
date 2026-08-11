@@ -105,6 +105,12 @@ pub struct ProjectLine {
     pub open_questions: usize,
     /// The milestone currently in flight, if any.
     pub active_milestone: Option<String>,
+    /// What this project calls a milestone, when it has a word of its own.
+    ///
+    /// Carried so the digest can say it in the first paragraph a session reads.
+    /// Until KEEL-121 the alias was reported back on a create and nothing stored
+    /// it, so a session learned the vocabulary one rejected call at a time.
+    pub milestone_noun: Option<String>,
 }
 
 /// A compact reference to an artifact.
@@ -195,7 +201,12 @@ impl Digest {
                 p.status, p.open_tasks, p.urgent_tasks, p.blocked_tasks, p.open_questions
             ));
             if let Some(m) = &p.active_milestone {
-                out.push_str(&format!("active milestone: {m}\n"));
+                // The project's own word, lowercased for the middle of a
+                // sentence. A session that reads "active phase: Phase 8" here
+                // has been told the vocabulary before it needs it, which is one
+                // round trip cheaper than being corrected by a create.
+                let noun = p.milestone_noun.as_deref().unwrap_or("milestone");
+                out.push_str(&format!("active {}: {m}\n", noun.to_lowercase()));
             }
         } else {
             out.push_str("# All projects\n");
@@ -559,6 +570,7 @@ fn project_line(store: &DuckStore, p: &keel_core::Project) -> Result<ProjectLine
         blocked_tasks: blocked,
         open_questions: questions.total,
         active_milestone: milestones.items.first().map(|m| m.label().to_owned()),
+        milestone_noun: p.milestone_noun.clone(),
     })
 }
 

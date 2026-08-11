@@ -15,6 +15,8 @@
 
 **Mirror** — Generated read-only markdown written into a project repo. Never a source of truth.
 
+**Phase** — What this project calls a milestone. `Phase` and `milestone` are the same thing; this is the word to use when talking to a person.
+
 **Phase gate** — The exit criterion for a build phase. Two of Keel's cannot be verified without a human.
 
 **Revision** — One immutable version of a document body.

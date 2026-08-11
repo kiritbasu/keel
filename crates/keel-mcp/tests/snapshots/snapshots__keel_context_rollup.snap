@@ -1,6 +1,5 @@
 ---
 source: crates/keel-mcp/tests/snapshots.rs
-assertion_line: 104
 expression: result
 ---
 {
@@ -27,6 +26,7 @@ expression: result
         "blocked_tasks": 0,
         "id": "[id]",
         "key": "HARB",
+        "milestone_noun": null,
         "name": "Harbour",
         "open_questions": 0,
         "open_tasks": 1,

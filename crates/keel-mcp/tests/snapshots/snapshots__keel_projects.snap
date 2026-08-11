@@ -29,6 +29,7 @@ expression: result
         "id": "[id]",
         "idempotency_key": "[hash]",
         "key": "HARB",
+        "milestone_noun": null,
         "name": "Harbour",
         "repo_urls": [],
         "root_path": null,

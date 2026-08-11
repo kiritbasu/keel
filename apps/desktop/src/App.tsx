@@ -278,8 +278,16 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [route.project, activeProject]);
 
+  // The active project's own word for a milestone. `undefined` means it has no
+  // opinion and the interface says "milestone".
+  const milestoneNoun = useMemo(() => {
+    const match = projects.find((p) => String(p.slug ?? "") === activeProject);
+    const noun = match?.milestone_noun;
+    return typeof noun === "string" && noun.trim() ? noun.trim() : undefined;
+  }, [projects, activeProject]);
+
   const current = useMemo(() => {
-    const shared = { route, generation };
+    const shared = { route, generation, milestoneNoun };
     switch (route.screen) {
       case "home":
         return <HomeScreen {...shared} />;
@@ -302,7 +310,7 @@ export function App() {
       case "changed":
         return <ChangedScreen {...shared} />;
     }
-  }, [route, generation]);
+  }, [route, generation, milestoneNoun]);
 
   return (
     <div className="flex h-full">
@@ -373,4 +381,12 @@ export function App() {
 export interface ScreenProps {
   route: Route;
   generation: number;
+  /**
+   * What this project calls a milestone, when it has a word of its own.
+   *
+   * Threaded from the shell rather than fetched per screen, because the shell
+   * already holds the project list and a second request to learn one word would
+   * be a request per screen for a label.
+   */
+  milestoneNoun?: string;
 }

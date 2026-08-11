@@ -13,7 +13,9 @@ import { Badge, Empty, ErrorBox, Spinner, When, statusTone } from "../components
 import { Page, projectCrumbs } from "../components/Page";
 import type { ScreenProps } from "../App";
 
-export function RoadmapScreen({ route, generation }: ScreenProps) {
+export function RoadmapScreen({ route, generation, milestoneNoun }: ScreenProps) {
+  const noun = milestoneNoun ?? "milestone";
+  const plural = `${noun.toLowerCase()}s`;
   const project = route.project;
   const { data, error, loading, reload } = useAsync<PageOf<Entity>>(
     () => api.entities({ project, type: "milestone" }),
@@ -60,7 +62,10 @@ export function RoadmapScreen({ route, generation }: ScreenProps) {
       meta={<span className="text-small text-ink-faint">{project ? project : "all projects"}</span>}
     >
       {milestones.length === 0 ? (
-        <Empty message="No milestones yet." hint="Milestones are what the roadmap is built from." />
+        <Empty
+          message={`No ${plural} yet.`}
+          hint={`${noun[0]?.toUpperCase()}${noun.slice(1).toLowerCase()}s are what the roadmap is built from.`}
+        />
       ) : (
         <ol className="relative space-y-3 border-l border-border-subtle pl-6">
           {milestones.map((m) => {
@@ -90,7 +95,7 @@ export function RoadmapScreen({ route, generation }: ScreenProps) {
                       <a
                         href={`${href({ screen: "board", project })}?milestone=${encodeURIComponent(String(m.id))}`}
                         className="font-medium hover:text-accent"
-                        title={`Show the tasks in ${String(m.name)}`}
+                        title={`Show the tasks in this ${noun.toLowerCase()}`}
                       >
                         {String(m.name)}
                       </a>

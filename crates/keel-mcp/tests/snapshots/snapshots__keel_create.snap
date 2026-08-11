@@ -57,6 +57,7 @@ expression: result
       "version": 1
     },
     "resolved_from": null,
+    "seeded_term": null,
     "style_warnings": []
   }
 }

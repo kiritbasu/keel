@@ -45,6 +45,7 @@ pub mod render_status;
 pub mod store;
 pub mod style;
 pub mod types;
+pub mod vocabulary;
 pub mod work;
 
 pub use audit::{Audit, Provenance};
@@ -84,4 +85,5 @@ pub use types::{
     Metric, MetricObservation, Milestone, Project, Question, Spec, Task, Term,
     derive_idempotency_key, validate_evidence,
 };
+pub use vocabulary::{Resolved, Source as WordSource, resolve_type};
 pub use work::{Claimed, Close, Closed, claim, close};

@@ -38,6 +38,7 @@ export function FilterBar({
   total,
   onFilter,
   onView,
+  milestoneNoun,
 }: {
   view: View;
   facets: Facets;
@@ -45,7 +46,10 @@ export function FilterBar({
   total: number;
   onFilter: (next: TaskFilter) => void;
   onView: (next: Partial<Omit<View, "filter">>) => void;
+  /** The project's own word for a milestone, when it has one. */
+  milestoneNoun?: string;
 }) {
+  const noun = (milestoneNoun ?? "milestone").toLowerCase();
   const { filter } = view;
   const [text, setText] = useState(filter.text);
   useEffect(() => setText(filter.text), [filter.text]);
@@ -101,8 +105,9 @@ export function FilterBar({
         <Menu
           label={
             filter.milestone
-              ? (facets.milestones.find((m) => m.id === filter.milestone)?.name ?? "No milestone")
-              : "Milestone"
+              ? (facets.milestones.find((m) => m.id === filter.milestone)?.name ??
+                `No ${noun}`)
+              : noun.charAt(0).toUpperCase() + noun.slice(1)
           }
         >
           {(close) => (
@@ -114,7 +119,7 @@ export function FilterBar({
                   onFilter({ ...filter, milestone: undefined });
                 }}
               >
-                Any milestone
+                {`Any ${noun}`}
               </MenuItem>
               {facets.milestones.map((m) => (
                 <MenuItem

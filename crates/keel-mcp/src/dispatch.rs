@@ -996,12 +996,6 @@ fn sniff_media_type(bytes: &[u8]) -> Option<&'static str> {
 
 fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
     let type_name = req_str(args, "type")?;
-    // Accept the word this project actually uses. `alias` is carried through to
-    // the summary rather than dropped: a silent success teaches the session
-    // nothing and it guesses the same way next time, where a narrated one
-    // teaches the vocabulary in one round trip. B-46 / 8F.
-    let (entity_type, alias) = EntityType::parse_with_alias(&type_name)
-        .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
     let provenance = provenance_from(args)?;
 
     let title = opt_str(args, "title")
@@ -1009,10 +1003,24 @@ fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
         .or_else(|| opt_str(args, "term"));
     let body = opt_str(args, "body");
 
+    // The project is resolved before the type, which is the wrong-looking order
+    // and the necessary one: a project's glossary is what says whether "phase"
+    // means anything here, so the type cannot be resolved without knowing which
+    // project is asking.
     let project_id = match opt_str(args, "project") {
         Some(p) => Some(resolve_project(store, &p)?),
         None => None,
     };
+
+    // Accept the word this project actually uses, from its own glossary before
+    // Keel's built-in list. Carried through to the summary rather than dropped:
+    // a silent success teaches the session nothing and it guesses the same way
+    // next time, where a narrated one teaches the vocabulary in one round trip.
+    // KEEL-116 / KEEL-121.
+    let resolved = keel_core::resolve_type(store, project_id.as_ref(), &type_name)
+        .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
+    let entity_type = resolved.entity_type;
+    let alias = resolved.from.clone();
 
     if entity_type != EntityType::Project && entity_type != EntityType::Term && project_id.is_none()
     {
@@ -1131,6 +1139,32 @@ fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
         );
     }
 
+    // A project that says what it calls a milestone gets that word in its
+    // glossary, which is the one part of the digest that is never truncated. That
+    // is what turns "the board says Phase" into "a session is told, in its first
+    // call, that this project calls milestones phases" — and it makes the word an
+    // input alias as well as a label, through the same mechanism any other
+    // project-specific word uses.
+    let mut seeded_term = Value::Null;
+    if let Entity::Project(project) = &created.entity
+        && created.created
+        && let Some(noun) = project.milestone_noun.clone()
+    {
+        let term = keel_core::vocabulary::milestone_noun_term(&project.id, &noun);
+        match store.create(term.into(), &provenance) {
+            Ok(term) => seeded_term = json!(term.entity.id().to_string()),
+            // A term already using that word is not a reason to refuse the
+            // project. The noun still works — resolution consults it directly as
+            // well as through the glossary — so this is worth a log line and not
+            // an error.
+            Err(e) => tracing::warn!(
+                error = %e,
+                %noun,
+                "could not seed the glossary term for this project's milestone noun"
+            ),
+        }
+    }
+
     // Re-read so `current_doc_version` reflects the revision just written.
     let entity = store
         .get(created.entity.id())
@@ -1154,9 +1188,15 @@ fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
             identifier
         )
     };
-    if let Some(alias) = alias {
+    if let Some(alias) = &alias {
+        // Saying *why* is the same argument as saying *what*, one step further:
+        // "because this project's glossary says so" is actionable, where
+        // "because Keel accepts it" leaves a session none the wiser about where
+        // the vocabulary lives.
         summary.push_str(&format!(
-            "\n\nYou said “{alias}” — in Keel that is a {entity_type}. Same thing, one word."
+            "\n\nYou said “{alias}” — in Keel that is a {entity_type}, because {}. Same \
+             thing, one word.",
+            resolved.source.because()
         ));
     }
     summary.push_str(&style_note(&style_warnings));
@@ -1169,6 +1209,7 @@ fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
             "document": document,
             "style_warnings": style_warnings,
             "resolved_from": alias,
+            "seeded_term": seeded_term,
         }),
     ))
 }
@@ -1532,6 +1573,21 @@ fn keel_update(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
                 },
             }),
         ));
+    }
+
+    // A project that has just been given a word for its milestones gets that word
+    // in its glossary, the same as one created with it. Doing this only on create
+    // would mean an existing project could set the noun and have the interface
+    // change while the digest — the one place a session reads the vocabulary
+    // before it needs it — never mentioned it.
+    if changes.contains_key("milestone_noun")
+        && let Entity::Project(project) = &updated
+        && let Some(noun) = project.milestone_noun.clone()
+    {
+        let term = keel_core::vocabulary::milestone_noun_term(&project.id, &noun);
+        if let Err(e) = store.create(term.into(), &provenance) {
+            tracing::warn!(error = %e, %noun, "could not seed the glossary term for this noun");
+        }
     }
 
     let changed: Vec<&String> = changes.keys().collect();

@@ -786,6 +786,27 @@ ALTER TABLE tasks ADD COLUMN IF NOT EXISTS close_message VARCHAR;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS evidence VARCHAR[];
 ",
         },
+        // §8F's remaining two layers: a project's own word for a milestone, and
+        // a glossary term that can say which type it is a spelling of.
+        //
+        // Both nullable, and neither changes what is stored. `milestone_noun` is
+        // a display noun — the board and the tracker say "Phase" because this
+        // project says so, while the row is still a milestone. `means` is a
+        // declaration, which is why it is a column rather than something parsed
+        // out of a definition: "a phase is a milestone with a demo at the end"
+        // and "a phase is not a milestone" would resolve identically under any
+        // rule that read the prose.
+        //
+        // The hard rule both live under: neither may create a fourteenth type.
+        // Thirteen is a hard constraint, and a spelling is not a concept.
+        Migration {
+            id: 16,
+            name: "project_noun_and_term_means",
+            sql: "
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS milestone_noun VARCHAR;
+ALTER TABLE terms ADD COLUMN IF NOT EXISTS means VARCHAR;
+",
+        },
     ]
 }
 

@@ -263,6 +263,18 @@ pub struct Project {
     /// Other names this project goes by. The main defence against UC-8's
     /// nine-near-duplicate-projects failure.
     pub aliases: Vec<String>,
+    /// What this project calls a milestone.
+    ///
+    /// This one says "Phase" on every screen, and until this column existed the
+    /// interface said "milestone" anyway — so the vocabulary was Keel's rather
+    /// than the project's, and a session learned the project's word one rejected
+    /// `keel_create` at a time.
+    ///
+    /// A display noun and nothing more. It never changes what is stored, which is
+    /// the rule that keeps it from becoming a fourteenth type: `EntityType` still
+    /// has thirteen values and a milestone is still a milestone. `None` means the
+    /// project has no opinion, and the interface says "milestone".
+    pub milestone_noun: Option<String>,
     /// Idempotency key, unique across projects.
     pub idempotency_key: String,
     /// The audit block.
@@ -287,7 +299,21 @@ impl Project {
             status_path: None,
             decisions_path: None,
             aliases: Vec::new(),
+            milestone_noun: None,
             audit: provisional_audit(),
+        }
+    }
+
+    /// What to call a milestone when talking to this project's reader.
+    ///
+    /// Capitalised as the project wrote it, so "Phase 8" reads the way KB says it
+    /// out loud. Falls back to Keel's own word rather than to nothing — an
+    /// interface with a blank where a noun should be is worse than one using the
+    /// generic term.
+    pub fn milestone_word(&self) -> &str {
+        match self.milestone_noun.as_deref().map(str::trim) {
+            Some(word) if !word.is_empty() => word,
+            _ => "Milestone",
         }
     }
 }
@@ -925,6 +951,22 @@ pub struct Term {
     pub definition: String,
     /// Other spellings.
     pub aliases: Vec<String>,
+    /// The artifact type this word is a spelling of, if it is one.
+    ///
+    /// This is what lets the glossary drive type aliasing rather than a fixed
+    /// list in the source. A project that says "incident" for a task, or
+    /// "customer feedback" for feedback, defines the term once and every surface
+    /// accepts the word.
+    ///
+    /// A column rather than something parsed out of `definition`, and the
+    /// difference matters: "a phase is a milestone with a demo at the end" and "a
+    /// phase is not a milestone" would resolve identically under any rule that
+    /// read the prose. A declaration cannot be misread.
+    ///
+    /// **This must never create a fourteenth type.** Every value is one of the
+    /// thirteen, which the type system enforces here — a term declares a
+    /// *spelling*, never a concept.
+    pub means: Option<EntityType>,
     /// Where this appears in the mirror — the shared `glossary.md`.
     pub mirror_path: Option<String>,
     /// Idempotency key, unique within the project (or globally).
@@ -948,6 +990,7 @@ impl Term {
             term,
             definition: definition.into(),
             aliases: Vec::new(),
+            means: None,
             mirror_path: None,
             audit: provisional_audit(),
         }
