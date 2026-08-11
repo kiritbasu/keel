@@ -7,22 +7,6 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
-### TQ-29 — a note does not announce, so the app does not live-refresh on one
-
-`que_01KZQQXYTVDN1KCR6DHDEEV36M` · question · open
-
-The daemon announces an SSE change only when the latest `events` id advances (`http.rs`, the `tools/call` arm). `keel_note` writes a note row and no event row, so a note produces no announcement and an open desktop app does not refresh.
-
-Found while verifying live refresh in Chrome: a probe watching the stream received nothing from a `keel_note` write, then received the change from a `keel_update` immediately.
-
-**Is that right?** There is a real argument for it: notes are their own stream, they are append-only, and a task page that reloads on every note would flicker during a session that is writing several. There is also an argument against: the note stream is one of the more valuable things on a task page, and an app showing a stale one is showing the wrong thing.
-
-**Options.** (a) Leave it, and document that notes are not live. (b) Announce notes too, with their own event kind so a client can choose. (c) Give notes an `events` row, which makes them visible to the activity feed as well — a larger change, and it touches the definition of what an event is.
-
-**Recommendation:** (b). It is the smallest change that removes the surprise, and it lets the app decide rather than deciding for it.
-
-**Status:** open. Nothing is blocked; the app refreshes on navigation and on the Refresh button regardless.
-
 ### TQ-3 — Re-embedding strategy when the model changes: background full pass, or lazy on access?
 
 `que_01KZKWMSFKG5316C06B4HNXXBR` · question · open
@@ -70,6 +54,24 @@ It grows forever. Keep everything, which is probably fine for a decade at this w
 ## Settled
 
 *Decided, with the reasoning. Do not re-litigate these.*
+
+### TQ-29 — a note does not announce, so the app does not live-refresh on one
+
+`que_01KZQQXYTVDN1KCR6DHDEEV36M` · question · answered
+
+**Question:** The daemon announces an SSE change only when the latest `events` id advances, and `keel_note` writes no event row — so a note produced no announcement and an open app showed a stale note stream with nothing to say it was stale.
+
+**Answered — option (b): announce notes under their own kind.** Built 2026-08-11.
+
+`Change` now carries a `kind` — `entity` or `note` — plus the `entity_id` the change is about when it is known. A note is announced through `announce_note`, which the `tools/call` arm reaches when the event id did *not* advance and the tool was `keel_note`.
+
+**A field rather than a second SSE event name**, so a client that ignores it keeps working. The desktop app refreshes on every change as before; what it has now is the information to be smarter — a board need not redraw because a note landed on a task, and a task page should.
+
+Verified on the live stream: a note emits `{"kind":"note","event_id":null,"entity_id":"tsk_…"}` and an update emits `{"kind":"entity","event_id":"evt_…"}`, in that order, from one connection.
+
+The client parses defensively: a payload it cannot read still fires a refresh. Refetching on an unreadable change is the safe direction — the cost is one wasted read, and the alternative is showing stale state because a payload shape moved.
+
+**Why not (c), giving notes an event row:** that changes what an event *is*. Events are the attribution spine — `keel_activity`, the changelog and the "what changed since" cursor all read them — and putting notes in there would put a second stream into every one of those without anyone asking. The narrow fix was the honest one.
 
 ### TQ-28 — renaming an artifact leaves an orphaned mirror file that reads as current
 

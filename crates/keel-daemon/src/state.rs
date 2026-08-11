@@ -12,10 +12,35 @@ use std::sync::{Arc, Mutex, MutexGuard};
 /// subscriber can never hold a serialised entity in a queue.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct Change {
-    /// The event that caused it.
-    pub event_id: EventId,
+    /// What kind of write this was: `entity` or `note`.
+    ///
+    /// Notes are announced separately because they are not events. The daemon
+    /// announces an entity change when the latest `events` id advances, and a
+    /// note leaves no row there — so before this existed, writing a note
+    /// refreshed nothing and an open app showed a stale note stream with no
+    /// indication it was stale (TQ-29).
+    ///
+    /// Carried as a field rather than a second SSE event name so that a client
+    /// which ignores it keeps working: an app that wants every change gets one,
+    /// and an app that would rather not redraw a board because a note landed on
+    /// a task can look.
+    pub kind: ChangeKind,
+    /// The event that caused it, when there was one. `None` for a note.
+    pub event_id: Option<EventId>,
+    /// The row the change is about, when it is known.
+    pub entity_id: Option<String>,
     /// What happened, in one line.
     pub summary: String,
+}
+
+/// What sort of write an SSE change describes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ChangeKind {
+    /// A create, update, archive or link — anything that wrote an event.
+    Entity,
+    /// A note appended to a row's commentary.
+    Note,
 }
 
 /// Everything a request handler needs.
@@ -95,7 +120,19 @@ impl AppState {
     /// listening, which is the normal case when no desktop app is open.
     pub fn announce(&self, event_id: EventId, summary: impl Into<String>) {
         let _ = self.changes.send(Change {
-            event_id,
+            kind: ChangeKind::Entity,
+            event_id: Some(event_id),
+            entity_id: None,
+            summary: summary.into(),
+        });
+    }
+
+    /// Announce a note, which writes no event row of its own.
+    pub fn announce_note(&self, entity_id: Option<String>, summary: impl Into<String>) {
+        let _ = self.changes.send(Change {
+            kind: ChangeKind::Note,
+            event_id: None,
+            entity_id,
             summary: summary.into(),
         });
     }

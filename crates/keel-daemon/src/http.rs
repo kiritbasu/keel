@@ -256,6 +256,22 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
             drop(store);
             if let (Some(after_id), true) = (after.clone(), before != after) {
                 state.announce(after_id, format!("{name} completed"));
+            } else if name == "keel_note"
+                && let Ok(value) = &outcome
+                && !value
+                    .get("isError")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+            {
+                // A note writes no event row, so the check above cannot see it
+                // and an open app kept showing a stale note stream with nothing
+                // to say it was stale (TQ-29). Announced under its own kind so
+                // a client can tell the two apart.
+                let entity_id = value
+                    .pointer("/structuredContent/note/entity_id")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                state.announce_note(entity_id, "keel_note completed");
             }
             outcome
         }

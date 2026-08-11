@@ -329,9 +329,38 @@ export const api = {
  * changes should refetch, and quietly continuing would leave it showing stale
  * state indefinitely.
  */
-export function subscribe(onChange: () => void): () => void {
+export function subscribe(onChange: (change: ChangeEvent) => void): () => void {
   const source = new EventSource(`${BASE}/api/events`);
-  source.addEventListener("change", () => onChange());
-  source.addEventListener("lagged", () => onChange());
+  const forward = (raw: MessageEvent | Event) => {
+    const data = "data" in raw && typeof raw.data === "string" ? raw.data : null;
+    let change: ChangeEvent = { kind: "entity", summary: "" };
+    if (data) {
+      try {
+        change = { ...change, ...(JSON.parse(data) as ChangeEvent) };
+      } catch {
+        // A change we cannot parse is still a change. Refetching on it is the
+        // safe direction: the cost is one wasted read, and the alternative is
+        // showing stale state because a payload shape moved.
+      }
+    }
+    onChange(change);
+  };
+  source.addEventListener("change", forward);
+  source.addEventListener("lagged", forward);
   return () => source.close();
+}
+
+/** One announced write. */
+export interface ChangeEvent {
+  /**
+   * `entity` for anything that wrote an event; `note` for a note.
+   *
+   * Notes are announced separately because they are not events, and the daemon
+   * cannot see them by watching the event log (TQ-29).
+   */
+  kind: "entity" | "note";
+  /** The row it is about, when known. */
+  entity_id?: string;
+  /** One line describing it. */
+  summary: string;
 }
