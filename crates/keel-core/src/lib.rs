@@ -84,7 +84,7 @@ pub use next::{Candidate, NextUp, Ready, ReadyFilter, ready};
 pub use note::{NewNote, Note};
 pub use store::{
     Blob, Created, DocumentStore, DuckStore, EntityQuery, EntityStore, GraphStore, Neighbour, Page,
-    SearchHit, SearchQuery, SearchSource,
+    SearchHit, SearchQuery, SearchSource, SqliteStore, store_path,
 };
 pub use style::{Warning, check as check_style};
 pub use types::{

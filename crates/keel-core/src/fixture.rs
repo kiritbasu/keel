@@ -22,7 +22,7 @@ use crate::{
     Sentiment, SpecKind, SpecStatus, Surface, TaskKind, TaskPriority, TaskStatus,
 };
 use crate::{
-    Artifact, Decision, Design, DocumentStore, DuckStore, Entity, Environment, Feedback, Metric,
+    Artifact, Decision, Design, DocumentStore, Entity, Environment, Feedback, Metric,
     MetricObservation, Milestone, Project, Question, Spec, Task, Term,
 };
 use chrono::{Duration, NaiveDate, Utc};
@@ -129,7 +129,11 @@ type ArtifactRow<'a> = (&'a EntityId, &'a str, ArtifactKind, &'a str);
 /// loading the fixture exercises validation, idempotency, event generation and
 /// link normalisation, so a fixture that loads is evidence the write path
 /// works — not merely that the schema accepts rows.
-pub fn load(store: &mut DuckStore) -> Result<FixtureSummary> {
+///
+/// Generic over the two traits rather than naming a store, because the
+/// migration has to load the same corpus into both engines and compare them —
+/// and a fixture that only one store can hold would compare nothing.
+pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSummary> {
     let mut s = FixtureSummary::default();
     let now = Utc::now();
 
@@ -2097,8 +2101,8 @@ fn by_label<'a>(items: &'a [(String, EntityId)], label: &str) -> Result<&'a Enti
 }
 
 /// Create an entity through the ordinary write path and count it.
-fn make(
-    store: &mut DuckStore,
+fn make<S: EntityStore>(
+    store: &mut S,
     entity: Entity,
     provenance: &Provenance,
     summary: &mut FixtureSummary,
@@ -2110,8 +2114,8 @@ fn make(
 }
 
 /// Create an edge and count it.
-fn link(
-    store: &mut DuckStore,
+fn link<S: EntityStore>(
+    store: &mut S,
     from: &EntityId,
     rel: Relation,
     to: &EntityId,
@@ -2131,8 +2135,8 @@ fn link(
 }
 
 /// Write a document revision and count it.
-fn write_doc(
-    store: &mut DuckStore,
+fn write_doc<S: DocumentStore>(
+    store: &mut S,
     entity_id: &EntityId,
     project_id: &EntityId,
     title: &str,

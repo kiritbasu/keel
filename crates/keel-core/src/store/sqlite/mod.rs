@@ -21,6 +21,20 @@ use crate::{Error, Result};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
+/// The store file's name inside a Keel home directory.
+pub const STORE_FILE: &str = "keel.sqlite";
+
+/// Where the store lives inside `home`.
+///
+/// A one-line function so that the CLI, the daemon and `keel migrate` cannot
+/// disagree about it. They used to be handed the home directory itself, because
+/// the DuckDB store *was* a directory; the SQLite store is a file inside it, and
+/// a surface that appends the wrong name silently opens an empty store rather
+/// than failing — which is the failure mode worth spending a function on.
+pub fn store_path(home: impl AsRef<Path>) -> PathBuf {
+    home.as_ref().join(STORE_FILE)
+}
+
 /// A Keel store backed by one SQLite file.
 ///
 /// Owns its connection. The daemon still owns the single write path, per the
@@ -35,6 +49,19 @@ pub struct SqliteStore {
     conn: Connection,
     path: PathBuf,
     embedder: Option<std::sync::Arc<dyn crate::Embedder>>,
+}
+
+/// Hand-written because a connection and an embedder have nothing worth
+/// printing, and because `expect_err` on a failed open needs *something* — a
+/// store that cannot be formatted makes the error path harder to assert on than
+/// the success path.
+impl std::fmt::Debug for SqliteStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SqliteStore")
+            .field("path", &self.path)
+            .field("embedder", &self.embedder.is_some())
+            .finish()
+    }
 }
 
 impl SqliteStore {
@@ -129,6 +156,23 @@ impl SqliteStore {
         &self.conn
     }
 
+    /// Fold the write-ahead log back into the database file.
+    ///
+    /// Called on shutdown, and the reason is milder than DuckDB's was: a killed
+    /// process leaves a `-wal` beside the store which the next open replays, so
+    /// nothing is lost either way. What it buys is that the file on disk is the
+    /// whole store — which is what a person copying it, or a backup taken by
+    /// something that does not know about SQLite, would otherwise get wrong.
+    ///
+    /// `TRUNCATE` rather than `PASSIVE` so the log is actually emptied instead
+    /// of merely checkpointed; a reader mid-query blocks it, and that is fine,
+    /// because failing to checkpoint costs nothing.
+    pub fn checkpoint(&self) -> Result<()> {
+        self.conn
+            .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+            .map_err(Error::sqlite("checkpoint the store before shutting down"))
+    }
+
     /// Connection settings, each of which is load-bearing.
     fn configure(&mut self) -> Result<()> {
         // WAL is the whole reason the app stops stalling behind a write. In the
@@ -186,6 +230,41 @@ impl SqliteStore {
                  ) STRICT;",
             )
             .map_err(Error::sqlite("create the migration ledger"))?;
+
+        // Refuse to run against a store newer than this binary understands.
+        //
+        // Carried over from `DuckStore`, where it was written after the failure
+        // it prevents actually happened: a migration added a column, a daemon
+        // built before that migration kept running, found every migration it
+        // knew about already applied, concluded it was up to date, and went on
+        // inserting rows with the new column left NULL. The corruption surfaced
+        // two days later as an unrelated-looking read error.
+        //
+        // An older binary is not merely missing features — it writes rows that
+        // are wrong in ways the schema cannot express. Refusing to open turns a
+        // silent corruption into a startup error, which is the whole trade.
+        let shipped = schema::migrations().iter().map(|m| m.id).max().unwrap_or(0);
+        let newest: i64 = self
+            .conn
+            .query_row(
+                "SELECT COALESCE(max(id), 0) FROM _keel_migrations",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(Error::sqlite("read the migration ledger"))?;
+        if newest > i64::from(shipped) {
+            return Err(Error::Invariant {
+                operation: "open the store".to_owned(),
+                problem: format!(
+                    "this store is at schema {newest}; this binary only understands {shipped}, \
+                     so it is older than the store.\n\n\
+                     It would write rows the newer schema expects to be populated and leave them \
+                     empty, which does not fail until something else reads them.\n\n\
+                     Rebuild and reinstall: ./plugin/install.sh\n\
+                     To run an old binary deliberately, point it at another store with --home."
+                ),
+            });
+        }
 
         for migration in schema::migrations() {
             let seen: i64 = self

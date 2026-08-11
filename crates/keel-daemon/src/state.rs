@@ -1,7 +1,7 @@
 //! Shared daemon state: the store, the lock, and the change broadcast.
 
 use anyhow::{Context, Result};
-use keel_core::{DuckStore, EventId};
+use keel_core::{EventId, SqliteStore};
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -46,7 +46,7 @@ pub enum ChangeKind {
 /// Everything a request handler needs.
 #[derive(Clone)]
 pub struct AppState {
-    store: Arc<Mutex<DuckStore>>,
+    store: Arc<Mutex<SqliteStore>>,
     /// Broadcast of changes, for the SSE stream.
     pub changes: tokio::sync::broadcast::Sender<Change>,
     /// The token bucket on `/mcp`. Shared, because the thing it protects — the
@@ -56,14 +56,21 @@ pub struct AppState {
 
 impl AppState {
     /// Open the store and build the shared state.
+    ///
+    /// `home` is the directory — `~/.keel` — and the store is one file inside
+    /// it. That is a change from the DuckDB store, which *was* the directory.
     pub fn open(home: &Path, embeddings: bool) -> Result<Self> {
-        let mut store = DuckStore::open(home)
-            .with_context(|| format!("open the store at {}", home.display()))?;
+        let path = keel_core::store_path(home);
+        let mut store = SqliteStore::open(&path)
+            .with_context(|| format!("open the store at {}", path.display()))?;
 
         if embeddings {
             // Constructed here rather than inside `keel-core`, which must not
             // decide whether to touch the network or where model files live.
-            let models = store.models_dir();
+            // The directory is derived from `home` rather than asked of the
+            // store, because the store is now a file and has no directory of
+            // its own to hang a models cache off.
+            let models = home.join("models");
             std::fs::create_dir_all(&models).ok();
             match keel_core::FastEmbedder::new(&models) {
                 Ok(e) => {
@@ -90,7 +97,7 @@ impl AppState {
     }
 
     /// Build state around an already-open store. Used by tests.
-    pub fn from_store(store: DuckStore) -> Self {
+    pub fn from_store(store: SqliteStore) -> Self {
         let (changes, _) = tokio::sync::broadcast::channel(256);
         AppState {
             store: Arc::new(Mutex::new(store)),
@@ -106,13 +113,13 @@ impl AppState {
     /// store itself is a database with its own transactional guarantees, so
     /// refusing every subsequent request would turn one bad request into an
     /// outage.
-    pub fn store(&self) -> MutexGuard<'_, DuckStore> {
+    pub fn store(&self) -> MutexGuard<'_, SqliteStore> {
         match self.store.lock() {
             Ok(guard) => guard,
             Err(poisoned) => {
                 tracing::warn!(
                     "the store lock was poisoned by an earlier panic; continuing, since \
-                     DuckDB's own transactions are what actually protect the data"
+                     SQLite's own transactions are what actually protect the data"
                 );
                 poisoned.into_inner()
             }

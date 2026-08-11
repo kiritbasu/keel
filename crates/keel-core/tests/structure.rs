@@ -8,13 +8,13 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use keel_core::{
-    Actor, DuckStore, Entity, EntityId, EntityStore, Project, Provenance, Task,
+    Actor, Entity, EntityId, EntityStore, Project, Provenance, SqliteStore, Task,
     types::MAX_PARENT_DEPTH,
 };
 
-fn store() -> (tempfile::TempDir, DuckStore, EntityId) {
+fn store() -> (tempfile::TempDir, SqliteStore, EntityId) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = DuckStore::open(dir.path()).unwrap();
+    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
     let project = store
         .create(
             Project::new("keel", "Keel").into(),
@@ -31,7 +31,7 @@ fn prov() -> Provenance {
     Provenance::anonymous(Actor::Claude)
 }
 
-fn task(store: &mut DuckStore, project: &EntityId, title: &str) -> Task {
+fn task(store: &mut SqliteStore, project: &EntityId, title: &str) -> Task {
     match store
         .create(
             Task::new(
@@ -50,7 +50,7 @@ fn task(store: &mut DuckStore, project: &EntityId, title: &str) -> Task {
     }
 }
 
-fn reload(store: &DuckStore, id: &EntityId) -> Task {
+fn reload(store: &SqliteStore, id: &EntityId) -> Task {
     match store.get(id).unwrap() {
         Some(Entity::Task(t)) => t,
         _ => panic!("task {id} vanished"),
@@ -58,7 +58,7 @@ fn reload(store: &DuckStore, id: &EntityId) -> Task {
 }
 
 fn set(
-    store: &mut DuckStore,
+    store: &mut SqliteStore,
     task: &Task,
     field: &str,
     value: serde_json::Value,

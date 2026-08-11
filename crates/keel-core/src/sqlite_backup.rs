@@ -216,6 +216,15 @@ pub fn restore(source: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<Bac
     Ok(manifest)
 }
 
+/// The backup directory for a store, timestamped.
+///
+/// `home` is the directory the store lives in, not the store file, so that a
+/// backup lands beside it rather than inside a path named after a database.
+pub fn default_backup_dir(home: &Path, at: chrono::DateTime<chrono::Utc>) -> std::path::PathBuf {
+    home.join("backups")
+        .join(at.format("%Y-%m-%dT%H-%M-%SZ").to_string())
+}
+
 /// Compare a restored store against the manifest it came from.
 ///
 /// Asserting rather than eyeballing is the point: the contract asks for a

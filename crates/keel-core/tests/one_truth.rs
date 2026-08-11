@@ -13,13 +13,13 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use keel_core::{
-    Actor, DuckStore, Entity, EntityId, EntityStore, NewLink, Project, Provenance, Relation, Task,
-    TaskStatus, next::blocked_tasks,
+    Actor, Entity, EntityId, EntityStore, NewLink, Project, Provenance, Relation, SqliteStore,
+    Task, TaskStatus, next::blocked_tasks,
 };
 
-fn store() -> (tempfile::TempDir, DuckStore, EntityId) {
+fn store() -> (tempfile::TempDir, SqliteStore, EntityId) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = DuckStore::open(dir.path()).unwrap();
+    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
     let project = store
         .create(
             Project::new("keel", "Keel").into(),
@@ -36,7 +36,7 @@ fn prov() -> Provenance {
     Provenance::anonymous(Actor::Claude)
 }
 
-fn task(store: &mut DuckStore, project: &EntityId, title: &str) -> Task {
+fn task(store: &mut SqliteStore, project: &EntityId, title: &str) -> Task {
     match store
         .create(
             Task::new(
@@ -61,7 +61,7 @@ fn task(store: &mut DuckStore, project: &EntityId, title: &str) -> Task {
 /// the helper carries them. Written here rather than in each test because the
 /// subject of these tests is `closed_at`, and a close that says why is now
 /// simply what a close looks like.
-fn set_status(store: &mut DuckStore, t: &Task, status: &str) -> Task {
+fn set_status(store: &mut SqliteStore, t: &Task, status: &str) -> Task {
     let mut changes = serde_json::Map::new();
     changes.insert("status".to_owned(), serde_json::json!(status));
     if status == "done" || status == "wont_do" {

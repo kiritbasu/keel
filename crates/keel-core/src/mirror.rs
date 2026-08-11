@@ -24,9 +24,7 @@
 //! TQ-5. Tasks churn, and mirroring them would make every repo diff noisy for
 //! no gain. A task-shaped status file is what `keel render-status` is for.
 
-use crate::{
-    DocumentStore, DuckStore, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error, Result,
-};
+use crate::{Entity, EntityId, EntityQuery, EntityStore, EntityType, Error, Result, SqliteStore};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -96,7 +94,7 @@ impl MirrorReport {
 
 /// Generate the mirror for a project into `repo_root/.keel/`.
 pub fn generate(
-    store: &DuckStore,
+    store: &SqliteStore,
     project_id: &EntityId,
     repo_root: &Path,
 ) -> Result<MirrorReport> {
@@ -117,7 +115,7 @@ pub fn generate(
 /// which is authoritative — the reconciliation failure the whole design exists
 /// to avoid.
 pub fn generate_except(
-    store: &DuckStore,
+    store: &SqliteStore,
     project_id: &EntityId,
     repo_root: &Path,
     skip: &[EntityId],

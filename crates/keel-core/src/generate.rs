@@ -31,8 +31,8 @@
 
 use crate::render_decisions;
 use crate::{
-    DocumentStore, DuckStore, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error,
-    Result, mirror, render_status,
+    Entity, EntityId, EntityQuery, EntityStore, EntityType, Error, Result, SqliteStore, mirror,
+    render_status,
 };
 use std::path::{Path, PathBuf};
 
@@ -84,7 +84,7 @@ impl GenerateReport {
 
 /// Regenerate every repository file for a project.
 pub fn all(
-    store: &DuckStore,
+    store: &SqliteStore,
     project_id: &EntityId,
     repo_root: &Path,
     mode: Mode,

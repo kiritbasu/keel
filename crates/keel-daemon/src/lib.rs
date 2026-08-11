@@ -9,7 +9,7 @@
 //!
 //! # The single write path
 //!
-//! One [`keel_core::DuckStore`] behind one mutex, for the whole process (D-5).
+//! One [`keel_core::SqliteStore`] behind one mutex, for the whole process (D-5).
 //! That is not a performance decision — DuckDB permits concurrent writer
 //! threads — it is the design rule that makes the seven-step write path
 //! (validate → resolve links → embed → write entity → append revision → append

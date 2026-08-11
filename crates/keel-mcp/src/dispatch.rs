@@ -16,13 +16,12 @@
 use crate::context;
 use crate::protocol::{RpcError, codes};
 use keel_core::{
-    Actor, Cursor, Direction, DocumentStore, Entity, EntityId, EntityQuery, EntityStore,
-    EntityType, Error, EventId, GraphStore, NewLink, NewNote, Provenance, Relation, SearchQuery,
-    Surface,
+    Actor, Cursor, Direction, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error,
+    EventId, GraphStore, NewLink, NewNote, Provenance, Relation, SearchQuery, Surface,
 };
 use keel_core::{
-    Artifact, Decision, Design, DuckStore, Environment, Feedback, Metric, MetricObservation,
-    Milestone, Project, Question, Spec, Task, Term,
+    Artifact, Decision, Design, Environment, Feedback, Metric, MetricObservation, Milestone,
+    Project, Question, Spec, SqliteStore, Task, Term,
 };
 use serde_json::{Map, Value, json};
 
@@ -35,7 +34,7 @@ pub struct ToolCall<'a> {
 }
 
 /// Turn a domain error into a JSON-RPC error, preserving what the caller needs.
-pub fn to_rpc_error(store: &DuckStore, err: Error) -> RpcError {
+pub fn to_rpc_error(store: &SqliteStore, err: Error) -> RpcError {
     match &err {
         Error::StaleVersion { id, latest, .. } => {
             // SPEC §7.3. Returning the current state and the events since the
@@ -90,7 +89,7 @@ const ID_OR_REF: &str = "a prefixed ULID such as `tsk_01H8…`, or a readable re
 /// task that does not exist, the second is a typo in the shape of the argument,
 /// and a model correcting itself needs to know which.
 fn resolve_optional(
-    store: &DuckStore,
+    store: &SqliteStore,
     field: &str,
     raw: &str,
 ) -> Result<Option<EntityId>, RpcError> {
@@ -108,7 +107,7 @@ fn resolve_optional(
 }
 
 /// As [`resolve_optional`], for the callers where the target has to exist.
-fn resolve_required(store: &DuckStore, field: &str, raw: &str) -> Result<EntityId, RpcError> {
+fn resolve_required(store: &SqliteStore, field: &str, raw: &str) -> Result<EntityId, RpcError> {
     resolve_optional(store, field, raw)?.ok_or_else(|| {
         bad_arg(
             field,
@@ -123,7 +122,7 @@ fn resolve_required(store: &DuckStore, field: &str, raw: &str) -> Result<EntityI
 /// Only tasks have one. Returns `None` rather than inventing something for the
 /// other twelve types, because a made-up reference that does not resolve is
 /// worse than no reference at all.
-fn readable_ref(store: &DuckStore, entity: &Entity) -> Option<String> {
+fn readable_ref(store: &SqliteStore, entity: &Entity) -> Option<String> {
     let Entity::Task(task) = entity else {
         return None;
     };
@@ -200,7 +199,7 @@ pub fn provenance_from(args: &Value) -> Result<Provenance, RpcError> {
 }
 
 /// Resolve a project reference — id, slug or name — to an id.
-pub fn resolve_project(store: &DuckStore, reference: &str) -> Result<EntityId, RpcError> {
+pub fn resolve_project(store: &SqliteStore, reference: &str) -> Result<EntityId, RpcError> {
     if let Ok(id) = EntityId::parse_as(reference, EntityType::Project)
         && store.get(&id).ok().flatten().is_some()
     {
@@ -280,7 +279,7 @@ fn tool_result(summary: String, structured: Value) -> Value {
 }
 
 /// Execute a tool call.
-pub fn dispatch(store: &mut DuckStore, call: ToolCall<'_>) -> Result<Value, RpcError> {
+pub fn dispatch(store: &mut SqliteStore, call: ToolCall<'_>) -> Result<Value, RpcError> {
     let args = call.arguments;
     match call.name {
         "keel_context" => keel_context(store, args),
@@ -316,7 +315,7 @@ pub fn dispatch(store: &mut DuckStore, call: ToolCall<'_>) -> Result<Value, RpcE
     }
 }
 
-fn keel_context(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
+fn keel_context(store: &SqliteStore, args: &Value) -> Result<Value, RpcError> {
     // `cwd` resolves to a project by its recorded `root_path`, and — more
     // importantly — says plainly when nothing matches. TQ-17: nine of ten gate
     // sessions called this, saw a roll-up listing some *other* project, and
@@ -413,7 +412,7 @@ fn normalise_path(path: &str) -> String {
 ///
 /// Longest `root_path` wins, so a project nested inside another checkout
 /// resolves to the inner one rather than whichever happened to be listed first.
-fn project_for_directory(store: &DuckStore, dir: &str) -> Option<EntityId> {
+fn project_for_directory(store: &SqliteStore, dir: &str) -> Option<EntityId> {
     let dir = normalise_path(dir);
     let dir = dir.as_str();
     let page = store
@@ -441,7 +440,7 @@ fn project_for_directory(store: &DuckStore, dir: &str) -> Option<EntityId> {
     best.map(|(_, id)| id)
 }
 
-fn keel_search(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
+fn keel_search(store: &SqliteStore, args: &Value) -> Result<Value, RpcError> {
     let text = req_str(args, "query")?;
     let project_id = match opt_str(args, "project") {
         Some(p) => Some(resolve_project(store, &p)?),
@@ -495,7 +494,7 @@ fn keel_search(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
     ))
 }
 
-fn keel_get(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
+fn keel_get(store: &SqliteStore, args: &Value) -> Result<Value, RpcError> {
     let ids: Vec<String> = args
         .get("ids")
         .and_then(Value::as_array)
@@ -594,7 +593,7 @@ fn keel_get(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
     ))
 }
 
-fn keel_projects(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
+fn keel_projects(store: &SqliteStore, args: &Value) -> Result<Value, RpcError> {
     let include_archived = opt_bool(args, "include_archived");
     let page = store
         .list(&EntityQuery {
@@ -733,7 +732,7 @@ fn event_summary(page: &keel_core::Page<keel_core::Event>, more: &str) -> String
 /// wanted it. B-15 is the rule — the local API has more endpoints than the tool
 /// surface has tools, because a UI knows exactly what it wants and a model
 /// chooses worse among more options.
-fn keel_activity(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
+fn keel_activity(store: &SqliteStore, args: &Value) -> Result<Value, RpcError> {
     let project = match opt_str(args, "project") {
         Some(p) => Some(resolve_project(store, &p)?),
         None => None,
@@ -994,7 +993,7 @@ fn sniff_media_type(bytes: &[u8]) -> Option<&'static str> {
     }
 }
 
-fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
+fn keel_create(store: &mut SqliteStore, args: &Value) -> Result<Value, RpcError> {
     let type_name = req_str(args, "type")?;
     let provenance = provenance_from(args)?;
 
@@ -1336,7 +1335,7 @@ const REFERENCE_FIELDS: &[&str] = &["parent_id"];
 /// right, and anything else is left alone so that serde's own error — which
 /// names the field and the valid shape — is what the caller sees.
 fn resolve_reference_fields(
-    store: &DuckStore,
+    store: &SqliteStore,
     changes: &mut Map<String, Value>,
 ) -> Result<(), RpcError> {
     for field in REFERENCE_FIELDS {
@@ -1363,7 +1362,7 @@ fn resolve_reference_fields(
 /// Both are consumed here rather than reaching the entity, because `Task` has
 /// no such fields and `apply_changes` would rightly reject them.
 fn resolve_rank_placement(
-    store: &DuckStore,
+    store: &SqliteStore,
     changes: &mut Map<String, Value>,
 ) -> Result<(), RpcError> {
     let after = changes.remove("rank_after");
@@ -1413,7 +1412,7 @@ fn resolve_rank_placement(
 }
 
 /// The rank immediately above `anchor`, if anything is there.
-fn successor_rank(store: &DuckStore, anchor: f64) -> Result<Option<f64>, RpcError> {
+fn successor_rank(store: &SqliteStore, anchor: f64) -> Result<Option<f64>, RpcError> {
     Ok(store
         .list(
             &EntityQuery::default()
@@ -1431,7 +1430,7 @@ fn successor_rank(store: &DuckStore, anchor: f64) -> Result<Option<f64>, RpcErro
 }
 
 /// The rank immediately below `anchor`, if anything is there.
-fn predecessor_rank(store: &DuckStore, anchor: f64) -> Result<Option<f64>, RpcError> {
+fn predecessor_rank(store: &SqliteStore, anchor: f64) -> Result<Option<f64>, RpcError> {
     Ok(store
         .list(
             &EntityQuery::default()
@@ -1448,7 +1447,7 @@ fn predecessor_rank(store: &DuckStore, anchor: f64) -> Result<Option<f64>, RpcEr
         .max_by(|a, b| a.total_cmp(b)))
 }
 
-fn keel_update(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
+fn keel_update(store: &mut SqliteStore, args: &Value) -> Result<Value, RpcError> {
     let raw_id = req_str(args, "id")?;
     let id = resolve_required(store, "id", &raw_id)?;
     let version = opt_i64(args, "version").ok_or_else(|| {
@@ -1616,7 +1615,7 @@ fn keel_update(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
     ))
 }
 
-fn keel_write_doc(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
+fn keel_write_doc(store: &mut SqliteStore, args: &Value) -> Result<Value, RpcError> {
     let raw_id = req_str(args, "id")?;
     let id = resolve_required(store, "id", &raw_id)?;
     let body = req_str(args, "body")?;
@@ -1721,7 +1720,7 @@ fn style_note(warnings: &[keel_core::Warning]) -> String {
 /// retracting are rare and the ceiling on the tool surface is real. Adding is
 /// the default and needs no flag: the common case should cost the model no
 /// decision at all.
-fn keel_note(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
+fn keel_note(store: &mut SqliteStore, args: &Value) -> Result<Value, RpcError> {
     let provenance = provenance_from(args)?;
 
     if let Some(note_id) = opt_str(args, "retract") {
@@ -1768,7 +1767,7 @@ fn keel_note(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
     ))
 }
 
-fn keel_link(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
+fn keel_link(store: &mut SqliteStore, args: &Value) -> Result<Value, RpcError> {
     let from = resolve_required(store, "from", &req_str(args, "from")?)?;
     let to = resolve_required(store, "to", &req_str(args, "to")?)?;
     let rel = Relation::parse(&req_str(args, "rel")?)
@@ -1869,7 +1868,7 @@ fn opt_str_list(args: &Value, field: &str) -> Vec<String> {
     }
 }
 
-fn keel_ready(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
+fn keel_ready(store: &SqliteStore, args: &Value) -> Result<Value, RpcError> {
     let project = resolve_project(store, &req_str(args, "project")?)?;
 
     // A milestone by name as well as by id: "what is next in Phase 8" is how the
@@ -1940,7 +1939,7 @@ fn candidate_json(c: &keel_core::Candidate) -> Value {
 
 /// Resolve a milestone by id or by name within one project.
 fn resolve_milestone(
-    store: &DuckStore,
+    store: &SqliteStore,
     project: &EntityId,
     raw: &str,
 ) -> Result<EntityId, RpcError> {
@@ -1986,7 +1985,7 @@ fn resolve_milestone(
     }
 }
 
-fn keel_claim(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
+fn keel_claim(store: &mut SqliteStore, args: &Value) -> Result<Value, RpcError> {
     let id = resolve_required(store, "id", &req_str(args, "id")?)?;
     let provenance = provenance_from(args)?;
     let force = opt_bool(args, "force");
@@ -2013,7 +2012,7 @@ fn keel_claim(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
     ))
 }
 
-fn keel_close(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
+fn keel_close(store: &mut SqliteStore, args: &Value) -> Result<Value, RpcError> {
     let id = resolve_required(store, "id", &req_str(args, "id")?)?;
     let reason = keel_core::CloseReason::parse(&req_str(args, "reason")?)
         .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;

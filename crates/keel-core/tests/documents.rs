@@ -7,7 +7,7 @@ use keel_core::*;
 use std::sync::Arc;
 
 struct Fixture {
-    store: DuckStore,
+    store: SqliteStore,
     project_id: EntityId,
     _dir: tempfile::TempDir,
 }
@@ -22,7 +22,7 @@ impl Fixture {
         // A hash embedder rather than the real model: the test suite must not
         // download 130 MB before it can assert anything. This exercises the
         // plumbing, not retrieval quality — see embed.rs.
-        let mut store = DuckStore::open(dir.path())
+        let mut store = SqliteStore::open(dir.path().join("keel.sqlite"))
             .unwrap()
             .with_embedder(Arc::new(HashEmbedder::new()));
         let project_id = store
@@ -242,7 +242,7 @@ fn embeddings_are_written_when_an_embedder_is_attached() {
         .store
         .connection()
         .query_row(
-            "SELECT count(*) FROM lancedb.documents WHERE embedding IS NOT NULL",
+            "SELECT count(*) FROM documents WHERE embedding IS NOT NULL",
             [],
             |r| r.get(0),
         )
@@ -252,9 +252,7 @@ fn embeddings_are_written_when_an_embedder_is_attached() {
     let model: String = f
         .store
         .connection()
-        .query_row("SELECT embedding_model FROM lancedb.documents", [], |r| {
-            r.get(0)
-        })
+        .query_row("SELECT embedding_model FROM documents", [], |r| r.get(0))
         .unwrap();
     assert_eq!(
         model, "test-hash-embedder",
@@ -266,7 +264,7 @@ fn embeddings_are_written_when_an_embedder_is_attached() {
 fn a_store_without_an_embedder_still_stores_and_searches() {
     // G8 and R-3: no embedder must degrade search, not break the store.
     let dir = tempfile::tempdir().unwrap();
-    let mut store = DuckStore::open(dir.path()).unwrap();
+    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
     let project_id = store
         .create(Project::new("keel", "Keel").into(), &prov())
         .unwrap()
@@ -621,7 +619,7 @@ fn a_full_size_specification_round_trips_byte_for_byte() {
 fn a_document_survives_reopening_the_store() {
     let dir = tempfile::tempdir().unwrap();
     let (project_id, spec_id) = {
-        let mut store = DuckStore::open(dir.path()).unwrap();
+        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
         let p = store
             .create(Project::new("keel", "Keel").into(), &prov())
             .unwrap()
@@ -651,7 +649,7 @@ fn a_document_survives_reopening_the_store() {
         (p, s)
     };
 
-    let store = DuckStore::open(dir.path()).unwrap();
+    let store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
     let doc = store.revision(&spec_id, None).unwrap().unwrap();
     assert_eq!(doc.body, "This must survive a restart.");
     assert_eq!(doc.project_id, Some(project_id));

@@ -24,7 +24,7 @@
 //! than in the screen means the CLI and any future surface get the same answer,
 //! and it means the union is tested.
 
-use crate::{Actor, EntityId, EntityStore, EntityType, Note, Result, store::DuckStore};
+use crate::{Actor, EntityId, EntityStore, EntityType, Note, Result, store::SqliteStore};
 use chrono::{DateTime, Utc};
 
 /// One thing a session did.
@@ -124,7 +124,7 @@ pub struct ChangeQuery {
 /// can grow without bound. A session that made four hundred writes is one row on
 /// the screen and four hundred rows against the limit, which is the honest
 /// accounting — and `truncated` says when older ones were left behind.
-pub fn by_session(store: &DuckStore, query: &ChangeQuery) -> Result<ChangeLog> {
+pub fn by_session(store: &SqliteStore, query: &ChangeQuery) -> Result<ChangeLog> {
     let limit = if query.limit == 0 { 300 } else { query.limit };
 
     let events = store.events(
@@ -296,7 +296,7 @@ fn headline(group: &SessionChanges) -> String {
 ///
 /// With no project, every project's notes — the screen has an all-projects
 /// address and so does the digest.
-fn notes_for(store: &DuckStore, query: &ChangeQuery) -> Result<Vec<Note>> {
+fn notes_for(store: &SqliteStore, query: &ChangeQuery) -> Result<Vec<Note>> {
     match &query.project_id {
         Some(project) => store.notes_in_project(project),
         None => {
@@ -315,7 +315,7 @@ fn notes_for(store: &DuckStore, query: &ChangeQuery) -> Result<Vec<Note>> {
 }
 
 /// Every project's readable-identifier prefix, by project id.
-fn project_keys(store: &DuckStore) -> Result<std::collections::HashMap<String, String>> {
+fn project_keys(store: &SqliteStore) -> Result<std::collections::HashMap<String, String>> {
     let page = store.list(
         &crate::EntityQuery::default()
             .of_type(EntityType::Project)
@@ -332,7 +332,7 @@ fn project_keys(store: &DuckStore) -> Result<std::collections::HashMap<String, S
 }
 
 /// Every task's number, by task id.
-fn task_numbers(store: &DuckStore) -> Result<std::collections::HashMap<String, i32>> {
+fn task_numbers(store: &SqliteStore) -> Result<std::collections::HashMap<String, i32>> {
     let page = store.list(
         &crate::EntityQuery::default()
             .of_type(EntityType::Task)

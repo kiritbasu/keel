@@ -9,9 +9,9 @@
 use keel_core::*;
 use serde_json::json;
 
-fn store() -> (DuckStore, tempfile::TempDir) {
+fn store() -> (SqliteStore, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let store = DuckStore::open(dir.path()).unwrap();
+    let store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
     (store, dir)
 }
 
@@ -19,7 +19,7 @@ fn prov() -> Provenance {
     Provenance::anonymous(Actor::Claude).with_session("ses_a")
 }
 
-fn project(store: &mut DuckStore) -> EntityId {
+fn project(store: &mut SqliteStore) -> EntityId {
     store
         .create(Project::new("keel", "Keel").into(), &prov())
         .unwrap()
@@ -624,7 +624,7 @@ fn an_event_page_reports_its_total() {
 //
 // The placeholder that lived here through Phase 0 has been replaced by the
 // real thing, in `keel-daemon/tests/concurrency.rs`. It could not stay in this
-// crate: a `DuckStore` is one connection and deliberately not `Sync`, because
+// crate: a `SqliteStore` is one connection and deliberately not `Sync`, because
 // D-5 makes the daemon the single write path. Driving two stores at one
 // directory would have tested DuckDB's file locking rather than the claim.
 //

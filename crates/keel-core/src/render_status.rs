@@ -16,13 +16,13 @@
 //! read back.
 
 use crate::{
-    Cursor, DuckStore, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error,
-    MilestoneStatus, Note, Result, TaskStatus,
+    Cursor, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error, MilestoneStatus, Note,
+    Result, SqliteStore, TaskStatus,
 };
 use std::fmt::Write as _;
 
 /// Render a tracker for one project.
-pub fn render(store: &DuckStore, project_id: &EntityId) -> Result<String> {
+pub fn render(store: &SqliteStore, project_id: &EntityId) -> Result<String> {
     let Some(Entity::Project(project)) = store.get(project_id)? else {
         return Err(Error::NotFound {
             entity_type: EntityType::Project,
@@ -395,7 +395,7 @@ fn plural(noun: &str) -> String {
 }
 
 fn collect(
-    store: &DuckStore,
+    store: &SqliteStore,
     project_id: &EntityId,
     entity_type: EntityType,
 ) -> Result<Vec<Entity>> {

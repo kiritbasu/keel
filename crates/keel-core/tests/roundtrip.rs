@@ -13,9 +13,9 @@ use keel_core::*;
 use serde_json::json;
 
 /// A store in a fresh temporary directory, plus the directory's guard.
-fn store() -> (DuckStore, tempfile::TempDir) {
+fn store() -> (SqliteStore, tempfile::TempDir) {
     let dir = tempfile::tempdir().expect("create a temp dir");
-    let store = DuckStore::open(dir.path()).expect("open the store");
+    let store = SqliteStore::open(dir.path().join("keel.sqlite")).expect("open the store");
     (store, dir)
 }
 
@@ -26,7 +26,7 @@ fn claude() -> Provenance {
 }
 
 /// Create a project and return its id.
-fn project(store: &mut DuckStore) -> EntityId {
+fn project(store: &mut SqliteStore) -> EntityId {
     let created = store
         .create(Project::new("keel", "Keel").into(), &claude())
         .expect("create the project");
@@ -134,16 +134,22 @@ fn a_fresh_store_opens_and_migrates() {
         .connection()
         .query_row("SELECT count(*) FROM _keel_migrations", [], |r| r.get(0))
         .expect("read the migration table");
-    assert!(
-        applied >= 3,
-        "expected at least three migrations, got {applied}"
+    // Counted against the migration list rather than a literal, for the reason
+    // the sibling test below already gives: the property is that a fresh store
+    // applies every migration it ships and records each one, not that there is
+    // some particular number of them. The DuckDB store had three by the time
+    // this was written; the SQLite one has one, by construction.
+    assert_eq!(
+        applied,
+        keel_core::store::sqlite::schema::migrations().len() as i64,
+        "a fresh store must record every migration it applied"
     );
 
-    // The Lance datasets must be queryable, not merely created.
+    // The documents table must be queryable, not merely created.
     let docs: i64 = store
         .connection()
-        .query_row("SELECT count(*) FROM lancedb.documents", [], |r| r.get(0))
-        .expect("query the attached Lance documents dataset");
+        .query_row("SELECT count(*) FROM documents", [], |r| r.get(0))
+        .expect("query the documents table");
     assert_eq!(docs, 0);
 }
 
@@ -151,10 +157,10 @@ fn a_fresh_store_opens_and_migrates() {
 fn opening_an_existing_store_is_idempotent() {
     let dir = tempfile::tempdir().unwrap();
     {
-        let mut s = DuckStore::open(dir.path()).unwrap();
+        let mut s = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
         project(&mut s);
     }
-    let s = DuckStore::open(dir.path()).expect("re-open");
+    let s = SqliteStore::open(dir.path().join("keel.sqlite")).expect("re-open");
     let applied: i64 = s
         .connection()
         .query_row("SELECT count(*) FROM _keel_migrations", [], |r| r.get(0))
@@ -165,7 +171,7 @@ fn opening_an_existing_store_is_idempotent() {
     // that is not about it.
     assert_eq!(
         applied,
-        keel_core::store::schema::migrations().len() as i64,
+        keel_core::store::sqlite::schema::migrations().len() as i64,
         "migrations must not re-run"
     );
     let projects: i64 = s
@@ -483,7 +489,7 @@ fn a_row_with_no_number_is_still_readable_and_gets_repaired() {
         .connection()
         .execute(
             "UPDATE decisions SET number = NULL WHERE id = ?",
-            duckdb::params![first.id().as_str()],
+            rusqlite::params![first.id().as_str()],
         )
         .expect("blank the number");
 
@@ -542,17 +548,17 @@ fn a_row_with_no_number_is_still_readable_and_gets_repaired() {
 fn a_binary_older_than_the_store_refuses_to_open_it() {
     let dir = tempfile::tempdir().expect("temp dir");
     {
-        let store = DuckStore::open(dir.path()).expect("open a fresh store");
+        let store = SqliteStore::open(dir.path().join("keel.sqlite")).expect("open a fresh store");
         store
             .connection()
             .execute(
                 "INSERT INTO _keel_migrations (id, name, applied_at) VALUES (?, ?, ?)",
-                duckdb::params![9_999, "from_the_future", chrono::Utc::now().naive_utc()],
+                rusqlite::params![9_999, "from_the_future", chrono::Utc::now().to_rfc3339()],
             )
             .expect("record a migration this binary does not ship");
     }
 
-    let err = DuckStore::open(dir.path())
+    let err = SqliteStore::open(dir.path().join("keel.sqlite"))
         .expect_err("a store newer than the binary must not open")
         .to_string();
 
@@ -577,12 +583,13 @@ fn a_binary_older_than_the_store_refuses_to_open_it() {
 fn a_store_at_the_current_schema_opens_normally() {
     let dir = tempfile::tempdir().expect("temp dir");
     {
-        let mut store = DuckStore::open(dir.path()).expect("first open");
+        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).expect("first open");
         store
             .create(Project::new("keel", "Keel").into(), &claude())
             .expect("write to it");
     }
-    let store = DuckStore::open(dir.path()).expect("reopening at the same schema must work");
+    let store = SqliteStore::open(dir.path().join("keel.sqlite"))
+        .expect("reopening at the same schema must work");
     let page = store
         .list(&EntityQuery::default().of_type(EntityType::Project))
         .expect("read it back");

@@ -21,8 +21,8 @@
 //! open-question register needs pruning, which is real information.
 
 use keel_core::{
-    Cursor, DuckStore, Entity, EntityId, EntityQuery, EntityStore, EntityType, MilestoneStatus,
-    QuestionStatus, Result, TaskStatus,
+    Cursor, Entity, EntityId, EntityQuery, EntityStore, EntityType, MilestoneStatus,
+    QuestionStatus, Result, SqliteStore, TaskStatus,
 };
 use serde::Serialize;
 
@@ -340,7 +340,7 @@ fn estimate_tokens(text: &str) -> usize {
 
 /// Build the digest.
 pub fn build(
-    store: &DuckStore,
+    store: &SqliteStore,
     project: Option<&EntityId>,
     depth: Depth,
     since: Option<chrono::DateTime<chrono::Utc>>,
@@ -519,7 +519,7 @@ fn trim_section(digest: &mut Digest, section: &str) {
     }
 }
 
-fn project_line(store: &DuckStore, p: &keel_core::Project) -> Result<ProjectLine> {
+fn project_line(store: &SqliteStore, p: &keel_core::Project) -> Result<ProjectLine> {
     let tasks = store.list(
         &EntityQuery::in_project(p.id.clone())
             .of_type(EntityType::Task)
@@ -574,7 +574,7 @@ fn project_line(store: &DuckStore, p: &keel_core::Project) -> Result<ProjectLine
     })
 }
 
-fn active_milestones(store: &DuckStore, project: &EntityId, limit: usize) -> Result<Vec<Item>> {
+fn active_milestones(store: &SqliteStore, project: &EntityId, limit: usize) -> Result<Vec<Item>> {
     let page = store.list(
         &EntityQuery::in_project(project.clone())
             .of_type(EntityType::Milestone)
@@ -598,7 +598,7 @@ fn active_milestones(store: &DuckStore, project: &EntityId, limit: usize) -> Res
 }
 
 fn needs_attention(
-    store: &DuckStore,
+    store: &SqliteStore,
     project: &EntityId,
     limit: usize,
 ) -> Result<(Vec<Item>, usize)> {
@@ -646,7 +646,7 @@ fn needs_attention(
 }
 
 /// Every unresolved question and risk. **Never truncated.**
-fn open_questions(store: &DuckStore, project: Option<&EntityId>) -> Result<Vec<Item>> {
+fn open_questions(store: &SqliteStore, project: Option<&EntityId>) -> Result<Vec<Item>> {
     let mut query = EntityQuery::default()
         .of_type(EntityType::Question)
         .with_status([QuestionStatus::Open.as_str()]);
@@ -677,7 +677,7 @@ fn open_questions(store: &DuckStore, project: Option<&EntityId>) -> Result<Vec<I
 }
 
 /// The glossary. **Never truncated.**
-fn glossary(store: &DuckStore, project: Option<&EntityId>) -> Result<Vec<TermEntry>> {
+fn glossary(store: &SqliteStore, project: Option<&EntityId>) -> Result<Vec<TermEntry>> {
     let mut query = EntityQuery::default().of_type(EntityType::Term);
     query.project_id = project.cloned();
     query.limit = Some(5_000);
@@ -709,7 +709,7 @@ fn glossary(store: &DuckStore, project: Option<&EntityId>) -> Result<Vec<TermEnt
 }
 
 fn recent_decisions(
-    store: &DuckStore,
+    store: &SqliteStore,
     project: &EntityId,
     limit: usize,
 ) -> Result<(Vec<Item>, usize)> {
@@ -731,7 +731,7 @@ fn recent_decisions(
 }
 
 fn current_specs(
-    store: &DuckStore,
+    store: &SqliteStore,
     project: &EntityId,
     limit: usize,
 ) -> Result<(Vec<Item>, usize)> {
@@ -762,7 +762,7 @@ fn current_specs(
     ))
 }
 
-fn environments(store: &DuckStore, project: &EntityId) -> Result<Vec<Item>> {
+fn environments(store: &SqliteStore, project: &EntityId) -> Result<Vec<Item>> {
     let page = store.list(
         &EntityQuery::in_project(project.clone())
             .of_type(EntityType::Environment)
@@ -783,7 +783,7 @@ fn environments(store: &DuckStore, project: &EntityId) -> Result<Vec<Item>> {
 
 /// Recent activity. `project` of `None` spans every project.
 fn recent_activity(
-    store: &DuckStore,
+    store: &SqliteStore,
     project: Option<&EntityId>,
     since: Option<chrono::DateTime<chrono::Utc>>,
     limit: usize,
@@ -944,7 +944,7 @@ fn rollup_suggestions(projects: &[ProjectLine]) -> Vec<String> {
 /// of a readable identifier the task row does not carry. That is a point lookup
 /// per task in a list capped at ten — the alternative is threading the key
 /// through six call sites so that the digest can say `KEEL-42`.
-fn item(store: &DuckStore, entity: &Entity, detail: Option<String>) -> Item {
+fn item(store: &SqliteStore, entity: &Entity, detail: Option<String>) -> Item {
     let reference = match entity {
         Entity::Task(t) => match store.get(&t.project_id) {
             Ok(Some(Entity::Project(p))) => Some(format!("{}-{}", p.key, t.number)),

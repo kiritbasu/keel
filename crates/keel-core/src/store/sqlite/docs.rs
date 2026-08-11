@@ -291,6 +291,30 @@ impl SqliteStore {
         document.parent_version = if previous == 0 { None } else { Some(previous) };
         document.status = DocStatus::Current;
 
+        // Embed here, on the way in, rather than expecting the caller to have
+        // done it. A revision written without a vector is not a broken write —
+        // it is a document that never appears in a semantic result and never
+        // says so, because the keyword half keeps answering. That is the same
+        // silence `search` warns about, one layer earlier.
+        if document.embedding.is_none()
+            && let Some(embedder) = self.embedder()
+        {
+            match embedder.embed_one(&document.searchable_text()) {
+                Ok(v) => {
+                    document.embedding = Some(v);
+                    document.embedding_model = embedder.model_name().to_owned();
+                }
+                // A failed embed must not lose the write. The document stays
+                // readable and keyword-searchable; a later re-embed pass picks
+                // it up, which is what `embedding_version` is for.
+                Err(e) => tracing::warn!(
+                    entity_id = %document.entity_id,
+                    error = %e,
+                    "embedding failed; storing the revision without a vector"
+                ),
+            }
+        }
+
         let params: Vec<Value> = vec![
             Value::Text(document.doc_id.as_str().to_owned()),
             Value::Text(document.entity_type.as_str().to_owned()),

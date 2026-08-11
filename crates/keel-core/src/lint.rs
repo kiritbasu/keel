@@ -30,7 +30,7 @@
 //! someone a glance; it cannot cost them a paragraph.
 
 use crate::{
-    Entity, EntityId, EntityQuery, EntityStore, EntityType, Result, TaskStatus, store::DuckStore,
+    Entity, EntityId, EntityQuery, EntityStore, EntityType, Result, TaskStatus, store::SqliteStore,
 };
 
 /// One row worth a person's attention.
@@ -111,7 +111,11 @@ const ENOUGH_WORDS: usize = 6;
 /// `limit` caps the findings returned, and the report says what it left out —
 /// hard constraint 4 applies to a lint as much as to anything else, and a person
 /// shown twenty of ninety with no total will believe they are nearly done.
-pub fn lint(store: &DuckStore, project_id: &EntityId, limit: Option<usize>) -> Result<LintReport> {
+pub fn lint(
+    store: &SqliteStore,
+    project_id: &EntityId,
+    limit: Option<usize>,
+) -> Result<LintReport> {
     let key = match store.get(project_id)? {
         Some(Entity::Project(p)) => p.key,
         _ => String::new(),

@@ -314,7 +314,7 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
 }
 
 /// The newest event id, used to detect that a call changed something.
-fn latest_event(store: &keel_core::DuckStore) -> Option<keel_core::EventId> {
+fn latest_event(store: &keel_core::SqliteStore) -> Option<keel_core::EventId> {
     use keel_core::EntityStore;
     store.latest_event_id().ok().flatten()
 }
@@ -714,8 +714,6 @@ async fn api_entity_history(
 /// at, and making the app decode a megabyte of JSON to show a screenshot would
 /// be paying the tool-call tax twice for no reason.
 async fn api_blob(State(state): State<AppState>, Path(id): Path<String>) -> Response {
-    use keel_core::DocumentStore as _;
-
     let blob_id = match keel_core::BlobId::parse(&id) {
         Ok(b) => b,
         Err(e) => return api_error(StatusCode::BAD_REQUEST, codes::INVALID_PARAMS, e),
@@ -1021,7 +1019,7 @@ async fn api_activity(
 // anyway, and boxing it would put a `*` at every call site for nothing.
 #[allow(clippy::result_large_err)]
 fn resolve_path_id(
-    store: &keel_core::DuckStore,
+    store: &keel_core::SqliteStore,
     raw: &str,
 ) -> std::result::Result<keel_core::EntityId, Response> {
     use keel_core::EntityStore;
@@ -1204,8 +1202,6 @@ async fn api_document(
     Path(id): Path<String>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    use keel_core::DocumentStore;
-
     let store = state.store();
     let entity_id = match resolve_path_id(&store, &id) {
         Ok(i) => i,

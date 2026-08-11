@@ -20,9 +20,9 @@
 
 use keel_core::*;
 
-fn store() -> (DuckStore, tempfile::TempDir) {
+fn store() -> (SqliteStore, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let store = DuckStore::open(dir.path()).unwrap();
+    let store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
     (store, dir)
 }
 
@@ -32,7 +32,7 @@ fn prov() -> Provenance {
 
 /// A store with a project, plus a helper to make entities in it.
 struct Fixture {
-    store: DuckStore,
+    store: SqliteStore,
     project_id: EntityId,
     _dir: tempfile::TempDir,
 }

@@ -17,8 +17,8 @@
 
 use anyhow::{Context, Result};
 use keel_core::{
-    Actor, Decision, Document, DocumentStore, DuckStore, Entity, EntityId, EntityQuery,
-    EntityStore, EntityType, Provenance, Question, Spec, SpecKind, Surface,
+    Actor, Decision, Document, Entity, EntityId, EntityQuery, EntityStore, EntityType, Provenance,
+    Question, Spec, SpecKind, SqliteStore, Surface,
 };
 use std::path::{Path, PathBuf};
 
@@ -44,7 +44,7 @@ pub struct Imported {
 
 /// Import one markdown file.
 pub fn file(
-    store: &mut DuckStore,
+    store: &mut SqliteStore,
     path: &Path,
     project_id: &EntityId,
     entity_type: EntityType,
@@ -147,7 +147,11 @@ pub fn file(
 /// it — in which case the artifact adopts no file and generation sends it to
 /// the `.keel/` mirror instead. Guessing would be worse: a wrong path means
 /// generation writes over something it does not own.
-fn repo_relative(store: &DuckStore, project_id: &EntityId, file: &Path) -> Result<Option<String>> {
+fn repo_relative(
+    store: &SqliteStore,
+    project_id: &EntityId,
+    file: &Path,
+) -> Result<Option<String>> {
     let Some(Entity::Project(project)) = store.get(project_id)? else {
         return Ok(None);
     };
@@ -165,7 +169,7 @@ fn repo_relative(store: &DuckStore, project_id: &EntityId, file: &Path) -> Resul
 
 /// Record the repository file this artifact is, if it does not already say so.
 fn adopt_path(
-    store: &mut DuckStore,
+    store: &mut SqliteStore,
     entity_id: &EntityId,
     path: Option<&str>,
     prov: &Provenance,
@@ -235,7 +239,7 @@ fn infer_kind(path: &Path, title: &str) -> SpecKind {
 
 /// Find a live artifact of this type with this title.
 fn find_by_title(
-    store: &DuckStore,
+    store: &SqliteStore,
     project_id: &EntityId,
     entity_type: EntityType,
     title: &str,
@@ -319,7 +323,7 @@ mod tests {
     #[test]
     fn importing_the_same_file_twice_does_not_duplicate_or_re_version() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = DuckStore::open(dir.path()).unwrap();
+        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
         let project = store
             .create(
                 keel_core::Project::new("keel", "Keel").into(),
@@ -361,7 +365,7 @@ mod tests {
     #[test]
     fn the_whole_body_is_stored_not_a_summary() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = DuckStore::open(dir.path()).unwrap();
+        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
         let project = store
             .create(
                 keel_core::Project::new("keel", "Keel").into(),

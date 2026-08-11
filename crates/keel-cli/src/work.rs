@@ -13,7 +13,7 @@
 //! until they do not.
 
 use anyhow::{Context, Result, bail};
-use keel_core::{CloseReason, DuckStore};
+use keel_core::{CloseReason, SqliteStore};
 use serde_json::{Value, json};
 use std::path::Path;
 
@@ -380,10 +380,11 @@ fn run_write(home: &Path, daemon: &str, tool: &str, args: &Value) -> Result<Valu
 /// Open the store and run one dispatch against it.
 ///
 /// Safe only because we got here by failing to reach a daemon, which is the one
-/// condition under which nothing else holds DuckDB's write lock.
-fn directly(home: &Path, f: impl FnOnce(DuckStore) -> Result<Value>) -> Result<Value> {
-    let store =
-        DuckStore::open(home).with_context(|| format!("open the store at {}", home.display()))?;
+/// condition under which nothing else is writing.
+fn directly(home: &Path, f: impl FnOnce(SqliteStore) -> Result<Value>) -> Result<Value> {
+    let path = keel_core::store_path(home);
+    let store = SqliteStore::open(&path)
+        .with_context(|| format!("open the store at {}", path.display()))?;
     f(store)
 }
 

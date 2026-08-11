@@ -3,7 +3,7 @@
 //!
 //! This is the test that was written in Phase 0 as `#[ignore]` and lives here
 //! now that there is something to run it against. It could not live in
-//! `keel-core`: a `DuckStore` is one connection and is not `Sync` on purpose,
+//! `keel-core`: a `SqliteStore` is one connection and is not `Sync` on purpose,
 //! because D-5 says the daemon owns the single write path. Driving two stores
 //! at one directory would have tested DuckDB's file locking, which is not the
 //! claim being made.

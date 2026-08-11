@@ -13,7 +13,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use keel_core::{Actor, DuckStore, EntityStore, Project, Provenance, Spec, Task};
+use keel_core::{Actor, EntityStore, Project, Provenance, Spec, SqliteStore, Task};
 use keel_mcp::{ToolCall, dispatch};
 use serde_json::{Value, json};
 
@@ -36,9 +36,9 @@ fn settings() -> insta::Settings {
 }
 
 /// A store with a small, predictable project.
-fn seeded() -> (DuckStore, tempfile::TempDir) {
+fn seeded() -> (SqliteStore, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = DuckStore::open(dir.path()).unwrap();
+    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Claude).with_session("ses_snapshot");
 
     let project = store
@@ -64,7 +64,7 @@ fn seeded() -> (DuckStore, tempfile::TempDir) {
     (store, dir)
 }
 
-fn call(store: &mut DuckStore, name: &str, arguments: Value) -> Value {
+fn call(store: &mut SqliteStore, name: &str, arguments: Value) -> Value {
     dispatch(
         store,
         ToolCall {

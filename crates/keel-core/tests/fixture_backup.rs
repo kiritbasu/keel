@@ -5,12 +5,13 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use keel_core::sqlite_backup as backup;
 use keel_core::*;
 use std::sync::Arc;
 
-fn loaded_store() -> (DuckStore, tempfile::TempDir, fixture::FixtureSummary) {
+fn loaded_store() -> (SqliteStore, tempfile::TempDir, fixture::FixtureSummary) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = DuckStore::open(dir.path())
+    let mut store = SqliteStore::open(dir.path().join("keel.sqlite"))
         .unwrap()
         .with_embedder(Arc::new(HashEmbedder::new()));
     let summary = fixture::load(&mut store).expect("load the fixture");
@@ -195,7 +196,7 @@ fn the_fixture_records_more_than_one_actor() {
 fn loading_the_fixture_twice_creates_nothing_new() {
     // Because it goes through the ordinary write path, idempotency applies.
     let dir = tempfile::tempdir().unwrap();
-    let mut store = DuckStore::open(dir.path()).unwrap();
+    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
     fixture::load(&mut store).unwrap();
 
     let before: i64 = store
@@ -333,11 +334,11 @@ fn a_backup_restores_and_diffs_clean() {
 
     assert!(manifest.total_rows() > 0);
     assert!(
-        manifest.counts.contains_key("lancedb.documents"),
-        "the Lance half is the whole escape hatch (R-5) and must be in the manifest"
+        manifest.counts.contains_key("documents"),
+        "the prose is the whole escape hatch (R-5) and must be in the manifest"
     );
     assert!(
-        manifest.counts["lancedb.documents"] >= summary.revisions as i64,
+        manifest.counts["documents"] >= summary.revisions as i64,
         "every revision must be in the backup"
     );
 
@@ -347,13 +348,12 @@ fn a_backup_restores_and_diffs_clean() {
 
     // Restore into a fresh directory.
     let target = tempfile::tempdir().unwrap();
-    let restored_root = target.path().join("restored");
+    let restored_root = target.path().join("restored").join("keel.sqlite");
     let restored_manifest = backup::restore(backup_dir.path(), &restored_root).expect("restore");
     assert_eq!(restored_manifest, manifest);
 
-    let restored = DuckStore::open(&restored_root).expect("open the restored store");
-    let problems = backup::verify_restore(&restored, &manifest).unwrap();
-    assert!(problems.is_empty(), "restore diff: {problems:#?}");
+    let restored = SqliteStore::open(&restored_root).expect("open the restored store");
+    backup::verify_restore(&restored, &manifest).expect("restore diff");
 
     // And the restored store is not merely row-count-equal — it works.
     let report = fsck::check(&restored).unwrap();
@@ -371,21 +371,25 @@ fn a_backup_restores_and_diffs_clean() {
 
 #[test]
 fn a_restored_document_keeps_its_embedding() {
-    // Parquet loses DuckDB's fixed-size list type, so this is the assertion
-    // that the restore cast is actually applied.
+    // The DuckDB version of this test asserted that the restore re-applied a
+    // `FLOAT[384]` cast, because Parquet lost the fixed-size list type on the
+    // way out. Nothing is converted now — the vectors are bytes the store owns
+    // and `VACUUM INTO` copies them — so what is left to assert is the part
+    // that was always the point: the vectors are there, and they are the right
+    // width.
     let (store, _d, _) = loaded_store();
     let backup_dir = tempfile::tempdir().unwrap();
     backup::backup(&store, backup_dir.path()).unwrap();
 
     let target = tempfile::tempdir().unwrap();
-    let root = target.path().join("restored");
+    let root = target.path().join("restored").join("keel.sqlite");
     backup::restore(backup_dir.path(), &root).unwrap();
 
-    let restored = DuckStore::open(&root).unwrap();
+    let restored = SqliteStore::open(&root).unwrap();
     let with_vectors: i64 = restored
         .connection()
         .query_row(
-            "SELECT count(*) FROM lancedb.documents WHERE embedding IS NOT NULL",
+            "SELECT count(*) FROM documents WHERE embedding IS NOT NULL",
             [],
             |r| r.get(0),
         )
@@ -395,15 +399,19 @@ fn a_restored_document_keeps_its_embedding() {
         "embeddings did not survive the round trip"
     );
 
-    let width: i64 = restored
+    let bytes: i64 = restored
         .connection()
         .query_row(
-            "SELECT len(embedding) FROM lancedb.documents WHERE embedding IS NOT NULL LIMIT 1",
+            "SELECT length(embedding) FROM documents WHERE embedding IS NOT NULL LIMIT 1",
             [],
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(width, EMBEDDING_DIM as i64, "the vector width changed");
+    assert_eq!(
+        bytes,
+        EMBEDDING_DIM as i64 * 4,
+        "the vector width changed: {bytes} bytes is not {EMBEDDING_DIM} little-endian f32s"
+    );
 }
 
 #[test]
@@ -415,9 +423,10 @@ fn restoring_over_an_existing_store_is_refused() {
     backup::backup(&store, backup_dir.path()).unwrap();
 
     let occupied = tempfile::tempdir().unwrap();
-    DuckStore::open(occupied.path()).unwrap();
+    let occupied_store = occupied.path().join("keel.sqlite");
+    SqliteStore::open(&occupied_store).unwrap();
 
-    let err = backup::restore(backup_dir.path(), occupied.path()).unwrap_err();
+    let err = backup::restore(backup_dir.path(), &occupied_store).unwrap_err();
     assert!(
         err.to_string().contains("already exists"),
         "should refuse rather than overwrite: {err}"
@@ -425,20 +434,23 @@ fn restoring_over_an_existing_store_is_refused() {
 }
 
 #[test]
-fn a_backup_missing_its_lance_half_is_refused_at_restore() {
-    // R-5: a DuckDB-only backup would restore every task and lose every spec,
-    // decision and piece of feedback — while looking complete.
+fn a_backup_with_no_snapshot_in_it_is_refused_at_restore() {
+    // What the DuckDB version of this test called "missing its Lance half".
+    // With two engines a backup could be half-written and still look complete;
+    // with one there is a single file, so the equivalent damage is that the
+    // file is not there — and the refusal has to say so rather than opening an
+    // empty store and reporting a successful restore of nothing.
     let (store, _d, _) = loaded_store();
     let backup_dir = tempfile::tempdir().unwrap();
     backup::backup(&store, backup_dir.path()).unwrap();
 
-    std::fs::remove_file(backup_dir.path().join("lance").join("documents.parquet")).unwrap();
+    std::fs::remove_file(backup_dir.path().join("keel.sqlite")).unwrap();
 
     let target = tempfile::tempdir().unwrap();
     let err = backup::restore(backup_dir.path(), target.path().join("restored")).unwrap_err();
     assert!(
-        err.to_string().contains("lose every spec"),
-        "the error must say what would have been lost: {err}"
+        err.to_string().contains("no `keel.sqlite`"),
+        "the error must say what is missing: {err}"
     );
 }
 
@@ -448,9 +460,9 @@ fn verify_restore_notices_a_missing_table() {
     let mut manifest = backup::backup(&store, tempfile::tempdir().unwrap().path()).unwrap();
     manifest.counts.insert("tasks".to_owned(), 99_999);
 
-    let problems = backup::verify_restore(&store, &manifest).unwrap();
+    let err = backup::verify_restore(&store, &manifest).unwrap_err();
     assert!(
-        problems.iter().any(|p| p.contains("tasks")),
-        "a row-count mismatch must be reported: {problems:?}"
+        err.to_string().contains("tasks"),
+        "a row-count mismatch must be reported: {err}"
     );
 }

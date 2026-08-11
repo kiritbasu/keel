@@ -18,7 +18,7 @@
 //! else holds it.
 
 use anyhow::{Context, Result, bail};
-use keel_core::{DuckStore, Mode, generate};
+use keel_core::{Mode, SqliteStore, generate};
 use std::path::PathBuf;
 
 /// Run a generation, preferring the daemon.
@@ -139,10 +139,11 @@ fn directly(
     repo: Option<PathBuf>,
     check: bool,
 ) -> Result<keel_core::GenerateReport> {
-    let store = DuckStore::open(home).with_context(|| {
+    let path = keel_core::store_path(home);
+    let store = SqliteStore::open(&path).with_context(|| {
         format!(
             "open the store at {}. No daemon answered either, so there is no way to read Keel",
-            home.display()
+            path.display()
         )
     })?;
     let found = crate::resolve_project(&store, project)?;

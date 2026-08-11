@@ -17,7 +17,7 @@ mod work;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
-use keel_core::{DuckStore, backup, fixture, fsck};
+use keel_core::{SqliteStore, fixture, fsck, sqlite_backup as backup};
 use std::path::PathBuf;
 
 /// Keel's command-line client.
@@ -54,7 +54,7 @@ enum Command {
         daemon: String,
     },
 
-    /// Back up both engines to Parquet.
+    /// Back up the store: one consistent snapshot, plus a manifest.
     Backup {
         /// Where to write it. Defaults to `<home>/backups/<timestamp>`.
         #[arg(long)]
@@ -655,7 +655,7 @@ fn run_bootstrap(home: &PathBuf, repo: Option<String>, only: bool, json: bool) -
 }
 
 /// Resolve a project by id, slug or name.
-pub(crate) fn resolve_project(store: &DuckStore, reference: &str) -> Result<keel_core::Entity> {
+pub(crate) fn resolve_project(store: &SqliteStore, reference: &str) -> Result<keel_core::Entity> {
     use keel_core::{Entity, EntityQuery, EntityStore, EntityType};
     let projects = store.list(&EntityQuery::default().of_type(EntityType::Project))?;
     let needle = reference.to_lowercase();
@@ -936,8 +936,14 @@ fn read_via_daemon(base: &str, path: &str) -> Result<Option<serde_json::Value>> 
     Ok(Some(body.get("data").cloned().unwrap_or(body)))
 }
 
-fn open(home: &PathBuf) -> Result<DuckStore> {
-    DuckStore::open(home).with_context(|| format!("open the store at {}", home.display()))
+/// Open the store under a home directory.
+///
+/// `home` is the directory; the store is one file inside it. Every caller goes
+/// through `store_path` rather than joining a filename, because a surface that
+/// picks the wrong name gets a brand-new empty store instead of an error.
+fn open(home: &PathBuf) -> Result<SqliteStore> {
+    let path = keel_core::store_path(home);
+    SqliteStore::open(&path).with_context(|| format!("open the store at {}", path.display()))
 }
 
 fn run_fsck(home: &PathBuf, daemon: &str, json: bool) -> Result<()> {
@@ -993,10 +999,14 @@ fn run_migrate(
     verify_only: bool,
     json: bool,
 ) -> Result<()> {
-    let old = open(home)?;
-    let target = target.unwrap_or_else(|| home.join("keel.sqlite"));
+    // The one command that opens both engines, and the only remaining reason
+    // `keel-cli` depends on the DuckDB half of `keel-core` at all. KEEL-130
+    // deletes this command and that dependency together.
+    let old = keel_core::DuckStore::open(home)
+        .with_context(|| format!("open the DuckDB store at {}", home.display()))?;
+    let target = target.unwrap_or_else(|| keel_core::store_path(home));
 
-    let mut new = keel_core::store::SqliteStore::open(&target)?;
+    let mut new = SqliteStore::open(&target)?;
 
     if !verify_only {
         let report = keel_core::migrate::migrate(&old, &mut new)?;
@@ -1040,20 +1050,26 @@ fn run_backup(home: &PathBuf, dest: Option<PathBuf>, json: bool) -> Result<()> {
             manifest.total_rows(),
             dest.display()
         );
-        println!("  DuckDB → {}/duckdb", dest.display());
-        println!("  Lance  → {}/lance  (documents and blobs)", dest.display());
+        println!("  store    → {}/keel.sqlite", dest.display());
+        println!("  manifest → {}/manifest.json", dest.display());
     }
     Ok(())
 }
 
 fn run_restore(source: &PathBuf, target: &PathBuf, json: bool) -> Result<()> {
-    let manifest = backup::restore(source, target)?;
+    // `target` is a home directory, the same thing `--home` names, and the
+    // store file goes inside it. Naming the file here instead would make a
+    // restore the one command whose path argument means something else.
+    let manifest = backup::restore(source, keel_core::store_path(target))?;
 
     // Re-open and verify rather than trusting the restore. "Assert equality,
     // don't eyeball it" is the exit criterion, and a restore that silently
     // dropped a table is exactly the failure a backup exists to prevent.
     let restored = open(target)?;
-    let problems = backup::verify_restore(&restored, &manifest)?;
+    let problems: Vec<String> = match backup::verify_restore(&restored, &manifest) {
+        Ok(()) => Vec::new(),
+        Err(e) => vec![e.to_string()],
+    };
 
     if json {
         println!(
@@ -1339,9 +1355,9 @@ mod render_status_tests {
     use super::*;
     use keel_core::{Actor, EntityStore, Project, Provenance};
 
-    fn store_with(slugs: &[(&str, &str)]) -> (tempfile::TempDir, DuckStore) {
+    fn store_with(slugs: &[(&str, &str)]) -> (tempfile::TempDir, SqliteStore) {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = DuckStore::open(dir.path()).unwrap();
+        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
         for (slug, name) in slugs {
             store
                 .create(

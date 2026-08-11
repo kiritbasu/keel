@@ -1,17 +1,19 @@
-//! Cross-engine referential integrity checks.
+//! Referential integrity checks the schema cannot state.
 //!
-//! DuckDB supports `FOREIGN KEY`, but Keel cannot use it for the two places it
-//! would matter most: `links` is polymorphic across thirteen tables, and
-//! `documents` lives in Lance where DuckDB's constraint machinery cannot see
-//! it (SPEC §3.1). `keel-core` validates on write; this is the audit that
-//! catches whatever slipped through — a crash between two writes, a restore
-//! from a half-good backup, a bug in a future version.
+//! SQLite enforces the foreign keys it can, and the store turns them on. What
+//! it cannot enforce is `links`, which is polymorphic across thirteen tables
+//! and so points at no single one of them (SPEC §3.1). Nor can any constraint
+//! catch a rule that spans rows — one current revision per document, a sub-task
+//! tree with no loop in it, a readable identifier that identifies one row.
+//! `keel-core` validates on write; this is the audit that catches whatever
+//! slipped through — a crash between two writes, a restore from a half-good
+//! backup, a bug in a future version.
 //!
 //! Every check answers a question a human would actually ask, and every
 //! finding says what to do about it. A report that lists row ids without
 //! explaining the consequence is one nobody acts on.
 
-use crate::{DuckStore, EntityType, Error, Result};
+use crate::{EntityType, Error, Result, SqliteStore};
 use serde::{Deserialize, Serialize};
 
 /// How long an `in_progress` claim may go without an update before the board
@@ -73,9 +75,9 @@ impl FsckReport {
 /// so resolution is: does some artifact in the same project have a title
 /// starting with that id? Deliberately lexical and deliberately scoped to the
 /// project: a citation is a claim about *this* project's record.
-fn dangling_id_references(store: &DuckStore) -> Result<Vec<String>> {
+fn dangling_id_references(store: &SqliteStore) -> Result<Vec<String>> {
     // Resolve against *every* entity, not just those with prose. The first
-    // version scanned `lancedb.documents` alone and reported 227 dangling
+    // version scanned the `documents` table alone and reported 227 dangling
     // citations in a store of ~250 artifacts — because an artifact created
     // without a body has no document row, so most real targets were invisible.
     // `v_entities` exists for exactly this: resolve an id without knowing its
@@ -83,11 +85,11 @@ fn dangling_id_references(store: &DuckStore) -> Result<Vec<String>> {
     let mut stmt = store
         .connection()
         .prepare("SELECT COALESCE(project_id, ''), label FROM v_entities WHERE archived_at IS NULL")
-        .map_err(Error::storage("prepare the cross-reference target list"))?;
+        .map_err(Error::sqlite("prepare the cross-reference target list"))?;
     let mut labels: std::collections::HashMap<String, Vec<String>> = Default::default();
     for row in stmt
         .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
-        .map_err(Error::storage("list cross-reference targets"))?
+        .map_err(Error::sqlite("list cross-reference targets"))?
         .filter_map(std::result::Result::ok)
     {
         labels.entry(row.0).or_default().push(row.1);
@@ -102,12 +104,12 @@ fn dangling_id_references(store: &DuckStore) -> Result<Vec<String>> {
     let mut stmt = store
         .connection()
         .prepare("SELECT project_id, number FROM decisions WHERE number IS NOT NULL")
-        .map_err(Error::storage("prepare the decision-number list"))?;
+        .map_err(Error::sqlite("prepare the decision-number list"))?;
     let mut decision_refs: std::collections::HashMap<String, std::collections::BTreeSet<String>> =
         Default::default();
     for row in stmt
         .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i32>(1)?)))
-        .map_err(Error::storage("list decision numbers"))?
+        .map_err(Error::sqlite("list decision numbers"))?
         .filter_map(std::result::Result::ok)
     {
         decision_refs
@@ -119,13 +121,13 @@ fn dangling_id_references(store: &DuckStore) -> Result<Vec<String>> {
     let mut stmt = store
         .connection()
         .prepare(
-            "SELECT COALESCE(project_id, ''), title, body FROM lancedb.documents \
+            "SELECT COALESCE(project_id, ''), title, body FROM documents \
              WHERE status = 'current'",
         )
-        .map_err(Error::storage("prepare the cross-reference scan"))?;
+        .map_err(Error::sqlite("prepare the cross-reference scan"))?;
     let rows: Vec<(String, String, String)> = stmt
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
-        .map_err(Error::storage("run the cross-reference scan"))?
+        .map_err(Error::sqlite("run the cross-reference scan"))?
         .filter_map(std::result::Result::ok)
         .collect();
 
@@ -237,14 +239,14 @@ fn truncate(s: &str, n: usize) -> String {
 ///
 /// Exits non-zero only on errors, so a warning-only report can still gate a
 /// backup or a deploy without crying wolf.
-pub fn check(store: &DuckStore) -> Result<FsckReport> {
+pub fn check(store: &SqliteStore) -> Result<FsckReport> {
     let mut findings = Vec::new();
     let mut checks_run = 0usize;
     let conn = store.connection();
 
     let count = |sql: &str, what: &str| -> Result<i64> {
         conn.query_row(sql, [], |r| r.get::<_, i64>(0))
-            .map_err(Error::storage(format!("run the `{what}` integrity check")))
+            .map_err(Error::sqlite(format!("run the `{what}` integrity check")))
     };
 
     // --- Links point at rows that exist ---------------------------------
@@ -270,7 +272,8 @@ pub fn check(store: &DuckStore) -> Result<FsckReport> {
                      answer that looks complete"
                 ),
                 remedy: format!(
-                    "archive the offending links: UPDATE links SET archived_at = now() \
+                    "archive the offending links: UPDATE links SET archived_at = \
+                     strftime('%Y-%m-%dT%H:%M:%f000Z', 'now') \
                      WHERE {id_col} NOT IN (SELECT id FROM v_entities)"
                 ),
                 count: n,
@@ -333,7 +336,7 @@ pub fn check(store: &DuckStore) -> Result<FsckReport> {
         let n = count(
             &format!(
                 "SELECT count(*) FROM {table} t WHERE t.current_doc_version > 0 \
-                 AND NOT EXISTS (SELECT 1 FROM lancedb.documents d \
+                 AND NOT EXISTS (SELECT 1 FROM documents d \
                                  WHERE d.entity_id = t.id AND d.version = t.current_doc_version)"
             ),
             "doc_pointer_dangling",
@@ -357,7 +360,7 @@ pub fn check(store: &DuckStore) -> Result<FsckReport> {
     // --- Every document belongs to a real entity -------------------------
     checks_run += 1;
     let n = count(
-        "SELECT count(*) FROM lancedb.documents d \
+        "SELECT count(*) FROM documents d \
          WHERE NOT EXISTS (SELECT 1 FROM v_entities v WHERE v.id = d.entity_id)",
         "orphan_document",
     )?;
@@ -379,7 +382,7 @@ pub fn check(store: &DuckStore) -> Result<FsckReport> {
     // --- Exactly one current revision per document ----------------------
     checks_run += 1;
     let n = count(
-        "SELECT count(*) FROM (SELECT entity_id FROM lancedb.documents \
+        "SELECT count(*) FROM (SELECT entity_id FROM documents \
          WHERE status = 'current' GROUP BY entity_id HAVING count(*) > 1)",
         "multiple_current_revisions",
     )?;
@@ -433,29 +436,24 @@ pub fn check(store: &DuckStore) -> Result<FsckReport> {
     // "nothing is tracked here"; a stale one says "this is being worked on
     // right now", and is wrong.
     //
-    // The cutoff is computed here and bound, rather than written as
-    // `now() - INTERVAL 3 DAY` in the SQL. That form is a binder error against
-    // the embedded DuckDB — `now()` is TIMESTAMPTZ where `updated_at` is
-    // TIMESTAMP, and the timestamp/interval operator does not resolve on this
-    // connection even once the types match, though the same expression binds
-    // fine in the standalone shell of the same version. It failed at *bind*
-    // time, which meant the whole of `fsck` died on this one check rather than
-    // reporting it: an integrity checker that cannot run is worse than a
-    // missing check, because the report it never printed looked like a crash
-    // rather than a finding. Binding a parameter sidesteps the function
-    // catalogue altogether and says the rule more plainly anyway.
+    // The cutoff is computed here and bound rather than written as SQL, and it
+    // is formatted the way the store writes timestamps — not the way `chrono`
+    // prints them by default. SQLite compares TEXT lexically, so
+    // `2026-08-08 12:00:00` (a space) and `2026-08-08T12:00:00.000000Z` (a `T`)
+    // are not merely different spellings: the space sorts below every digit and
+    // below `T`, so a same-day cutoff would silently match nothing. The check
+    // would keep running and keep reporting zero, which is the failure this
+    // whole file exists to catch in other code.
     let stale_after = chrono::Utc::now() - chrono::Duration::days(STALE_CLAIM_DAYS);
     checks_run += 1;
     let n = conn
         .query_row(
             "SELECT count(*) FROM tasks WHERE status = 'in_progress' \
              AND archived_at IS NULL AND updated_at < ?",
-            [stale_after.naive_utc().to_string()],
+            [stale_after.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string()],
             |r| r.get::<_, i64>(0),
         )
-        .map_err(Error::storage(
-            "run the `stale_in_progress` integrity check",
-        ))?;
+        .map_err(Error::sqlite("run the `stale_in_progress` integrity check"))?;
     if n > 0 {
         findings.push(Finding {
             severity: Severity::Warning,
