@@ -882,7 +882,11 @@ fn sniff_media_type(bytes: &[u8]) -> Option<&'static str> {
 
 fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
     let type_name = req_str(args, "type")?;
-    let entity_type = EntityType::parse(&type_name)
+    // Accept the word this project actually uses. `alias` is carried through to
+    // the summary rather than dropped: a silent success teaches the session
+    // nothing and it guesses the same way next time, where a narrated one
+    // teaches the vocabulary in one round trip. B-46 / 8F.
+    let (entity_type, alias) = EntityType::parse_with_alias(&type_name)
         .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
     let provenance = provenance_from(args)?;
 
@@ -1033,6 +1037,11 @@ fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
             identifier
         )
     };
+    if let Some(alias) = alias {
+        summary.push_str(&format!(
+            "\n\nYou said “{alias}” — in Keel that is a {entity_type}. Same thing, one word."
+        ));
+    }
     summary.push_str(&style_note(&style_warnings));
 
     Ok(tool_result(
@@ -1042,6 +1051,7 @@ fn keel_create(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
             "created": created.created,
             "document": document,
             "style_warnings": style_warnings,
+            "resolved_from": alias,
         }),
     ))
 }

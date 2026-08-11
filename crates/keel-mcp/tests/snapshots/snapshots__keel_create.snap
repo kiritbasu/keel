@@ -56,6 +56,7 @@ expression: result
       "type": "decision",
       "version": 1
     },
+    "resolved_from": null,
     "style_warnings": []
   }
 }

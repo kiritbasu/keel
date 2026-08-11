@@ -49,6 +49,49 @@ pub enum EntityType {
     Artifact,
 }
 
+/// The words a project might use for something Keel already has.
+///
+/// Read before the enum error is raised, never instead of the enum. Every entry
+/// resolves onto one of the thirteen types — see
+/// [`EntityType::parse_with_alias`] for why that is a hard rule rather than a
+/// convention.
+///
+/// Kept deliberately short. A long list is how "close enough" creeps in: the
+/// test is whether a reader would be surprised to learn the two words name the
+/// same row, and if they would, it does not belong here.
+const ALIASES: &[(&str, EntityType)] = &[
+    // Planning units. This project says "phase" on every screen, which is what
+    // made the whole thing worth fixing.
+    ("phase", EntityType::Milestone),
+    ("epic", EntityType::Milestone),
+    ("sprint", EntityType::Milestone),
+    ("cycle", EntityType::Milestone),
+    ("iteration", EntityType::Milestone),
+    ("release", EntityType::Milestone),
+    ("version", EntityType::Milestone),
+    // Units of work. `bug` and `chore` are also task *kinds*, and resolving
+    // them to the type is right: a caller saying `type: "bug"` wants a task,
+    // and the kind is a separate argument they can still set.
+    ("issue", EntityType::Task),
+    ("ticket", EntityType::Task),
+    ("story", EntityType::Task),
+    ("bug", EntityType::Task),
+    ("chore", EntityType::Task),
+    ("defect", EntityType::Task),
+    // Decisions.
+    ("adr", EntityType::Decision),
+    ("rfc", EntityType::Decision),
+    ("choice", EntityType::Decision),
+    // Questions and risks.
+    ("risk", EntityType::Question),
+    ("unknown", EntityType::Question),
+    ("open question", EntityType::Question),
+    // Specs.
+    ("requirement", EntityType::Spec),
+    ("design doc", EntityType::Spec),
+    ("prd", EntityType::Spec),
+];
+
 impl EntityType {
     /// Every type, in a stable order.
     ///
@@ -180,6 +223,39 @@ impl EntityType {
             .ok_or_else(|| Error::MalformedId {
                 supplied: s.to_owned(),
                 problem: format!("`{s}` is not a Keel entity type"),
+                expected: Self::wire_names().join(" | "),
+            })
+    }
+
+    /// Parse a wire name, accepting the words a project might actually use.
+    ///
+    /// `Ok((type, Some(alias)))` means the caller said something other than the
+    /// canonical name and it was understood. The alias comes back so the caller
+    /// can **say so in the response** — a silent success teaches the session
+    /// nothing and it guesses the same way next time, where a narrated one
+    /// teaches the vocabulary in a single round trip.
+    ///
+    /// # An alias is a spelling, not a concept
+    ///
+    /// This must never grow a fourteenth type. "A sprint isn't quite a
+    /// milestone" is exactly how a schema acquires a type it cannot later
+    /// remove, and the ceiling of thirteen is a hard constraint. Everything
+    /// here maps onto something that already exists; nothing here is allowed to
+    /// mean something new.
+    pub fn parse_with_alias(s: &str) -> Result<(Self, Option<&'static str>)> {
+        let lower = s.trim().to_lowercase();
+
+        if let Ok(exact) = EntityType::parse(&lower) {
+            return Ok((exact, None));
+        }
+
+        ALIASES
+            .iter()
+            .find(|(alias, _)| *alias == lower)
+            .map(|(alias, ty)| (*ty, Some(*alias)))
+            .ok_or_else(|| Error::MalformedId {
+                supplied: s.to_owned(),
+                problem: format!("`{s}` is not a Keel entity type or a word for one"),
                 expected: Self::wire_names().join(" | "),
             })
     }
@@ -394,6 +470,74 @@ mod tests {
                 .count(),
             11
         );
+    }
+
+    #[test]
+    fn a_project_can_say_phase_and_mean_milestone() {
+        let (ty, alias) = EntityType::parse_with_alias("phase").unwrap();
+        assert_eq!(ty, EntityType::Milestone);
+        assert_eq!(
+            alias,
+            Some("phase"),
+            "the caller's word comes back so it can be reported"
+        );
+    }
+
+    #[test]
+    fn a_canonical_name_reports_no_alias() {
+        // Nothing to narrate when the caller already used Keel's word.
+        let (ty, alias) = EntityType::parse_with_alias("milestone").unwrap();
+        assert_eq!(ty, EntityType::Milestone);
+        assert_eq!(alias, None);
+    }
+
+    #[test]
+    fn aliases_are_case_and_whitespace_insensitive() {
+        assert_eq!(
+            EntityType::parse_with_alias("  Sprint ").unwrap().0,
+            EntityType::Milestone
+        );
+    }
+
+    // Failure case: an alias is a spelling, not an escape hatch. A word nobody
+    // taught it still fails, with the thirteen names to choose from.
+    #[test]
+    fn an_unknown_word_still_fails_with_the_valid_names() {
+        let err = EntityType::parse_with_alias("widget").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("widget"), "{msg}");
+        assert!(msg.contains("milestone"), "{msg}");
+    }
+
+    /// The constraint that keeps this safe, asserted rather than trusted.
+    ///
+    /// "A sprint isn't quite a milestone" is exactly how a schema acquires a
+    /// fourteenth type it can never remove. Every alias must land on one of the
+    /// thirteen that already exist, and this is the test that notices if one
+    /// ever does not.
+    #[test]
+    fn every_alias_resolves_to_a_type_that_already_exists() {
+        for (alias, ty) in ALIASES {
+            assert!(
+                EntityType::ALL.contains(ty),
+                "`{alias}` resolves outside the thirteen"
+            );
+            assert!(
+                EntityType::parse(alias).is_err(),
+                "`{alias}` is a canonical name, so it does not belong in the alias table"
+            );
+        }
+    }
+
+    #[test]
+    fn no_alias_is_listed_twice() {
+        // Two entries for one word means whichever comes first silently wins,
+        // and the loser is invisible.
+        let mut seen: Vec<&str> = ALIASES.iter().map(|(a, _)| *a).collect();
+        seen.sort_unstable();
+        let before = seen.len();
+        seen.dedup();
+        assert_eq!(before, seen.len(), "an alias is listed more than once");
     }
 
     #[test]

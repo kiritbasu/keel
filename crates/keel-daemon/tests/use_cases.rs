@@ -1275,3 +1275,70 @@ async fn an_ordinary_run_of_calls_is_not_limited() {
         assert_eq!(status, 200, "a normal session must not be throttled");
     }
 }
+
+/// The Phase 8 exit criterion for 8F: this project says "phase" on every
+/// screen, and `keel_create(type: "phase")` used to fail with an enum error
+/// listing thirteen types, none of which was the word.
+#[tokio::test]
+async fn a_project_can_say_phase_and_be_understood() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+
+    let created = d
+        .call(
+            "keel_create",
+            args(json!({
+                "type": "phase", "project": project_id, "title": "Phase 9 — One database",
+                "summary": "Fold DuckDB and Lance into one database."
+            })),
+        )
+        .await;
+
+    assert_eq!(created["entity"]["type"], json!("milestone"));
+    assert_eq!(created["resolved_from"], json!("phase"));
+}
+
+/// And it says so, rather than succeeding silently.
+///
+/// A silent success teaches the session nothing and it guesses the same way
+/// next time. The narration is the whole point of carrying the alias back.
+#[tokio::test]
+async fn saying_phase_is_narrated_rather_than_quietly_accepted() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+
+    let text = d
+        .call_text(
+            "keel_create",
+            args(json!({
+                "type": "sprint", "project": project_id, "title": "Sprint 4",
+                "summary": "Ship the intake form and the triage column."
+            })),
+        )
+        .await;
+
+    assert!(text.contains("sprint"), "{text}");
+    assert!(text.contains("milestone"), "{text}");
+}
+
+/// Failure case: an alias is a spelling, not an escape hatch.
+#[tokio::test]
+async fn a_word_nobody_taught_it_still_fails_usefully() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+
+    let (status, error) = d
+        .call_err(
+            "keel_create",
+            args(json!({ "type": "widget", "project": project_id, "title": "A widget" })),
+        )
+        .await;
+
+    assert_eq!(status, 400);
+    let message = error["message"].as_str().unwrap();
+    assert!(message.contains("widget"), "{message}");
+    assert!(
+        message.contains("milestone"),
+        "the valid names must be listed: {message}"
+    );
+}
