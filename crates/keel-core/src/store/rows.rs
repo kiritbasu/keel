@@ -843,7 +843,7 @@ mod tests {
         let m = EntityId::generate(EntityType::Metric);
         let entities: Vec<Entity> = vec![
             Project::new("k", "Keel").into(),
-            Milestone::new(p.clone(), "P0").into(),
+            Milestone::new(p.clone(), "P0", "The first phase, for a store test.").into(),
             Task::new(p.clone(), "t").into(),
             Spec::new(p.clone(), "s").into(),
             Decision::new(p.clone(), "d").into(),

@@ -36,7 +36,11 @@ fn project(store: &mut DuckStore) -> EntityId {
 /// One fully populated instance of every type, so the round-trip exercises
 /// optional columns rather than only the required ones.
 fn one_of_each(project_id: &EntityId, metric_id: &EntityId) -> Vec<Entity> {
-    let mut milestone = Milestone::new(project_id.clone(), "Phase 0 — Spine");
+    let mut milestone = Milestone::new(
+        project_id.clone(),
+        "Phase 0 — Spine",
+        "Storage, schema, event log, graph, search, backup.",
+    );
     milestone.kind = MilestoneKind::Release;
     milestone.summary = Some("The storage spine".into());
     milestone.status = MilestoneStatus::Active;
@@ -566,4 +570,78 @@ fn a_store_at_the_current_schema_opens_normally() {
         .list(&EntityQuery::default().of_type(EntityType::Project))
         .expect("read it back");
     assert_eq!(page.items.len(), 1);
+}
+
+/// A milestone cannot reach storage without a plain-English explainer.
+///
+/// The rule lives in `keel-core` rather than in the MCP layer so that the CLI,
+/// the daemon and `keel import` cannot disagree about what is storable — two
+/// surfaces with their own opinion of a valid row is how a rule becomes a
+/// convention. These assert against the real store for that reason.
+mod milestone_summary {
+    use super::*;
+
+    #[test]
+    fn round_trips_to_storage_and_back() {
+        let (mut store, _dir) = store();
+        let p = project(&mut store);
+        let created = store
+            .create(
+                Milestone::new(p, "Phase 8", "Make the everyday loop work.").into(),
+                &claude(),
+            )
+            .expect("create a milestone with an explainer");
+
+        let read = store.get(created.entity.id()).unwrap().unwrap();
+        let Entity::Milestone(m) = read else {
+            panic!("expected a milestone");
+        };
+        assert_eq!(m.summary.as_deref(), Some("Make the everyday loop work."));
+    }
+
+    // Failure case: the create path refuses.
+    #[test]
+    fn create_refuses_an_empty_explainer() {
+        let (mut store, _dir) = store();
+        let p = project(&mut store);
+        let mut m = Milestone::new(p, "Phase 8", "placeholder");
+        m.summary = None;
+
+        let err = store.create(m.into(), &claude()).unwrap_err();
+        assert!(err.to_string().contains("summary"), "{err}");
+    }
+
+    // Failure case: and so does the update path. Enforcing on create alone
+    // would mean the requirement holds for the first write and a later call
+    // can blank the explainer back out — a rule with a door in it.
+    #[test]
+    fn update_cannot_blank_an_explainer_that_was_required_on_create() {
+        let (mut store, _dir) = store();
+        let p = project(&mut store);
+        let created = store
+            .create(
+                Milestone::new(p, "Phase 8", "Make the everyday loop work.").into(),
+                &claude(),
+            )
+            .unwrap();
+
+        let mut changes = serde_json::Map::new();
+        changes.insert("summary".to_owned(), json!(""));
+        let err = store
+            .update(
+                created.entity.id(),
+                created.entity.audit().version,
+                &changes,
+                &claude(),
+            )
+            .unwrap_err();
+        assert!(err.to_string().contains("summary"), "{err}");
+
+        // And the stored row is untouched, rather than half-written.
+        let read = store.get(created.entity.id()).unwrap().unwrap();
+        let Entity::Milestone(m) = read else {
+            panic!("expected a milestone");
+        };
+        assert_eq!(m.summary.as_deref(), Some("Make the everyday loop work."));
+    }
 }

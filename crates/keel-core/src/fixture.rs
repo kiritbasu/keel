@@ -282,8 +282,7 @@ pub fn load(store: &mut DuckStore) -> Result<FixtureSummary> {
     ];
     let mut milestone_ids = Vec::new();
     for (project, name, summary, status, kind, target, version) in milestones {
-        let mut m = Milestone::new(project.clone(), name);
-        m.summary = Some(summary.to_owned());
+        let mut m = Milestone::new(project.clone(), name, summary);
         m.status = status;
         m.kind = kind;
         m.target_date = target;

@@ -1067,7 +1067,17 @@ fn build_entity(
             p.description = body;
             p.into()
         }
-        EntityType::Milestone => Milestone::new(need_project()?, need_title()?).into(),
+        EntityType::Milestone => {
+            // `summary` first, then `body`, because a caller reaching for the
+            // generic prose field means the same thing here. Before this,
+            // `body` was accepted and silently discarded — every milestone
+            // written over MCP landed on the roadmap as a bare name, and the
+            // caller had no way to find out. B-45.
+            let summary = opt_str(args, "summary")
+                .or_else(|| body.clone())
+                .unwrap_or_default();
+            Milestone::new(need_project()?, need_title()?, summary).into()
+        }
         EntityType::Task => {
             let mut t = Task::new(need_project()?, need_title()?);
             t.body = body;

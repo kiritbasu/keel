@@ -434,6 +434,30 @@ pub fn all() -> Vec<Tool> {
                             "description": "Projects only, and required for them: the URL-safe \
                                             short name, unique across the store."
                         },
+                        // Required for milestones, and the description carries
+                        // the register because a length cap can be enforced
+                        // and a voice cannot. A model reads this at the moment
+                        // of writing, which is the only moment that works —
+                        // thirty gate sessions invoked the skill zero times.
+                        "summary": {
+                            "type": "string",
+                            "description": "Milestones: REQUIRED. One or two plain sentences \
+                                            saying what this phase covers, in the words someone \
+                                            who has not seen the code would use. It is what \
+                                            shows on the roadmap, so a phase without one is a \
+                                            bare name that means something only to whoever \
+                                            wrote it.\n\n\
+                                            Write it like a person, not like a release note. No \
+                                            section references, no internal names, no \
+                                            rule-of-three lists, no sentence that exists to \
+                                            sound considered.\n\n\
+                                            Good: \"Make the everyday loop work: file a bug in \
+                                            seconds, see what's ready to start, and read the \
+                                            board without opening every card.\"\n\n\
+                                            Bad: \"Deliver 8A/8C capability uplift, \
+                                            constituting the actions that do the work rather \
+                                            than describe it, across six workstreams.\""
+                        },
                         "definition": {
                             "type": "string",
                             "description": "Glossary entries only: what the word means in this \

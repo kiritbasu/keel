@@ -581,6 +581,24 @@ impl DuckStore {
 }
 
 /// Bind an optional JSON value.
+/// Per-type validation, applied on the way in on both the create and update
+/// paths.
+///
+/// Here rather than in the MCP layer so the CLI, the daemon and `keel import`
+/// cannot disagree about what is storable. The two surfaces having their own
+/// opinion of a valid row is how a rule becomes a convention.
+///
+/// Only `Milestone` has anything to say today. A match with one arm reads like
+/// an over-generalisation, but the alternative is a bare
+/// `if let Entity::Milestone` at two call sites, and the next type that grows a
+/// rule then has to find both.
+fn validate_entity(entity: &Entity) -> Result<()> {
+    match entity {
+        Entity::Milestone(m) => m.validate(),
+        _ => Ok(()),
+    }
+}
+
 fn json_param(v: Option<&serde_json::Value>) -> Value {
     v.map(|j| Value::Text(j.to_string())).unwrap_or(Value::Null)
 }
@@ -617,6 +635,10 @@ fn rel_filter(rels: &[Relation], alias: &str) -> String {
 
 impl EntityStore for DuckStore {
     fn create(&mut self, mut entity: Entity, provenance: &Provenance) -> Result<Created> {
+        // Before the idempotency lookup, so a bad write is refused rather than
+        // quietly matching an existing row and reporting success.
+        validate_entity(&entity)?;
+
         let entity_type = entity.entity_type();
         let project_id = entity.project_id().cloned();
 
@@ -769,6 +791,11 @@ impl EntityStore for DuckStore {
         if applied.is_empty() {
             return Ok(entity);
         }
+
+        // Checked on update as well as create, or the requirement holds only
+        // for the first write and a later call can blank the explainer back
+        // out. A rule enforced on one of two doors is a rule with a door.
+        validate_entity(&entity)?;
 
         // A row read back with no readable number gets one before it is written
         // again. Reading NULL as zero keeps one unnumbered row from making a

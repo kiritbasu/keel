@@ -355,6 +355,7 @@ async fn uc2_conversational_capture() {
                 "type": "milestone",
                 "project": project_id,
                 "title": "Metering v1",
+                "summary": "Charge customers for what they actually use, and show them the bill.",
                 "fields": { "status": "active" }
             })),
         )
@@ -857,6 +858,60 @@ async fn an_invalid_enum_value_tells_the_agent_what_would_work() {
     );
 }
 
+/// A milestone reaches the roadmap with an explainer or it does not reach it.
+///
+/// This is asserted at the daemon rather than only in `keel-core` because the
+/// MCP path is where the bug was: `keel_create` accepted a `body` for a
+/// milestone and discarded it, so every milestone written over the tool surface
+/// landed as a bare name and the caller was told it had succeeded. A store-level
+/// test would not have caught that — the store was never asked. B-45.
+#[tokio::test]
+async fn a_milestone_without_an_explainer_is_refused_over_mcp() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+    let (status, error) = d
+        .call_err(
+            "keel_create",
+            args(json!({
+                "type": "milestone", "project": project_id, "title": "Phase 9"
+            })),
+        )
+        .await;
+
+    assert_eq!(status, 400);
+    let message = error["message"].as_str().unwrap();
+    assert!(message.contains("summary"), "{message}");
+    assert!(
+        message.contains("one or two sentences"),
+        "an agent must be able to retry from the message alone: {message}"
+    );
+}
+
+/// The generic prose field is accepted for a milestone rather than dropped.
+///
+/// A caller reaching for `body` means the same thing here, and silently
+/// discarding it is the exact failure this work exists to remove.
+#[tokio::test]
+async fn a_milestone_takes_its_explainer_from_body_as_well_as_summary() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+    let created = d
+        .call(
+            "keel_create",
+            args(json!({
+                "type": "milestone", "project": project_id, "title": "Phase 9",
+                "body": "Fold DuckDB and Lance into one database."
+            })),
+        )
+        .await;
+
+    assert_eq!(
+        created["entity"]["summary"].as_str(),
+        Some("Fold DuckDB and Lance into one database."),
+        "the body became the explainer rather than being dropped"
+    );
+}
+
 #[tokio::test]
 async fn a_near_duplicate_project_requires_confirmation() {
     // UC-8 / REQ-8. The defence against nine near-identical projects.
@@ -1025,6 +1080,7 @@ async fn seed(d: &Daemon) -> String {
             "keel_create",
             args(json!({
                 "type": "milestone", "project": project_id, "title": "Metering v1",
+                "summary": "Charge customers for what they actually use, and show them the bill.",
                 "fields": { "status": "active" }
             })),
         )

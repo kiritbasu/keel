@@ -321,9 +321,28 @@ pub struct Milestone {
     pub audit: Audit,
 }
 
+/// The longest a milestone summary may be.
+///
+/// Generous enough for the two sentences the house style allows, short enough
+/// to refuse a paragraph. The eight that already exist run 8 to 15 words, so
+/// this is roughly double the observed need rather than a target to fill.
+pub const MILESTONE_SUMMARY_MAX: usize = 280;
+
 impl Milestone {
     /// A new milestone with the required fields.
-    pub fn new(project_id: EntityId, name: impl Into<String>) -> Self {
+    ///
+    /// `summary` is an argument rather than a field set afterwards, and that is
+    /// the whole point of the signature. It used to be settable later and
+    /// nothing on the create path set it: `keel_create` accepted a `body` for a
+    /// milestone and dropped it on the floor, so every milestone written
+    /// through the tool surface reached the roadmap as a bare name. Making it
+    /// positional means the compiler finds any call site that forgets, which is
+    /// the check that cannot itself be forgotten.
+    ///
+    /// The value is not validated here — see [`Milestone::validate`], which the
+    /// store calls on the way in so the CLI and MCP cannot disagree about what
+    /// is acceptable.
+    pub fn new(project_id: EntityId, name: impl Into<String>, summary: impl Into<String>) -> Self {
         let name = name.into();
         Milestone {
             id: EntityId::generate(EntityType::Milestone),
@@ -335,7 +354,7 @@ impl Milestone {
             project_id,
             kind: MilestoneKind::default(),
             name,
-            summary: None,
+            summary: Some(summary.into()),
             status: MilestoneStatus::default(),
             target_date: None,
             shipped_at: None,
@@ -343,6 +362,51 @@ impl Milestone {
             sort_order: None,
             audit: provisional_audit(),
         }
+    }
+
+    /// Refuse a milestone whose explainer is missing, empty or a paragraph.
+    ///
+    /// The roadmap is the one screen answering "what is this project doing, and
+    /// in what order", and a phase whose row is a bare name answers that only
+    /// for whoever wrote it. Eight milestones against a hundred tasks means the
+    /// milestone is the unit a human actually reads, so an unreadable one costs
+    /// more per row than an unreadable task does.
+    ///
+    /// What this can check is structure, not quality — it cannot tell a good
+    /// sentence from a bad one and never will. The register is carried by the
+    /// tool description, which a model reads at the moment of writing; this
+    /// catches the two failures that are objectively detectable.
+    pub fn validate(&self) -> Result<()> {
+        let summary = self.summary.as_deref().unwrap_or("").trim();
+
+        if summary.is_empty() {
+            return Err(Error::invalid(
+                EntityType::Milestone,
+                "summary",
+                "a milestone needs a plain-English explainer and this one is empty",
+                "one or two sentences saying what this phase covers, in the words a \
+                 reader who has not seen the code would use — for example \
+                 \"Make the everyday loop work: file a bug in seconds, see what's \
+                 ready to start, and read the board without opening every card.\"",
+            ));
+        }
+
+        if summary.chars().count() > MILESTONE_SUMMARY_MAX {
+            return Err(Error::invalid(
+                EntityType::Milestone,
+                "summary",
+                format!(
+                    "the explainer is {} characters, and a milestone summary is capped at {}",
+                    summary.chars().count(),
+                    MILESTONE_SUMMARY_MAX
+                ),
+                "one or two sentences, not a paragraph. The detail belongs in a spec \
+                 linked to this milestone; the summary is what someone reads on the \
+                 roadmap without opening anything",
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -1175,7 +1239,7 @@ mod tests {
         let metric = Metric::new(p.clone(), "activation rate");
         vec![
             Project::new("keel", "Keel").into(),
-            Milestone::new(p.clone(), "Phase 0").into(),
+            Milestone::new(p.clone(), "Phase 0", "The spine.").into(),
             Task::new(p.clone(), "Wire up the schema").into(),
             Spec::new(p.clone(), "Storage spec").into(),
             Decision::new(p.clone(), "Use DuckDB").into(),
@@ -1281,7 +1345,7 @@ mod tests {
         );
         assert_ne!(
             Task::new(p1.clone(), "Ship it").idempotency_key,
-            Milestone::new(p1, "Ship it").idempotency_key,
+            Milestone::new(p1, "Ship it", "Get it out of the door.").idempotency_key,
             "a task and a milestone with one name are two things"
         );
     }
@@ -1334,5 +1398,74 @@ mod tests {
         assert_eq!(json["title"], "Ship it");
         let back: Entity = serde_json::from_value(json).unwrap();
         assert_eq!(back, e);
+    }
+
+    #[test]
+    fn a_milestone_keeps_the_explainer_it_was_built_with() {
+        let m = Milestone::new(project(), "Phase 8", "Make the everyday loop work.");
+        assert_eq!(m.summary.as_deref(), Some("Make the everyday loop work."));
+        assert!(m.validate().is_ok());
+    }
+
+    // Failure case, and the one that motivated all of this: a milestone whose
+    // roadmap row would be a bare name.
+    #[test]
+    fn an_empty_explainer_is_refused_with_something_to_send_instead() {
+        let m = Milestone::new(project(), "Phase 8", "   ");
+        let err = m.validate().unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("summary"), "{message}");
+        // The point of the three-part error: a model reading only the
+        // "Expected" half must still be able to retry successfully.
+        assert!(message.contains("one or two sentences"), "{message}");
+    }
+
+    #[test]
+    fn a_null_explainer_is_refused_too() {
+        // Reachable through a read of an older row rather than through `new`,
+        // which is exactly why the check is on the value and not on the
+        // constructor alone.
+        let mut m = Milestone::new(project(), "Phase 8", "Something.");
+        m.summary = None;
+        assert!(m.validate().is_err());
+    }
+
+    // Failure case: the other direction. A paragraph is not a summary, and the
+    // roadmap is a list of rows rather than a document.
+    #[test]
+    fn a_paragraph_is_refused_and_the_error_says_how_long_it_was() {
+        let long = "a".repeat(MILESTONE_SUMMARY_MAX + 1);
+        let m = Milestone::new(project(), "Phase 8", &long);
+        let message = m.validate().unwrap_err().to_string();
+        assert!(
+            message.contains(&(MILESTONE_SUMMARY_MAX + 1).to_string()),
+            "{message}"
+        );
+        assert!(message.contains("not a paragraph"), "{message}");
+    }
+
+    #[test]
+    fn the_ceiling_counts_characters_rather_than_bytes() {
+        // A summary in a language that is not mostly ASCII should get the same
+        // allowance. Byte length would silently halve it.
+        let m = Milestone::new(project(), "Phase 8", "é".repeat(MILESTONE_SUMMARY_MAX));
+        assert!(m.validate().is_ok());
+    }
+
+    #[test]
+    fn the_shipped_phases_all_satisfy_the_rule_they_predate() {
+        // The eight that already exist were written before there was a rule.
+        // If the ceiling were set below what the house style actually produces,
+        // this is where that would show up.
+        for summary in [
+            "Storage, schema, event log, graph, search, backup. No network, no UI.",
+            "axum, the nine MCP tools, keel_context, concurrency safety, render-status.",
+            "Deployable daemon, auth, mobile client.",
+            "Make the everyday loop work: file a bug in seconds, see what's ready to \
+             start, and read the board without opening every card.",
+        ] {
+            let m = Milestone::new(project(), "Phase n", summary);
+            assert!(m.validate().is_ok(), "rejected: {summary}");
+        }
     }
 }

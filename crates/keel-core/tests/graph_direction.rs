@@ -62,7 +62,9 @@ impl Fixture {
             EntityType::Decision => Decision::new(p, label).into(),
             EntityType::Question => Question::new(p, label).into(),
             EntityType::Feedback => Feedback::new(p, label).into(),
-            EntityType::Milestone => Milestone::new(p, label).into(),
+            EntityType::Milestone => {
+                Milestone::new(p, label, "A phase, for a graph-direction test.").into()
+            }
             EntityType::Design => Design::new(p, label).into(),
             EntityType::Artifact => Artifact::new(p, label).into(),
             other => panic!("fixture does not make {other}"),

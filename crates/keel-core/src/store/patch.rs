@@ -311,7 +311,7 @@ mod tests {
         let cases: Vec<(Entity, &str, Value)> = vec![
             (Project::new("k", "Keel").into(), "name", json!("Keel v2")),
             (
-                Milestone::new(p.clone(), "P0").into(),
+                Milestone::new(p.clone(), "P0", "The first phase, for a store test.").into(),
                 "status",
                 json!("active"),
             ),

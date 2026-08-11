@@ -145,8 +145,7 @@ pub fn run(store: &mut DuckStore, repo_path: Option<String>) -> Result<Summary> 
     ];
     let mut milestones = Vec::new();
     for (name, summary, status, target, order) in phases {
-        let mut m = Milestone::new(project_id.clone(), name);
-        m.summary = Some(summary.to_owned());
+        let mut m = Milestone::new(project_id.clone(), name, summary);
         m.status = status;
         m.target_date = target;
         m.sort_order = Some(order);
