@@ -1,64 +1,192 @@
 # Keel
 
-A local-first store for everything that describes a software project other than
-the code — specs, decisions, tasks, roadmap, design, feedback. An MCP server is
-the primary interface; a Tauri desktop app is the read surface.
-
-**All product documentation lives in `product/`.** Start with `product/STATUS.md`.
+Keel is a local store for everything about a software project **except the code** — the specs, the decisions, the tasks, the open questions, the feedback, the reasons. It runs on your machine, an AI coding agent reads and writes it through [MCP](https://modelcontextprotocol.io), and a desktop app shows you what's in it.
 
 ---
 
-## Where things stand
+## The problem
 
-Phases 0–3 are built — the storage spine, the MCP daemon, the Claude Code
-plugin, and the desktop app — and then rebuilt in places, because the first
-version of the app was seven screens built to seven different rules. **408 Rust
-tests and 146 desktop tests, nothing ignored, all CI gates green.**
+If you build software with an AI agent, you have probably noticed two things.
 
-**Phase 2's gate is met and frozen.** The question it asked — will a coding
-agent write to Keel without being told to? — took seven runs to answer, and most
-of that time was spent measuring the harness rather than the agent. It closed at
-18 of 20 across two consecutive independent draws. The code is kept and nobody
-is running it. `product/GATE.md` is the whole story in one page, including the
-part where five evenings went into fixing a problem that turned out not to
-exist.
+**Every session starts from nothing.** You explain the project again. What it is, what you decided last week, why the obvious approach doesn't work, what's half-finished. The agent is capable and has no memory, so the explaining never ends and it is never quite the same explanation twice.
 
-**Phase 1's UC-1→UC-4 gate** passes mechanically — 21 tests drive a real daemon
-over real HTTP — but a scripted client is told which tool to call. The gate runs
-partly answer the harder question, since those sessions chose tools with no
-instruction and chose them correctly; what has never been tested in isolation is
-whether the *descriptions alone* are what did it.
+**What you decide in a conversation evaporates.** You spend forty minutes working out that the queue has to be idempotent because retries are at-least-once, you both agree, the code gets written — and the reasoning exists nowhere. Six months later you find the code, can't remember why, and either rediscover the reasoning or quietly break it.
+
+The usual answer is to write it down. In practice that means a wiki nobody updates, a `NOTES.md` that goes stale in a fortnight, and an issue tracker built for teams of thirty. All of them have the same flaw: **keeping them current is a separate chore from doing the work**, so it doesn't happen.
+
+## What Keel does about it
+
+The agent writes to Keel *while* you work, because it is right there in the conversation. No separate step, no context switch, no remembering.
+
+- You mention a constraint → it becomes a **decision** with the reasoning attached.
+- You say "we should probably…" → it becomes a **task**.
+- Something turns out to be undecided → it becomes an **open question**, and every future session sees it before it re-litigates it.
+- The agent finds out *why* something is slow → that goes on the task as a **note**, attributed to that conversation.
+
+Next session — different day, different machine, no memory — starts by reading the store and knows where things stand.
+
+**It stays yours.** Everything lives in `~/.keel` on your disk. No account, no cloud, no telemetry. The daemon binds `127.0.0.1` and nothing else can reach it.
+
+**It writes readable files.** Keel generates markdown into your repository — the spec, the decision log, the tracker, the questions — so the whole thing is greppable, diffable and committed alongside your code. If Keel vanished tomorrow you'd still have the files.
+
+### What it is not
+
+- Not a team tracker. One person, one machine, no permissions, no assignees.
+- Not a replacement for GitHub Issues if you have a team using them.
+- Not a note-taking app. You don't type into it — you talk to the agent, and the agent writes.
+- Not a chat log. It stores what became *true*, not what was said.
 
 ---
 
-## Try it
+## Install
+
+You need [Rust](https://rustup.rs) and Claude Code.
 
 ```bash
-./plugin/install.sh          # build, install binaries, create ~/.keel
-keel-daemon                  # leave running; binds 127.0.0.1:7654
-```
-
-Then, in another terminal:
-
-```bash
-keel --home /tmp/keel-demo fixture
+git clone <this repo> && cd keel
 ```
 
 ```bash
-keel --home /tmp/keel-demo render-status keel
+./plugin/install.sh
 ```
+
+That builds the binaries, puts them in `~/.local/bin`, creates the store at `~/.keel`, and copies the agent's skill and hooks to `~/.claude/skills/keel/`.
+
+The first build compiles DuckDB from source and takes a few minutes. It only happens once.
+
+Then start the daemon and leave it running:
 
 ```bash
-keel --home /tmp/keel-demo fsck
+keel-daemon
 ```
 
-The desktop app, with the daemon running:
+It binds `127.0.0.1:7654`. Add `--embeddings` if you want semantic search as well as keyword search — the first run downloads the model, which takes a minute. Keyword search works either way.
+
+### Connect it to Claude
+
+Register the MCP server once:
+
+```bash
+claude mcp add --scope user --transport http keel http://127.0.0.1:7654/mcp
+```
+
+Then add the hooks to `~/.claude/settings.json`. **`install.sh` deliberately won't edit this file for you** — it's yours, and a script rewriting your settings is one bug away from damage:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "timeout": 10,
+          "command": "/Users/you/.claude/skills/keel/session-start.sh" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "timeout": 15,
+          "command": "/Users/you/.claude/skills/keel/stop.sh" } ] }
+    ]
+  }
+}
+```
+
+The two hooks are what make it work without you asking:
+
+- **SessionStart** injects a short summary of the project at the top of every conversation, so the agent is oriented before you type anything.
+- **Stop** fires when a session ends having recorded nothing, and asks it to. It stays silent for sessions that already wrote — a prompt that fires when you've done the right thing is a prompt you turn off.
+
+Check it:
+
+```bash
+curl -s http://127.0.0.1:7654/api/health
+```
+
+### Config
+
+Everything has a working default. Override with environment variables:
+
+| Variable | Default | What it does |
+|---|---|---|
+| `KEEL_HOME` | `~/.keel` | Where the store lives |
+| `KEEL_DAEMON_URL` | `http://127.0.0.1:7654` | Where the CLI looks for the daemon |
+| `KEEL_BIND` | `127.0.0.1:7654` | What the daemon binds |
+| `KEEL_BIN_DIR` | `~/.local/bin` | Where `install.sh` puts binaries |
+| `KEEL_SKILL_DIR` | `~/.claude/skills/keel` | Where the skill and hooks are installed |
+
+After editing anything under `plugin/`, re-run `./plugin/install.sh --skill-only`. It skips the build and copies the three files. **The copies under `~/.claude` are what actually run** — a change to the repo that isn't copied across does nothing at all.
+
+---
+
+## Using it
+
+### Mostly, you don't
+
+That's the point. Work with Claude the way you already do. Keel fills up as a side effect.
+
+Some things that make the agent write, without you asking it to:
+
+> "Let's go with the second option — Postgres, because we already run one."
+> "That's a bug, the retry loop doesn't back off."
+> "I don't know whether we need per-tenant keys. Leave it for now."
+
+And things that make it read:
+
+> "What's the state of the auth work?"
+> "Why did we pick DuckDB?"
+> "What's blocking the release?"
+> "What should I do next?"
+
+### The desktop app
 
 ```bash
 cd apps/desktop && npm install && npm run dev
 ```
 
-Install the pre-commit check once, if you are going to edit anything here:
+A board, a roadmap, documents with revision history, a searchable everything, and an activity feed showing what changed and which conversation changed it.
+
+**The app is read-only, on purpose.** Claude and the CLI are the only writers. If the app could also write, you'd have two sources of truth for the same row and no answer to which one is right when they disagree.
+
+### The command line
+
+You rarely need it, but:
+
+```bash
+keel status
+```
+
+```bash
+keel fsck
+```
+
+```bash
+keel generate <project>
+```
+
+```bash
+keel backup
+```
+
+`fsck` checks referential integrity across both storage engines — 34 checks, and each finding says what it breaks and what to do about it. `generate` writes the markdown files into your repo. `backup` writes both engines to Parquet, and `restore` puts them back.
+
+Everything works whether the daemon is running or not: the CLI asks the daemon when one is there, and opens the store directly when it isn't.
+
+---
+
+## Generated files
+
+Point a project at your repo and Keel writes markdown into it:
+
+```
+product/SPEC.md          the spec, as prose
+product/DECISIONS.md     every decision, numbered B-1, B-2…, with the reasoning
+product/STATUS.md        the tracker, rendered from the task rows
+.keel/questions.md       open questions and settled ones, with the answers
+.keel/decisions/         one file per decision
+.keel/specs/             one file per document
+```
+
+**These are outputs.** Every one carries a banner saying so. Editing them is not so much wrong as futile — the next `keel generate` overwrites them from the store, and your words are gone.
+
+To change what they say, change the source: ask Claude to rewrite it, or edit it in the app. If you have already edited a file by hand and want the words kept, `keel import <file>` writes it back in as a proper revision.
+
+There's a pre-commit hook that refuses a commit carrying a hand-edited generated file, so you find out immediately rather than when the next regeneration eats it:
 
 ```bash
 ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
@@ -66,48 +194,55 @@ ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
 
 ---
 
-## Layout
+## What's in it
+
+Thirteen kinds of thing, and no more — the ceiling is deliberate, because "we need a new type for this" is nearly always a field or a label in disguise:
+
+**project**, **milestone**, **task**, **spec**, **decision**, **question**, **term**, **feedback**, **design**, **environment**, **metric**, **metric observation**, **artifact**.
+
+They're connected by a typed graph — a task `implements` a spec, a decision `supersedes` an earlier one, a task `blocks` another — and the graph is what makes "what's actually blocked" a query rather than a guess.
+
+The agent sees ten tools: `keel_context`, `keel_search`, `keel_get`, `keel_projects`, `keel_activity`, `keel_create`, `keel_update`, `keel_write_doc`, `keel_note`, `keel_link`. Ten rather than forty because a model picks the right tool from a short list and the wrong one from a long list.
+
+---
+
+## Best practices
+
+**Talk about the project, don't dictate records.** "We're going with Postgres because we already run one" gets you a decision with reasoning. "Create a decision record titled Postgres" gets you a row that says nothing in six months.
+
+**Say the reason out loud.** The reasoning is the part that has value later — the choice itself is usually obvious in hindsight, and the rejected alternative almost never is.
+
+**Use the readable IDs.** Tasks are `KEEL-42`, decisions are `B-12`. Say those in conversation; they're stable forever and they resolve everywhere an ID is taken.
+
+**Let questions be questions.** If something is genuinely undecided, having it recorded as an open question is worth more than a confident guess. Every session sees open questions before it starts, which is what stops an agent quietly re-deciding something you already settled.
+
+**Don't hand-edit generated files.** Change the source. The pre-commit hook will catch you, but the habit matters more.
+
+**Run `keel fsck` occasionally**, and `keel backup` before anything drastic.
+
+**One writer.** The daemon owns the only write path to the database. Don't run two daemons against one store.
+
+**Restart the daemon after upgrading.** Keel refuses to start if the binary is older than the store's schema, which turns a silent corruption into an error you can read — but you still have to restart it.
+
+---
+
+## How it's built
+
+Rust, one workspace, four crates.
 
 ```
-crates/keel-core/     domain types, storage, graph, search, mirror, backup
+crates/keel-core/     domain types, storage, graph, search, generation, backup
 crates/keel-mcp/      the ten tools, the digest, protocol handling
-crates/keel-daemon/   axum: MCP endpoint + local REST/SSE. Owns the write handle
-crates/keel-cli/      backup, restore, fsck, fixture, generate, render-status
-crates/keel-github/   Phase 4 stub
-apps/desktop/         Tauri v2 + React. Read and search only, by decision
-plugin/               the skill, the session hooks, MCP config
-product/              PRD, SPEC, STATUS, DECISIONS, GATE, JOURNAL — all generated
-scripts/              the gate harness (frozen), the pre-commit check
+crates/keel-daemon/   axum: the MCP endpoint and a local read API
+crates/keel-cli/      fsck, backup, restore, import, generate, notes
+apps/desktop/         Tauri + React. Read and search only
 ```
 
-Everything under `product/` and `.keel/` is an **output**. The store is the
-source of truth and the files are written from it; an edit to one is overwritten
-by the next `keel generate`. The one exception is the repository root's
-`CLAUDE.md`, which bootstraps the rule and therefore cannot depend on it.
+Storage is **DuckDB** for entities, links and the event log, plus **Lance** for documents, images and vectors, attached into DuckDB as one SQL namespace. Search is hybrid: BM25 keyword and vector similarity, fused.
 
----
+Every change is an event with an author and the conversation that made it, so "who changed this and when" is always answerable.
 
-## The four things most likely to bite
-
-1. **Graph direction.** An inverted traversal returns an empty set that looks
-   exactly like "nothing is linked here". `product/SPEC.md` §3.3 is the only
-   authority; `crates/keel-core/tests/graph_direction.rs` asserts both
-   directions *and* both inversions for all nine relations.
-2. **Silent truncation.** Every list reports what it cut. Questions and glossary
-   terms are never cut at all — a truncated task list makes an agent less
-   informed, but a truncated question register makes it confidently wrong.
-3. **The mirror is one-directional, with no exceptions.**
-   `crates/keel-core/src/mirror.rs` contains no function that reads a mirror as
-   truth, and a test asserts that absence. There was once a hook that claimed to
-   read one edit back safely; it never worked, and deleting it was the fix. See
-   SPEC §8.1.
-4. **`blocked` is not a status.** It is derived from the `blocks` edges. A
-   status field and a graph that can disagree will disagree — this store had
-   three tasks marked blocked and zero edges.
-
----
-
-## Development
+### Development
 
 ```bash
 cargo test --workspace
@@ -121,26 +256,12 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all --check
 ```
 
-```bash
-cargo deny check
-```
+425 Rust tests and 146 for the app.
 
-Dev builds use `debug = "line-tables-only"` — full debug info for a vendored
-C++ database runs to nineteen gigabytes, which is how that setting was
-discovered.
-
-### Faster builds
-
-By default DuckDB is compiled from source, which takes several minutes the
-first time. That default exists so the build works on a fresh machine with no
-setup, and so the installed binary keeps working when Homebrew moves underneath
-it.
-
-If you already have a matching DuckDB, link it instead and the whole workspace
-builds in under a minute:
+**Faster builds.** DuckDB is compiled from source by default so the installed binary is self-contained. If you already have a matching one, link it instead and the workspace builds in under a minute:
 
 ```bash
-brew install duckdb   # must match the version duckdb-rs targets — currently 1.5.5
+brew install duckdb   # must match what duckdb-rs targets — currently 1.5.5
 ```
 
 ```bash
@@ -151,7 +272,15 @@ export DUCKDB_LIB_DIR=/opt/homebrew/opt/duckdb/lib DUCKDB_INCLUDE_DIR=/opt/homeb
 cargo test --workspace --no-default-features
 ```
 
-The suite passes either way, Lance extension included. Two caveats: the version
-has to match what `duckdb-rs` ships bindings for, and a later
-`brew upgrade duckdb` will break a binary linked this way until you rebuild —
-which is exactly why `plugin/install.sh` still bundles.
+A later `brew upgrade duckdb` breaks a binary linked this way until you rebuild, which is why the installer still bundles.
+
+### Where the documentation is
+
+All of it is in `product/`, and all of it is generated from the store:
+
+- `product/PRD.md` — what this is for
+- `product/SPEC.md` — how it works
+- `product/DECISIONS.md` — every decision and why
+- `product/STATUS.md` — what's done and what's next
+- `product/JOURNAL.md` — what happened, session by session
+- `product/GATE.md` — the one measurement that mattered, and why it stopped
