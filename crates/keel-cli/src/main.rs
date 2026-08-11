@@ -13,6 +13,7 @@ mod gate;
 mod generate;
 mod import;
 mod rubric;
+mod work;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -214,6 +215,84 @@ enum Command {
         version: i32,
     },
 
+    /// What can be worked on right now, best first.
+    ///
+    /// Open work with nothing live in its way. Ordered by what a task unblocks
+    /// before its priority, so a p1 that releases three others comes above a p0
+    /// that releases nothing.
+    ///
+    /// The same computation the MCP tool and the app read. There is one
+    /// ranking, so the three cannot disagree.
+    Ready {
+        /// Project id, slug or name.
+        project: String,
+        /// Only work nobody is holding.
+        #[arg(long)]
+        unclaimed: bool,
+        /// Only tasks carrying all of these labels. Repeatable.
+        #[arg(long = "label")]
+        labels: Vec<String>,
+        /// Skip tasks carrying any of these labels. Repeatable.
+        #[arg(long = "no-label")]
+        no_labels: Vec<String>,
+        /// Only work under this milestone. An id, or a name like "Phase 8".
+        #[arg(long)]
+        milestone: Option<String>,
+        /// How many to show.
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
+        daemon: String,
+    },
+
+    /// Take a task: move it to in_progress and record who is on it.
+    ///
+    /// Refused if another session holds it, unless that claim has gone stale
+    /// after three days or `--force` is passed. Closing releases it.
+    Claim {
+        /// The task — `KEEL-42` or a `tsk_…` id.
+        task: String,
+        /// Take a claim another session still holds.
+        #[arg(long)]
+        force: bool,
+        /// The session doing the work. Keel never invents one.
+        #[arg(long, env = "KEEL_SESSION")]
+        session: Option<String>,
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
+        daemon: String,
+    },
+
+    /// Close a task, saying why and showing the work.
+    ///
+    /// `done` needs a message and at least one piece of evidence; `wont_do` and
+    /// `no_change` need a message; `duplicate` and `superseded` name the other
+    /// task and draw the edge themselves.
+    Close {
+        /// The task — `KEEL-42` or a `tsk_…` id.
+        task: String,
+        /// done, wont_do, duplicate, superseded, no_change.
+        #[arg(long)]
+        reason: String,
+        /// What actually happened, in a sentence or two.
+        #[arg(long, short)]
+        message: String,
+        /// Typed proof. `commit:<sha>`, `pr:<url>`, `test:<command>`,
+        /// `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`. Repeatable.
+        #[arg(long = "evidence")]
+        evidence: Vec<String>,
+        /// For `duplicate` and `superseded`: the other task.
+        #[arg(long)]
+        other: Option<String>,
+        /// The session closing it, for attribution.
+        #[arg(long, env = "KEEL_SESSION")]
+        session: Option<String>,
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
+        daemon: String,
+    },
+
     /// Create a task row.
     ///
     /// Exists because until now the only ways to bring a row into being were
@@ -298,6 +377,50 @@ fn main() -> Result<()> {
             println!("{} — archived", archived.id());
             Ok(())
         }
+        Command::Ready {
+            project,
+            unclaimed,
+            labels,
+            no_labels,
+            milestone,
+            limit,
+            daemon,
+        } => work::ready(
+            &home,
+            daemon,
+            project,
+            *unclaimed,
+            labels,
+            no_labels,
+            milestone.as_deref(),
+            *limit,
+            cli.json,
+        ),
+        Command::Claim {
+            task,
+            force,
+            session,
+            daemon,
+        } => work::claim(&home, daemon, task, *force, session.as_deref(), cli.json),
+        Command::Close {
+            task,
+            reason,
+            message,
+            evidence,
+            other,
+            session,
+            daemon,
+        } => work::close(
+            &home,
+            daemon,
+            task,
+            reason,
+            message,
+            evidence,
+            other.as_deref(),
+            session.as_deref(),
+            cli.json,
+        ),
         Command::Task {
             project,
             title,

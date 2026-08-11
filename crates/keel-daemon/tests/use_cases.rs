@@ -142,16 +142,19 @@ async fn server_discover_advertises_the_protocol() {
 }
 
 #[tokio::test]
-async fn tools_list_returns_ten_tools_with_cache_hints() {
+async fn tools_list_returns_thirteen_tools_with_cache_hints() {
     let d = Daemon::start().await;
     let (status, body) = d.rpc("tools/list", json!({})).await;
     assert_eq!(status, 200);
-    // Ten since `keel_note`. The cap is a real constraint, not a rounding
-    // error — if this needs changing again, the reason belongs in tools.rs
-    // next to the last one.
+    // Thirteen since the three work verbs (TQ-31). The cap is a real
+    // constraint, not a rounding error — if this needs changing again, the
+    // reason belongs in tools.rs next to the last one.
     let tools = body["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 10);
+    assert_eq!(tools.len(), 13);
     assert!(tools.iter().any(|t| t["name"] == "keel_note"));
+    for verb in ["keel_ready", "keel_claim", "keel_close"] {
+        assert!(tools.iter().any(|t| t["name"] == verb), "missing {verb}");
+    }
     assert!(body["result"]["ttlMs"].as_u64().unwrap() > 0);
     assert_eq!(body["result"]["cacheScope"], "public");
 }
@@ -575,14 +578,13 @@ async fn uc3_implementation_handoff() {
         .as_i64()
         .expect("keel_get must surface `version` where keel_update asks for it");
 
-    let done = d
+    let linked = d
         .call(
             "keel_update",
             args(json!({
                 "id": task_id,
                 "version": version,
                 "changes": {
-                    "status": "done",
                     // A list since TQ-23: a task routinely spans a pull request
                     // and the issue it closes.
                     "external_refs": [
@@ -593,12 +595,29 @@ async fn uc3_implementation_handoff() {
             })),
         )
         .await;
-    assert_eq!(done["entity"]["status"], "done");
-    assert_eq!(done["entity"]["version"], version + 1);
+    assert_eq!(linked["entity"]["version"], version + 1);
     assert_eq!(
-        done["entity"]["external_refs"].as_array().map(Vec::len),
+        linked["entity"]["external_refs"].as_array().map(Vec::len),
         Some(2)
     );
+
+    // Finishing it is `keel_close`, not a status change. The PR that shipped it
+    // is the evidence, which is the shape this use case was already reaching for
+    // when it attached the URL by hand.
+    let done = d
+        .call(
+            "keel_close",
+            args(json!({
+                "id": task_id,
+                "reason": "done",
+                "message": "Ingest is idempotent on the client-supplied key, so a re-send is \
+                            a no-op.",
+                "evidence": ["pr:https://github.com/kb/harbour/pull/128"]
+            })),
+        )
+        .await;
+    assert_eq!(done["task"]["status"], "done");
+    assert_eq!(done["task"]["close_reason"], "done");
 
     // The timeline shows it.
     let activity = d
@@ -1407,4 +1426,194 @@ async fn a_task_with_a_summary_keeps_it() {
             .starts_with("The board never says"),
         "{created}"
     );
+}
+
+// --- The three verbs (Phase 8, §8A) --------------------------------------
+
+/// `keel ready` promises one ranking behind three doors. This is the assertion
+/// that they are the same door.
+///
+/// The CLI is not spawned as a process here — it calls `keel_ready` over this
+/// same endpoint, which is the property worth pinning: the tool, the REST
+/// endpoint the app reads, and `keel_core::ready` itself return the same list in
+/// the same order. If the app ever disagreed with the session, this is the test
+/// that would have caught it.
+#[tokio::test]
+async fn ready_gives_the_same_answer_over_mcp_and_over_the_local_api() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+
+    for (title, priority) in [
+        ("Rebuild the ingest path", "p2"),
+        ("Rename the meter column", "p1"),
+        ("Ship the invoice screen", "p0"),
+    ] {
+        d.call(
+            "keel_create",
+            args(json!({
+                "type": "task", "project": project_id, "title": title,
+                "summary": format!("{title}. Done when it works and there is a test."),
+                "fields": { "priority": priority }
+            })),
+        )
+        .await;
+    }
+
+    let over_mcp = d
+        .call("keel_ready", args(json!({"project": project_id})))
+        .await;
+
+    let over_rest: Value = d
+        .client
+        .get(format!("{}/api/ready?project={project_id}", d.base))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+
+    let refs = |v: &Value| -> Vec<String> {
+        v["ready"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["reference"].as_str().unwrap().to_owned())
+            .collect()
+    };
+
+    let from_mcp = refs(&over_mcp);
+    assert!(!from_mcp.is_empty(), "seeded work should be ready");
+    assert_eq!(
+        from_mcp,
+        refs(&over_rest["data"]),
+        "the app and the session must be reading one ranking, in one order"
+    );
+    assert_eq!(over_mcp["total"], over_rest["data"]["total"]);
+}
+
+#[tokio::test]
+async fn claiming_shows_on_the_row_and_a_second_session_is_refused() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+    let task = d
+        .call(
+            "keel_create",
+            args(json!({
+                "type": "task", "project": project_id, "title": "Only one of us",
+                "summary": "A task two sessions will both try to take. Done when one of them \
+                            is told who has it."
+            })),
+        )
+        .await["entity"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let claimed = d.call("keel_claim", args(json!({"id": task}))).await;
+    assert_eq!(claimed["task"]["status"], "in_progress");
+    assert_eq!(claimed["task"]["claimed_by"], SESSION);
+
+    // A different conversation, which is the case the claim exists for.
+    let (status, error) = d
+        .call_err(
+            "keel_claim",
+            json!({"id": task, "session_id": "ses_someone_else", "surface": "code"}),
+        )
+        .await;
+    assert_eq!(status, 400);
+    let message = error["message"].as_str().unwrap_or_default();
+    assert!(
+        message.contains(SESSION),
+        "the refusal names the holder, so the caller knows who to ask: {message}"
+    );
+
+    // And the ranked list can be asked to leave claimed work out.
+    let unclaimed = d
+        .call(
+            "keel_ready",
+            args(json!({"project": project_id, "unclaimed": true})),
+        )
+        .await;
+    assert!(
+        !unclaimed["ready"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["id"] == task.as_str()),
+        "a claimed task is not unclaimed work"
+    );
+}
+
+// The Phase 8 exit criterion, over the real transport: a task cannot reach
+// `done` without a reason, a message and evidence, and `keel_update` is held to
+// the same rule as `keel_close`.
+#[tokio::test]
+async fn a_task_cannot_be_finished_without_saying_why_or_showing_the_work() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+    let created = d
+        .call(
+            "keel_create",
+            args(json!({
+                "type": "task", "project": project_id, "title": "Finished properly or not at all",
+                "summary": "A task used to check that closing states a reason. Done when the \
+                            bare status change is refused."
+            })),
+        )
+        .await;
+    let task = created["entity"]["id"].as_str().unwrap().to_owned();
+    let version = created["entity"]["version"].as_i64().unwrap();
+
+    // The workaround path: move the status directly. Refused, which is what
+    // makes the rule an invariant rather than a convention in a markdown file.
+    let (status, error) = d
+        .call_err(
+            "keel_update",
+            args(json!({
+                "id": task, "version": version, "changes": { "status": "done" }
+            })),
+        )
+        .await;
+    assert_eq!(status, 400);
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("why"),
+        "{error}"
+    );
+
+    // The tool, with no evidence. Also refused.
+    let (_, error) = d
+        .call_err(
+            "keel_close",
+            args(json!({
+                "id": task, "reason": "done", "message": "It is finished, honestly."
+            })),
+        )
+        .await;
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("evidence"),
+        "{error}"
+    );
+
+    // And properly.
+    let closed = d
+        .call(
+            "keel_close",
+            args(json!({
+                "id": task, "reason": "done",
+                "message": "The close path now asks for the reason, the message and the \
+                            evidence together.",
+                "evidence": ["commit:0f1e2d3", "test:cargo test -p keel-daemon"]
+            })),
+        )
+        .await;
+    assert_eq!(closed["task"]["status"], "done");
+    assert_eq!(closed["task"]["close_reason"], "done");
+    assert!(closed["task"]["closed_at"].is_string());
 }

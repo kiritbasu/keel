@@ -1890,6 +1890,7 @@ dependencies = [
  "chrono",
  "clap",
  "keel-core",
+ "keel-mcp",
  "serde",
  "serde_json",
  "tempfile",

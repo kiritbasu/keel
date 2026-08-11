@@ -411,7 +411,7 @@ expression: "keel_mcp::list_result()"
         "idempotentHint": true,
         "readOnlyHint": false
       },
-      "description": "Change fields on an existing artifact, including status transitions. Returns the updated artifact.\n\n**Not for prose.** A document body belongs to `keel_write_doc`, which versions it; this tool is for the fields around it — title, status, kind. Sending a body here would overwrite without a revision, and the previous author's text would be gone.\n\nPass the `version` you read. If someone else changed it since, the call is rejected with the current state and the events that happened in between, so you can usually merge and retry without asking anyone.\n\nAn accepted decision's content is immutable — supersede it with a new decision linked by `supersedes` rather than editing it. Use `archive: true` to soft-delete; nothing in Keel is ever really deleted.\n\nTo reorder a task, put `rank_after` or `rank_before` in `changes` naming another task — `{\"rank_after\": \"KEEL-12\"}` — rather than choosing a number. To make one task part of another, set `parent_id`; that is composition, and it is a different thing from `blocks`, which means \"must happen first\".",
+      "description": "Change fields on an existing artifact, including status transitions. Returns the updated artifact.\n\n**Not for prose.** A document body belongs to `keel_write_doc`, which versions it; this tool is for the fields around it — title, status, kind. Sending a body here would overwrite without a revision, and the previous author's text would be gone.\n\nPass the `version` you read. If someone else changed it since, the call is rejected with the current state and the events that happened in between, so you can usually merge and retry without asking anyone.\n\nAn accepted decision's content is immutable — supersede it with a new decision linked by `supersedes` rather than editing it. Use `archive: true` to soft-delete; nothing in Keel is ever really deleted.\n\nTo reorder a task, put `rank_after` or `rank_before` in `changes` naming another task — `{\"rank_after\": \"KEEL-12\"}` — rather than choosing a number. To make one task part of another, set `parent_id`; that is composition, and it is a different thing from `blocks`, which means \"must happen first\".\n\n**Two task transitions belong to their own tools.** Starting work is `keel_claim`, which records who is on it; finishing is `keel_close`, which asks for the reason, the message and the evidence together. A `status` of `done` or `wont_do` sent here is refused without all three, so reaching for this tool to close something only costs you a round trip.",
       "inputSchema": {
         "properties": {
           "archive": {
@@ -632,6 +632,188 @@ expression: "keel_mcp::list_result()"
       },
       "name": "keel_link",
       "title": "Link two artifacts"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": true
+      },
+      "description": "The answer to 'what should I do next', ranked. Open work with nothing live in its way, best first.\n\nCall this rather than `keel_context` when the project is already familiar and the question is only what to pick up — the digest costs roughly 3,500 tokens and this costs a fraction of it.\n\nThe order is deliberate: **what a task unblocks comes before its priority**, so a p1 that releases three other tasks ranks above a p0 that releases nothing. Each row carries the reason it is where it is.\n\nParents are excluded, because their children are the actual work. Decisions waiting on a human are excluded too — they are in `keel_context`'s open questions, and nothing can start on them until someone answers.\n\nThen `keel_claim` the one you pick, so the row says who is on it.",
+      "inputSchema": {
+        "properties": {
+          "labels": {
+            "description": "Only tasks carrying **all** of these labels.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "default": 10,
+            "description": "How many to return. The response says how many were ready in total, so a cut list is never mistaken for the whole one.",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "milestone": {
+            "description": "Only work under this milestone — 'what is next in Phase 8' in one argument. An id or its name.",
+            "type": "string"
+          },
+          "project": {
+            "description": "Project id, slug or name.",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          },
+          "unclaimed": {
+            "default": false,
+            "description": "Only work nobody is holding. Pass this when another session may be running alongside you.",
+            "type": "boolean"
+          },
+          "without_labels": {
+            "description": "Skip tasks carrying any of these labels.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "project"
+        ],
+        "type": "object"
+      },
+      "name": "keel_ready",
+      "title": "What can be worked on right now"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Move a task to `in_progress` and record that this session is doing it. Call this **before** the work, not after — the point is that someone looking at the board can see what is happening now rather than only what has finished.\n\nRefused if another session is already holding it, and the refusal names that session. A claim releases itself after three days, so a conversation that died mid-task does not hold work hostage, and `force` takes a live claim deliberately. Closing releases it immediately.\n\nRe-claiming your own task is a no-op, so a retry costs nothing.\n\nThis needs your `session_id`. It is the one call that is refused without one: everywhere else an anonymous write is merely less traceable, but a claim naming nobody says the task is taken and not by whom.",
+      "inputSchema": {
+        "properties": {
+          "force": {
+            "default": false,
+            "description": "Take a claim another session still holds. Use it when you know that session is gone.",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "The task — `KEEL-42` or a `tsk_…` id.",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "description": "Makes a retry a no-op instead of a duplicate. Derived from the project, type and normalised title when omitted, which is usually what you want — supply one only when two genuinely different things share a title.",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "keel_claim",
+      "title": "Take a task, so the row says who is on it"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Close a task with a reason, a message, and — for `done` — evidence. This is the tool for finishing work; `keel_update` can move a status but will refuse a terminal one without all of this, so use this instead of working around it.\n\nThe five reasons:\n- `done` — finished. Needs a message and at least one piece of evidence.\n- `wont_do` — deliberately not doing it. Needs a message.\n- `duplicate` — the same work as another task. Names it, and draws a `duplicates` edge.\n- `superseded` — replaced by another task. Names it, and draws a `supersedes` edge.\n- `no_change` — looked at it, nothing needed doing. Needs a message.\n\nEvidence is typed so that 'what shipped this week, with the commits' is a query rather than prose: `commit:<sha>`, `pr:<url>`, `test:<command>`, `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`. A bare sha is refused.\n\nThe message is the one sentence that belongs to the transition. Anything else you learned along the way belongs in `keel_note`, which keeps accumulating.",
+      "inputSchema": {
+        "properties": {
+          "evidence": {
+            "description": "Typed proof, at least one for `done`: `commit:<sha>`, `pr:<url>`, `test:<command>`, `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "description": "The task — `KEEL-42` or a `tsk_…` id.",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "description": "Makes a retry a no-op instead of a duplicate. Derived from the project, type and normalised title when omitted, which is usually what you want — supply one only when two genuinely different things share a title.",
+            "type": "string"
+          },
+          "message": {
+            "description": "What actually happened, in a sentence or two. What was built, or why it is not being done — it is what the next session reads instead of guessing from a status.\n\nWrite it the way you would say it to a colleague. Plain words, no padding, no sentence that exists to sound considered. Avoid \"leverage\", \"utilize\", \"robust\", \"seamless\", \"delve\", \"in order to\", \"it's worth noting\" — these are refused. Quoting an error message or what someone actually said is fine: put it in a code fence or a block quote and it is exempt.",
+            "type": "string"
+          },
+          "other": {
+            "description": "For `duplicate` and `superseded` only: the task this one duplicates, or the one that replaced it.",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Which of the five.",
+            "enum": [
+              "done",
+              "wont_do",
+              "duplicate",
+              "superseded",
+              "no_change"
+            ],
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reason",
+          "message"
+        ],
+        "type": "object"
+      },
+      "name": "keel_close",
+      "title": "Finish a task, saying why and showing the work"
     }
   ],
   "ttlMs": 86400000

@@ -225,12 +225,13 @@ fn every_advertised_tool_is_dispatchable_and_vice_versa() {
 
 #[test]
 fn the_tool_count_is_what_the_documentation_claims() {
-    // "Nine" was written in five places after the tenth tool landed. A number
-    // in prose drifts; a number in an assertion does not.
+    // "Nine" was written in five places after the tenth tool landed, and "ten"
+    // in as many after the thirteenth. A number in prose drifts; a number in an
+    // assertion does not.
     assert_eq!(
         keel_mcp::tools::all().len(),
-        10,
-        "ten is the ceiling and the count — if this changes, every place that \
-         states it has to change with it"
+        13,
+        "thirteen is the ceiling and the count — if this changes, every place \
+         that states it has to change with it"
     );
 }

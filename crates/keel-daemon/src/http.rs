@@ -31,6 +31,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/context", get(api_context))
         .route("/api/projects", get(api_projects))
         .route("/api/search", get(api_search))
+        .route("/api/ready", get(api_ready))
         .route("/api/activity", get(api_activity))
         .route("/api/entity/{id}", get(api_entity))
         .route("/api/entity/{id}/history", get(api_entity_history))
@@ -565,6 +566,28 @@ async fn api_search(
         &mut store,
         keel_mcp::ToolCall {
             name: "keel_search",
+            arguments: &args,
+        },
+    ))
+}
+
+/// What can be worked on right now.
+///
+/// The same `keel_ready` the CLI and a model call, reached the same way every
+/// other read is: through the tool, with the query string mapped by the tool's
+/// own schema. That is what makes "the app agrees with the session" a property of
+/// the code rather than a thing to keep checking — there is one ranking, and all
+/// three surfaces read it.
+async fn api_ready(
+    State(state): State<AppState>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    let args = params_to_json("keel_ready", params);
+    let mut store = state.store();
+    as_api(keel_mcp::dispatch(
+        &mut store,
+        keel_mcp::ToolCall {
+            name: "keel_ready",
             arguments: &args,
         },
     ))

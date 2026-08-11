@@ -22,6 +22,10 @@ workspace = true
 
 [dependencies]
 keel-core.workspace = true
+# For the protocol's own header names and version string, so `keel claim` and
+# `keel close` talk to the daemon's MCP endpoint without a second copy of the
+# handshake to keep in step. It brings no network dependency with it.
+keel-mcp.workspace = true
 clap = { workspace = true, features = ["env"] }
 anyhow.workspace = true
 tracing.workspace = true

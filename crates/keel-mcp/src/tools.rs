@@ -1,8 +1,9 @@
-//! The ten tool definitions.
+//! The thirteen tool definitions.
 //!
-//! Ten, not forty. Models choose correctly among ten and badly among forty,
-//! and `product/CLAUDE.md` names expanding this surface as an anti-pattern
-//! explicitly: more tools means worse selection, not more capability.
+//! Thirteen, not forty. Models choose correctly among a dozen and badly among
+//! forty, and `product/CLAUDE.md` names expanding this surface as an
+//! anti-pattern explicitly: more tools means worse selection, not more
+//! capability. The argument for the last three is on [`all`].
 //!
 //! # These descriptions are the product
 //!
@@ -12,7 +13,7 @@
 //! like a function signature produces an agent that calls the wrong tool
 //! confidently.
 
-use keel_core::{EntityType, Relation, TaskPriority, TaskStatus};
+use keel_core::{CloseReason, EntityType, Relation, TaskPriority, TaskStatus};
 use serde_json::{Value, json};
 
 /// A tool as advertised over `tools/list`.
@@ -144,13 +145,14 @@ fn relation_enum() -> Value {
     enum_of(Relation::ALL.iter().map(|r| r.as_str()))
 }
 
-/// The ten tools, in a stable order.
+/// The thirteen tools, in a stable order.
 ///
 /// Order is deliberate and must not change casually: the specification asks
 /// for a deterministic `tools/list` so clients can cache it and so the list
 /// lands identically in every prompt, which is worth real money in cache hits.
 /// The order is also pedagogical — `keel_context` first because it is the
-/// entry point, writes after reads.
+/// entry point, writes after reads, and the three work verbs last because they
+/// are what you reach for once you know what the project is.
 ///
 /// # Why ten and not nine
 ///
@@ -167,7 +169,29 @@ fn relation_enum() -> Value {
 /// `keel_update` is optimistic-concurrency and takes one. Folding them
 /// together would give `keel_update` a mode that ignores its own contract.
 ///
-/// Ten is the new ceiling, and it should be defended the way nine was.
+/// # Why thirteen and not ten
+///
+/// TQ-31, KB's call. The same argument, applied to the same evidence: what
+/// decides whether an action happens is whether it is findable at the moment
+/// of use. Claiming and closing were both already possible through
+/// `keel_update`, and both were simply not done — across sixty-six tasks the
+/// number of transitions into `in_progress` before work began was zero.
+///
+/// I recommended twelve, on the grounds that two ways to close a task is how
+/// the two come to disagree. That reasoning does not survive: the storage layer
+/// enforces the reason-message-evidence rule on every path into a terminal
+/// status regardless, so drift is impossible under any option. With that
+/// removed, twelve was the least principled of the three — it gives claiming a
+/// front door and closing none, when they are the same shape of thing, purely
+/// to match a number in a spec.
+///
+/// The cost, accepted: roughly 200 tokens per request and marginally more
+/// chance of a wrong selection on an unrelated call. `keel_update`'s
+/// description points at `keel_close` so the overlap is signposted rather than
+/// left to chance.
+///
+/// **Thirteen is the new ceiling**, and it should be defended the way ten was.
+/// A fourteenth needs an argument at least as good as this one.
 pub fn all() -> Vec<Tool> {
     vec![
         Tool {
@@ -531,7 +555,12 @@ pub fn all() -> Vec<Tool> {
                  To reorder a task, put `rank_after` or `rank_before` in `changes` naming another \
                  task — `{\"rank_after\": \"KEEL-12\"}` — rather than choosing a number. To make one \
                  task part of another, set `parent_id`; that is composition, and it is a different \
-                 thing from `blocks`, which means \"must happen first\"."
+                 thing from `blocks`, which means \"must happen first\".\n\n\
+                 **Two task transitions belong to their own tools.** Starting work is \
+                 `keel_claim`, which records who is on it; finishing is `keel_close`, which asks \
+                 for the reason, the message and the evidence together. A `status` of `done` or \
+                 `wont_do` sent here is refused without all three, so reaching for this tool to \
+                 close something only costs you a round trip."
                     .to_owned(),
             read_only: false,
             destructive: true,
@@ -701,6 +730,169 @@ pub fn all() -> Vec<Tool> {
                 true,
             ),
         },
+        Tool {
+            name: "keel_ready",
+            title: "What can be worked on right now",
+            description:
+                "The answer to 'what should I do next', ranked. Open work with nothing live in \
+                 its way, best first.\n\n\
+                 Call this rather than `keel_context` when the project is already familiar and \
+                 the question is only what to pick up — the digest costs roughly 3,500 tokens \
+                 and this costs a fraction of it.\n\n\
+                 The order is deliberate: **what a task unblocks comes before its priority**, \
+                 so a p1 that releases three other tasks ranks above a p0 that releases \
+                 nothing. Each row carries the reason it is where it is.\n\n\
+                 Parents are excluded, because their children are the actual work. Decisions \
+                 waiting on a human are excluded too — they are in `keel_context`'s open \
+                 questions, and nothing can start on them until someone answers.\n\n\
+                 Then `keel_claim` the one you pick, so the row says who is on it."
+                    .to_owned(),
+            read_only: true,
+            destructive: false,
+            idempotent: true,
+            input_schema: with_ambient(
+                json!({
+                    "type": "object",
+                    "required": ["project"],
+                    "properties": {
+                        "project": { "type": "string", "description": "Project id, slug or name." },
+                        "unclaimed": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Only work nobody is holding. Pass this when another \
+                                            session may be running alongside you."
+                        },
+                        "labels": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "Only tasks carrying **all** of these labels."
+                        },
+                        "without_labels": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "Skip tasks carrying any of these labels."
+                        },
+                        "milestone": {
+                            "type": "string",
+                            "description": "Only work under this milestone — 'what is next in \
+                                            Phase 8' in one argument. An id or its name."
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "default": 10,
+                            "minimum": 1,
+                            "maximum": 100,
+                            "description": "How many to return. The response says how many were \
+                                            ready in total, so a cut list is never mistaken for \
+                                            the whole one."
+                        }
+                    }
+                }),
+                false,
+            ),
+        },
+        Tool {
+            name: "keel_claim",
+            title: "Take a task, so the row says who is on it",
+            description:
+                "Move a task to `in_progress` and record that this session is doing it. Call this \
+                 **before** the work, not after — the point is that someone looking at the \
+                 board can see what is happening now rather than only what has finished.\n\n\
+                 Refused if another session is already holding it, and the refusal names that \
+                 session. A claim releases itself after three days, so a conversation that died \
+                 mid-task does not hold work hostage, and `force` takes a live claim \
+                 deliberately. Closing releases it immediately.\n\n\
+                 Re-claiming your own task is a no-op, so a retry costs nothing.\n\n\
+                 This needs your `session_id`. It is the one call that is refused without one: \
+                 everywhere else an anonymous write is merely less traceable, but a claim \
+                 naming nobody says the task is taken and not by whom."
+                    .to_owned(),
+            read_only: false,
+            destructive: false,
+            idempotent: true,
+            input_schema: with_ambient(
+                json!({
+                    "type": "object",
+                    "required": ["id"],
+                    "properties": {
+                        "id": {
+                            "type": "string",
+                            "description": "The task — `KEEL-42` or a `tsk_…` id."
+                        },
+                        "force": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Take a claim another session still holds. Use it when \
+                                            you know that session is gone."
+                        }
+                    }
+                }),
+                true,
+            ),
+        },
+        Tool {
+            name: "keel_close",
+            title: "Finish a task, saying why and showing the work",
+            description:
+                "Close a task with a reason, a message, and — for `done` — evidence. This is the \
+                 tool for finishing work; `keel_update` can move a status but will refuse a \
+                 terminal one without all of this, so use this instead of working around it.\n\n\
+                 The five reasons:\n\
+                 - `done` — finished. Needs a message and at least one piece of evidence.\n\
+                 - `wont_do` — deliberately not doing it. Needs a message.\n\
+                 - `duplicate` — the same work as another task. Names it, and draws a \
+                 `duplicates` edge.\n\
+                 - `superseded` — replaced by another task. Names it, and draws a `supersedes` \
+                 edge.\n\
+                 - `no_change` — looked at it, nothing needed doing. Needs a message.\n\n\
+                 Evidence is typed so that 'what shipped this week, with the commits' is a \
+                 query rather than prose: `commit:<sha>`, `pr:<url>`, `test:<command>`, \
+                 `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`. A bare sha is refused.\n\n\
+                 The message is the one sentence that belongs to the transition. Anything else \
+                 you learned along the way belongs in `keel_note`, which keeps accumulating."
+                    .to_owned(),
+            read_only: false,
+            destructive: true,
+            idempotent: true,
+            input_schema: with_ambient(
+                json!({
+                    "type": "object",
+                    "required": ["id", "reason", "message"],
+                    "properties": {
+                        "id": {
+                            "type": "string",
+                            "description": "The task — `KEEL-42` or a `tsk_…` id."
+                        },
+                        "reason": {
+                            "type": "string",
+                            "enum": enum_of(CloseReason::ALL.iter().map(|r| r.as_str())),
+                            "description": "Which of the five."
+                        },
+                        "message": {
+                            "type": "string",
+                            "description": format!(
+                                "What actually happened, in a sentence or two. What was built, \
+                                 or why it is not being done — it is what the next session \
+                                 reads instead of guessing from a status.\n\n{HOUSE_STYLE}"
+                            )
+                        },
+                        "evidence": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "Typed proof, at least one for `done`: \
+                                            `commit:<sha>`, `pr:<url>`, `test:<command>`, \
+                                            `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`."
+                        },
+                        "other": {
+                            "type": "string",
+                            "description": "For `duplicate` and `superseded` only: the task this \
+                                            one duplicates, or the one that replaced it."
+                        }
+                    }
+                }),
+                true,
+            ),
+        },
     ]
 }
 
@@ -771,15 +963,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn there_are_exactly_ten_tools() {
-        // Nine was the ceiling from SPEC §6.1, and the rule was that a tenth
-        // needs KB's agreement rather than a passing test suite. KB asked for
-        // `keel_note` directly; the reasoning is in the doc comment on `all()`.
-        // Ten is the ceiling now and the same rule applies to an eleventh.
+    fn there_are_exactly_thirteen_tools() {
+        // Nine was the ceiling from SPEC §6.1, ten after `keel_note`, thirteen
+        // after the three work verbs (TQ-31). Each rise needed KB's agreement
+        // rather than a passing test suite, and the reasoning for the last one
+        // is in the doc comment on `all()`. A fourteenth needs an argument at
+        // least as good.
         assert_eq!(
             all().len(),
-            10,
-            "ten tools is the ceiling — more tools means worse model selection"
+            13,
+            "thirteen tools is the ceiling — more tools means worse model selection"
         );
     }
 
@@ -799,6 +992,9 @@ mod tests {
                 "keel_write_doc",
                 "keel_note",
                 "keel_link",
+                "keel_ready",
+                "keel_claim",
+                "keel_close",
             ]
         );
     }
@@ -850,6 +1046,7 @@ mod tests {
             "keel_get",
             "keel_projects",
             "keel_activity",
+            "keel_ready",
         ];
         for tool in all() {
             assert_eq!(
@@ -921,7 +1118,7 @@ mod tests {
         let list = list_result();
         assert!(list["ttlMs"].as_u64().unwrap() > 0);
         assert_eq!(list["cacheScope"], "public");
-        assert_eq!(list["tools"].as_array().unwrap().len(), 10);
+        assert_eq!(list["tools"].as_array().unwrap().len(), all().len());
     }
 
     #[test]

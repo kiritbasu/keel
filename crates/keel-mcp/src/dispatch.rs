@@ -293,6 +293,9 @@ pub fn dispatch(store: &mut DuckStore, call: ToolCall<'_>) -> Result<Value, RpcE
         "keel_write_doc" => keel_write_doc(store, args),
         "keel_link" => keel_link(store, args),
         "keel_note" => keel_note(store, args),
+        "keel_ready" => keel_ready(store, args),
+        "keel_claim" => keel_claim(store, args),
+        "keel_close" => keel_close(store, args),
         // INVALID_PARAMS, not METHOD_NOT_FOUND. The JSON-RPC *method* here is
         // `tools/call` and it exists; the tool name is one of its arguments.
         // The distinction is not pedantry: METHOD_NOT_FOUND is served as HTTP
@@ -1590,6 +1593,217 @@ fn parse_rels(value: Option<&Value>) -> Result<Vec<Relation>, RpcError> {
             Relation::parse(s).map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))
         })
         .collect()
+}
+
+/// Read an optional array-of-strings argument.
+///
+/// A bare string is accepted as a one-item list. Models send `"desktop"` where
+/// the schema says array often enough that refusing it would cost a round trip
+/// to teach nothing — and there is no other reading of a single string here.
+fn opt_str_list(args: &Value, field: &str) -> Vec<String> {
+    match args.get(field) {
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect(),
+        Some(Value::String(one)) => vec![one.clone()],
+        _ => Vec::new(),
+    }
+}
+
+fn keel_ready(store: &DuckStore, args: &Value) -> Result<Value, RpcError> {
+    let project = resolve_project(store, &req_str(args, "project")?)?;
+
+    // A milestone by name as well as by id: "what is next in Phase 8" is how the
+    // question gets asked, and making the caller find a ULID first would mean
+    // two calls to answer one question.
+    let milestone = match opt_str(args, "milestone") {
+        None => None,
+        Some(raw) => Some(resolve_milestone(store, &project, &raw)?),
+    };
+
+    let filter = keel_core::ReadyFilter {
+        unclaimed: opt_bool(args, "unclaimed"),
+        labels: opt_str_list(args, "labels"),
+        without_labels: opt_str_list(args, "without_labels"),
+        milestone,
+        limit: Some(opt_i64(args, "limit").unwrap_or(10).clamp(1, 100) as usize),
+    };
+
+    let ready = keel_core::ready(store, &project, &filter).map_err(|e| to_rpc_error(store, e))?;
+
+    let summary = if ready.items.is_empty() {
+        "Nothing is ready. Either everything open is blocked or waiting on a person — \
+         `keel_context` says which — or the filters are narrower than the work."
+            .to_owned()
+    } else {
+        let mut lines = vec![format!(
+            "{} ready, best first:",
+            if ready.truncated {
+                format!("{} of {}", ready.items.len(), ready.total)
+            } else {
+                ready.total.to_string()
+            }
+        )];
+        for c in &ready.items {
+            lines.push(format!("- **{}** {} — {}", c.reference, c.title, c.why));
+        }
+        if ready.truncated {
+            lines.push(format!(
+                "\n{} more were ready and are not listed. Raise `limit` to see them.",
+                ready.total - ready.items.len()
+            ));
+        }
+        lines.push("\nClaim the one you pick with `keel_claim`.".to_owned());
+        lines.join("\n")
+    };
+
+    Ok(tool_result(
+        summary,
+        json!({
+            "ready": ready.items.iter().map(candidate_json).collect::<Vec<_>>(),
+            "total": ready.total,
+            "truncated": ready.truncated,
+        }),
+    ))
+}
+
+/// One ranked candidate as JSON.
+fn candidate_json(c: &keel_core::Candidate) -> Value {
+    json!({
+        "id": c.id.to_string(),
+        "reference": c.reference,
+        "title": c.title,
+        "priority": c.priority,
+        "unblocks": c.unblocks,
+        "why": c.why,
+    })
+}
+
+/// Resolve a milestone by id or by name within one project.
+fn resolve_milestone(
+    store: &DuckStore,
+    project: &EntityId,
+    raw: &str,
+) -> Result<EntityId, RpcError> {
+    if let Ok(id) = EntityId::parse_as(raw, EntityType::Milestone)
+        && store.get(&id).ok().flatten().is_some()
+    {
+        return Ok(id);
+    }
+
+    let page = store
+        .list(
+            &EntityQuery::in_project(project.clone())
+                .of_type(EntityType::Milestone)
+                .limited(500),
+        )
+        .map_err(|e| to_rpc_error(store, e))?;
+
+    let needle = raw.to_lowercase();
+    // Prefix as well as exact, because the names here are "Phase 8 — The
+    // working loop" and nobody types the dash and the subtitle.
+    let matched = page.items.iter().find(|m| match m {
+        Entity::Milestone(ms) => {
+            let name = ms.name.to_lowercase();
+            name == needle || name.starts_with(&needle)
+        }
+        _ => false,
+    });
+
+    match matched {
+        Some(m) => Ok(m.id().clone()),
+        None => Err(bad_arg(
+            "milestone",
+            &format!("no milestone in this project matches `{raw}`"),
+            &format!(
+                "one of: {}",
+                page.items
+                    .iter()
+                    .map(|m| m.label().to_owned())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        )),
+    }
+}
+
+fn keel_claim(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
+    let id = resolve_required(store, "id", &req_str(args, "id")?)?;
+    let provenance = provenance_from(args)?;
+    let force = opt_bool(args, "force");
+
+    let claimed =
+        keel_core::claim(store, &id, force, &provenance).map_err(|e| to_rpc_error(store, e))?;
+
+    let reference =
+        readable_ref(store, &Entity::Task(claimed.task.clone())).unwrap_or_else(|| id.to_string());
+    let mut summary = format!("{reference} is yours — {}.", claimed.task.title);
+    if let Some(previous) = &claimed.took_over_from {
+        summary.push_str(&format!(
+            " Taken over from session {previous}, whose claim had gone stale."
+        ));
+    }
+
+    Ok(tool_result(
+        summary,
+        json!({
+            "task": entity_json(&Entity::Task(claimed.task)),
+            "reference": reference,
+            "took_over_from": claimed.took_over_from,
+        }),
+    ))
+}
+
+fn keel_close(store: &mut DuckStore, args: &Value) -> Result<Value, RpcError> {
+    let id = resolve_required(store, "id", &req_str(args, "id")?)?;
+    let reason = keel_core::CloseReason::parse(&req_str(args, "reason")?)
+        .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
+    let other = match opt_str(args, "other") {
+        None => None,
+        Some(raw) => Some(resolve_required(store, "other", &raw)?),
+    };
+    let provenance = provenance_from(args)?;
+
+    let request = keel_core::Close {
+        reason,
+        message: req_str(args, "message")?,
+        evidence: opt_str_list(args, "evidence"),
+        other,
+    };
+
+    let closed =
+        keel_core::close(store, &id, &request, &provenance).map_err(|e| to_rpc_error(store, e))?;
+
+    let reference =
+        readable_ref(store, &Entity::Task(closed.task.clone())).unwrap_or_else(|| id.to_string());
+    let mut summary = format!("{reference} closed as `{reason}` — {}.", closed.task.title);
+    if let Some((rel, target)) = &closed.linked {
+        summary.push_str(&format!(" Linked {rel} {target}."));
+    }
+    if !closed.task.evidence.is_empty() {
+        summary.push_str(&format!(" Evidence: {}.", closed.task.evidence.join(", ")));
+    }
+    // Said rather than assumed. A close is the natural moment to record what was
+    // learned, and the note stream is where the next session looks — but nothing
+    // in a status transition can carry it.
+    summary.push_str(
+        "\n\nIf you found something the next session should know, put it on the row with \
+         `keel_note`.",
+    );
+
+    Ok(tool_result(
+        summary,
+        json!({
+            "task": entity_json(&Entity::Task(closed.task)),
+            "reference": reference,
+            "linked": closed.linked.map(|(rel, to)| json!({
+                "rel": rel.as_str(),
+                "to": to.to_string(),
+            })),
+        }),
+    ))
 }
 
 /// The display label of a serialised entity.

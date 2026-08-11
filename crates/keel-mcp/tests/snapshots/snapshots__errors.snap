@@ -1,6 +1,5 @@
 ---
 source: crates/keel-mcp/tests/snapshots.rs
-assertion_line: 166
 expression: cases
 ---
 {
@@ -31,7 +30,7 @@ expression: cases
   "unknown_tool": {
     "error": {
       "code": -32602,
-      "message": "no tool named `keel_delete`. Available: keel_context, keel_search, keel_get, keel_projects, keel_activity, keel_create, keel_update, keel_write_doc, keel_note, keel_link"
+      "message": "no tool named `keel_delete`. Available: keel_context, keel_search, keel_get, keel_projects, keel_activity, keel_create, keel_update, keel_write_doc, keel_note, keel_link, keel_ready, keel_claim, keel_close"
     }
   }
 }
