@@ -43,8 +43,8 @@ describe("subscribe", () => {
       JSON.stringify({ kind: "note", entity_id: "tsk_1", summary: "keel_note completed" }),
     );
     expect(seen).toHaveLength(1);
-    expect(seen[0].kind).toBe("note");
-    expect(seen[0].entity_id).toBe("tsk_1");
+    expect(seen[0]!.kind).toBe("note");
+    expect(seen[0]!.entity_id).toBe("tsk_1");
   });
 
   it("reports an ordinary write as an entity change", () => {
@@ -54,7 +54,7 @@ describe("subscribe", () => {
       "change",
       JSON.stringify({ kind: "entity", event_id: "evt_1", summary: "keel_update completed" }),
     );
-    expect(seen[0].kind).toBe("entity");
+    expect(seen[0]!.kind).toBe("entity");
   });
 
   it("still fires when the payload cannot be parsed", () => {
@@ -65,7 +65,7 @@ describe("subscribe", () => {
     subscribe((c) => seen.push(c));
     FakeEventSource.last!.emit("change", "{ not json");
     expect(seen).toHaveLength(1);
-    expect(seen[0].kind).toBe("entity");
+    expect(seen[0]!.kind).toBe("entity");
   });
 
   it("treats lagging as a change, because a client that missed messages must refetch", () => {

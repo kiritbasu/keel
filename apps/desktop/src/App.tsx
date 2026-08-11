@@ -22,6 +22,7 @@ import {
 } from "./lib/router";
 import { Button, Tooltip, cx } from "./components/ui";
 import { CommandPalette } from "./components/CommandPalette";
+import { ThemeControl } from "./components/ThemeControl";
 import { HomeScreen } from "./screens/Home";
 import { ProjectScreen } from "./screens/Project";
 import { MetricsScreen } from "./screens/Metrics";
@@ -159,9 +160,9 @@ export function App() {
 
   return (
     <div className="flex h-full">
-      <nav className="flex w-52 shrink-0 flex-col border-r border-border-subtle bg-surface-raised">
+      <nav className="flex w-52 shrink-0 flex-col border-r border-border-subtle bg-surface-sunken">
         <div className="px-4 py-4">
-          <div className="text-heading font-semibold tracking-tight">Keel</div>
+          <div className="text-heading font-semibold tracking-tight text-brand">Keel</div>
           <div className="text-micro text-ink-faint">the project spine</div>
         </div>
 
@@ -216,14 +217,19 @@ export function App() {
           })}
         </div>
 
-        <div className="mt-auto flex items-center gap-2 px-3 py-3">
-          <Button size="sm" variant="ghost" onClick={() => setPaletteOpen(true)}>
-            Jump to…
-            <kbd className="font-mono text-micro text-ink-faint">⌘K</kbd>
-          </Button>
-          <Button size="sm" variant="ghost" onClick={refresh}>
-            Refresh
-          </Button>
+        <div className="mt-auto px-3 py-3">
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setPaletteOpen(true)}>
+              Jump to…
+              <kbd className="font-mono text-micro text-ink-faint">⌘K</kbd>
+            </Button>
+            <Button size="sm" variant="ghost" onClick={refresh}>
+              Refresh
+            </Button>
+          </div>
+          <div className="mt-cosy">
+            <ThemeControl />
+          </div>
         </div>
       </nav>
 

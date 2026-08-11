@@ -1,77 +1,144 @@
+/* ============================================================================
+   Keel — design tokens
+   Replaces the @theme block in apps/desktop/src/styles.css.
+
+   Four changes from what is there today:
+
+   1. A real typeface. The app uses the system stack, which is the single
+      biggest reason it reads as a template rather than a product. Geist is
+      open source (SIL OFL), drawn for interfaces, and has true tabular
+      figures — which matters here because half of this app is identifiers,
+      counts and timestamps sitting in columns.
+
+   2. A theme the user chooses. `data-theme` on <html> takes three values —
+      system, light, dark. Today there is only a `prefers-color-scheme` block,
+      so the operating system decides and there is no control in the app.
+
+   3. Every pair of colours declared once, with `light-dark()`. The light
+      scheme used to be a second copy of the palette in a media query, which
+      is how three status colours came to be missing from it. One declaration
+      per token means a value cannot exist in one scheme and not the other.
+
+   4. Named spacing, radius, elevation and focus. The type scale was named in
+      KEEL-73 and it worked. Everything else is still chosen by feel — p-2.5
+      here, p-4 there, `rounded` beside `rounded-lg` with no rule. Same
+      treatment.
+
+   Fonts are self-hosted, not fetched: this is a Tauri app that has to work
+   with no network. Put the woff2 files in apps/desktop/public/fonts/.
+   ========================================================================= */
+
 @import "tailwindcss";
 
-/* Keel's palette and type scale. Dark by default because that is where the
-   work happens, with a light scheme for anyone who prefers it. Everything else
-   in the app uses these tokens rather than raw colours or raw pixel sizes, so a
-   change here changes the app. */
-@theme {
-  --color-surface: oklch(0.17 0.012 265);
-  --color-surface-raised: oklch(0.21 0.014 265);
-  --color-surface-hover: oklch(0.25 0.016 265);
-  --color-border-subtle: oklch(0.30 0.016 265);
-  --color-ink: oklch(0.95 0.005 265);
-  --color-ink-muted: oklch(0.72 0.012 265);
-  --color-ink-faint: oklch(0.56 0.014 265);
-  --color-accent: oklch(0.72 0.15 235);
-  --color-good: oklch(0.74 0.16 155);
-  --color-warn: oklch(0.80 0.15 85);
-  --color-bad: oklch(0.68 0.19 25);
-  --font-sans: ui-sans-serif, -apple-system, "SF Pro Text", system-ui, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", monospace;
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-Variable.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMono-Variable.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-display: swap;
+}
 
-  /* Six named sizes, and only six. The app previously used eleven ad hoc pixel
-     values with no names, which meant no two screens agreed on what "a label"
-     or "a heading" was. A name is what makes a size a decision rather than a
-     guess: `text-micro` says "this is metadata", `text-[10px]` says nothing. */
-  --text-display: 1.5rem;      /* 24px — a single number worth reading across the room */
+/* `light-dark()` reads whichever half matches the element's used colour
+   scheme, so `color-scheme` is what actually switches the theme. Three
+   values, and `system` is the one that defers to the OS. */
+:root            { color-scheme: dark; }
+:root[data-theme="light"]  { color-scheme: light; }
+:root[data-theme="dark"]   { color-scheme: dark; }
+:root[data-theme="system"] { color-scheme: light dark; }
+
+@theme {
+  /* ---- Type -------------------------------------------------------------
+     One rule worth holding: the sans is for language, the mono is for
+     anything a machine assigned — identifiers, counts, timestamps, versions,
+     keycaps, diffs. That is a system rule rather than decoration, and it is
+     most of what makes a tool read as an instrument. */
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Interface scale — six sizes. KEEL-73 got this right; only the optical
+     tracking on the two largest is new. */
+  --text-display: 1.5rem;                  /* 24px */
   --text-display--line-height: 1.1;
-  --text-title: 1.25rem;       /* 20px — the page title, one per screen */
+  --text-display--letter-spacing: -0.02em;
+  --text-title: 1.25rem;                   /* 20px */
   --text-title--line-height: 1.2;
-  --text-heading: 0.9375rem;   /* 15px — section headings, and a row's own name */
+  --text-title--letter-spacing: -0.015em;
+  --text-heading: 0.9375rem;               /* 15px */
   --text-heading--line-height: 1.35;
-  --text-body: 0.875rem;       /* 14px — prose and inputs */
+  --text-heading--letter-spacing: -0.006em;
+  --text-body: 0.875rem;                   /* 14px */
   --text-body--line-height: 1.5;
-  --text-small: 0.8125rem;     /* 13px — dense lists, table cells, secondary prose */
+  --text-small: 0.8125rem;                 /* 13px */
   --text-small--line-height: 1.45;
-  --text-micro: 0.6875rem;     /* 11px — badges, keycaps, timestamps, provenance */
+  --text-micro: 0.6875rem;                 /* 11px */
   --text-micro--line-height: 1.4;
 
-  /* Two more, only for rendered document bodies. A spec has its own heading
-     hierarchy and needs steps above `text-title` that the interface never uses;
-     forcing an article and a toolbar onto one scale would flatten the article.
-     They are named rather than inlined so the count stays honest: eight sizes,
-     all of them a decision, in two clearly separated scales. */
-  --text-doc-title: 1.375rem;   /* 22px — a document's own h1 */
+  /* Document scale — a spec has its own hierarchy and must not be flattened
+     onto the interface scale. */
+  --text-doc-title: 1.375rem;
   --text-doc-title--line-height: 1.25;
-  --text-doc-section: 1.0625rem; /* 17px — its h2 */
+  --text-doc-section: 1.0625rem;
   --text-doc-section--line-height: 1.35;
+
+  /* ---- Space — four-based. Every padding and gap comes from here. ------- */
+  --spacing-hair: 0.125rem;
+  --spacing-tight: 0.25rem;
+  --spacing-snug: 0.375rem;
+  --spacing-base: 0.5rem;
+  --spacing-cosy: 0.75rem;
+  --spacing-room: 1rem;
+  --spacing-wide: 1.5rem;
+  --spacing-vast: 2rem;
+
+  /* ---- Radius — three, by role, so nothing is chosen by feel. ----------- */
+  --radius-control: 5px;   /* buttons, chips, inputs, rows */
+  --radius-card: 8px;      /* cards, panels */
+  --radius-overlay: 12px;  /* dialogs, the palette, menus */
+
+  /* ---- Surfaces ---------------------------------------------------------
+     Four, including a *sunken* one, which is new. The navigation rail sits
+     below the page rather than beside it, which gives the shell depth using
+     no shadow at all — shadows on near-black are mud. */
+  --color-surface-sunken: light-dark(oklch(0.965 0.003 250), oklch(0.13 0.008 250));
+  --color-surface:        light-dark(oklch(0.985 0.002 250), oklch(0.16 0.008 250));
+  --color-surface-raised: light-dark(oklch(1 0 0),           oklch(0.195 0.010 250));
+  --color-surface-hover:  light-dark(oklch(0.955 0.004 250), oklch(0.235 0.012 250));
+  --color-border-subtle:  light-dark(oklch(0.90 0.006 250),  oklch(0.28 0.012 250));
+  --color-border-strong:  light-dark(oklch(0.80 0.010 250),  oklch(0.38 0.014 250));
+
+  /* ---- Ink — three levels, and only three. ----------------------------- */
+  --color-ink:       light-dark(oklch(0.22 0.010 250), oklch(0.96 0.004 250));
+  --color-ink-muted: light-dark(oklch(0.46 0.012 250), oklch(0.73 0.010 250));
+  --color-ink-faint: light-dark(oklch(0.60 0.010 250), oklch(0.56 0.012 250));
+
+  /* ---- Interactive ------------------------------------------------------
+     The current thing, and nothing else: the selected nav item, focus, links,
+     the rank chip. A blue that is everywhere stops meaning "here". */
+  --color-accent:       light-dark(oklch(0.50 0.17 250), oklch(0.70 0.16 248));
+  --color-accent-quiet: light-dark(oklch(0.50 0.17 250 / 0.10), oklch(0.70 0.16 248 / 0.14));
+
+  /* ---- Identity ---------------------------------------------------------
+     The wordmark and the ready indicator, nowhere else. One colour that is
+     never semantic is what gives a palette a signature rather than a scheme. */
+  --color-brand: light-dark(oklch(0.55 0.12 70), oklch(0.78 0.13 75));
+
+  /* ---- Semantic ---------------------------------------------------------
+     Re-tuned per scheme rather than reused. A green at 0.74 lightness is
+     near-invisible on a near-white surface, and when "done" and "blocked"
+     both read as pale smudges the colour has stopped carrying information. */
+  --color-good: light-dark(oklch(0.50 0.14 155), oklch(0.74 0.16 155));
+  --color-warn: light-dark(oklch(0.54 0.13 70),  oklch(0.80 0.14 85));
+  --color-bad:  light-dark(oklch(0.52 0.20 25),  oklch(0.68 0.19 25));
+
+  --shadow-overlay: 0 16px 48px -12px light-dark(oklch(0.22 0.01 250 / 0.18), oklch(0 0 0 / 0.7));
 }
 
-/* The light scheme overrides the custom properties on :root rather than
-   declaring a second `@theme`. Tailwind v4 resolves every colour utility
-   through `var(--color-…)`, so an override here reaches utilities that were
-   generated once — and unlike a nested `@theme` it is not sensitive to where
-   the block sits in the cascade.
-
-   The status colours are overridden too, which they were not before. A hue
-   tuned to sit on a near-black surface at 0.74–0.80 lightness is close to
-   invisible on a near-white one: "done" and "blocked" both read as pale smudges
-   and the colour system stops carrying any information at all. */
-@media (prefers-color-scheme: light) {
-  :root {
-    --color-surface: oklch(0.99 0.002 265);
-    --color-surface-raised: oklch(0.97 0.004 265);
-    --color-surface-hover: oklch(0.94 0.006 265);
-    --color-border-subtle: oklch(0.88 0.008 265);
-    --color-ink: oklch(0.24 0.012 265);
-    --color-ink-muted: oklch(0.45 0.014 265);
-    --color-ink-faint: oklch(0.58 0.012 265);
-    --color-accent: oklch(0.52 0.16 245);
-    --color-good: oklch(0.52 0.14 155);
-    --color-warn: oklch(0.55 0.13 70);
-    --color-bad: oklch(0.53 0.20 25);
-  }
-}
+/* ---- Base ---------------------------------------------------------------- */
 
 html, body, #root { height: 100%; }
 
@@ -83,16 +150,34 @@ body {
   font-size: var(--text-body);
   line-height: var(--text-body--line-height);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Tauri: the window is the app, so nothing should rubber-band or be selectable
-   by accident. Text inside content areas opts back in. */
+/* Every number in this app sits in a column beside another number.
+   Proportional figures make those columns ragged. */
+.tabular, .font-mono, time, [data-numeric] { font-variant-numeric: tabular-nums; }
+
+/* Tauri: the window is the app. Content areas opt back in. */
 * { -webkit-user-select: none; user-select: none; }
 .selectable, .selectable * { -webkit-user-select: text; user-select: text; }
 
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb {
-  background: var(--color-border-subtle);
-  border-radius: 5px;
+/* One focus treatment everywhere, and only on keyboard focus, so a mouse
+   click does not leave a ring behind it. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-control);
 }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--color-border-subtle); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-border-strong); }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* Motion: short, and only on things that change state under the pointer.
+   Nothing in a tracker should animate on load. */
+@media (prefers-reduced-motion: no-preference) {
+  a, button, [role="button"] {
+    transition: background-color 90ms ease, color 90ms ease, border-color 90ms ease;
+  }
+}
