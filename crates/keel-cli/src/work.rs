@@ -101,6 +101,150 @@ pub fn ready(
     Ok(())
 }
 
+/// Print `keel lint`.
+///
+/// Read-only, and read through the daemon for the reason `fsck` is: a report you
+/// have to stop the daemon to run is one nobody runs.
+pub fn lint(
+    daemon: &str,
+    project: &str,
+    check: Option<&str>,
+    limit: usize,
+    json_out: bool,
+) -> Result<()> {
+    let mut url = format!("/api/lint?project={}&limit={limit}", urlencode(project));
+    // Asked for after the limit rather than before it, because filtering here
+    // would report a total for the whole project and a list for one rule, and
+    // the two numbers would look like a bug.
+    if check.is_some() {
+        url = format!("/api/lint?project={}&limit=10000", urlencode(project));
+    }
+
+    let Some(report) = read_daemon(daemon, &url)? else {
+        bail!(
+            "no daemon at {daemon}. `keel lint` reads through it, because DuckDB will not open \
+             the store while the daemon holds the write lock — start it with `keel-daemon`."
+        );
+    };
+
+    let mut findings: Vec<&Value> = report
+        .get("findings")
+        .and_then(Value::as_array)
+        .map(|a| a.iter().collect())
+        .unwrap_or_default();
+    if let Some(want) = check {
+        findings.retain(|f| f.get("check").and_then(Value::as_str) == Some(want));
+        findings.truncate(limit);
+    }
+
+    if json_out {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        return Ok(());
+    }
+
+    let scanned = report.get("scanned").and_then(Value::as_u64).unwrap_or(0);
+    let total = report.get("total").and_then(Value::as_u64).unwrap_or(0);
+
+    if total == 0 {
+        println!("{scanned} row(s) scanned, nothing to report");
+        return Ok(());
+    }
+
+    for finding in &findings {
+        let field = |k: &str| finding.get(k).and_then(Value::as_str).unwrap_or("");
+        println!("  {:<10} {}", field("reference"), field("detail"));
+    }
+
+    println!();
+    for entry in report
+        .get("by_check")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+    {
+        let name = entry.get("check").and_then(Value::as_str).unwrap_or("");
+        let count = entry.get("count").and_then(Value::as_u64).unwrap_or(0);
+        println!("  {count:>4}  {name}");
+    }
+    // What "the rest" means depends on whether a rule was asked for. Reporting
+    // the project total against a filtered list would read as a missing 231
+    // findings when the rule genuinely has none left, which is the difference
+    // between "there is more to see" and "this one is clear".
+    match check {
+        Some(want) => {
+            let for_rule = report
+                .get("by_check")
+                .and_then(Value::as_array)
+                .map(Vec::as_slice)
+                .unwrap_or_default()
+                .iter()
+                .find(|e| e.get("check").and_then(Value::as_str) == Some(want))
+                .and_then(|e| e.get("count").and_then(Value::as_u64))
+                .unwrap_or(0);
+            println!("\n{for_rule} {want} across {scanned} row(s), of {total} in total");
+            if (findings.len() as u64) < for_rule {
+                println!("{} shown — raise --limit for the rest", findings.len());
+            }
+        }
+        None => {
+            println!("\n{total} finding(s) across {scanned} row(s)");
+            if (findings.len() as u64) < total {
+                println!("{} shown — raise --limit for the rest", findings.len());
+            }
+        }
+    }
+    // Exits zero on purpose. These are rows that predate the rules that would
+    // have refused them, so a non-zero exit would fail every build until a
+    // person had worked through ninety of them by hand.
+    Ok(())
+}
+
+/// Percent-encode a query value, for the two places that build one by hand.
+fn urlencode(value: &str) -> String {
+    value
+        .chars()
+        .map(|c| match c {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
+            other => other
+                .to_string()
+                .bytes()
+                .map(|b| format!("%{b:02X}"))
+                .collect(),
+        })
+        .collect()
+}
+
+/// GET one path on the daemon, returning `Ok(None)` when nothing is listening.
+fn read_daemon(base: &str, path: &str) -> Result<Option<Value>> {
+    let response = match ureq::get(&format!("{base}{path}"))
+        .timeout(std::time::Duration::from_secs(60))
+        .call()
+    {
+        Ok(r) => r,
+        Err(ureq::Error::Status(404, _)) => bail!(
+            "the daemon at {base} does not know {path}, so it is older than this binary.\n\n\
+             Restart it from a current build: `./plugin/install.sh` then `keel-daemon`."
+        ),
+        Err(ureq::Error::Status(code, r)) => {
+            let text = r.into_string().unwrap_or_default();
+            let message = serde_json::from_str::<Value>(&text)
+                .ok()
+                .and_then(|v| {
+                    v.pointer("/error/message")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                })
+                .unwrap_or(text);
+            bail!("the daemon at {base} refused {path} ({code}): {message}");
+        }
+        Err(_) => return Ok(None),
+    };
+    let body: Value = response
+        .into_json()
+        .with_context(|| format!("read the daemon's response to {path}"))?;
+    Ok(Some(body.get("data").cloned().unwrap_or(body)))
+}
+
 /// Print `keel claim`.
 pub fn claim(
     home: &Path,

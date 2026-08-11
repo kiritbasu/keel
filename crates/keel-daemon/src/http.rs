@@ -50,6 +50,7 @@ pub fn router(state: AppState) -> Router {
         // not much of a check.
         .route("/api/blob/{id}", get(api_blob))
         .route("/api/fsck", get(api_fsck))
+        .route("/api/lint", get(api_lint))
         .route("/api/status", get(api_status))
         .route("/api/render-status", get(api_render_status))
         // The Tauri webview is served from `tauri://localhost`, so every call
@@ -680,6 +681,67 @@ async fn api_blob(State(state): State<AppState>, Path(id): Path<String>) -> Resp
 }
 
 /// Cross-engine integrity, run inside the process that holds the lock.
+/// Which rows a reader would struggle with.
+///
+/// Served here for the same reason `fsck` is: the CLI cannot open the store while
+/// this process holds the write lock, and a report you have to stop the daemon to
+/// read is one nobody runs.
+///
+/// Not an MCP tool, deliberately. Thirteen is the ceiling and this is
+/// housekeeping a person works through — a model handed a list of ninety rows to
+/// improve would improve them by inventing prose, which is the failure the rule
+/// exists to prevent.
+async fn api_lint(
+    State(state): State<AppState>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    let store = state.store();
+    let Some(reference) = params.get("project") else {
+        return api_error(
+            StatusCode::BAD_REQUEST,
+            codes::INVALID_PARAMS,
+            keel_core::Error::Invariant {
+                operation: "lint a project".to_owned(),
+                problem: "no `project` given, and lint reports on one project at a time".to_owned(),
+            },
+        );
+    };
+    let project = match keel_mcp::resolve_project(&store, reference) {
+        Ok(id) => id,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": { "code": e.code, "message": e.message } })),
+            )
+                .into_response();
+        }
+    };
+    let limit = params.get("limit").and_then(|l| l.parse::<usize>().ok());
+    match keel_core::lint(&store, &project, limit) {
+        Ok(report) => (
+            StatusCode::OK,
+            Json(json!({
+                "data": {
+                    "findings": report.findings.iter().map(|f| json!({
+                        "check": f.check,
+                        "id": f.id.to_string(),
+                        "reference": f.reference,
+                        "detail": f.detail,
+                    })).collect::<Vec<_>>(),
+                    "by_check": report.by_check().iter()
+                        .map(|(c, n)| json!({ "check": c, "count": n }))
+                        .collect::<Vec<_>>(),
+                    "scanned": report.scanned,
+                    "total": report.total,
+                    "truncated": report.truncated,
+                }
+            })),
+        )
+            .into_response(),
+        Err(e) => api_error(StatusCode::INTERNAL_SERVER_ERROR, codes::INTERNAL_ERROR, e),
+    }
+}
+
 async fn api_fsck(State(state): State<AppState>) -> Response {
     let store = state.store();
     match keel_core::fsck::check(&store) {

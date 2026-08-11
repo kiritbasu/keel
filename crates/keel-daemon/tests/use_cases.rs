@@ -1274,12 +1274,27 @@ async fn a_client_in_a_loop_is_rate_limited() {
 
     // Has to actually exceed the burst rather than assert against a number
     // small enough to be a coincidence.
+    //
+    // **`ping`, not `tools/list`, and that is not a detail.** The bucket refills
+    // at 50 a second, so a sequential loop only outruns it if each call is
+    // faster than 20ms. This test used to hammer `tools/list` and started
+    // failing the moment that response grew from ten tool definitions to
+    // thirteen — the limiter was fine and the test's margin was not. `ping`
+    // returns `{}` and passes through the same check, which is the one the test
+    // is about, so the assertion no longer depends on how big some other
+    // endpoint's response happens to be.
+    //
+    // Concurrently, too. A client in a loop does not wait for each answer, and
+    // firing them in batches is both a better likeness and the thing that makes
+    // the burst genuinely unreachable by refill.
     let mut limited = None;
-    for _ in 0..1000 {
-        let (status, body) = d.rpc("tools/list", json!({})).await;
-        if status == 429 {
-            limited = Some(body);
-            break;
+    'outer: for _ in 0..8 {
+        let batch = futures_util::future::join_all((0..200).map(|_| d.rpc("ping", json!({}))));
+        for (status, body) in batch.await {
+            if status == 429 {
+                limited = Some(body);
+                break 'outer;
+            }
         }
     }
 

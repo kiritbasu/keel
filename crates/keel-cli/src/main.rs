@@ -215,6 +215,31 @@ enum Command {
         version: i32,
     },
 
+    /// Report the rows a reader would struggle with. Never rewrites one.
+    ///
+    /// Three rules arrived after most of this store existed — a task needs a
+    /// summary, a close needs a reason, prose should not lean on a bare
+    /// identifier — and none of them can be enforced backwards. This is the
+    /// list a person works through.
+    ///
+    /// It does not fix anything, and that is the design: a machine filling in a
+    /// missing summary would write exactly the confident, plausible, wrong
+    /// prose the requirement exists to prevent.
+    Lint {
+        /// Project id, slug or name.
+        project: String,
+        /// Only this rule: task_without_summary, unexpanded_identifier,
+        /// closed_without_reason.
+        #[arg(long)]
+        check: Option<String>,
+        /// How many findings to print. The total is reported either way.
+        #[arg(long, default_value_t = 40)]
+        limit: usize,
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
+        daemon: String,
+    },
+
     /// What can be worked on right now, best first.
     ///
     /// Open work with nothing live in its way. Ordered by what a task unblocks
@@ -377,6 +402,12 @@ fn main() -> Result<()> {
             println!("{} — archived", archived.id());
             Ok(())
         }
+        Command::Lint {
+            project,
+            check,
+            limit,
+            daemon,
+        } => work::lint(daemon, project, check.as_deref(), *limit, cli.json),
         Command::Ready {
             project,
             unclaimed,
