@@ -22,6 +22,7 @@
 //! a measurement (`product/CLAUDE.md`, scale discipline).
 
 pub mod http;
+pub mod ratelimit;
 pub mod state;
 
 pub use http::router;

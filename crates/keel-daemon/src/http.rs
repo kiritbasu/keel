@@ -152,6 +152,29 @@ fn is_local_origin(normalised: &str) -> bool {
 
 /// The MCP endpoint.
 async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: String) -> Response {
+    // Before the Origin check and before the store is touched. The point is to
+    // spend as little as possible on a call that is not going to be served —
+    // an agent in a loop is cheap to refuse and expensive to answer.
+    if let Err(retry_after) = state.rate_limit.check() {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            [("retry-after", retry_after.as_secs().to_string())],
+            Json(json!({
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": codes::INVALID_REQUEST,
+                    "message": format!(
+                        "rate limited: too many calls in a short window. Retry in {}s. \
+                         If you are retrying a failing call, read the error rather than \
+                         sending it again — the same call will fail the same way.",
+                        retry_after.as_secs()
+                    )
+                }
+            })),
+        )
+            .into_response();
+    }
+
     if !origin_ok(&headers) {
         return (
             StatusCode::FORBIDDEN,

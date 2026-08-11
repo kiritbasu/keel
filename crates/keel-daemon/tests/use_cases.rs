@@ -1225,3 +1225,53 @@ async fn seed(d: &Daemon) -> String {
 
     project_id
 }
+
+/// A client that will not stop is refused rather than served.
+///
+/// The threat is not abuse — this daemon binds to loopback and serves one
+/// person. It is an agent in a loop: a model retrying a failing call as fast as
+/// the transport allows holds the store's global write lock and makes the
+/// product unusable for the human sitting in front of it. The MCP specification
+/// lists rate limiting under what a server should do, and there was none.
+#[tokio::test]
+async fn a_client_in_a_loop_is_rate_limited() {
+    let d = Daemon::start().await;
+
+    // Has to actually exceed the burst rather than assert against a number
+    // small enough to be a coincidence.
+    let mut limited = None;
+    for _ in 0..1000 {
+        let (status, body) = d.rpc("tools/list", json!({})).await;
+        if status == 429 {
+            limited = Some(body);
+            break;
+        }
+    }
+
+    let body = limited.expect("a caller that never pauses must eventually be refused");
+    let message = body["error"]["message"].as_str().unwrap_or_default();
+    assert!(message.contains("rate limited"), "{message}");
+    // Actionable, like every other error on this surface: a model reading it
+    // should stop hammering rather than retry immediately.
+    assert!(message.contains("Retry in"), "{message}");
+}
+
+/// And the limit does not hold ordinary work back.
+///
+/// A limiter that interrupts a session making its normal handful of calls in a
+/// row would be a worse bug than the one it prevents.
+#[tokio::test]
+async fn an_ordinary_run_of_calls_is_not_limited() {
+    let d = Daemon::start().await;
+    let project_id = seed(&d).await;
+
+    for _ in 0..10 {
+        let (status, _) = d
+            .rpc(
+                "tools/call",
+                json!({ "name": "keel_context", "arguments": args(json!({ "project": project_id })) }),
+            )
+            .await;
+        assert_eq!(status, 200, "a normal session must not be throttled");
+    }
+}

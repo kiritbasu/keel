@@ -49,6 +49,9 @@ pub struct AppState {
     store: Arc<Mutex<DuckStore>>,
     /// Broadcast of changes, for the SSE stream.
     pub changes: tokio::sync::broadcast::Sender<Change>,
+    /// The token bucket on `/mcp`. Shared, because the thing it protects — the
+    /// store's single write lock — is shared.
+    pub rate_limit: Arc<crate::ratelimit::RateLimit>,
 }
 
 impl AppState {
@@ -82,6 +85,7 @@ impl AppState {
         Ok(AppState {
             store: Arc::new(Mutex::new(store)),
             changes,
+            rate_limit: Arc::new(crate::ratelimit::RateLimit::default()),
         })
     }
 
@@ -91,6 +95,7 @@ impl AppState {
         AppState {
             store: Arc::new(Mutex::new(store)),
             changes,
+            rate_limit: Arc::new(crate::ratelimit::RateLimit::default()),
         }
     }
 
