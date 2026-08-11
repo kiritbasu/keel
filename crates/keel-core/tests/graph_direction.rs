@@ -20,9 +20,9 @@
 
 use keel_core::*;
 
-fn store() -> (SqliteStore, tempfile::TempDir) {
+fn store() -> (Store, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     (store, dir)
 }
 
@@ -32,7 +32,7 @@ fn prov() -> Provenance {
 
 /// A store with a project, plus a helper to make entities in it.
 struct Fixture {
-    store: SqliteStore,
+    store: Store,
     project_id: EntityId,
     _dir: tempfile::TempDir,
 }
@@ -442,8 +442,10 @@ fn archiving_an_entity_archives_its_links_but_not_its_neighbours() {
 
 #[test]
 fn linking_to_a_nonexistent_entity_is_refused() {
-    // The foreign key DuckDB cannot declare. Without this check a typo creates
-    // an edge to nothing, and the traversal silently drops it.
+    // The foreign key that cannot be declared: `links` is polymorphic across
+    // thirteen tables, so the column holding the far end has no single table to
+    // reference. Without this check a typo creates an edge to nothing, and the
+    // traversal silently drops it.
     let mut f = Fixture::new();
     let task = f.make(EntityType::Task, "T");
     let ghost = EntityId::generate(EntityType::Spec);

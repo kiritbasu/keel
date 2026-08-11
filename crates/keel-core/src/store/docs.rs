@@ -1,438 +1,97 @@
-//! Document revisions, blobs, and hybrid search.
+//! Document revisions and blobs, in the same file as the rows they describe.
 //!
-//! The prose half of the store. Revisions are append-only rows in the single
-//! Lance `documents` dataset (D-2), and search fuses two indexes by reciprocal
-//! rank:
+//! The prose half of the store, and the point of the whole move to one file: a
+//! revision, the header row it belongs to and an image attached to it are three
+//! writes in one transaction, so they cannot half-land. Across two engines they
+//! could, and `fsck`'s `orphan_document` check was the only way to find out —
+//! a Lance document pointing at a DuckDB row that was never written. That check
+//! is still here, and it should now only ever fire for a revision written
+//! against an id that never existed. `write_revision` guards that case itself,
+//! because `documents.entity_id` is polymorphic and no foreign key can express
+//! "one of five tables".
 //!
-//! - **DuckDB `fts_entities`** — BM25 over *every* searchable artifact, prose
-//!   included. Titles and bodies of the current revision are joined in from
-//!   Lance so one index covers the whole corpus.
-//! - **Lance `documents`** — vector search over the embeddings.
+//! # Why there is no `impl DocumentStore for Store` in this file
 //!
-//! Together these satisfy REQ-4's "every artifact type that carries text".
-//! Metrics and observations are excluded by design — they are numeric, and
-//! reaching them is a filter rather than a query.
+//! The trait has seven methods and this file has six of them, as inherent
+//! methods named exactly as the trait names them. The seventh is `search`, and
+//! since a trait impl missing a method does not compile, the `impl` block has
+//! to live where the last method is — in [`super::search`], which delegates
+//! each of these six in one line.
 //!
-//! # Why BM25 is DuckDB's job and not Lance's
-//!
-//! SPEC §5 put both halves inside `lance_hybrid_search`. Its keyword half
-//! turned out not to be characterisable: on an un-indexed dataset, multi-term
-//! queries match inconsistently — `"onboarding metering"` returns a document
-//! containing only *metering*, while `"onboarding slow"` returns nothing at all
-//! despite a document containing *onboarding*. The extension's documentation
-//! shows only single-word examples and documents no way to build the index that
-//! would presumably fix it.
-//!
-//! A search that returns plausible-but-wrong results is the same failure class
-//! as an inverted graph traversal, so it gets the same answer: do it somewhere
-//! the semantics are known. DuckDB's FTS extension is a real BM25 index with
-//! documented behaviour. Lance keeps the job it is uniquely good at — the
-//! vector index and the multimodal blobs — and `keel-core` was always doing the
-//! cross-index fusion anyway. See DECISIONS B-12.
-//!
-//! # The stale-index trap
-//!
-//! DuckDB's FTS index is a *snapshot*: it does not track inserts. An index
-//! built before a task was created simply will not return that task, and the
-//! caller sees a confident empty result rather than an error. That is the same
-//! failure shape as an inverted graph traversal, so it gets the same treatment
-//! — [`DuckStore::refresh_entity_index`] rebuilds whenever the event log has
-//! moved since the last build, and search always calls it first.
+//! **Those delegations use the fully-qualified form**, `Store::revision(self,
+//! …)` rather than `self.revision(…)`. Inside a trait impl the short form
+//! resolves to the trait method being written, not to the inherent one, and the
+//! result is a function that calls itself until the stack runs out — at
+//! runtime, with no warning at the point it was written.
 
-use super::rows::spec_for;
-use super::{Blob, DocumentStore, Page, SearchHit, SearchQuery, SearchSource};
+use super::Store;
+use super::rows::{TIMESTAMP_FORMAT, parse_ts};
+use crate::store::Blob;
 use crate::{
-    Actor, BlobId, DocId, DocStatus, Document, DocumentDiff, DuckStore, EntityId, EntityType,
-    Error, Result, Surface,
+    Actor, BlobId, DocId, DocStatus, Document, DocumentDiff, EntityId, Error, Result, Surface,
 };
 use chrono::{DateTime, Utc};
-use duckdb::types::{TimeUnit, Value};
-use duckdb::{Row, params_from_iter};
+use rusqlite::types::Value;
+use rusqlite::{Connection, Row, params, params_from_iter};
 
-/// The reciprocal-rank-fusion constant.
-///
-/// 60 is the value from the original RRF paper and the usual default. It
-/// controls how quickly a result's contribution decays with rank; at this
-/// corpus size the choice barely matters, and picking the well-known value
-/// means nobody has to wonder why it is 37.
-const RRF_K: f64 = 60.0;
-
-/// The columns of `lancedb.documents`, in insert order.
+/// The columns of `documents`, in insert order.
 const DOC_COLS: &str = "doc_id, entity_type, entity_id, project_id, version, parent_version, \
                         title, body, body_hash, media_ref, status, author, session_id, surface, \
                         created_at, embedding, embedding_model, embedding_version";
 
-impl DuckStore {
-    /// Render an embedding as a SQL array literal.
-    ///
-    /// Interpolated rather than bound because DuckDB's parameter binding has
-    /// no `FLOAT[384]` variant. Safe: every element is an `f32` this process
-    /// produced and formats as a plain number, so there is no string from any
-    /// caller anywhere in the result.
-    fn embedding_literal(embedding: Option<&Vec<f32>>) -> String {
-        match embedding {
-            None => "NULL".to_owned(),
-            Some(v) => {
-                let parts: Vec<String> = v.iter().map(|x| format!("{x:?}")).collect();
-                format!("[{}]::FLOAT[{}]", parts.join(","), v.len())
-            }
-        }
-    }
+/// The placeholders for [`DOC_COLS`], numbered so the binding order is visible
+/// in the statement rather than only in the parameter vector.
+const DOC_VALUES: &str = "?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, \
+                          ?16, ?17, ?18";
 
-    /// The highest revision number recorded for an entity, or zero.
-    fn max_version(&self, entity_id: &EntityId) -> Result<i32> {
-        let n: Option<i32> = self
-            .connection()
-            .query_row(
-                "SELECT max(version) FROM lancedb.documents WHERE entity_id = ?",
-                params_from_iter(vec![Value::Text(entity_id.as_str().to_owned())]),
-                |r| r.get(0),
-            )
-            .map_err(Error::storage(format!(
-                "find the latest revision of {entity_id}"
-            )))?;
-        Ok(n.unwrap_or(0))
-    }
-
-    /// Rebuild the entity keyword index if the event log has moved.
-    ///
-    /// Cheap to call: it compares one id and usually does nothing. The rebuild
-    /// itself is a full pass over the non-prose entity tables, which is
-    /// milliseconds at this scale and is not worth making incremental until a
-    /// measurement says otherwise.
-    pub fn refresh_entity_index(&self) -> Result<()> {
-        let latest: Option<String> = self
-            .connection()
-            .query_row("SELECT max(id) FROM events", [], |r| r.get(0))
-            .map_err(Error::storage("read the newest event id"))?;
-        let latest = latest.unwrap_or_default();
-
-        let indexed: Option<String> = self
-            .connection()
-            .query_row(
-                "SELECT last_event_id FROM _keel_fts_state WHERE id = 1",
-                [],
-                |r| r.get(0),
-            )
-            .ok()
-            .flatten();
-
-        if indexed.as_deref() == Some(latest.as_str()) {
-            return Ok(());
-        }
-
-        // Every searchable type, prose included: the current revision's title
-        // and body are joined in from the Lance dataset so one BM25 index
-        // covers the whole corpus (DECISIONS B-12).
-        //
-        // These run as three separate statements, not one batch, and that is
-        // load-bearing: `create_fts_index` is a macro that queries the target
-        // table, and it cannot see a table created earlier in the same batch.
-        // Batching them fails with "Table with name fts_entities does not
-        // exist", which reads like a typo and is not one.
-        let rebuild = "CREATE OR REPLACE TABLE fts_entities AS
-             SELECT id, 'project' AS entity_type, id AS project_id, name AS label,
-                    COALESCE(description, '') AS body FROM projects WHERE archived_at IS NULL
-             UNION ALL
-             SELECT id, 'milestone', project_id, name, COALESCE(summary, '')
-                    FROM milestones WHERE archived_at IS NULL
-             UNION ALL
-             SELECT id, 'task', project_id, title, COALESCE(body, '')
-                    FROM tasks WHERE archived_at IS NULL
-             UNION ALL
-             SELECT id, 'term', COALESCE(project_id, ''), term, definition
-                    FROM terms WHERE archived_at IS NULL
-             UNION ALL
-             SELECT id, 'environment', project_id, name,
-                    COALESCE(url, '') || ' ' || COALESCE(deployed_version, '')
-                    FROM environments WHERE archived_at IS NULL
-             UNION ALL
-             SELECT id, 'artifact', project_id, name, COALESCE(url, '')
-                    FROM artifacts WHERE archived_at IS NULL
-             UNION ALL
-             SELECT d.entity_id, d.entity_type, COALESCE(d.project_id, ''), d.title, d.body
-                    FROM lancedb.documents d WHERE d.status = 'current';";
-
-        self.connection()
-            .execute_batch(rebuild)
-            .map_err(Error::storage("rebuild the entity keyword index"))?;
-
-        self.connection()
-            .execute_batch(
-                "PRAGMA create_fts_index('fts_entities', 'id', 'label', 'body', overwrite = 1);",
-            )
-            .map_err(Error::storage("build the BM25 index over the entity table"))?;
-
-        self.connection()
-            .execute_batch(&format!(
-                "CREATE TABLE IF NOT EXISTS _keel_fts_state \
-                   (id INTEGER PRIMARY KEY, last_event_id VARCHAR);
-                 DELETE FROM _keel_fts_state WHERE id = 1;
-                 INSERT INTO _keel_fts_state VALUES (1, '{}');",
-                latest.replace('\'', "''")
-            ))
-            .map_err(Error::storage("record the entity index watermark"))
-    }
-
-    /// Semantic search over the Lance `documents` dataset.
-    ///
-    /// Vector only. The keyword half of document search lives in DuckDB — see
-    /// [`DuckStore::search_keyword`] and DECISIONS B-12 for why.
-    ///
-    /// Returns an empty list when there is no embedder, which is the honest
-    /// answer: without one there is no semantic half, and the keyword half
-    /// still covers everything.
-    fn search_semantic(&self, query: &SearchQuery) -> Result<Vec<SearchHit>> {
-        let Some(embedder) = self.embedder() else {
-            return Ok(Vec::new());
-        };
-        let vector = embedder.embed_one(&query.text)?;
-
-        let dataset = self.root().join("lance").join("documents.lance");
-        let dataset = dataset.display().to_string().replace('\'', "''");
-
-        let mut clauses = vec!["status = 'current'".to_owned()];
-        let mut params: Vec<Value> = Vec::new();
-        if let Some(p) = &query.project_id {
-            clauses.push("project_id = ?".to_owned());
-            params.push(Value::Text(p.as_str().to_owned()));
-        }
-        if !query.entity_types.is_empty() {
-            let list: Vec<String> = query
-                .entity_types
-                .iter()
-                .filter(|t| t.has_document())
-                .map(|t| format!("'{}'", t.as_str()))
-                .collect();
-            if list.is_empty() {
-                return Ok(Vec::new());
-            }
-            clauses.push(format!("entity_type IN ({})", list.join(", ")));
-        }
-        if let Some(since) = query.since {
-            clauses.push("created_at >= ?".to_owned());
-            params.push(Value::Timestamp(
-                TimeUnit::Microsecond,
-                since.timestamp_micros(),
-            ));
-        }
-        if let Some(until) = query.until {
-            clauses.push("created_at < ?".to_owned());
-            params.push(Value::Timestamp(
-                TimeUnit::Microsecond,
-                until.timestamp_micros(),
-            ));
-        }
-
-        // Lower `_distance` is closer, so the ordering is ascending and the
-        // score is negated on the way out — RRF only uses rank, but a caller
-        // reading `score` should not see "smaller is better" without warning.
-        let sql = format!(
-            "SELECT entity_type, entity_id, project_id, title, body, _distance
-             FROM (SELECT * FROM lance_vector_search('{dataset}', 'embedding', {}, k := {}))
-             WHERE {}
-             ORDER BY _distance ASC
-             LIMIT {}",
-            Self::embedding_literal(Some(&vector)),
-            query.inner_limit(),
-            clauses.join(" AND "),
-            query.limit
-        );
-
-        let mut stmt = self
-            .connection()
-            .prepare(&sql)
-            .map_err(Error::storage("prepare the semantic search"))?;
-        let mut rows = stmt
-            .query(params_from_iter(params))
-            .map_err(Error::storage("run the semantic search"))?;
-
-        let mut out = Vec::new();
-        while let Some(row) = rows
-            .next()
-            .map_err(Error::storage("read a semantic search hit"))?
-        {
-            let body: String = row.get("body").unwrap_or_default();
-            out.push(SearchHit {
-                entity_id: EntityId::parse(
-                    &row.get::<_, String>("entity_id")
-                        .map_err(Error::storage("read a hit's entity_id"))?,
-                )?,
-                entity_type: EntityType::parse(
-                    &row.get::<_, String>("entity_type")
-                        .map_err(Error::storage("read a hit's entity_type"))?,
-                )?,
-                project_id: match row.get::<_, Option<String>>("project_id").ok().flatten() {
-                    Some(p) if !p.is_empty() => EntityId::parse(&p).ok(),
-                    _ => None,
-                },
-                title: row.get::<_, String>("title").unwrap_or_default(),
-                excerpt: excerpt(&body, &query.text),
-                score: -row
-                    .get::<_, Option<f64>>("_distance")
-                    .ok()
-                    .flatten()
-                    .unwrap_or(0.0),
-                source: SearchSource::Semantic,
-            });
-        }
-        Ok(out)
-    }
-
-    /// Keyword search over every searchable artifact, prose included.
-    fn search_keyword(&self, query: &SearchQuery) -> Result<Vec<SearchHit>> {
-        self.refresh_entity_index()?;
-
-        let mut clauses = vec!["score IS NOT NULL".to_owned()];
-        let mut params: Vec<Value> = vec![Value::Text(query.text.clone())];
-        if let Some(p) = &query.project_id {
-            clauses.push("project_id = ?".to_owned());
-            params.push(Value::Text(p.as_str().to_owned()));
-        }
-        if !query.entity_types.is_empty() {
-            let list: Vec<String> = query
-                .entity_types
-                .iter()
-                .filter(|t| t.is_searchable())
-                .map(|t| format!("'{}'", t.as_str()))
-                .collect();
-            if list.is_empty() {
-                return Ok(Vec::new());
-            }
-            clauses.push(format!("entity_type IN ({})", list.join(", ")));
-        }
-
-        let sql = format!(
-            "SELECT id, entity_type, project_id, label, body, score FROM (
-                 SELECT *, fts_main_fts_entities.match_bm25(id, ?) AS score FROM fts_entities
-             ) WHERE {} ORDER BY score DESC LIMIT {}",
-            clauses.join(" AND "),
-            query.limit
-        );
-
-        let mut stmt = self
-            .connection()
-            .prepare(&sql)
-            .map_err(Error::storage("prepare the keyword search"))?;
-        let mut rows = stmt
-            .query(params_from_iter(params))
-            .map_err(Error::storage("run the keyword search"))?;
-
-        let mut out = Vec::new();
-        while let Some(row) = rows
-            .next()
-            .map_err(Error::storage("read a keyword search hit"))?
-        {
-            let body: String = row.get("body").unwrap_or_default();
-            let label: String = row.get("label").unwrap_or_default();
-            let entity_type = EntityType::parse(
-                &row.get::<_, String>("entity_type")
-                    .map_err(Error::storage("read a hit's entity_type"))?,
-            )?;
-            out.push(SearchHit {
-                entity_id: EntityId::parse(
-                    &row.get::<_, String>("id")
-                        .map_err(Error::storage("read a hit's id"))?,
-                )?,
-                entity_type,
-                project_id: match row.get::<_, Option<String>>("project_id").ok().flatten() {
-                    Some(p) if !p.is_empty() => EntityId::parse(&p).ok(),
-                    _ => None,
-                },
-                excerpt: excerpt(if body.is_empty() { &label } else { &body }, &query.text),
-                title: label,
-                score: row
-                    .get::<_, Option<f64>>("score")
-                    .ok()
-                    .flatten()
-                    .unwrap_or(0.0),
-                source: SearchSource::Keyword,
-            });
-        }
-        Ok(out)
-    }
-}
-
-/// Fuse two ranked lists by reciprocal rank.
+/// The `SELECT` list for reading revisions back.
 ///
-/// Raw scores from BM25 and from a vector index are not comparable — they are
-/// not even on the same scale — so fusing on *rank* rather than score is the
-/// only defensible way to merge them. A document found by both indexes gets
-/// both contributions, which is exactly the behaviour wanted: agreement
-/// between an independent keyword match and an independent semantic match is
-/// the strongest signal available here.
-fn reciprocal_rank_fusion(lists: Vec<Vec<SearchHit>>, limit: usize) -> Vec<SearchHit> {
-    let mut fused: Vec<SearchHit> = Vec::new();
+/// `embedding` is deliberately absent — see [`read_document`].
+const DOC_SELECT: &str = "SELECT doc_id, entity_type, entity_id, project_id, version, \
+                          parent_version, title, body, body_hash, media_ref, status, author, \
+                          session_id, surface, created_at, embedding_model, embedding_version \
+                          FROM documents";
 
-    for list in lists {
-        for (rank, hit) in list.into_iter().enumerate() {
-            let contribution = 1.0 / (RRF_K + rank as f64 + 1.0);
-            match fused.iter_mut().find(|h| h.entity_id == hit.entity_id) {
-                Some(existing) => {
-                    existing.score += contribution;
-                    if existing.source != hit.source {
-                        existing.source = SearchSource::Both;
-                    }
-                }
-                None => {
-                    let mut hit = hit;
-                    hit.score = contribution;
-                    fused.push(hit);
-                }
-            }
-        }
-    }
-
-    fused.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            // Ties break by id so results are stable between calls — an
-            // unstable order makes snapshot tests flap and makes a human
-            // wonder whether the data changed.
-            .then_with(|| a.entity_id.cmp(&b.entity_id))
-    });
-    fused.truncate(limit);
-    fused
+/// Render a timestamp for storage.
+fn render_ts(v: DateTime<Utc>) -> String {
+    v.format(TIMESTAMP_FORMAT).to_string()
 }
 
-/// A short window of `body` around the first query term that appears in it.
-fn excerpt(body: &str, query: &str) -> String {
-    const WIDTH: usize = 240;
-    let lower = body.to_lowercase();
-    let start = query
-        .split_whitespace()
-        .filter_map(|term| lower.find(&term.to_lowercase()))
-        .min()
-        .unwrap_or(0);
-
-    // Back up to a character boundary and a little context.
-    let mut begin = start.saturating_sub(60);
-    while begin > 0 && !body.is_char_boundary(begin) {
-        begin -= 1;
-    }
-    let mut end = (begin + WIDTH).min(body.len());
-    while end < body.len() && !body.is_char_boundary(end) {
-        end += 1;
-    }
-
-    let mut out = String::new();
-    if begin > 0 {
-        out.push('…');
-    }
-    out.push_str(body[begin..end].trim());
-    if end < body.len() {
-        out.push('…');
-    }
-    out
+/// An embedding as the raw little-endian f32 bytes the column stores.
+///
+/// Bytes rather than a typed column because `sqlite-vec` is 0.1.9 and its
+/// author says to expect breaking changes. Owning the representation means
+/// replacing the vector index is a new virtual table populated from this
+/// column, not an embedding run over the whole corpus again.
+fn embedding_bytes(embedding: &[f32]) -> Vec<u8> {
+    embedding.iter().flat_map(|f| f.to_le_bytes()).collect()
 }
 
-/// Rebuild a document from a row.
+/// Bind an optional string.
+fn os(v: Option<String>) -> Value {
+    v.map(Value::Text).unwrap_or(Value::Null)
+}
+
+/// Bind an i32 into SQLite's single 64-bit integer type.
+fn i(v: i32) -> Value {
+    Value::Integer(i64::from(v))
+}
+
+/// Rebuild a revision from a row of [`DOC_SELECT`].
+///
+/// Columns are addressed by name, never by index: an offset that drifts by one
+/// produces a document where every field holds its neighbour's value, and TEXT
+/// against TEXT would not complain.
 fn read_document(row: &Row<'_>) -> Result<Document> {
-    let e = |c: &'static str| Error::storage(format!("read column `{c}` of `documents`"));
+    let e = |c: &'static str| {
+        let context = format!("read column `{c}` of `documents`");
+        move |source| Error::Storage { context, source }
+    };
+    let created_at: String = row.get("created_at").map_err(e("created_at"))?;
+
     Ok(Document {
         doc_id: DocId::parse(&row.get::<_, String>("doc_id").map_err(e("doc_id"))?)?,
-        entity_type: EntityType::parse(
+        entity_type: crate::EntityType::parse(
             &row.get::<_, String>("entity_type")
                 .map_err(e("entity_type"))?,
         )?,
@@ -466,9 +125,7 @@ fn read_document(row: &Row<'_>) -> Result<Document> {
             Some(s) => Some(Surface::parse(&s)?),
             None => None,
         },
-        created_at: row
-            .get::<_, DateTime<Utc>>("created_at")
-            .map_err(e("created_at"))?,
+        created_at: parse_ts("documents", "created_at", &created_at)?,
         // The vector is deliberately not read back. It is 384 floats per row
         // that no caller has ever needed, and reading it would make listing a
         // document's history cost more than the history is worth.
@@ -484,23 +141,97 @@ fn read_document(row: &Row<'_>) -> Result<Document> {
     })
 }
 
-/// The `SELECT` list for reading documents back.
-const DOC_SELECT: &str = "SELECT doc_id, entity_type, entity_id, project_id, version, \
-                          parent_version, title, body, body_hash, media_ref, status, author, \
-                          session_id, surface, created_at, embedding_model, embedding_version \
-                          FROM lancedb.documents";
+/// Write a blob through whatever connection is handed in.
+///
+/// Separate from [`Store::put_blob`] so that a caller holding a
+/// transaction — the daemon writing a design and its screenshot together — can
+/// use the same statement. A `rusqlite::Transaction` derefs to `Connection`, so
+/// `&tx` is accepted here and the blob commits or vanishes with everything else
+/// in that transaction.
+fn insert_blob(conn: &Connection, blob: &Blob) -> Result<()> {
+    conn.execute(
+        "INSERT INTO blobs \
+           (blob_id, entity_id, project_id, media_type, byte_length, sha256, bytes, created_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            blob.blob_id.as_str(),
+            blob.entity_id.as_ref().map(EntityId::as_str),
+            blob.project_id.as_ref().map(EntityId::as_str),
+            blob.media_type,
+            blob.bytes.len() as i64,
+            blob.sha256,
+            // Bound by reference, not cloned. A 5 MB screenshot copied on the
+            // way to the binding is 5 MB of memcpy that buys nothing.
+            blob.bytes,
+            render_ts(blob.created_at),
+        ],
+    )
+    .map_err(Error::storage(format!("store the blob {}", blob.blob_id)))?;
+    Ok(())
+}
 
-impl DocumentStore for DuckStore {
-    fn write_revision(&mut self, mut document: Document) -> Result<Document> {
-        // The cross-engine invariant: Lance cannot enforce that `entity_id`
-        // points at a real DuckDB row, so `keel-core` does it here. Without
-        // this, a typo produces a document nothing can ever reach.
-        let spec = spec_for(document.entity_type);
-        let exists: i64 = self
-            .connection()
+impl Store {
+    /// The highest revision number recorded for an entity, or zero.
+    fn max_version(&self, entity_id: &EntityId) -> Result<i32> {
+        let n: Option<i32> = self
+            .conn
             .query_row(
-                &format!("SELECT count(*) FROM {} WHERE id = ?", spec.table),
-                params_from_iter(vec![Value::Text(document.entity_id.as_str().to_owned())]),
+                "SELECT max(version) FROM documents WHERE entity_id = ?1",
+                [entity_id.as_str()],
+                |r| r.get(0),
+            )
+            .map_err(Error::storage(format!(
+                "find the latest revision of {entity_id}"
+            )))?;
+        Ok(n.unwrap_or(0))
+    }
+
+    /// Append a revision, and return it with the version the store assigned.
+    ///
+    /// The returned version is the one that was written, not the one the
+    /// caller asked for: `keel_write_doc` reports it back, the mirror names it
+    /// in the generated file's banner, and a caller that trusted its own guess
+    /// would be describing a revision that does not exist.
+    ///
+    /// Writing content identical to the current revision is a no-op that
+    /// returns the existing revision. That is what makes `keel generate` safe
+    /// to run repeatedly — it regenerates every file whether or not anything
+    /// changed, and without this the history would grow by one per run per
+    /// document.
+    ///
+    /// Everything that changes state happens in one transaction: demoting the
+    /// old current revision, inserting the new one, and advancing the header's
+    /// `current_doc_version`. *History:* under DuckDB-and-Lance those were three
+    /// writes across two engines with nothing that could bracket them, so a
+    /// crash between the second and the third left a document whose header
+    /// disagreed with it. That is what the transaction is here to make
+    /// impossible.
+    pub fn write_revision(&mut self, mut document: Document) -> Result<Document> {
+        let table = document.entity_type.table();
+
+        // Only five types carry prose, and only their tables have a
+        // `current_doc_version` column. A hand-built `Document` for a task
+        // would otherwise fail on the header update with "no such column",
+        // after the revision had already been inserted.
+        if !document.entity_type.has_document() {
+            return Err(Error::Invariant {
+                operation: format!("write a revision of {}", document.entity_id),
+                problem: format!(
+                    "{} has no prose body; only spec, decision, question, feedback and \
+                     design have documents",
+                    document.entity_type
+                ),
+            });
+        }
+
+        // `documents.entity_id` names a row in one of five tables, so no
+        // foreign key can enforce it and this check is the only thing standing
+        // between a typo and a document nothing can ever reach.
+        let exists: i64 = self
+            .conn
+            .query_row(
+                &format!("SELECT count(*) FROM {table} WHERE id = ?1"),
+                [document.entity_id.as_str()],
                 |r| r.get(0),
             )
             .map_err(Error::storage(format!(
@@ -517,9 +248,6 @@ impl DocumentStore for DuckStore {
             });
         }
 
-        // Identical content is not a new revision. The mirror hook in §8.1
-        // regenerates a file and re-reads it, so without this every no-op save
-        // would grow the history by one.
         if let Some(current) = self.revision(&document.entity_id, None)?
             && current.body_hash == document.body_hash
         {
@@ -531,6 +259,11 @@ impl DocumentStore for DuckStore {
         document.parent_version = if previous == 0 { None } else { Some(previous) };
         document.status = DocStatus::Current;
 
+        // Embed here, on the way in, rather than expecting the caller to have
+        // done it. A revision written without a vector is not a broken write —
+        // it is a document that never appears in a semantic result and never
+        // says so, because the keyword half keeps answering. That is the same
+        // silence `search` warns about, one layer earlier.
         if document.embedding.is_none()
             && let Some(embedder) = self.embedder()
         {
@@ -550,134 +283,127 @@ impl DocumentStore for DuckStore {
             }
         }
 
-        // Demote the previous current revision first, so there is never a
-        // window with two.
-        self.connection()
-            .execute(
-                "UPDATE lancedb.documents SET status = 'superseded' \
-                 WHERE entity_id = ? AND status = 'current'",
-                params_from_iter(vec![Value::Text(document.entity_id.as_str().to_owned())]),
-            )
-            .map_err(Error::storage(format!(
-                "supersede the previous revision of {}",
-                document.entity_id
-            )))?;
-
-        let sql = format!(
-            "INSERT INTO lancedb.documents ({DOC_COLS}) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {}, ?, ?)",
-            Self::embedding_literal(document.embedding.as_ref())
-        );
-
         let params: Vec<Value> = vec![
             Value::Text(document.doc_id.as_str().to_owned()),
             Value::Text(document.entity_type.as_str().to_owned()),
             Value::Text(document.entity_id.as_str().to_owned()),
-            document
-                .project_id
-                .as_ref()
-                .map(|p| Value::Text(p.as_str().to_owned()))
-                .unwrap_or(Value::Null),
-            Value::Int(document.version),
-            document
-                .parent_version
-                .map(Value::Int)
-                .unwrap_or(Value::Null),
+            os(document.project_id.as_ref().map(|p| p.as_str().to_owned())),
+            i(document.version),
+            document.parent_version.map(i).unwrap_or(Value::Null),
             Value::Text(document.title.clone()),
             Value::Text(document.body.clone()),
             Value::Text(document.body_hash.clone()),
-            document
-                .media_ref
-                .as_ref()
-                .map(|m| Value::Text(m.clone()))
-                .unwrap_or(Value::Null),
+            os(document.media_ref.clone()),
             Value::Text(document.status.as_str().to_owned()),
             Value::Text(document.author.as_str().to_owned()),
+            os(document.session_id.clone()),
+            os(document.surface.map(|s| s.as_str().to_owned())),
+            Value::Text(render_ts(document.created_at)),
             document
-                .session_id
+                .embedding
                 .as_ref()
-                .map(|s| Value::Text(s.clone()))
+                .map(|v| Value::Blob(embedding_bytes(v)))
                 .unwrap_or(Value::Null),
-            document
-                .surface
-                .map(|s| Value::Text(s.as_str().to_owned()))
-                .unwrap_or(Value::Null),
-            Value::Timestamp(
-                TimeUnit::Microsecond,
-                document.created_at.timestamp_micros(),
-            ),
             Value::Text(document.embedding_model.clone()),
-            Value::Int(document.embedding_version),
+            i(document.embedding_version),
         ];
 
-        self.connection()
-            .execute(&sql, params_from_iter(params))
-            .map_err(Error::storage(format!(
-                "write revision {} of {}",
-                document.version, document.entity_id
-            )))?;
+        let tx = self
+            .conn
+            .transaction()
+            .map_err(Error::storage("begin a revision write"))?;
 
-        // Advance the header's pointer so the relational and columnar halves
-        // agree. `fsck` checks exactly this.
-        self.connection()
-            .execute(
-                &format!(
-                    "UPDATE {} SET current_doc_version = ? WHERE id = ?",
-                    spec.table
-                ),
-                params_from_iter(vec![
-                    Value::Int(document.version),
-                    Value::Text(document.entity_id.as_str().to_owned()),
-                ]),
-            )
-            .map_err(Error::storage(format!(
-                "advance current_doc_version on {}",
-                document.entity_id
-            )))?;
+        // Demote first, so there is never a moment with two current revisions
+        // — not even one another connection could observe, since the demotion
+        // and the insert commit together.
+        tx.execute(
+            "UPDATE documents SET status = 'superseded' \
+             WHERE entity_id = ?1 AND status = 'current'",
+            [document.entity_id.as_str()],
+        )
+        .map_err(Error::storage(format!(
+            "supersede the previous revision of {}",
+            document.entity_id
+        )))?;
+
+        tx.execute(
+            &format!("INSERT INTO documents ({DOC_COLS}) VALUES ({DOC_VALUES})"),
+            params_from_iter(params),
+        )
+        .map_err(Error::storage(format!(
+            "write revision {} of {}",
+            document.version, document.entity_id
+        )))?;
+
+        tx.execute(
+            &format!("UPDATE {table} SET current_doc_version = ?1 WHERE id = ?2"),
+            params![document.version, document.entity_id.as_str()],
+        )
+        .map_err(Error::storage(format!(
+            "advance current_doc_version on {}",
+            document.entity_id
+        )))?;
+
+        tx.commit().map_err(Error::storage(format!(
+            "commit revision {} of {}",
+            document.version, document.entity_id
+        )))?;
 
         Ok(document)
     }
 
-    fn revision(&self, entity_id: &EntityId, version: Option<i32>) -> Result<Option<Document>> {
+    /// Fetch a revision — the current one if `version` is `None`.
+    ///
+    /// The current one is found by version rather than by `status = 'current'`.
+    /// The two agree, and the invariant that they agree is asserted in the
+    /// tests; asking by version means a store whose statuses have somehow
+    /// drifted still hands back its newest revision rather than nothing, and
+    /// "nothing" is the answer that reads as "this document does not exist".
+    pub fn revision(&self, entity_id: &EntityId, version: Option<i32>) -> Result<Option<Document>> {
         let (clause, params): (&str, Vec<Value>) = match version {
             Some(v) => (
-                "WHERE entity_id = ? AND version = ?",
-                vec![Value::Text(entity_id.as_str().to_owned()), Value::Int(v)],
+                "WHERE entity_id = ?1 AND version = ?2",
+                vec![Value::Text(entity_id.as_str().to_owned()), i(v)],
             ),
             None => (
-                "WHERE entity_id = ? ORDER BY version DESC LIMIT 1",
+                "WHERE entity_id = ?1 ORDER BY version DESC LIMIT 1",
                 vec![Value::Text(entity_id.as_str().to_owned())],
             ),
         };
-        let sql = format!("{DOC_SELECT} {clause}");
+
         let mut stmt = self
-            .connection()
-            .prepare(&sql)
+            .conn
+            .prepare(&format!("{DOC_SELECT} {clause}"))
             .map_err(Error::storage(format!(
                 "prepare a revision read for {entity_id}"
             )))?;
         let mut rows = stmt
             .query(params_from_iter(params))
             .map_err(Error::storage(format!("read a revision of {entity_id}")))?;
+
         match rows.next().map_err(Error::storage("read a document row"))? {
             Some(row) => Ok(Some(read_document(row)?)),
             None => Ok(None),
         }
     }
 
-    fn revisions(&self, entity_id: &EntityId) -> Result<Vec<Document>> {
-        let sql = format!("{DOC_SELECT} WHERE entity_id = ? ORDER BY version ASC");
+    /// Every revision of a document, oldest first.
+    ///
+    /// Oldest first because that is the order a history reads in, and because
+    /// the app's revision list and `keel_get`'s diff both index from it.
+    pub fn revisions(&self, entity_id: &EntityId) -> Result<Vec<Document>> {
         let mut stmt = self
-            .connection()
-            .prepare(&sql)
+            .conn
+            .prepare(&format!(
+                "{DOC_SELECT} WHERE entity_id = ?1 ORDER BY version ASC"
+            ))
             .map_err(Error::storage(format!(
                 "prepare a history read for {entity_id}"
             )))?;
         let mut rows = stmt
-            .query(params_from_iter(vec![Value::Text(
-                entity_id.as_str().to_owned(),
-            )]))
+            .query([entity_id.as_str()])
             .map_err(Error::storage(format!("read the history of {entity_id}")))?;
+
         let mut out = Vec::new();
         while let Some(row) = rows.next().map_err(Error::storage("read a document row"))? {
             out.push(read_document(row)?);
@@ -685,7 +411,13 @@ impl DocumentStore for DuckStore {
         Ok(out)
     }
 
-    fn diff(&self, entity_id: &EntityId, from: i32, to: i32) -> Result<DocumentDiff> {
+    /// A unified diff between two revisions.
+    ///
+    /// A store operation rather than a rendering one: REQ-2 is "what changed
+    /// between these two versions", and an MCP caller asking that should not
+    /// have to fetch both bodies and diff them itself — nor should two surfaces
+    /// each grow their own idea of what a diff looks like.
+    pub fn diff(&self, entity_id: &EntityId, from: i32, to: i32) -> Result<DocumentDiff> {
         let fetch = |v: i32| -> Result<Document> {
             self.revision(entity_id, Some(v))?
                 .ok_or_else(|| Error::Invalid {
@@ -732,110 +464,62 @@ impl DocumentStore for DuckStore {
         })
     }
 
-    fn search(&self, query: &SearchQuery) -> Result<Page<SearchHit>> {
-        if query.text.trim().is_empty() {
-            return Err(Error::Invalid {
-                entity_type: EntityType::Artifact,
-                field: "query".to_owned(),
-                problem: "the search text is empty".to_owned(),
-                expected: "some words to search for; to list entities without searching, \
-                           use keel_get or keel_context instead"
-                    .to_owned(),
-            });
-        }
-
-        // Any one index can legitimately fail — an empty Lance dataset has no
-        // FTS index to consult, for instance — and one failing must not take
-        // out the others. A search that returns part of the story is far more
-        // useful than one that returns an error.
-        let mut lists = Vec::new();
-        lists.push(self.search_keyword(query).unwrap_or_else(|e| {
-            tracing::warn!(error = %e, "keyword search failed; returning semantic hits only");
-            Vec::new()
-        }));
-        lists.push(self.search_semantic(query).unwrap_or_else(|e| {
-            tracing::warn!(error = %e, "semantic search failed; returning keyword hits only");
-            Vec::new()
-        }));
-
-        // `total` counts distinct artifacts, not raw hits: the same document
-        // legitimately appears in both the title and body lists, and reporting
-        // it twice would make `truncated` lie.
-        let distinct: std::collections::HashSet<_> = lists
-            .iter()
-            .flatten()
-            .map(|h| h.entity_id.clone())
-            .collect();
-        let total = distinct.len();
-        let fused = reciprocal_rank_fusion(lists, query.limit);
-        Ok(Page {
-            truncated: total > fused.len(),
-            total,
-            items: fused,
-        })
-    }
-
-    fn put_blob(&mut self, blob: Blob) -> Result<BlobId> {
-        self.connection()
-            .execute(
-                "INSERT INTO lancedb.blobs (blob_id, entity_id, project_id, media_type, \
-                 byte_length, sha256, bytes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                params_from_iter(vec![
-                    Value::Text(blob.blob_id.as_str().to_owned()),
-                    blob.entity_id
-                        .as_ref()
-                        .map(|e| Value::Text(e.as_str().to_owned()))
-                        .unwrap_or(Value::Null),
-                    blob.project_id
-                        .as_ref()
-                        .map(|p| Value::Text(p.as_str().to_owned()))
-                        .unwrap_or(Value::Null),
-                    Value::Text(blob.media_type.clone()),
-                    Value::BigInt(blob.bytes.len() as i64),
-                    Value::Text(blob.sha256.clone()),
-                    Value::Blob(blob.bytes.clone()),
-                    Value::Timestamp(TimeUnit::Microsecond, blob.created_at.timestamp_micros()),
-                ]),
-            )
-            .map_err(Error::storage(format!("store the blob {}", blob.blob_id)))?;
+    /// Store bytes, and return the id they are addressed by.
+    ///
+    /// The hash is whatever [`Blob::new`] computed from the bytes — it is never
+    /// taken from a caller, because a hash nobody has checked is not a content
+    /// address, it is a claim.
+    pub fn put_blob(&mut self, blob: Blob) -> Result<BlobId> {
+        insert_blob(&self.conn, &blob)?;
         Ok(blob.blob_id)
     }
 
-    fn get_blob(&self, blob_id: &BlobId) -> Result<Option<Blob>> {
+    /// Fetch bytes. `None` when nothing is stored under that id.
+    pub fn get_blob(&self, blob_id: &BlobId) -> Result<Option<Blob>> {
         let mut stmt = self
-            .connection()
+            .conn
             .prepare(
                 "SELECT blob_id, entity_id, project_id, media_type, sha256, bytes, created_at \
-                 FROM lancedb.blobs WHERE blob_id = ?",
+                 FROM blobs WHERE blob_id = ?1",
             )
             .map_err(Error::storage("prepare a blob read"))?;
         let mut rows = stmt
-            .query(params_from_iter(vec![Value::Text(
-                blob_id.as_str().to_owned(),
-            )]))
+            .query([blob_id.as_str()])
             .map_err(Error::storage(format!("read the blob {blob_id}")))?;
 
-        let e = |c: &'static str| Error::storage(format!("read column `{c}` of `blobs`"));
+        let e = |c: &'static str| {
+            let context = format!("read column `{c}` of `blobs`");
+            move |source| Error::Storage { context, source }
+        };
         match rows.next().map_err(Error::storage("read a blob row"))? {
-            Some(row) => Ok(Some(Blob {
-                blob_id: BlobId::parse(&row.get::<_, String>("blob_id").map_err(e("blob_id"))?)?,
-                entity_id: match row.get::<_, Option<String>>("entity_id").ok().flatten() {
-                    Some(x) => Some(EntityId::parse(&x)?),
-                    None => None,
-                },
-                project_id: match row.get::<_, Option<String>>("project_id").ok().flatten() {
-                    Some(x) => Some(EntityId::parse(&x)?),
-                    None => None,
-                },
-                media_type: row
-                    .get::<_, String>("media_type")
-                    .map_err(e("media_type"))?,
-                sha256: row.get::<_, String>("sha256").map_err(e("sha256"))?,
-                bytes: row.get::<_, Vec<u8>>("bytes").map_err(e("bytes"))?,
-                created_at: row
-                    .get::<_, DateTime<Utc>>("created_at")
-                    .map_err(e("created_at"))?,
-            })),
+            Some(row) => {
+                let created_at: String = row.get("created_at").map_err(e("created_at"))?;
+                Ok(Some(Blob {
+                    blob_id: BlobId::parse(
+                        &row.get::<_, String>("blob_id").map_err(e("blob_id"))?,
+                    )?,
+                    entity_id: match row
+                        .get::<_, Option<String>>("entity_id")
+                        .map_err(e("entity_id"))?
+                    {
+                        Some(x) => Some(EntityId::parse(&x)?),
+                        None => None,
+                    },
+                    project_id: match row
+                        .get::<_, Option<String>>("project_id")
+                        .map_err(e("project_id"))?
+                    {
+                        Some(x) => Some(EntityId::parse(&x)?),
+                        None => None,
+                    },
+                    media_type: row
+                        .get::<_, String>("media_type")
+                        .map_err(e("media_type"))?,
+                    sha256: row.get::<_, String>("sha256").map_err(e("sha256"))?,
+                    bytes: row.get::<_, Vec<u8>>("bytes").map_err(e("bytes"))?,
+                    created_at: parse_ts("blobs", "created_at", &created_at)?,
+                }))
+            }
             None => Ok(None),
         }
     }
@@ -845,107 +529,454 @@ impl DocumentStore for DuckStore {
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::store::rows::spec_for;
+    use crate::store::rows::{insert_params, insert_stmt};
+    use crate::{Entity, EntityType, Project, Spec};
 
-    fn hit(id: &str, source: SearchSource) -> SearchHit {
-        SearchHit {
-            entity_id: EntityId::parse(id).unwrap(),
-            entity_type: EntityType::Task,
-            project_id: None,
-            title: id.to_owned(),
-            excerpt: String::new(),
-            score: 0.0,
-            source,
+    /// Timestamps whose sub-second digits the column can hold exactly.
+    ///
+    /// `Utc::now()` is nanosecond-precise and the format is six digits, so an
+    /// un-truncated timestamp fails a round trip for a reason that has nothing
+    /// to do with what is under test.
+    fn stored_now() -> DateTime<Utc> {
+        DateTime::from_timestamp_micros(Utc::now().timestamp_micros()).unwrap_or_default()
+    }
+
+    /// Put an entity row in the store, the way the entity half will.
+    fn insert_entity(store: &Store, entity: &Entity) {
+        let spec = spec_for(entity.entity_type());
+        store
+            .conn
+            .execute(&insert_stmt(&spec), params_from_iter(insert_params(entity)))
+            .unwrap();
+    }
+
+    /// A store holding a project and a spec, and the spec's id.
+    ///
+    /// A revision cannot be written without its header row — that check is the
+    /// one thing `documents.entity_id` cannot get from a foreign key — so
+    /// every test here needs one.
+    fn store_with_a_spec() -> (Store, EntityId) {
+        let store = Store::in_memory().unwrap();
+        let project = Project::new("keel", "Keel");
+        let project_id = project.id.clone();
+        insert_entity(&store, &project.into());
+
+        let spec = Spec::new(project_id, "Storage");
+        let spec_id = spec.id.clone();
+        insert_entity(&store, &spec.into());
+        (store, spec_id)
+    }
+
+    fn draft(entity_id: &EntityId, body: &str) -> Document {
+        Document::first(
+            EntityType::Spec,
+            entity_id.clone(),
+            None,
+            "Storage",
+            body,
+            Actor::Claude,
+            stored_now(),
+        )
+        .unwrap()
+    }
+
+    /// How many revisions of this entity claim to be current.
+    fn current_count(store: &Store, entity_id: &EntityId) -> i64 {
+        store
+            .conn
+            .query_row(
+                "SELECT count(*) FROM documents WHERE entity_id = ?1 AND status = 'current'",
+                [entity_id.as_str()],
+                |r| r.get(0),
+            )
+            .unwrap()
+    }
+
+    #[test]
+    fn three_revisions_round_trip_and_only_the_last_is_current() {
+        let (mut store, id) = store_with_a_spec();
+        for body in ["one", "two", "three"] {
+            store.write_revision(draft(&id, body)).unwrap();
         }
-    }
 
-    #[test]
-    fn fusion_rewards_agreement_between_the_two_indexes() {
-        let a = EntityId::generate(EntityType::Task);
-        let b = EntityId::generate(EntityType::Task);
+        for (version, body) in [(1, "one"), (2, "two"), (3, "three")] {
+            let back = store.revision(&id, Some(version)).unwrap().unwrap();
+            assert_eq!(back.body, body);
+            assert_eq!(back.version, version);
+            assert_eq!(back.title, "Storage");
+            assert_eq!(back.author, Actor::Claude);
+        }
 
-        // `a` is second in one list and first in the other; `b` is first in
-        // one list only. Agreement should carry `a` to the top.
-        let docs = vec![
-            hit(b.as_str(), SearchSource::Semantic),
-            hit(a.as_str(), SearchSource::Semantic),
-        ];
-        let ents = vec![hit(a.as_str(), SearchSource::Keyword)];
-
-        let fused = reciprocal_rank_fusion(vec![docs, ents], 10);
-        assert_eq!(fused[0].entity_id, a);
         assert_eq!(
-            fused[0].source,
-            SearchSource::Both,
-            "a hit found by both indexes should say so"
-        );
-        assert_eq!(fused[1].entity_id, b);
-    }
-
-    #[test]
-    fn fusion_is_stable_for_equal_scores() {
-        let a = EntityId::generate(EntityType::Task);
-        let b = EntityId::generate(EntityType::Task);
-        let one = reciprocal_rank_fusion(
-            vec![
-                vec![hit(a.as_str(), SearchSource::Semantic)],
-                vec![hit(b.as_str(), SearchSource::Keyword)],
-            ],
-            10,
-        );
-        let two = reciprocal_rank_fusion(
-            vec![
-                vec![hit(a.as_str(), SearchSource::Semantic)],
-                vec![hit(b.as_str(), SearchSource::Keyword)],
-            ],
-            10,
+            store.revision(&id, Some(1)).unwrap().unwrap().status,
+            DocStatus::Superseded
         );
         assert_eq!(
-            one.iter().map(|h| h.entity_id.clone()).collect::<Vec<_>>(),
-            two.iter().map(|h| h.entity_id.clone()).collect::<Vec<_>>()
+            store.revision(&id, Some(2)).unwrap().unwrap().status,
+            DocStatus::Superseded
+        );
+
+        let current = store.revision(&id, None).unwrap().unwrap();
+        assert_eq!(current.version, 3);
+        assert_eq!(current.status, DocStatus::Current);
+        assert_eq!(current.parent_version, Some(2));
+    }
+
+    /// The version the caller hoped for is not the version it gets. Callers
+    /// report the returned one back to a human, so a store that quietly
+    /// honoured the request would have them describing a revision that is not
+    /// there.
+    #[test]
+    fn the_returned_version_is_the_one_the_store_assigned() {
+        let (mut store, id) = store_with_a_spec();
+        store.write_revision(draft(&id, "one")).unwrap();
+
+        let mut hopeful = draft(&id, "two");
+        hopeful.version = 7;
+        hopeful.parent_version = Some(6);
+
+        let written = store.write_revision(hopeful).unwrap();
+        assert_eq!(written.version, 2);
+        assert_eq!(written.parent_version, Some(1));
+    }
+
+    /// `keel generate` regenerates every file whether or not anything changed.
+    /// Without this the history would grow by one per run per document.
+    #[test]
+    fn identical_content_is_not_a_new_revision() {
+        let (mut store, id) = store_with_a_spec();
+        let first = store.write_revision(draft(&id, "unchanged")).unwrap();
+        let again = store.write_revision(draft(&id, "unchanged")).unwrap();
+
+        assert_eq!(again.version, first.version);
+        assert_eq!(again.doc_id, first.doc_id, "a no-op must not mint a doc id");
+        assert_eq!(store.revisions(&id).unwrap().len(), 1);
+
+        // And a real change still lands, so the short-circuit is not simply
+        // refusing every second write.
+        let changed = store.write_revision(draft(&id, "changed")).unwrap();
+        assert_eq!(changed.version, 2);
+    }
+
+    /// Two current revisions is a state every reader gets wrong: the app shows
+    /// one, search indexes the other, and nothing reports a problem.
+    #[test]
+    fn exactly_one_revision_is_current_after_several_writes() {
+        let (mut store, id) = store_with_a_spec();
+        for body in ["a", "b", "c", "d"] {
+            store.write_revision(draft(&id, body)).unwrap();
+        }
+        assert_eq!(current_count(&store, &id), 1);
+
+        // A no-op write must not disturb it either.
+        store.write_revision(draft(&id, "d")).unwrap();
+        assert_eq!(current_count(&store, &id), 1);
+    }
+
+    #[test]
+    fn revisions_come_back_oldest_first() {
+        let (mut store, id) = store_with_a_spec();
+        for body in ["first", "second", "third"] {
+            store.write_revision(draft(&id, body)).unwrap();
+        }
+
+        let history = store.revisions(&id).unwrap();
+        assert_eq!(
+            history.iter().map(|d| d.version).collect::<Vec<_>>(),
+            vec![1, 2, 3]
+        );
+        assert_eq!(
+            history.iter().map(|d| d.body.as_str()).collect::<Vec<_>>(),
+            vec!["first", "second", "third"]
         );
     }
 
     #[test]
-    fn fusion_respects_the_limit() {
-        let hits: Vec<SearchHit> = (0..10)
-            .map(|_| {
-                hit(
-                    EntityId::generate(EntityType::Task).as_str(),
-                    SearchSource::Semantic,
-                )
-            })
+    fn the_header_row_points_at_the_newest_revision() {
+        let (mut store, id) = store_with_a_spec();
+        store.write_revision(draft(&id, "one")).unwrap();
+        store.write_revision(draft(&id, "two")).unwrap();
+
+        let pointer: i64 = store
+            .conn
+            .query_row(
+                "SELECT current_doc_version FROM specs WHERE id = ?1",
+                [id.as_str()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(pointer, 2, "the header and the revision disagree");
+    }
+
+    #[test]
+    fn a_diff_shows_the_changed_line() {
+        let (mut store, id) = store_with_a_spec();
+        store
+            .write_revision(draft(&id, "DuckDB and Lance.\nTwo engines.\n"))
+            .unwrap();
+        store
+            .write_revision(draft(&id, "One SQLite file.\nTwo engines.\n"))
+            .unwrap();
+
+        let diff = store.diff(&id, 1, 2).unwrap();
+        assert_eq!(diff.from_version, 1);
+        assert_eq!(diff.to_version, 2);
+        assert_eq!(diff.added, 1);
+        assert_eq!(diff.removed, 1);
+        assert!(
+            diff.unified.contains("-DuckDB and Lance."),
+            "the removed line is missing: {}",
+            diff.unified
+        );
+        assert!(
+            diff.unified.contains("+One SQLite file."),
+            "the added line is missing: {}",
+            diff.unified
+        );
+        assert!(
+            diff.unified.contains(" Two engines."),
+            "the unchanged line should carry a space: {}",
+            diff.unified
+        );
+    }
+
+    /// A stated Phase 9 exit criterion. The bytes are generated rather than
+    /// committed, because a 5 MB fixture in git is 5 MB in every clone forever.
+    #[test]
+    fn a_five_megabyte_blob_round_trips_byte_identically() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+
+        // Not all one byte: a compressible run would measure something SQLite
+        // is not being asked to do. This is cheap and varied.
+        let bytes: Vec<u8> = (0..5 * 1024 * 1024)
+            .map(|n: usize| (n.wrapping_mul(2_654_435_761) >> 13) as u8)
             .collect();
-        assert_eq!(reciprocal_rank_fusion(vec![hits], 3).len(), 3);
+        let blob = Blob::new(bytes.clone(), "image/png", stored_now());
+        let sha = blob.sha256.clone();
+
+        let started = std::time::Instant::now();
+        let id = store.put_blob(blob).unwrap();
+        let wrote = started.elapsed();
+
+        let started = std::time::Instant::now();
+        let back = store.get_blob(&id).unwrap().unwrap();
+        let read = started.elapsed();
+
+        assert_eq!(back.bytes.len(), 5 * 1024 * 1024);
+        assert_eq!(back.bytes, bytes, "the bytes came back changed");
+        assert_eq!(back.sha256, sha);
+        assert_eq!(back.media_type, "image/png");
+        println!("5 MB blob: wrote in {wrote:?}, read in {read:?}");
     }
 
+    /// The point of the whole task. An image and the row that owns it commit
+    /// together or not at all, which across two engines was not expressible at
+    /// all.
     #[test]
-    fn an_excerpt_centres_on_the_match() {
-        let body = "The quick brown fox jumps over the lazy dog. ".repeat(20);
-        let e = excerpt(&body, "lazy");
-        assert!(e.contains("lazy"), "{e}");
-        assert!(e.len() <= 260, "excerpt should be bounded: {}", e.len());
+    fn a_blob_and_its_entity_row_are_written_in_one_transaction() {
+        let store = Store::in_memory().unwrap();
+        let project = Project::new("keel", "Keel");
+        let project_id = project.id.clone();
+        insert_entity(&store, &project.into());
+
+        let design = crate::Design::new(project_id.clone(), "The board");
+        let design_id = design.id.clone();
+        let blob = Blob::new(vec![1, 2, 3, 4], "image/png", stored_now())
+            .owned_by(design_id.clone(), project_id.clone());
+        let blob_id = blob.blob_id.clone();
+
+        let spec = spec_for(EntityType::Design);
+        let entity: Entity = design.into();
+
+        {
+            let tx = store.conn.unchecked_transaction().unwrap();
+            tx.execute(
+                &insert_stmt(&spec),
+                params_from_iter(insert_params(&entity)),
+            )
+            .unwrap();
+            insert_blob(&tx, &blob).unwrap();
+            tx.commit().unwrap();
+        }
+
+        assert!(store.get_blob(&blob_id).unwrap().is_some());
+        let rows: i64 = store
+            .conn
+            .query_row(
+                "SELECT count(*) FROM design_artifacts WHERE id = ?1",
+                [design_id.as_str()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(rows, 1);
+
+        // And the half that matters: a rollback takes both, so there is no
+        // state where the image exists and the design does not.
+        let orphan = Blob::new(vec![9, 9, 9], "image/png", stored_now());
+        let orphan_id = orphan.blob_id.clone();
+        let doomed = crate::Design::new(project_id, "Never committed");
+        let doomed_id = doomed.id.clone();
+        let doomed: Entity = doomed.into();
+        {
+            let tx = store.conn.unchecked_transaction().unwrap();
+            tx.execute(
+                &insert_stmt(&spec),
+                params_from_iter(insert_params(&doomed)),
+            )
+            .unwrap();
+            insert_blob(&tx, &orphan).unwrap();
+            tx.rollback().unwrap();
+        }
+
+        assert!(
+            store.get_blob(&orphan_id).unwrap().is_none(),
+            "the blob outlived the transaction that wrote it"
+        );
+        let rows: i64 = store
+            .conn
+            .query_row(
+                "SELECT count(*) FROM design_artifacts WHERE id = ?1",
+                [doomed_id.as_str()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(rows, 0, "the design outlived the transaction that wrote it");
     }
 
+    /// A supplied vector is stored as raw little-endian f32 and nothing else —
+    /// that is the promise that lets the vector index be rebuilt from this
+    /// column instead of from the embedder.
     #[test]
-    fn an_excerpt_of_short_text_is_the_whole_text_without_ellipses() {
-        assert_eq!(
-            excerpt("Onboarding is slow", "onboarding"),
-            "Onboarding is slow"
+    fn an_embedding_is_stored_as_little_endian_floats() {
+        let (mut store, id) = store_with_a_spec();
+        let mut document = draft(&id, "with a vector");
+        document.embedding = Some(vec![1.0f32, -0.5]);
+        store.write_revision(document).unwrap();
+
+        let stored: Vec<u8> = store
+            .conn
+            .query_row(
+                "SELECT embedding FROM documents WHERE entity_id = ?1",
+                [id.as_str()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mut expected = 1.0f32.to_le_bytes().to_vec();
+        expected.extend_from_slice(&(-0.5f32).to_le_bytes());
+        assert_eq!(stored, expected);
+
+        // Reading a document does not carry it back — 384 floats no caller
+        // has ever wanted.
+        assert!(
+            store
+                .revision(&id, None)
+                .unwrap()
+                .unwrap()
+                .embedding
+                .is_none()
         );
     }
 
+    /// The reason [`TIMESTAMP_FORMAT`] pins six fractional digits: with a
+    /// variable-width fraction, `…36.5Z` sorts after `…36.524Z` and `ORDER BY
+    /// created_at` — a string comparison now — hands back the wrong order.
     #[test]
-    fn an_excerpt_never_splits_a_multibyte_character() {
-        let body = "héllo wörld ".repeat(50);
-        let e = excerpt(&body, "wörld");
-        assert!(e.contains("wörld"), "{e}");
+    fn stored_timestamps_are_fixed_width_and_sort_correctly() {
+        let earlier = DateTime::from_timestamp_micros(1_775_000_000_500_000).unwrap();
+        let later = DateTime::from_timestamp_micros(1_775_000_000_500_001).unwrap();
+        let a = render_ts(earlier);
+        let b = render_ts(later);
+
+        assert_eq!(a.len(), b.len(), "the format must be fixed width");
+        assert!(a < b, "{a} should sort before {b}");
+        assert_eq!(parse_ts("documents", "created_at", &a).unwrap(), earlier);
+    }
+
+    /// The migration off DuckDB wrote rows in DuckDB's rendering and they are
+    /// still on disk, so the reader has to accept more shapes than the writer
+    /// produces.
+    #[test]
+    fn a_migrated_timestamp_is_accepted_and_a_nonsense_one_names_its_column() {
+        for raw in [
+            "2026-08-11T09:14:36Z",
+            "2026-08-11T09:14:36.524Z",
+            "2026-08-11 09:14:36.524",
+        ] {
+            assert!(parse_ts("documents", "created_at", raw).is_ok(), "{raw}");
+        }
+
+        let err = parse_ts("blobs", "created_at", "last thursday").unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("created_at"), "unhelpful error: {message}");
+        assert!(message.contains("blobs"), "unhelpful error: {message}");
     }
 
     #[test]
-    fn an_embedding_literal_is_a_typed_array() {
-        let lit = DuckStore::embedding_literal(Some(&vec![0.5, -0.25]));
-        assert!(lit.starts_with('['), "{lit}");
-        assert!(lit.ends_with("::FLOAT[2]"), "{lit}");
-        assert_eq!(DuckStore::embedding_literal(None), "NULL");
+    fn an_entity_with_no_document_has_no_revisions() {
+        let (store, id) = store_with_a_spec();
+        assert!(store.revision(&id, None).unwrap().is_none());
+        assert!(store.revision(&id, Some(1)).unwrap().is_none());
+        assert!(store.revisions(&id).unwrap().is_empty());
+    }
+
+    #[test]
+    fn asking_for_a_version_that_does_not_exist_is_none_not_an_error() {
+        let (mut store, id) = store_with_a_spec();
+        store.write_revision(draft(&id, "one")).unwrap();
+        assert!(store.revision(&id, Some(4)).unwrap().is_none());
+    }
+
+    #[test]
+    fn an_unknown_blob_is_none() {
+        let store = Store::in_memory().unwrap();
+        assert!(store.get_blob(&BlobId::generate()).unwrap().is_none());
+    }
+
+    /// The error has to say which version was missing. "No such revision" for
+    /// a request naming two of them is a message that sends the reader back to
+    /// the store to find out which.
+    #[test]
+    fn a_diff_against_a_missing_version_says_which_one() {
+        let (mut store, id) = store_with_a_spec();
+        store.write_revision(draft(&id, "one")).unwrap();
+
+        let err = store.diff(&id, 1, 9).unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("revision 9"), "unhelpful error: {message}");
+        assert!(
+            message.contains(id.as_str()),
+            "the error should name the document: {message}"
+        );
+
+        let err = store.diff(&id, 8, 1).unwrap_err();
+        assert!(
+            err.to_string().contains("revision 8"),
+            "the `from` side must be checked too: {err}"
+        );
+    }
+
+    /// A revision for an id no table holds is a document nothing can reach.
+    /// Across two engines it could only be found by `fsck`, after the fact;
+    /// here the write itself refuses.
+    #[test]
+    fn a_revision_for_an_entity_that_does_not_exist_is_refused() {
+        let store = Store::in_memory().unwrap();
+        let mut store = store;
+        let ghost = EntityId::generate(EntityType::Spec);
+
+        let err = store.write_revision(draft(&ghost, "orphan")).unwrap_err();
+        let message = err.to_string();
+        assert!(
+            message.contains("create the entity"),
+            "unhelpful error: {message}"
+        );
+
+        let rows: i64 = store
+            .conn
+            .query_row("SELECT count(*) FROM documents", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows, 0, "the refused revision was written anyway");
     }
 }

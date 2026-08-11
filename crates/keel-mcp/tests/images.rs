@@ -7,7 +7,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use base64::Engine as _;
-use keel_core::{Actor, EntityStore, Project, Provenance, SqliteStore};
+use keel_core::{Actor, EntityStore, Project, Provenance, Store};
 use keel_mcp::{ToolCall, dispatch};
 use serde_json::{Value, json};
 
@@ -24,9 +24,9 @@ fn b64(bytes: &[u8]) -> String {
     base64::engine::general_purpose::STANDARD.encode(bytes)
 }
 
-fn store() -> (SqliteStore, tempfile::TempDir) {
+fn store() -> (Store, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let mut s = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut s = Store::open(dir.path().join("keel.sqlite")).unwrap();
     s.create(
         Project::new("harbour", "Harbour").into(),
         &Provenance::anonymous(Actor::Claude),
@@ -35,7 +35,7 @@ fn store() -> (SqliteStore, tempfile::TempDir) {
     (s, dir)
 }
 
-fn call(store: &mut SqliteStore, args: Value) -> Result<Value, keel_mcp::protocol::RpcError> {
+fn call(store: &mut Store, args: Value) -> Result<Value, keel_mcp::protocol::RpcError> {
     dispatch(
         store,
         ToolCall {

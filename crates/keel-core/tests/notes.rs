@@ -12,12 +12,12 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use keel_core::{
-    Actor, EntityStore, EntityType, NewNote, Project, Provenance, SqliteStore, Surface, Task,
+    Actor, EntityStore, EntityType, NewNote, Project, Provenance, Store, Surface, Task,
 };
 
-fn store() -> (tempfile::TempDir, SqliteStore, keel_core::EntityId) {
+fn store() -> (tempfile::TempDir, Store, keel_core::EntityId) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Human);
     let project = store
         .create(Project::new("keel", "Keel").into(), &prov)

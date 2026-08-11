@@ -11,12 +11,12 @@
 
 use keel_core::{
     Actor, Direction, EntityId, EntityStore, GraphStore, NewLink, Project, Provenance, Relation,
-    Spec, SqliteStore, Task,
+    Spec, Store, Task,
 };
 
-fn store() -> (tempfile::TempDir, SqliteStore, EntityId) {
+fn store() -> (tempfile::TempDir, Store, EntityId) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Human);
     let project = store
         .create(Project::new("keel", "Keel").into(), &prov)
@@ -27,7 +27,7 @@ fn store() -> (tempfile::TempDir, SqliteStore, EntityId) {
     (dir, store, project)
 }
 
-fn task(store: &mut SqliteStore, project: &EntityId, title: &str) -> EntityId {
+fn task(store: &mut Store, project: &EntityId, title: &str) -> EntityId {
     store
         .create(
             Task::new(

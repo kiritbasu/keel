@@ -225,8 +225,8 @@ mod tests {
     #[test]
     fn a_quoted_error_message_is_not_the_authors_voice() {
         check_body(
-            "The daemon refused it:\n\n> Failed to utilize the connection pool\n\nWhich is a \
-             message from DuckDB, not from us.",
+            "The daemon refused it:\n\n> Failed to utilize the temp store\n\nWhich is a \
+             message from SQLite, not from us.",
         )
         .expect("a block quote is quotation, not authorship");
     }

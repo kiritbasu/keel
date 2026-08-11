@@ -7,28 +7,19 @@
 # workspace lint, a new dependency, a feature flag — any of them invalidates the
 # whole dependency graph, and the old generation stays.
 #
-# That is normally a rounding error. It is not one here, because every test
-# binary statically links DuckDB: `libduckdb.a` is 237 MB, each linked test
-# binary is 100–165 MB, and there are around thirty of them. One full rebuild
-# after a fingerprint change is roughly 8.5 GB of test binaries, and the
-# previous 8.5 GB is still sitting there.
+# That is normally a rounding error, and for most of this project's life it was
+# not one. Every test binary statically linked DuckDB, so a single fingerprint
+# change duplicated gigabytes of test binaries; on 2026-08-11 the disk hit 100%
+# and surfaced as `rustc-LLVM ERROR: IO failure on output stream: No space left
+# on device`, which reads as a compiler bug rather than a full disk. That is the
+# afternoon this script was written for.
 #
-# Measured on 2026-08-11, when the disk hit 100% and it surfaced as
-# `rustc-LLVM ERROR: IO failure on output stream: No space left on device` —
-# which reads as a compiler bug, not a full disk:
-#
-#   target/                          17 GB
-#     debug/deps                     12 GB  (8.5 GB of it linked test binaries)
-#     debug/incremental               4 GB
-#   nine generations of keel_daemon, five of keel, four of libduckdb-sys
-#   135 leaked test stores in TMPDIR   813 MB
-#
-# After this script: 8.1 GB, and all 490 tests still pass.
-#
-# Phase 9 is what actually fixes this. SQLite's amalgamation is about 1.5 MB of
-# object code against DuckDB's 237 MB, so the same thirty test binaries cost
-# megabytes rather than gigabytes and none of the above is worth a script.
-# Until then, this is the thing to run when the disk gets tight.
+# Phase 9 removed the cause. SQLite's amalgamation is about 1.5 MB of object
+# code where DuckDB's static library was 237 MB, so a superseded generation now
+# costs megabytes rather than gigabytes. The script is kept because Cargo still
+# never collects anything and the directories still accumulate — but it is
+# housekeeping now, not a rescue. Run it when `target/` has grown untidy, not
+# because the disk is about to fill.
 #
 # Safe by construction: everything it deletes, Cargo rebuilds on demand. The
 # newest generation of each artifact — the one the last build produced — is
@@ -81,11 +72,11 @@ for profile in debug release; do
         while IFS= read -r f; do [ -n "$f" ] && run "$f"; done <<< "$stale"
       done
 
-  # The same rule for the fat static libraries. Named explicitly rather than
-  # applied to every rlib, because most rlibs are kilobytes and the risk of a
-  # clever pattern is that it matches something it should not.
-  for stem in liblibduckdb_sys libduckdb liblibsqlite3_sys libkeel_core \
-              libkeel_daemon libkeel_mcp libarrow libfastembed libort_sys; do
+  # The same rule for the largest rlibs. Named explicitly rather than applied to
+  # every rlib, because most rlibs are kilobytes and the risk of a clever
+  # pattern is that it matches something it should not.
+  for stem in liblibsqlite3_sys libkeel_core libkeel_daemon libkeel_mcp \
+              libfastembed libort_sys; do
     stale=$(find . -maxdepth 1 -name "${stem}-*.rlib" -print0 2>/dev/null \
             | xargs -0 ls -t 2>/dev/null | tail -n +2 || true)
     [ -n "$stale" ] || continue
@@ -95,8 +86,9 @@ done
 
 # ---- 3. Superseded build-script output -------------------------------
 #
-# `libduckdb-sys` had four output directories, each holding its own 237 MB
-# `libduckdb.a`. Only the newest is referenced by the current build.
+# A build script that compiles C — `libsqlite3-sys`, `ort` — gets a fresh
+# output directory per fingerprint, and its compiled objects stay in the old
+# ones. Only the newest is referenced by the current build.
 for profile in debug release; do
   build="$TARGET/$profile/build"
   [ -d "$build" ] || continue
@@ -113,8 +105,8 @@ done
 # ---- 4. Test stores leaked into TMPDIR --------------------------------
 #
 # KEEL-119. `tempfile::TempDir` deletes on Drop, so every killed or timed-out
-# test run leaves a 4.8 MB DuckDB store behind. 135 of them had accumulated when
-# this was written.
+# test run leaves a store behind. 135 of them had accumulated when this was
+# written.
 #
 # Only directories that actually contain a Keel store, and only those untouched
 # for an hour, so nothing a running test owns is taken out from under it.
@@ -123,7 +115,7 @@ leaked=0
 cd "$TMP" 2>/dev/null || true
 for d in "$TMP".tmp*; do
   [ -d "$d" ] || continue
-  { [ -f "$d/keel.duckdb" ] || [ -f "$d/keel.sqlite" ]; } || continue
+  [ -f "$d/keel.sqlite" ] || continue
   [ -n "$(find "$d" -maxdepth 0 -mmin +60 2>/dev/null)" ] || continue
   run "$d"
   leaked=$((leaked + 1))

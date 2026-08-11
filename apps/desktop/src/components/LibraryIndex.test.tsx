@@ -21,8 +21,20 @@ function entity(over: Partial<Entity> & { id: string }): Entity {
 
 describe("the decision register", () => {
   const decisions = [
-    entity({ id: "dec_1", type: "decision", title: "Use DuckDB", number: 3, status: "accepted" }),
-    entity({ id: "dec_2", type: "decision", title: "Use Lance", number: 12, status: "superseded" }),
+    entity({
+      id: "dec_1",
+      type: "decision",
+      title: "Use a separate vector store",
+      number: 3,
+      status: "superseded",
+    }),
+    entity({
+      id: "dec_2",
+      type: "decision",
+      title: "Use one SQLite database",
+      number: 12,
+      status: "accepted",
+    }),
   ];
 
   it("is a table, because a numbered register is something you scan", () => {
@@ -45,9 +57,9 @@ describe("the decision register", () => {
 
   it("sends every row to the reader, so revision history is never lost", () => {
     render(<LibraryIndex type="decision" items={decisions} project="keel" />);
-    expect(screen.getByRole("link", { name: "Use DuckDB" }).getAttribute("href")).toBe(
-      "#/projects/keel/documents/dec_1",
-    );
+    expect(
+      screen.getByRole("link", { name: "Use a separate vector store" }).getAttribute("href"),
+    ).toBe("#/projects/keel/documents/dec_1");
   });
 });
 

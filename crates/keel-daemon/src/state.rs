@@ -1,7 +1,7 @@
 //! Shared daemon state: the store, the lock, and the change broadcast.
 
 use anyhow::{Context, Result};
-use keel_core::{EventId, SqliteStore};
+use keel_core::{EventId, Store};
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -46,7 +46,7 @@ pub enum ChangeKind {
 /// Everything a request handler needs.
 #[derive(Clone)]
 pub struct AppState {
-    store: Arc<Mutex<SqliteStore>>,
+    store: Arc<Mutex<Store>>,
     /// Broadcast of changes, for the SSE stream.
     pub changes: tokio::sync::broadcast::Sender<Change>,
     /// The token bucket on `/mcp`. Shared, because the thing it protects — the
@@ -58,11 +58,13 @@ impl AppState {
     /// Open the store and build the shared state.
     ///
     /// `home` is the directory — `~/.keel` — and the store is one file inside
-    /// it. That is a change from the DuckDB store, which *was* the directory.
+    /// it. The distinction is worth the sentence because the store used to *be*
+    /// the directory, and a caller that passes one where the other is wanted
+    /// silently opens an empty store rather than failing.
     pub fn open(home: &Path, embeddings: bool) -> Result<Self> {
         let path = keel_core::store_path(home);
-        let mut store = SqliteStore::open(&path)
-            .with_context(|| format!("open the store at {}", path.display()))?;
+        let mut store =
+            Store::open(&path).with_context(|| format!("open the store at {}", path.display()))?;
 
         if embeddings {
             // Constructed here rather than inside `keel-core`, which must not
@@ -97,7 +99,7 @@ impl AppState {
     }
 
     /// Build state around an already-open store. Used by tests.
-    pub fn from_store(store: SqliteStore) -> Self {
+    pub fn from_store(store: Store) -> Self {
         let (changes, _) = tokio::sync::broadcast::channel(256);
         AppState {
             store: Arc::new(Mutex::new(store)),
@@ -113,7 +115,7 @@ impl AppState {
     /// store itself is a database with its own transactional guarantees, so
     /// refusing every subsequent request would turn one bad request into an
     /// outage.
-    pub fn store(&self) -> MutexGuard<'_, SqliteStore> {
+    pub fn store(&self) -> MutexGuard<'_, Store> {
         match self.store.lock() {
             Ok(guard) => guard,
             Err(poisoned) => {

@@ -9,9 +9,10 @@
 //!
 //! # The single write path
 //!
-//! One [`keel_core::SqliteStore`] behind one mutex, for the whole process (D-5).
-//! That is not a performance decision — DuckDB permits concurrent writer
-//! threads — it is the design rule that makes the seven-step write path
+//! One [`keel_core::Store`] behind one mutex, for the whole process (D-5).
+//! That is not a performance decision — SQLite in WAL mode would permit a
+//! second process to open this file and write to it — it is the design rule
+//! that makes the seven-step write path
 //! (validate → resolve links → embed → write entity → append revision → append
 //! event → regenerate mirror) atomic from a caller's point of view. Six of
 //! those steps have nothing to do with locking.

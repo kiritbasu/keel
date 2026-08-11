@@ -9,17 +9,17 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use keel_core::{
-    Actor, Document, EntityId, EntityStore, EntityType, Mode, Project, Provenance, Spec,
-    SqliteStore, generate,
+    Actor, Document, EntityId, EntityStore, EntityType, Mode, Project, Provenance, Spec, Store,
+    generate,
 };
 
 /// A store with one project whose checkout is `repo`, plus a spec that has
 /// adopted `product/SPEC.md`.
-fn fixture(repo: &std::path::Path, body: &str) -> (SqliteStore, EntityId, EntityId) {
+fn fixture(repo: &std::path::Path, body: &str) -> (Store, EntityId, EntityId) {
     let dir = tempfile::tempdir().unwrap();
     // Leaked so the store outlives the helper; the process is a test binary.
     let dir = Box::leak(Box::new(dir));
-    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Human);
 
     let mut project = Project::new("demo", "Demo");
@@ -57,12 +57,7 @@ fn fixture(repo: &std::path::Path, body: &str) -> (SqliteStore, EntityId, Entity
 }
 
 /// Point a project's decision log at `path`.
-fn set_decisions_path(
-    store: &mut SqliteStore,
-    project_id: &EntityId,
-    path: &str,
-    prov: &Provenance,
-) {
+fn set_decisions_path(store: &mut Store, project_id: &EntityId, path: &str, prov: &Provenance) {
     let version = store.get(project_id).unwrap().unwrap().audit().version;
     let mut changes = serde_json::Map::new();
     changes.insert("decisions_path".to_owned(), serde_json::json!(path));

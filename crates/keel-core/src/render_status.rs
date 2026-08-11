@@ -17,12 +17,12 @@
 
 use crate::{
     Cursor, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error, MilestoneStatus, Note,
-    Result, SqliteStore, TaskStatus,
+    Result, Store, TaskStatus,
 };
 use std::fmt::Write as _;
 
 /// Render a tracker for one project.
-pub fn render(store: &SqliteStore, project_id: &EntityId) -> Result<String> {
+pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
     let Some(Entity::Project(project)) = store.get(project_id)? else {
         return Err(Error::NotFound {
             entity_type: EntityType::Project,
@@ -394,11 +394,7 @@ fn plural(noun: &str) -> String {
     format!("{noun}s")
 }
 
-fn collect(
-    store: &SqliteStore,
-    project_id: &EntityId,
-    entity_type: EntityType,
-) -> Result<Vec<Entity>> {
+fn collect(store: &Store, project_id: &EntityId, entity_type: EntityType) -> Result<Vec<Entity>> {
     Ok(store
         .list(
             &EntityQuery::in_project(project_id.clone())

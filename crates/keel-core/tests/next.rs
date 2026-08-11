@@ -8,19 +8,19 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use keel_core::{
-    Actor, Entity, EntityId, EntityStore, NewLink, Project, Provenance, Question, Relation,
-    SqliteStore, Task, TaskPriority, TaskStatus, next,
+    Actor, Entity, EntityId, EntityStore, NewLink, Project, Provenance, Question, Relation, Store,
+    Task, TaskPriority, TaskStatus, next,
 };
 
 struct Fixture {
-    store: SqliteStore,
+    store: Store,
     project: EntityId,
     _dir: tempfile::TempDir,
 }
 
 fn setup() -> Fixture {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let project = store
         .create(
             Project::new("demo", "Demo").into(),

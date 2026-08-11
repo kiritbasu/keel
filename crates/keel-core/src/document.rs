@@ -1,15 +1,20 @@
 //! Document revisions — the prose half of Keel.
 //!
-//! Every prose body in the store, of every type, lives in one Lance dataset
+//! Every prose body in the store, of every type, lives in one `documents` table
 //! (D-2). That is the highest-leverage decision in the spec: one hybrid search
 //! covers spec sections, decisions, customer feedback and design captions
 //! together, versioning has a single code path, and adding a prose-bearing
 //! type costs nothing.
 //!
-//! Revisions are modelled in **user columns**, not Lance dataset versions
-//! (D-2b). Dataset versions are a storage concern that serves snapshot and
-//! restore; a document revision is a domain concept that has to survive
-//! compaction and re-embedding. Conflating them would mean losing revision
+//! Revisions are **ordinary rows**, numbered by `version` and chained by
+//! `parent_version` (D-2b). The decision was first taken against a store whose
+//! engine versioned its own datasets and invited you to reuse that for
+//! revisions; it survived the move to SQLite because the reasoning was never
+//! about the engine. Whatever a storage engine versions for you exists to serve
+//! snapshot and restore, and it is free to collapse those versions when it
+//! compacts. A document revision is a domain concept — it has an author, a
+//! session, a status and a diff taken against it — and it has to outlive both
+//! compaction and a re-embedding pass. Conflating the two means losing revision
 //! history to a maintenance operation.
 
 use crate::{Actor, DocId, EntityId, EntityType, Error, Result, Surface};
@@ -21,9 +26,9 @@ use std::fmt;
 /// The dimensionality of the embedding vector.
 ///
 /// Fixed by the model choice (`bge-small-en-v1.5`, D-7). Changing models means
-/// changing this, which means rewriting the dataset — hence `embedding_model`
-/// and `embedding_version` on every row, so the migration can be a background
-/// pass over stale rows rather than a rewrite of everything.
+/// changing this, which means every stored vector is the wrong width — hence
+/// `embedding_model` and `embedding_version` on every row, so the migration can
+/// be a background pass over stale rows rather than a rewrite of everything.
 pub const EMBEDDING_DIM: usize = 384;
 
 /// The embedding model Keel uses.
@@ -127,15 +132,19 @@ pub struct Document {
     pub doc_id: DocId,
     /// Which of the five prose-bearing types this belongs to.
     pub entity_type: EntityType,
-    /// The DuckDB header row this is the body of.
+    /// The header row this is the body of.
     ///
-    /// A logical reference, **not** an enforced foreign key: Lance cannot
-    /// enforce it and DuckDB cannot see it. `keel-core` validates it on write
-    /// and `keel-cli fsck` audits it. This is the single most important
-    /// cross-engine invariant in the system.
+    /// A logical reference, **not** an enforced foreign key, even though the
+    /// header now sits in the same file with `foreign_keys = ON`. There is
+    /// nothing for a `REFERENCES` clause to name: `entity_id` is polymorphic,
+    /// pointing at whichever of the thirteen entity tables `entity_type` says.
+    /// So `keel-core` validates it on write and `keel-cli fsck` audits it. What
+    /// one file did buy is that a document and its header are written in one
+    /// transaction, so the pair can no longer be left half-written — the case
+    /// left to audit is a reference to a row that never existed.
     pub entity_id: EntityId,
     /// Denormalised from the header, so search can filter by project without
-    /// leaving the dataset.
+    /// joining back to it.
     pub project_id: Option<EntityId>,
     /// 1-based revision number, unique per `entity_id`.
     pub version: i32,
@@ -147,7 +156,7 @@ pub struct Document {
     pub body: String,
     /// Content address of `(title, body)`.
     pub body_hash: String,
-    /// Pointer into the `blobs` dataset, for design captions with an image.
+    /// Pointer into the `blobs` table, for design captions with an image.
     pub media_ref: Option<String>,
     /// Where this revision sits in the history.
     pub status: DocStatus,
@@ -209,7 +218,7 @@ impl Document {
                 operation: format!("write a document revision for {entity_id}"),
                 problem: format!(
                     "{entity_type} has no prose body; only spec, decision, question, \
-                     feedback and design write to the documents dataset"
+                     feedback and design write to the documents table"
                 ),
             });
         }
@@ -300,7 +309,7 @@ mod tests {
             spec_id(),
             None,
             "Storage",
-            "# Storage\n\nDuckDB and Lance.",
+            "# Storage\n\nOne SQLite file.",
             Actor::Claude,
             Utc::now(),
         )
@@ -364,10 +373,10 @@ mod tests {
 
     #[test]
     fn identical_content_hashes_identically_and_different_content_does_not() {
-        let h1 = body_hash("Storage", "DuckDB and Lance.");
-        let h2 = body_hash("Storage", "DuckDB and Lance.");
-        let h3 = body_hash("Storage", "DuckDB and Lance");
-        let h4 = body_hash("Storage layer", "DuckDB and Lance.");
+        let h1 = body_hash("Storage", "One SQLite file.");
+        let h2 = body_hash("Storage", "One SQLite file.");
+        let h3 = body_hash("Storage", "One SQLite file");
+        let h4 = body_hash("Storage layer", "One SQLite file.");
         assert_eq!(h1, h2);
         assert_ne!(h1, h3, "a trailing full stop is a real change");
         assert_ne!(h1, h4, "the title is part of the content");

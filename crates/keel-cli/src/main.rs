@@ -17,7 +17,7 @@ mod work;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
-use keel_core::{SqliteStore, fixture, fsck, sqlite_backup as backup};
+use keel_core::{Store, backup, fixture, fsck};
 use std::path::PathBuf;
 
 /// Keel's command-line client.
@@ -41,15 +41,15 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Check cross-engine referential integrity.
+    /// Check the store's referential integrity.
     ///
     /// Exits non-zero if anything is actually broken, so it can gate a backup
     /// or a deploy.
     Fsck {
         /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
         ///
-        /// Read through the daemon when one is running: it holds DuckDB's write
-        /// lock and no second process can open the store while it does.
+        /// Read through the daemon when one is running. It is the single
+        /// writer, so going through it is what guarantees a consistent read.
         #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
         daemon: String,
     },
@@ -67,20 +67,6 @@ enum Command {
         source: PathBuf,
         /// Where to restore to. Must not already contain a store.
         target: PathBuf,
-    },
-
-    /// Copy the DuckDB-and-Lance store into a new SQLite one, and check it.
-    ///
-    /// Reads only. The old store is never modified, so a failed run costs
-    /// nothing and can be repeated. Stop the daemon first — it holds DuckDB's
-    /// write lock, and there is exactly one writer.
-    Migrate {
-        /// Where to write the SQLite store. Defaults to `<home>/keel.sqlite`.
-        #[arg(long)]
-        target: Option<PathBuf>,
-        /// Check an existing SQLite store against the old one without copying.
-        #[arg(long)]
-        verify_only: bool,
     },
 
     /// Load the realistic fixture corpus into an empty store.
@@ -129,8 +115,8 @@ enum Command {
     Status {
         /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
         ///
-        /// Read through the daemon when one is running: it holds DuckDB's write
-        /// lock and no second process can open the store while it does.
+        /// Read through the daemon when one is running. It is the single
+        /// writer, so going through it is what guarantees a consistent read.
         #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
         daemon: String,
     },
@@ -399,10 +385,6 @@ fn main() -> Result<()> {
         Command::Fsck { daemon } => run_fsck(&home, daemon, cli.json),
         Command::Backup { dest } => run_backup(&home, dest.clone(), cli.json),
         Command::Restore { source, target } => run_restore(source, target, cli.json),
-        Command::Migrate {
-            target,
-            verify_only,
-        } => run_migrate(&home, target.clone(), *verify_only, cli.json),
         Command::Fixture => run_fixture(&home, cli.json),
         Command::Status { daemon } => run_status(&home, daemon, cli.json),
         Command::RenderStatus {
@@ -655,7 +637,7 @@ fn run_bootstrap(home: &PathBuf, repo: Option<String>, only: bool, json: bool) -
 }
 
 /// Resolve a project by id, slug or name.
-pub(crate) fn resolve_project(store: &SqliteStore, reference: &str) -> Result<keel_core::Entity> {
+pub(crate) fn resolve_project(store: &Store, reference: &str) -> Result<keel_core::Entity> {
     use keel_core::{Entity, EntityQuery, EntityStore, EntityType};
     let projects = store.list(&EntityQuery::default().of_type(EntityType::Project))?;
     let needle = reference.to_lowercase();
@@ -888,11 +870,13 @@ fn resolve_home(explicit: Option<PathBuf>) -> Result<PathBuf> {
 
 /// Ask the daemon for a read, returning `None` if it is not answering.
 ///
-/// The store has one writer and DuckDB will not grant a second connection
-/// while it holds the lock, so a read-shaped command has two choices: go
-/// through the daemon, or work only when the daemon is stopped. The second is
-/// what `fsck` used to do, and an integrity check you must stop the thing you
-/// want to check in order to run is not much of a check (TQ-15, KEEL-57).
+/// The daemon is the single writer, so a read-shaped command has two choices:
+/// go through the daemon, or read the file underneath it. The second is what
+/// `fsck` used to do only when the daemon was stopped, and an integrity check
+/// you must stop the thing you want to check in order to run is not much of a
+/// check (TQ-15, KEEL-57). SQLite in WAL mode would now permit reading behind
+/// the daemon's back, but the daemon's answer is the one that has seen every
+/// write, so it stays the front door.
 ///
 /// `None` means "no daemon answered", which is a normal state — nothing is
 /// holding the lock, so opening the store directly is correct and safe. A
@@ -941,9 +925,9 @@ fn read_via_daemon(base: &str, path: &str) -> Result<Option<serde_json::Value>> 
 /// `home` is the directory; the store is one file inside it. Every caller goes
 /// through `store_path` rather than joining a filename, because a surface that
 /// picks the wrong name gets a brand-new empty store instead of an error.
-fn open(home: &PathBuf) -> Result<SqliteStore> {
+fn open(home: &PathBuf) -> Result<Store> {
     let path = keel_core::store_path(home);
-    SqliteStore::open(&path).with_context(|| format!("open the store at {}", path.display()))
+    Store::open(&path).with_context(|| format!("open the store at {}", path.display()))
 }
 
 fn run_fsck(home: &PathBuf, daemon: &str, json: bool) -> Result<()> {
@@ -979,59 +963,6 @@ fn run_fsck(home: &PathBuf, daemon: &str, json: bool) -> Result<()> {
         bail!(
             "{} error-level finding(s); the store is not consistent",
             report.errors().count()
-        );
-    }
-    Ok(())
-}
-
-/// Copy the old store into a new SQLite one, then check the two agree.
-///
-/// Nothing here writes to the DuckDB store. The copy goes into a file beside
-/// it, so the old store stays the working one until someone deliberately
-/// switches over — which is what makes a failed migration cost nothing.
-///
-/// The verification is the point rather than the copy, so it runs every time
-/// and a dirty result is a non-zero exit. A migration that reported success
-/// without comparing anything would be worse than no migration command.
-fn run_migrate(
-    home: &PathBuf,
-    target: Option<PathBuf>,
-    verify_only: bool,
-    json: bool,
-) -> Result<()> {
-    // The one command that opens both engines, and the only remaining reason
-    // `keel-cli` depends on the DuckDB half of `keel-core` at all. KEEL-130
-    // deletes this command and that dependency together.
-    let old = keel_core::DuckStore::open(home)
-        .with_context(|| format!("open the DuckDB store at {}", home.display()))?;
-    let target = target.unwrap_or_else(|| keel_core::store_path(home));
-
-    let mut new = SqliteStore::open(&target)?;
-
-    if !verify_only {
-        let report = keel_core::migrate::migrate(&old, &mut new)?;
-        if !json {
-            println!("{report}");
-        }
-    }
-
-    let verification = keel_core::migrate::verify(&old, &new)?;
-    if json {
-        println!("{}", serde_json::to_string_pretty(&verification)?);
-    } else {
-        println!("{verification}");
-        println!("\nold store: {}", home.display());
-        println!("new store: {}", target.display());
-    }
-
-    if !verification.is_clean() {
-        // Non-zero, and loudly. The whole value of this command is that it
-        // refuses to say the two stores agree when they do not.
-        anyhow::bail!(
-            "the two stores do not agree — {} difference(s). The old store is untouched; \
-             delete {} and run again once the cause is understood",
-            verification.differences.len(),
-            target.display()
         );
     }
     Ok(())
@@ -1290,7 +1221,7 @@ mod restore_git_tests {
             return;
         }
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("keel.duckdb"), b"not really a database").unwrap();
+        std::fs::write(dir.path().join("keel.sqlite"), b"not really a database").unwrap();
 
         assert!(init_store_git(dir.path()).unwrap(), "it created the repo");
         assert!(dir.path().join(".git").exists());
@@ -1355,9 +1286,9 @@ mod render_status_tests {
     use super::*;
     use keel_core::{Actor, EntityStore, Project, Provenance};
 
-    fn store_with(slugs: &[(&str, &str)]) -> (tempfile::TempDir, SqliteStore) {
+    fn store_with(slugs: &[(&str, &str)]) -> (tempfile::TempDir, Store) {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
         for (slug, name) in slugs {
             store
                 .create(

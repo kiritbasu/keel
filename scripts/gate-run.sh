@@ -12,8 +12,8 @@
 #
 #  1. **Parallel, one store per session.** Was sequential: ten Claude sessions
 #     in a queue, 15-20 minutes a run, and the author watching a blank terminal
-#     asking why. Also removes DuckDB write-lock contention between sessions,
-#     which would otherwise manufacture a fake product requirement.
+#     asking why. Also removes write-lock contention between sessions, which
+#     would otherwise manufacture a fake product requirement.
 #
 #  2. **A continuation turn.** The old harness was `claude -p … </dev/null` —
 #     one prompt, one response, exit. Five sessions ended with "I'll hold off
@@ -222,8 +222,9 @@ for i in $(seq 0 $((launched - 1))); do
   ports+=("$port")
 
   # One store per session. Isolation is not tidiness: a shared store means ten
-  # sessions contend on DuckDB's single write lock, and a write that loses that
-  # race is indistinguishable in the log from a session that chose not to write.
+  # sessions contend on the store's single write lock, and a write that loses
+  # that race is indistinguishable in the log from a session that chose not to
+  # write.
   home="$run_dir/stores/s$n"
   sdir="$work/s$n"
   mkdir -p "$home" "$sdir"

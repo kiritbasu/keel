@@ -7,7 +7,7 @@ use keel_core::*;
 use std::sync::Arc;
 
 struct Fixture {
-    store: SqliteStore,
+    store: Store,
     project_id: EntityId,
     _dir: tempfile::TempDir,
 }
@@ -22,7 +22,7 @@ impl Fixture {
         // A hash embedder rather than the real model: the test suite must not
         // download 130 MB before it can assert anything. This exercises the
         // plumbing, not retrieval quality — see embed.rs.
-        let mut store = SqliteStore::open(dir.path().join("keel.sqlite"))
+        let mut store = Store::open(dir.path().join("keel.sqlite"))
             .unwrap()
             .with_embedder(Arc::new(HashEmbedder::new()));
         let project_id = store
@@ -264,7 +264,7 @@ fn embeddings_are_written_when_an_embedder_is_attached() {
 fn a_store_without_an_embedder_still_stores_and_searches() {
     // G8 and R-3: no embedder must degrade search, not break the store.
     let dir = tempfile::tempdir().unwrap();
-    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let project_id = store
         .create(Project::new("keel", "Keel").into(), &prov())
         .unwrap()
@@ -307,7 +307,7 @@ fn a_store_without_an_embedder_still_stores_and_searches() {
 fn search_spans_prose_and_non_prose_types_alike() {
     let mut f = Fixture::new();
 
-    // A prose-bearing type — goes to the Lance documents index.
+    // A prose-bearing type — indexed from its current document revision.
     let spec = f.spec("Onboarding redesign");
     f.write(
         &spec,
@@ -315,7 +315,7 @@ fn search_spans_prose_and_non_prose_types_alike() {
         "Customers report that onboarding takes too many steps.",
     );
 
-    // A non-prose type — goes to the DuckDB entity index.
+    // A non-prose type — indexed from its own row.
     let task = f
         .store
         .create(
@@ -353,8 +353,8 @@ fn search_spans_prose_and_non_prose_types_alike() {
 
 #[test]
 fn the_semantic_half_finds_prose_that_shares_no_words_with_the_query() {
-    // The reason Lance is here at all. If this only ever matched keywords,
-    // the vector index would be dead weight.
+    // The reason the vector index is here at all. If search only ever matched
+    // keywords, the embeddings would be dead weight.
     let mut f = Fixture::new();
     let spec = f.spec("Aggregation granularity");
     f.write(
@@ -378,9 +378,11 @@ fn the_semantic_half_finds_prose_that_shares_no_words_with_the_query() {
 
 #[test]
 fn newly_created_entities_are_searchable_immediately() {
-    // The stale-index trap: DuckDB's FTS index is a snapshot and does not
-    // track inserts. An entity created after the last build would silently
-    // never be found.
+    // The stale-index trap, which the engine this store replaced walked into:
+    // its full-text index was a snapshot and did not track inserts, so an
+    // entity created after the last build was silently never found. FTS5's
+    // triggers are what make this pass without a rebuild — assert it, because
+    // a regression here fails by finding nothing rather than by erroring.
     let mut f = Fixture::new();
     f.store
         .create(
@@ -542,7 +544,10 @@ fn blobs_round_trip() {
     let id = f.store.put_blob(blob).unwrap();
 
     let fetched = f.store.get_blob(&id).unwrap().unwrap();
-    assert_eq!(fetched.bytes, bytes, "blob bytes must survive Lance intact");
+    assert_eq!(
+        fetched.bytes, bytes,
+        "blob bytes must survive the round trip intact"
+    );
     assert_eq!(fetched.media_type, "image/png");
     assert!(f.store.get_blob(&BlobId::generate()).unwrap().is_none());
 }
@@ -619,7 +624,7 @@ fn a_full_size_specification_round_trips_byte_for_byte() {
 fn a_document_survives_reopening_the_store() {
     let dir = tempfile::tempdir().unwrap();
     let (project_id, spec_id) = {
-        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
         let p = store
             .create(Project::new("keel", "Keel").into(), &prov())
             .unwrap()
@@ -649,7 +654,7 @@ fn a_document_survives_reopening_the_store() {
         (p, s)
     };
 
-    let store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let doc = store.revision(&spec_id, None).unwrap().unwrap();
     assert_eq!(doc.body, "This must survive a restart.");
     assert_eq!(doc.project_id, Some(project_id));

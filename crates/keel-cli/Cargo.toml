@@ -1,6 +1,6 @@
 [package]
 name = "keel-cli"
-description = "Thin Keel client: backup, restore, fsck, fixtures, migration."
+description = "Thin Keel client: backup, restore, fsck, fixtures, generation."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,12 +10,6 @@ publish.workspace = true
 [[bin]]
 name = "keel"
 path = "src/main.rs"
-
-[features]
-# Propagated from keel-core so `--no-default-features` at the workspace level
-# switches the whole build to a system libduckdb in one go.
-default = ["bundled"]
-bundled = ["keel-core/bundled"]
 
 [lints]
 workspace = true

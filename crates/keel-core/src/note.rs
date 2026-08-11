@@ -4,11 +4,12 @@
 //!
 //! The tracker was prose for one reason: a task row could hold a title and a
 //! status, but not the paragraph that says *what was found while doing it*.
-//! `product/STATUS.md` carried fifty of those paragraphs — "the DuckDB FTS
-//! index is a snapshot and silently misses rows created after it was built" —
-//! and they were the most valuable text in the repository. Rendering the
-//! tracker from rows meant losing them, so the tracker stayed prose, so the
-//! rows stayed thin. That loop is what this breaks.
+//! `product/STATUS.md` carried fifty of those paragraphs — "`STRICT` rejects
+//! the wrong type but not the wrong value, so a mistyped status stores fine and
+//! then matches nothing" — and they were the most valuable text in the
+//! repository. Rendering the tracker from rows meant losing them, so the
+//! tracker stayed prose, so the rows stayed thin. That loop is what this
+//! breaks.
 //!
 //! # Why not a column on `tasks`
 //!

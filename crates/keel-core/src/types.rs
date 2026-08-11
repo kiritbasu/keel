@@ -1,6 +1,6 @@
 //! The thirteen artifact structs, and the [`Entity`] enum that unifies them.
 //!
-//! Each struct mirrors its DuckDB table from SPEC §3.2 field for field. Where
+//! Each struct mirrors its SQLite table from SPEC §3.2 field for field. Where
 //! the schema and this file disagree, the schema wins and this file is the
 //! bug — `keel-cli fsck` exists partly to catch that drift.
 //!
@@ -777,7 +777,7 @@ impl Task {
     }
 }
 
-/// A prose document's header. The body lives in the Lance `documents` dataset.
+/// A prose document's header. The body lives in the `documents` table.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Spec {
     /// `spc_…`
@@ -1066,7 +1066,7 @@ pub struct Design {
     pub state: DesignState,
     /// A Figma node reference, if it came from there.
     pub figma_ref: Option<String>,
-    /// The stored image in the Lance `blobs` dataset.
+    /// The stored image in the `blobs` table.
     pub blob_id: Option<BlobId>,
     /// Pointer into `documents.version` — caption and rationale.
     pub current_doc_version: i32,
@@ -1550,7 +1550,7 @@ mod tests {
             )
             .into(),
             Spec::new(p.clone(), "Storage spec").into(),
-            Decision::new(p.clone(), "Use DuckDB").into(),
+            Decision::new(p.clone(), "Use SQLite").into(),
             Question::new(p.clone(), "Where does the store live?").into(),
             Term::new(Some(p.clone()), "Digest", "The keel_context summary").into(),
             Feedback::new(p.clone(), "Onboarding felt slow").into(),

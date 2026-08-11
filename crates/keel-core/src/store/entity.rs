@@ -1,26 +1,17 @@
 //! `EntityStore` against SQLite: entity CRUD, links, events and notes.
 //!
-//! This is the same twenty methods as [`crate::store::duck`], against
-//! `rusqlite` instead of `duckdb`. The domain logic is engine-independent and
-//! is reproduced here unchanged — the idempotency ladder, the readable-number
-//! assignment order, the `closed_at` rules, one event per changed field. What
-//! differs is statement text and parameter binding, and nothing else should.
+//! Twenty methods, and the interesting half of each of them is not about
+//! SQLite at all — the idempotency ladder, the readable-number assignment
+//! order, the `closed_at` rules, one event per changed field. That is domain
+//! logic, and it came through the move off DuckDB unchanged. What the move
+//! touched was statement text and parameter binding, and nothing else.
 //!
-//! # Why this duplicates `duck.rs` rather than sharing with it
+//! # Where the schema and the structs disagree
 //!
-//! Deliberately, and with an end date. `duck.rs` is deleted at KEEL-130.
-//! Extracting a shared layer between two engines when one of them is about to
-//! be removed would mean designing an abstraction around a caller that is
-//! weeks from not existing, and then unpicking it again — the more expensive
-//! mistake of the two. Until KEEL-130 the two files are read side by side,
-//! which is also how they are checked against each other.
-//!
-//! # What did not translate cleanly
-//!
-//! The SQLite `events` table names two columns differently from the struct:
-//! `op` for the action and `at` for the timestamp. Both are mapped in
-//! [`EVENT_COLUMNS`] rather than in the reader, so the row reader stays a
-//! line-for-line match with the DuckDB one.
+//! The `events` table names two columns differently from the struct: `op` for
+//! the action and `at` for the timestamp. Both are aliased in
+//! [`EVENT_COLUMNS`] rather than special-cased in the reader, so the reader
+//! addresses every column by the name its struct field has.
 //!
 //! It also, for a while, had no `summary` and no `meta` column at all. That was
 //! found here and fixed in migration 1 rather than documented and left, because
@@ -35,14 +26,13 @@
 //!
 //! # Why every helper is a free function
 //!
-//! Sibling modules in `store::sqlite` add their own inherent `impl SqliteStore`
-//! blocks, and two modules defining a method of the same name on one type is a
-//! compile error. The names a store's private helpers want — `count`,
-//! `query_one`, `find_link` — are exactly the ones that would collide, so they
-//! are module-private functions taking `&SqliteStore` or `&Connection`
-//! instead.
+//! Sibling modules in `store` add their own inherent `impl Store` blocks, and
+//! two modules defining a method of the same name on one type is a compile
+//! error. The names a store's private helpers want — `count`, `query_one`,
+//! `find_link` — are exactly the ones that would collide, so they are
+//! module-private functions taking `&Store` or `&Connection` instead.
 
-use super::SqliteStore;
+use super::Store;
 use super::rows::{
     from_row, insert_params, insert_stmt, ots, parse_ts, read_audit, select_from, ts,
 };
@@ -61,17 +51,15 @@ use rusqlite::{Connection, Row, params_from_iter};
 /// The default cap on any list that does not specify one.
 ///
 /// Not a silent truncation: every [`Page`] reports its total, so a caller that
-/// hits this cap is told so. Declared here rather than imported from the DuckDB
-/// store because that module goes away at KEEL-130 and this one must not go
-/// with it.
+/// hits this cap is told so — hard constraint 4.
 pub const DEFAULT_LIST_LIMIT: usize = 200;
 
 /// The event projection, named once so the three event queries cannot drift.
 ///
 /// `op AS action` and `at AS created_at` are the only column renames in the
-/// file: the SQLite schema chose different names for the same two things, and
-/// aliasing them here means the row reader below matches the DuckDB one
-/// line for line.
+/// file: the schema chose different names for the same two things, and aliasing
+/// them here means the row reader below can address every column by the name
+/// its struct field has, with no rename to remember at three call sites.
 const EVENT_COLUMNS: &str = "SELECT id, project_id, entity_type, entity_id, op AS action, field, \
                              before, after, summary, meta, actor, session_id, surface, \
                              at AS created_at";
@@ -106,7 +94,7 @@ fn json_param(v: Option<&serde_json::Value>) -> Value {
 
 /// Wrap a read failure with the column and table that caused it.
 fn col_err(table: &'static str, column: &'static str) -> impl FnOnce(rusqlite::Error) -> Error {
-    Error::sqlite(format!("read column `{column}` of `{table}`"))
+    Error::storage(format!("read column `{column}` of `{table}`"))
 }
 
 /// Read a required timestamp column.
@@ -203,9 +191,9 @@ fn link_params(l: &Link) -> Vec<Value> {
 
 /// Rebuild an event from a row selected through [`EVENT_COLUMNS`].
 ///
-/// `summary` is `NOT NULL DEFAULT ''`, so a row written before that column
-/// existed reads back as an empty sentence rather than failing — which is the
-/// right behaviour for a store that has just been migrated into.
+/// `summary` is `NOT NULL DEFAULT ''`, so an event copied in without one reads
+/// back as an empty sentence rather than failing the read. History that predates
+/// the column is worth less than history that cannot be read at all.
 fn read_event(row: &Row<'_>) -> Result<Event> {
     let json = |v: Option<String>| v.and_then(|s| serde_json::from_str(&s).ok());
     Ok(Event {
@@ -339,7 +327,7 @@ fn validate_on_create(entity: &Entity) -> Result<()> {
 
 /// Run a query expected to yield at most one entity.
 fn query_one(
-    store: &SqliteStore,
+    store: &Store,
     entity_type: EntityType,
     sql: &str,
     params: Vec<Value>,
@@ -347,13 +335,13 @@ fn query_one(
     let mut stmt = store
         .connection()
         .prepare(sql)
-        .map_err(Error::sqlite(format!("prepare a {entity_type} lookup")))?;
+        .map_err(Error::storage(format!("prepare a {entity_type} lookup")))?;
     let mut rows = stmt
         .query(params_from_iter(params))
-        .map_err(Error::sqlite(format!("run a {entity_type} lookup")))?;
+        .map_err(Error::storage(format!("run a {entity_type} lookup")))?;
     match rows
         .next()
-        .map_err(Error::sqlite(format!("read a {entity_type} row")))?
+        .map_err(Error::storage(format!("read a {entity_type} row")))?
     {
         Some(row) => Ok(Some(from_row(entity_type, row)?)),
         None => Ok(None),
@@ -362,7 +350,7 @@ fn query_one(
 
 /// Run a query yielding many entities of one type.
 fn query_many(
-    store: &SqliteStore,
+    store: &Store,
     entity_type: EntityType,
     sql: &str,
     params: Vec<Value>,
@@ -370,14 +358,14 @@ fn query_many(
     let mut stmt = store
         .connection()
         .prepare(sql)
-        .map_err(Error::sqlite(format!("prepare a {entity_type} list")))?;
+        .map_err(Error::storage(format!("prepare a {entity_type} list")))?;
     let mut rows = stmt
         .query(params_from_iter(params))
-        .map_err(Error::sqlite(format!("run a {entity_type} list")))?;
+        .map_err(Error::storage(format!("run a {entity_type} list")))?;
     let mut out = Vec::new();
     while let Some(row) = rows
         .next()
-        .map_err(Error::sqlite(format!("read a {entity_type} row")))?
+        .map_err(Error::storage(format!("read a {entity_type} row")))?
     {
         out.push(from_row(entity_type, row)?);
     }
@@ -388,37 +376,37 @@ fn query_many(
 fn count(conn: &Connection, sql: &str, params: Vec<Value>) -> Result<usize> {
     let n: i64 = conn
         .query_row(sql, params_from_iter(params), |r| r.get(0))
-        .map_err(Error::sqlite("count matching rows"))?;
+        .map_err(Error::storage("count matching rows"))?;
     Ok(n.max(0) as usize)
 }
 
 /// Run a note query and read the rows.
-fn query_notes(store: &SqliteStore, sql: &str, params: Vec<Value>) -> Result<Vec<Note>> {
+fn query_notes(store: &Store, sql: &str, params: Vec<Value>) -> Result<Vec<Note>> {
     let mut stmt = store
         .connection()
         .prepare(sql)
-        .map_err(Error::sqlite("prepare a note query"))?;
+        .map_err(Error::storage("prepare a note query"))?;
     let mut rows = stmt
         .query(params_from_iter(params))
-        .map_err(Error::sqlite("run a note query"))?;
+        .map_err(Error::storage("run a note query"))?;
     let mut out = Vec::new();
-    while let Some(row) = rows.next().map_err(Error::sqlite("read a note row"))? {
+    while let Some(row) = rows.next().map_err(Error::storage("read a note row"))? {
         out.push(read_note(row)?);
     }
     Ok(out)
 }
 
 /// Run an event query and read the rows.
-fn query_events(store: &SqliteStore, sql: &str, params: Vec<Value>) -> Result<Vec<Event>> {
+fn query_events(store: &Store, sql: &str, params: Vec<Value>) -> Result<Vec<Event>> {
     let mut stmt = store
         .connection()
         .prepare(sql)
-        .map_err(Error::sqlite("prepare an event query"))?;
+        .map_err(Error::storage("prepare an event query"))?;
     let mut rows = stmt
         .query(params_from_iter(params))
-        .map_err(Error::sqlite("run an event query"))?;
+        .map_err(Error::storage("run an event query"))?;
     let mut out = Vec::new();
-    while let Some(row) = rows.next().map_err(Error::sqlite("read an event row"))? {
+    while let Some(row) = rows.next().map_err(Error::storage("read an event row"))? {
         out.push(read_event(row)?);
     }
     Ok(out)
@@ -427,7 +415,7 @@ fn query_events(store: &SqliteStore, sql: &str, params: Vec<Value>) -> Result<Ve
 /// Find an existing entity by idempotency key, honouring each type's
 /// uniqueness scope.
 fn find_by_key(
-    store: &SqliteStore,
+    store: &Store,
     entity_type: EntityType,
     project_id: Option<&EntityId>,
     key: &str,
@@ -466,7 +454,7 @@ fn find_by_key(
 /// deliberately matches them: reviving an archived row on a *fuzzy* match would
 /// resurrect something a human chose to put away.
 fn find_by_similar_label(
-    store: &SqliteStore,
+    store: &Store,
     entity_type: EntityType,
     project_id: Option<&EntityId>,
     label: &str,
@@ -535,7 +523,7 @@ fn next_number_in(conn: &Connection, table: &str, project_id: &EntityId) -> Resu
 /// between the two in which another writer could land — the exact race the
 /// requirement exists to close, and the reason this asserts on the number of
 /// rows the statement changed rather than trusting the earlier read.
-fn write_back(store: &SqliteStore, entity: &Entity, expected_version: i32) -> Result<()> {
+fn write_back(store: &Store, entity: &Entity, expected_version: i32) -> Result<()> {
     let entity_type = entity.entity_type();
     let spec = spec_for(entity_type);
     let assignments: Vec<String> = spec
@@ -580,7 +568,7 @@ fn write_back(store: &SqliteStore, entity: &Entity, expected_version: i32) -> Re
     let affected = store
         .connection()
         .execute(&sql, params_from_iter(params))
-        .map_err(Error::sqlite(format!("update {}", entity.id())))?;
+        .map_err(Error::storage(format!("update {}", entity.id())))?;
 
     if affected == 0 {
         // Either the row moved under us or it never existed. Re-read to tell
@@ -607,7 +595,7 @@ fn write_back(store: &SqliteStore, entity: &Entity, expected_version: i32) -> Re
 /// Separate from the trait method so that a create and the event describing it
 /// carry the same timestamp rather than two instants a microsecond apart.
 fn append_event_inner(
-    store: &SqliteStore,
+    store: &Store,
     event: NewEvent,
     provenance: &Provenance,
     now: DateTime<Utc>,
@@ -658,7 +646,7 @@ fn append_event_inner(
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             params_from_iter(params),
         )
-        .map_err(Error::sqlite(format!(
+        .map_err(Error::storage(format!(
             "append a `{}` event for {}",
             stored.action, stored.entity_id
         )))?;
@@ -681,7 +669,7 @@ fn project_of(entity: &Entity) -> Option<EntityId> {
 /// This is the foreign key the schema cannot declare: `links` is polymorphic
 /// across thirteen tables (SPEC §3.1). Skipping it would let a typo create an
 /// edge to nothing, which a traversal would then silently drop.
-fn require_live(store: &SqliteStore, id: &EntityId, role: &str) -> Result<Entity> {
+fn require_live(store: &Store, id: &EntityId, role: &str) -> Result<Entity> {
     match store.get(id)? {
         None => Err(Error::Invariant {
             operation: format!("link {role} {id}"),
@@ -701,17 +689,17 @@ fn require_live(store: &SqliteStore, id: &EntityId, role: &str) -> Result<Entity
 /// thirteen tables it lives in, and a `match` over all thirteen would have to be
 /// updated every time a type is added.
 fn resolve_vertex(
-    store: &SqliteStore,
+    store: &Store,
     id: &EntityId,
 ) -> Result<Option<(EntityType, Option<EntityId>, bool)>> {
     let mut stmt = store
         .connection()
         .prepare("SELECT entity_type, project_id, archived_at FROM v_entities WHERE id = ? LIMIT 1")
-        .map_err(Error::sqlite("prepare a vertex lookup"))?;
+        .map_err(Error::storage("prepare a vertex lookup"))?;
     let mut rows = stmt
         .query(params_from_iter(vec![id_param(id)]))
-        .map_err(Error::sqlite("run a vertex lookup"))?;
-    let Some(row) = rows.next().map_err(Error::sqlite("read a vertex row"))? else {
+        .map_err(Error::storage("run a vertex lookup"))?;
+    let Some(row) = rows.next().map_err(Error::storage("read a vertex row"))? else {
         return Ok(None);
     };
     let entity_type = EntityType::parse(
@@ -725,7 +713,7 @@ fn resolve_vertex(
 
 /// Find one edge by its unique key.
 fn find_link(
-    store: &SqliteStore,
+    store: &Store,
     from_id: &EntityId,
     rel: Relation,
     to_id: &EntityId,
@@ -746,7 +734,7 @@ fn find_link(
     let mut stmt = store
         .connection()
         .prepare(&sql)
-        .map_err(Error::sqlite("prepare a link lookup"))?;
+        .map_err(Error::storage("prepare a link lookup"))?;
     let mut rows = stmt
         .query(params_from_iter(vec![
             id_param(from_id),
@@ -754,8 +742,8 @@ fn find_link(
             id_param(to_id),
             text(anchor),
         ]))
-        .map_err(Error::sqlite("run a link lookup"))?;
-    match rows.next().map_err(Error::sqlite("read a link row"))? {
+        .map_err(Error::storage("run a link lookup"))?;
+    match rows.next().map_err(Error::storage("read a link row"))? {
         Some(row) => Ok(Some(read_link(row)?)),
         None => Ok(None),
     }
@@ -783,7 +771,7 @@ fn render(v: &serde_json::Value) -> String {
     }
 }
 
-impl EntityStore for SqliteStore {
+impl EntityStore for Store {
     fn create(&mut self, mut entity: Entity, provenance: &Provenance) -> Result<Created> {
         // Before the idempotency lookup, so a bad write is refused rather than
         // quietly matching an existing row and reporting success.
@@ -878,7 +866,7 @@ impl EntityStore for SqliteStore {
                 &insert_stmt(&spec),
                 params_from_iter(insert_params(&entity)),
             )
-            .map_err(Error::sqlite(format!(
+            .map_err(Error::storage(format!(
                 "create the {entity_type} `{}`",
                 entity.label()
             )))?;
@@ -1089,7 +1077,7 @@ impl EntityStore for SqliteStore {
                     id_param(id),
                 ]),
             )
-            .map_err(Error::sqlite(format!("archive the links touching {id}")))?;
+            .map_err(Error::storage(format!("archive the links touching {id}")))?;
 
         append_event_inner(
             self,
@@ -1236,7 +1224,7 @@ impl EntityStore for SqliteStore {
                             text(existing.id.as_str()),
                         ]),
                     )
-                    .map_err(Error::sqlite(format!("restore the link {}", existing.id)))?;
+                    .map_err(Error::storage(format!("restore the link {}", existing.id)))?;
                 return find_link(self, &from_id, rel, &to_id, &anchor, true)?.ok_or_else(|| {
                     Error::Invariant {
                         operation: format!("restore the link {}", existing.id),
@@ -1270,7 +1258,7 @@ impl EntityStore for SqliteStore {
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params_from_iter(link_params(&stored)),
             )
-            .map_err(Error::sqlite(format!(
+            .map_err(Error::storage(format!(
                 "create the link {from_id} {rel} {to_id}"
             )))?;
 
@@ -1336,7 +1324,7 @@ impl EntityStore for SqliteStore {
                     text(existing.id.as_str()),
                 ]),
             )
-            .map_err(Error::sqlite(format!("archive the link {}", existing.id)))?;
+            .map_err(Error::storage(format!("archive the link {}", existing.id)))?;
 
         let label_of = |id: &EntityId| {
             self.get(id)
@@ -1439,7 +1427,7 @@ impl EntityStore for SqliteStore {
             // A reference that resolves to nothing is not an error — the caller
             // asked whether it names something, and the answer is no.
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(Error::sqlite(format!(
+            Err(e) => Err(Error::storage(format!(
                 "resolve the reference `{reference}`"
             ))(e)),
         }
@@ -1460,7 +1448,7 @@ impl EntityStore for SqliteStore {
                 params_from_iter(vec![id_param(project_id)]),
                 |row| row.get::<_, Option<f64>>(0),
             )
-            .map_err(Error::sqlite("read the last rank in a project"))?;
+            .map_err(Error::storage("read the last rank in a project"))?;
         Ok(max.unwrap_or(0.0) + 1.0)
     }
 
@@ -1597,7 +1585,7 @@ impl EntityStore for SqliteStore {
             Ok(Some(id)) if id.is_empty() => Ok(None),
             Ok(Some(id)) => Ok(Some(EventId::parse(&id)?)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(Error::sqlite("read the latest event id")(e)),
+            Err(e) => Err(Error::storage("read the latest event id")(e)),
         }
     }
 
@@ -1692,7 +1680,7 @@ impl EntityStore for SqliteStore {
                     ts(stored.created_at),
                 ]),
             )
-            .map_err(Error::sqlite(format!(
+            .map_err(Error::storage(format!(
                 "append a note to {}",
                 stored.entity_id
             )))?;
@@ -1733,7 +1721,7 @@ impl EntityStore for SqliteStore {
                 "UPDATE notes SET archived_at = ? WHERE id = ? AND archived_at IS NULL",
                 params_from_iter(vec![ts(now), text(id.as_str())]),
             )
-            .map_err(Error::sqlite(format!("retract note {id}")))?;
+            .map_err(Error::storage(format!("retract note {id}")))?;
         if changed == 0 {
             // Either it never existed or it is already retracted. Both are the
             // caller believing something false about the store, and both are
@@ -1770,8 +1758,8 @@ mod tests {
     use chrono::NaiveDate;
     use serde_json::json;
 
-    fn store() -> SqliteStore {
-        SqliteStore::in_memory().expect("open an in-memory store")
+    fn store() -> Store {
+        Store::in_memory().expect("open an in-memory store")
     }
 
     fn claude() -> Provenance {
@@ -1830,7 +1818,7 @@ mod tests {
         );
     }
 
-    fn project(store: &mut SqliteStore) -> EntityId {
+    fn project(store: &mut Store) -> EntityId {
         store
             .create(Project::new("keel", "Keel").into(), &claude())
             .expect("create the project")
@@ -1859,7 +1847,7 @@ mod tests {
             "Twenty trait methods against rusqlite, with the same semantics.",
         );
         task.kind = TaskKind::Chore;
-        task.body = Some("Mirror duck.rs exactly.".into());
+        task.body = Some("One file, one engine, one write path.".into());
         task.priority = TaskPriority::P0;
         task.labels = vec!["storage".into(), "phase-9".into()];
         task.external_refs = vec!["https://github.com/kb/keel/pull/9".into()];
@@ -2212,8 +2200,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("keel.sqlite");
 
-        let mut writer_a = SqliteStore::open(&path).unwrap();
-        let mut writer_b = SqliteStore::open(&path).unwrap();
+        let mut writer_a = Store::open(&path).unwrap();
+        let mut writer_b = Store::open(&path).unwrap();
 
         let project_id = project(&mut writer_a);
 
@@ -2272,7 +2260,7 @@ mod tests {
         changes
     }
 
-    fn a_task(s: &mut SqliteStore, project_id: &EntityId, title: &str) -> EntityId {
+    fn a_task(s: &mut Store, project_id: &EntityId, title: &str) -> EntityId {
         s.create(
             Task::new(project_id.clone(), title, "A row this test needs.").into(),
             &claude(),
@@ -2488,7 +2476,7 @@ mod tests {
 
     /// The stored rel and endpoints of every live link, read straight from the
     /// table so the assertion does not depend on `GraphStore`.
-    fn stored_links(s: &SqliteStore) -> Vec<(String, String, String, bool)> {
+    fn stored_links(s: &Store) -> Vec<(String, String, String, bool)> {
         let mut stmt = s
             .connection()
             .prepare("SELECT from_id, rel, to_id, archived_at FROM links ORDER BY id")

@@ -133,7 +133,7 @@ impl EntityType {
         }
     }
 
-    /// The DuckDB table this type lives in.
+    /// The table this type lives in.
     ///
     /// Separate from [`EntityType::as_str`] because two of them disagree:
     /// `design` is stored in `design_artifacts` and `feedback` is its own
@@ -177,11 +177,11 @@ impl EntityType {
         }
     }
 
-    /// Whether this type's body lives in the Lance `documents` dataset.
+    /// Whether this type's body lives in the `documents` table.
     ///
     /// The five that do are exactly SPEC §2.1's `entity_type` domain. Any type
-    /// answering `true` here must also carry `current_doc_version` in DuckDB —
-    /// `fsck` checks that the two agree.
+    /// answering `true` here must also carry `current_doc_version` on its own
+    /// row — `fsck` checks that the two agree.
     pub const fn has_document(self) -> bool {
         matches!(
             self,
@@ -455,7 +455,7 @@ mod tests {
                 EntityType::Feedback,
                 EntityType::Design,
             ],
-            "SPEC §2.1 fixes the documents dataset's entity_type domain at these five"
+            "SPEC §2.1 fixes the documents table's entity_type domain at these five"
         );
     }
 

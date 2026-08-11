@@ -80,13 +80,12 @@ pub enum Error {
         latest: i32,
     },
 
-    /// A write would have broken an invariant that spans the two engines, or
-    /// one the schema cannot express.
+    /// A write would have broken an invariant the schema cannot express.
     ///
     /// Referential integrity is application-level here (SPEC §3.1): `links` is
-    /// polymorphic across thirteen tables and `documents` lives in Lance where
-    /// DuckDB cannot see it. This is the error that stands in for the foreign
-    /// key that cannot be declared.
+    /// polymorphic across thirteen tables, so the column holding the far end of
+    /// an edge cannot name one table to reference. This is the error that
+    /// stands in for the foreign key that cannot be declared.
     #[error("{operation} would break an invariant: {problem}")]
     Invariant {
         /// What the caller was trying to do.
@@ -96,31 +95,15 @@ pub enum Error {
     },
 
     /// The storage engine failed.
+    ///
+    /// The `#[source]` keeps its concrete type rather than being boxed behind a
+    /// trait object: a source that has lost its type is a source no caller can
+    /// match on, and telling "no such table" apart from "database is locked" is
+    /// the whole reason to carry it.
     #[error("{context}")]
     Storage {
         /// What the caller was attempting, in the imperative — "create task",
         /// "traverse links outbound from tsk_01H8…". Never just the SQL.
-        context: String,
-        /// The underlying engine error.
-        #[source]
-        source: duckdb::Error,
-    },
-
-    /// The SQLite store failed.
-    ///
-    /// A second variant beside [`Error::Storage`] only for as long as both
-    /// engines are in the tree. The two carry the same shape and the same
-    /// contract about `context`; they differ solely in the source type they
-    /// wrap, and KEEL-130 collapses them back into one when DuckDB goes.
-    ///
-    /// Kept separate rather than boxed behind a trait object because a
-    /// `#[source]` that has lost its type is a `#[source]` no caller can match
-    /// on — and the migration needs to tell a "no such table" apart from a
-    /// "database is locked" while both engines are live.
-    #[error("{context}")]
-    Sqlite {
-        /// What the caller was attempting, in the imperative. Never just the
-        /// SQL.
         context: String,
         /// The underlying engine error.
         #[source]
@@ -176,23 +159,15 @@ impl From<std::fmt::Error> for Error {
 }
 
 impl Error {
-    /// Wrap a DuckDB error with what the caller was trying to do.
+    /// Wrap a storage error with what the caller was trying to do.
     ///
     /// Exists so call sites read `.map_err(Error::storage("create task"))`
-    /// rather than building the struct inline thirty times.
-    pub fn storage(context: impl Into<String>) -> impl FnOnce(duckdb::Error) -> Self {
+    /// rather than building the struct inline several hundred times. The
+    /// context says what was being attempted, in the imperative, and never
+    /// restates the SQL — a reader who wanted the SQL has it in the source.
+    pub fn storage(context: impl Into<String>) -> impl FnOnce(rusqlite::Error) -> Self {
         let context = context.into();
         move |source| Error::Storage { context, source }
-    }
-
-    /// Wrap a SQLite error with what the caller was trying to do.
-    ///
-    /// The same contract as [`Error::storage`]: the context says what was being
-    /// attempted, in the imperative, and never restates the SQL. A reader who
-    /// wanted the SQL has it in the source.
-    pub fn sqlite(context: impl Into<String>) -> impl FnOnce(rusqlite::Error) -> Self {
-        let context = context.into();
-        move |source| Error::Sqlite { context, source }
     }
 
     /// The full chain, root cause included.

@@ -64,7 +64,12 @@ vi.mock("../lib/api", () => ({
         { id: "que_1", entity_type: "question", label: "TQ-30 — Does the app stay read-only?", status: "open" },
       ],
       decisions: [
-        { id: "dec_1", entity_type: "decision", label: "Choose DuckDB over SQLite", status: "accepted" },
+        {
+          id: "dec_1",
+          entity_type: "decision",
+          label: "Store everything in one SQLite database",
+          status: "accepted",
+        },
       ],
       terms: [{ term: "Mirror", definition: "Generated read-only markdown.", global: false }],
     }),
@@ -139,7 +144,9 @@ describe("starter queries", () => {
     expect(screen.getByText("Does the app stay read-only?")).toBeTruthy();
     // A decision framed as a why — the case where semantic search earns its
     // keep, because the answer's title never uses the word "why".
-    expect(screen.getByText("why did we decide that choose DuckDB over SQLite")).toBeTruthy();
+    expect(
+      screen.getByText("why did we decide that store everything in one SQLite database"),
+    ).toBeTruthy();
     // A glossary term, which shows the store knows the project's vocabulary.
     expect(screen.getByText('what does "Mirror" mean')).toBeTruthy();
   });

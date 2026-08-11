@@ -8,12 +8,12 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use keel_core::{
-    Actor, Entity, EntityId, EntityStore, EntityType, Project, Provenance, SqliteStore, Term,
-    WordSource, resolve_type,
+    Actor, Entity, EntityId, EntityStore, EntityType, Project, Provenance, Store, Term, WordSource,
+    resolve_type,
 };
 
 struct Fixture {
-    store: SqliteStore,
+    store: Store,
     project: EntityId,
     other: EntityId,
     _dir: tempfile::TempDir,
@@ -21,7 +21,7 @@ struct Fixture {
 
 fn setup() -> Fixture {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let project = store
         .create(
             Project::new("demo", "Demo").into(),

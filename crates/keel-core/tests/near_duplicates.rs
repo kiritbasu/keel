@@ -9,13 +9,13 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use keel_core::{
-    Actor, EntityId, EntityStore, Project, Provenance, Question, SqliteStore, Task,
+    Actor, EntityId, EntityStore, Project, Provenance, Question, Store, Task,
     types::{SAME_THING_THRESHOLD, same_thing, title_similarity},
 };
 
-fn store() -> (SqliteStore, EntityId, tempfile::TempDir) {
+fn store() -> (Store, EntityId, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let id = store
         .create(
             Project::new("demo", "Demo").into(),

@@ -86,7 +86,7 @@ Note also that revision semantics below are implemented in **user columns**, not
 
 ### 2.1 The unified documents dataset
 
-This is the highest-leverage decision in the spec. Rather than a Lance dataset per prose-bearing entity, there is **one** `documents` dataset that every entity's body writes into:
+This is the decision in the spec with the widest reach. Rather than a Lance dataset per prose-bearing entity, there is **one** `documents` dataset that every entity's body writes into:
 
 ```
 documents (Lance)
@@ -779,7 +779,8 @@ Tiers 1 and 2 are the actual backup story. Tier 3 exists so that a catastrophe l
 
 | # | Decision | Rationale |
 |---|---|---|
-| D-1 | DuckDB + Lance, no SQLite | Native Rust crates; Lance extension unifies the SQL surface; write volume is trivially low |
+| D-1 | ~~DuckDB + Lance, no SQLite~~ — **superseded by D-1a, Phase 9** | Native Rust crates; Lance extension unifies the SQL surface; write volume is trivially low. Every clause of that was true when it was written, and it is kept rather than deleted because what overturned it is only legible beside it. What overturned it was measured, not argued: a cold release build of 22m11s against 23s; a keyword index rebuilt wholesale on every write, because that engine's full-text index does not track inserts; two backup formats that had to be kept in step, with a restore that had to refuse a backup missing half of itself; and a release pipeline that would have had to ship a 40-60 MB library beside every binary. See `PHASE-9.md` for the survey. |
+| D-1a | One SQLite file, nothing beside it | Replaces D-1. `rusqlite` with the bundled amalgamation, FTS5 for keyword search, `sqlite-vec` for vectors, blobs and document revisions as ordinary tables. The three storage traits came through the move unchanged, which is what made it affordable; §3 onwards still describes the old shape and is being brought up to date separately. |
 | D-2 | Single unified `documents` dataset | One hybrid search across all prose; one versioning code path; new types cost nothing |
 | D-2b | Revisions in user columns, not Lance dataset versions | Domain revisions must survive compaction and re-embedding; dataset versions serve snapshot/restore instead |
 | D-3 | Database canonical, git mirror generated | Split-brain is worse than the loss of PR review, which doesn't apply to a solo user |

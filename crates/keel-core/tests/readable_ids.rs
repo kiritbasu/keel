@@ -10,13 +10,13 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use keel_core::{
-    Actor, Entity, EntityId, EntityStore, Project, Provenance, SqliteStore, Task,
+    Actor, Entity, EntityId, EntityStore, Project, Provenance, Store, Task,
     types::{MAX_PROJECT_KEY, derive_project_key, parse_readable_ref},
 };
 
-fn store() -> (tempfile::TempDir, SqliteStore) {
+fn store() -> (tempfile::TempDir, Store) {
     let dir = tempfile::tempdir().unwrap();
-    let store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     (dir, store)
 }
 
@@ -24,7 +24,7 @@ fn prov() -> Provenance {
     Provenance::anonymous(Actor::Claude)
 }
 
-fn project(store: &mut SqliteStore, slug: &str, name: &str) -> Project {
+fn project(store: &mut Store, slug: &str, name: &str) -> Project {
     match store
         .create(Project::new(slug, name).into(), &prov())
         .unwrap()
@@ -35,7 +35,7 @@ fn project(store: &mut SqliteStore, slug: &str, name: &str) -> Project {
     }
 }
 
-fn task(store: &mut SqliteStore, project_id: &EntityId, title: &str) -> Task {
+fn task(store: &mut Store, project_id: &EntityId, title: &str) -> Task {
     match store
         .create(
             Task::new(
@@ -103,17 +103,29 @@ fn a_supplied_key_is_uppercased_and_still_de_duplicated() {
     );
 }
 
-// The rule lives in two places — the constant and the migration's `substr` —
-// and nothing but this test keeps them in step.
+// The rule used to live in two places — this constant and a `substr` in the
+// migration that backfilled keys onto existing rows — and this test existed to
+// keep the two in step. The second copy went with the move to one SQLite file:
+// that schema is a single initial migration with nothing to backfill, so there
+// is no SQL that can drift from the constant.
+//
+// What is left is worth asserting anyway. The cases above are written as
+// literals, so a change to `MAX_PROJECT_KEY` alone would make them fail without
+// saying why; this ties the length back to the constant so the failure names
+// the cause.
 #[test]
-fn the_migration_truncates_keys_to_the_same_length_the_code_does() {
-    let migration = keel_core::store::schema::migrations()
-        .into_iter()
-        .find(|m| m.name == "readable_identifiers")
-        .expect("the readable-identifiers migration exists");
-    assert!(
-        migration.sql.contains(&format!("1, {MAX_PROJECT_KEY})")),
-        "the backfill's substr length must match MAX_PROJECT_KEY ({MAX_PROJECT_KEY})"
+fn a_derived_key_is_never_longer_than_the_constant_allows() {
+    for slug in ["keel", "harbour", "keel-web", "a-b-c-d-e-f", "---", ""] {
+        let key = derive_project_key(slug);
+        assert!(
+            !key.is_empty() && key.len() <= MAX_PROJECT_KEY,
+            "`{slug}` derived `{key}`, which is not 1..={MAX_PROJECT_KEY} characters"
+        );
+    }
+    assert_eq!(
+        derive_project_key("harbour").len(),
+        MAX_PROJECT_KEY,
+        "a slug with room to spare should use the whole allowance"
     );
 }
 

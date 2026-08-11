@@ -10,18 +10,18 @@
 
 use keel_core::{
     Actor, Close, CloseReason, Direction, Entity, EntityId, EntityStore, GraphStore, Project,
-    Provenance, Relation, SqliteStore, Task, claim, close,
+    Provenance, Relation, Store, Task, claim, close,
 };
 
 struct Fixture {
-    store: SqliteStore,
+    store: Store,
     project: EntityId,
     _dir: tempfile::TempDir,
 }
 
 fn setup() -> Fixture {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let project = store
         .create(
             Project::new("demo", "Demo").into(),

@@ -6,14 +6,12 @@
 //! what localised the bug to the daemon's process state rather than the data.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-use keel_core::{
-    Actor, EntityQuery, EntityStore, EntityType, Project, Provenance, SqliteStore, Task,
-};
+use keel_core::{Actor, EntityQuery, EntityStore, EntityType, Project, Provenance, Store, Task};
 
 #[test]
 fn listing_projects_still_works_after_one_is_archived() {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Human);
 
     let keep = store
@@ -54,11 +52,12 @@ fn listing_projects_still_works_after_one_is_archived() {
 
 #[test]
 fn a_checkpointed_store_reopens_and_accepts_writes() {
-    // The p0. An UPDATE on a store whose ART index disagreed with its table
-    // raised a DuckDB FATAL, which poisons the connection so every later query
-    // fails with whatever operation happened to be running — "count matching
-    // rows", "run a question lookup". Reads on a fresh process worked, `fsck`
-    // reported clean, and both were true, which is why it took an evening.
+    // The p0, which happened under the engine this store replaced: an UPDATE
+    // on a store whose index disagreed with its table raised a fatal error,
+    // poisoning the connection so every later query failed with whatever
+    // operation happened to be running — "count matching rows", "run a question
+    // lookup". Reads on a fresh process worked, `fsck` reported clean, and both
+    // were true, which is why it took an evening.
     //
     // The cause was SIGKILL mid-write, because SIGTERM could not stop a daemon
     // holding an open SSE stream. The daemon now checkpoints on shutdown; this
@@ -67,7 +66,7 @@ fn a_checkpointed_store_reopens_and_accepts_writes() {
     let prov = Provenance::anonymous(Actor::Human);
 
     let id = {
-        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
         let id = store
             .create(Project::new("p", "P").into(), &prov)
             .unwrap()
@@ -89,7 +88,7 @@ fn a_checkpointed_store_reopens_and_accepts_writes() {
         id
     };
 
-    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let page = store
         .list(&EntityQuery::in_project(id.clone()).of_type(EntityType::Task))
         .unwrap();
@@ -119,7 +118,7 @@ fn a_task_claimed_and_left_is_reported_as_stale() {
     // A stale claim is worse than an empty column. Empty says "nothing is
     // tracked here"; stale says "this is happening right now" and is wrong.
     let dir = tempfile::tempdir().unwrap();
-    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Human);
     let project = store
         .create(Project::new("p", "P").into(), &prov)
@@ -159,10 +158,10 @@ fn a_task_claimed_and_left_is_reported_as_stale() {
 
     // Backdate past the threshold, which is the only part a test can force.
     //
-    // The timestamp is computed here rather than written as
-    // `now() - INTERVAL 5 DAY`: that expression does not bind against the
-    // embedded DuckDB, which is what kept both this test and the check itself
-    // failing from the day they were written.
+    // The timestamp is computed here rather than in SQL. Timestamps are TEXT
+    // in this store and the comparison is lexicographic, so date arithmetic
+    // belongs on the Rust side where the format is guaranteed to match what
+    // was written.
     let five_days_ago = (chrono::Utc::now() - chrono::Duration::days(5))
         .naive_utc()
         .to_string();

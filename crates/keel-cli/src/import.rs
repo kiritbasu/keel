@@ -18,7 +18,7 @@
 use anyhow::{Context, Result};
 use keel_core::{
     Actor, Decision, Document, Entity, EntityId, EntityQuery, EntityStore, EntityType, Provenance,
-    Question, Spec, SpecKind, SqliteStore, Surface,
+    Question, Spec, SpecKind, Store, Surface,
 };
 use std::path::{Path, PathBuf};
 
@@ -44,7 +44,7 @@ pub struct Imported {
 
 /// Import one markdown file.
 pub fn file(
-    store: &mut SqliteStore,
+    store: &mut Store,
     path: &Path,
     project_id: &EntityId,
     entity_type: EntityType,
@@ -147,11 +147,7 @@ pub fn file(
 /// it — in which case the artifact adopts no file and generation sends it to
 /// the `.keel/` mirror instead. Guessing would be worse: a wrong path means
 /// generation writes over something it does not own.
-fn repo_relative(
-    store: &SqliteStore,
-    project_id: &EntityId,
-    file: &Path,
-) -> Result<Option<String>> {
+fn repo_relative(store: &Store, project_id: &EntityId, file: &Path) -> Result<Option<String>> {
     let Some(Entity::Project(project)) = store.get(project_id)? else {
         return Ok(None);
     };
@@ -169,7 +165,7 @@ fn repo_relative(
 
 /// Record the repository file this artifact is, if it does not already say so.
 fn adopt_path(
-    store: &mut SqliteStore,
+    store: &mut Store,
     entity_id: &EntityId,
     path: Option<&str>,
     prov: &Provenance,
@@ -239,7 +235,7 @@ fn infer_kind(path: &Path, title: &str) -> SpecKind {
 
 /// Find a live artifact of this type with this title.
 fn find_by_title(
-    store: &SqliteStore,
+    store: &Store,
     project_id: &EntityId,
     entity_type: EntityType,
     title: &str,
@@ -323,7 +319,7 @@ mod tests {
     #[test]
     fn importing_the_same_file_twice_does_not_duplicate_or_re_version() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
         let project = store
             .create(
                 keel_core::Project::new("keel", "Keel").into(),
@@ -335,7 +331,7 @@ mod tests {
             .clone();
 
         let path = dir.path().join("SPEC.md");
-        std::fs::write(&path, "# Storage\n\nDuckDB and Lance.\n").unwrap();
+        std::fs::write(&path, "# Storage\n\nOne file, one engine.\n").unwrap();
 
         let first = file(&mut store, &path, &project, EntityType::Spec, None, None).unwrap();
         assert!(first.created);
@@ -355,7 +351,7 @@ mod tests {
         assert_eq!(again.entity_id, first.entity_id);
 
         // A real edit does append.
-        std::fs::write(&path, "# Storage\n\nDuckDB and Lance, attached.\n").unwrap();
+        std::fs::write(&path, "# Storage\n\nOne file, one engine, and a WAL.\n").unwrap();
         let edited = file(&mut store, &path, &project, EntityType::Spec, None, None).unwrap();
         assert!(edited.revised);
         assert_eq!(edited.version, 2);
@@ -365,7 +361,7 @@ mod tests {
     #[test]
     fn the_whole_body_is_stored_not_a_summary() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
         let project = store
             .create(
                 keel_core::Project::new("keel", "Keel").into(),

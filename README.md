@@ -52,7 +52,7 @@ git clone <this repo> && cd keel
 
 That builds the binaries, puts them in `~/.local/bin`, creates the store at `~/.keel`, and copies the agent's skill and hooks to `~/.claude/skills/keel/`.
 
-The first build compiles DuckDB from source and takes a few minutes. It only happens once.
+SQLite is compiled in, so the binaries are self-contained — there is no database to install alongside them.
 
 Then start the daemon and leave it running:
 
@@ -129,7 +129,7 @@ Some things that make the agent write, without you asking it to:
 And things that make it read:
 
 > "What's the state of the auth work?"
-> "Why did we pick DuckDB?"
+> "Why did we pick SQLite?"
 > "What's blocking the release?"
 > "What should I do next?"
 
@@ -232,13 +232,15 @@ Rust, one workspace, four crates.
 
 ```
 crates/keel-core/     domain types, storage, graph, search, generation, backup
-crates/keel-mcp/      the ten tools, the digest, protocol handling
+crates/keel-mcp/      the thirteen tools, the digest, protocol handling
 crates/keel-daemon/   axum: the MCP endpoint and a local read API
 crates/keel-cli/      fsck, backup, restore, import, generate, notes
 apps/desktop/         Tauri + React. Read and search only
 ```
 
-Storage is **DuckDB** for entities, links and the event log, plus **Lance** for documents, images and vectors, attached into DuckDB as one SQL namespace. Search is hybrid: BM25 keyword and vector similarity, fused.
+Storage is **one SQLite file** — entities, links, the event log, document revisions, images and vectors all in the same database. Search is hybrid: FTS5 keyword and `sqlite-vec` similarity, fused by reciprocal rank.
+
+It was two engines until Phase 9: DuckDB for rows and Lance for documents, with the second attached into the first as a SQL namespace. That worked, but it cost a 22-minute build, a keyword index that was rebuilt wholesale on every write, and two backup formats that had to be kept in step. `product/SPEC.md` D-1 records the original reasoning and what overturned it.
 
 Every change is an event with an author and the conversation that made it, so "who changed this and when" is always answerable.
 
@@ -256,23 +258,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all --check
 ```
 
-425 Rust tests and 146 for the app.
-
-**Faster builds.** DuckDB is compiled from source by default so the installed binary is self-contained. If you already have a matching one, link it instead and the workspace builds in under a minute:
-
-```bash
-brew install duckdb   # must match what duckdb-rs targets — currently 1.5.5
-```
-
-```bash
-export DUCKDB_LIB_DIR=/opt/homebrew/opt/duckdb/lib DUCKDB_INCLUDE_DIR=/opt/homebrew/opt/duckdb/include
-```
-
-```bash
-cargo test --workspace --no-default-features
-```
-
-A later `brew upgrade duckdb` breaks a binary linked this way until you rebuild, which is why the installer still bundles.
+657 Rust tests and 220 for the app.
 
 ### Where the documentation is
 

@@ -9,9 +9,9 @@
 use keel_core::*;
 use serde_json::json;
 
-fn store() -> (SqliteStore, tempfile::TempDir) {
+fn store() -> (Store, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     (store, dir)
 }
 
@@ -19,7 +19,7 @@ fn prov() -> Provenance {
     Provenance::anonymous(Actor::Claude).with_session("ses_a")
 }
 
-fn project(store: &mut SqliteStore) -> EntityId {
+fn project(store: &mut Store) -> EntityId {
     store
         .create(Project::new("keel", "Keel").into(), &prov())
         .unwrap()
@@ -624,9 +624,9 @@ fn an_event_page_reports_its_total() {
 //
 // The placeholder that lived here through Phase 0 has been replaced by the
 // real thing, in `keel-daemon/tests/concurrency.rs`. It could not stay in this
-// crate: a `SqliteStore` is one connection and deliberately not `Sync`, because
-// D-5 makes the daemon the single write path. Driving two stores at one
-// directory would have tested DuckDB's file locking rather than the claim.
+// crate: a `Store` is one connection and deliberately not `Sync`, because
+// D-5 makes the daemon the single write path. Driving two stores at one file
+// would have tested SQLite's own locking rather than the claim.
 //
 // Sixteen concurrent sessions through the daemon now assert zero duplicates,
 // zero lost updates, a gapless event log, and one edge from concurrent

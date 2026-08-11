@@ -27,20 +27,11 @@ publish = false
 
 [workspace.dependencies]
 # Storage
-# `bundled` is not enabled here — `keel-core` owns that choice as a feature, so
-# it can be turned off in favour of a system libduckdb. See its Cargo.toml.
-#
-# On its way out. Phase 9 replaces both engines with the single SQLite file
-# below; this entry survives only until `keel migrate` has been verified against
-# the real store, and KEEL-130 is the task that deletes it.
-duckdb = { version = "1.10505", features = ["chrono", "serde_json"] }
-
-# The replacement. `bundled` compiles the SQLite amalgamation, which is what
-# makes the release artifact one static file with no library to ship beside it —
-# measured at 23s for a cold release build of every dependency, against DuckDB's
-# 22m11s. `sqlite-vec` is the vector index and `serde_json` the array columns:
-# DuckDB's `VARCHAR[]` has no SQLite equivalent, and JSON in a TEXT column is
-# what `rows.rs` already sends over the wire in both directions anyway.
+# `bundled` compiles the SQLite amalgamation into the binary, which is what makes
+# the release artifact one static file with no library to ship beside it and no
+# version on the host that has to match. `sqlite-vec` is the vector index.
+# `serde_json` is for the list columns: SQLite has no array type, so those are
+# JSON in a TEXT column.
 rusqlite = { version = "0.40", features = ["bundled", "chrono", "serde_json", "functions", "blob"] }
 sqlite-vec = "0.1.9"
 
@@ -78,8 +69,8 @@ ureq = { version = "2", default-features = false, features = ["json"] }
 clap = { version = "4", features = ["derive"] }
 
 # Internal
-keel-core = { path = "crates/keel-core", version = "0.1.0", default-features = false }
-keel-mcp = { path = "crates/keel-mcp", version = "0.1.0", default-features = false }
+keel-core = { path = "crates/keel-core", version = "0.1.0" }
+keel-mcp = { path = "crates/keel-mcp", version = "0.1.0" }
 
 # Test-only
 insta = { version = "1", features = ["json", "redactions", "filters"] }
@@ -94,7 +85,7 @@ tempfile = "3"
 # `#[allow]` cannot override it, so keeping it would have meant no vector search
 # rather than a tidy lint setting.
 #
-# The exception is one block, in `store::sqlite::vector`, and it is the only
+# The exception is one block, in `store::vector`, and it is the only
 # `unsafe` in the workspace. Anything else that wants one has to argue for
 # itself here first.
 unsafe_code = "deny"
@@ -108,19 +99,6 @@ expect_used = "warn"
 panic = "warn"
 todo = "warn"
 unimplemented = "warn"
-
-[profile.dev]
-# DuckDB is vendored and compiled from source, and its full debug info runs to
-# many gigabytes — enough to fill a disk, which is how this setting was
-# discovered. Line tables keep backtraces useful (file and line for every
-# frame) while dropping the type and variable descriptions that make up the
-# bulk. Debugging Keel's own Rust is unaffected in practice; stepping through
-# DuckDB's C++ internals is not something this project does.
-debug = "line-tables-only"
-
-[profile.dev.package."*"]
-# Dependencies are debugged even less often than DuckDB is.
-debug = false
 
 [profile.release]
 lto = "thin"

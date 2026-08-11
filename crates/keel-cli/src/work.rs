@@ -2,18 +2,18 @@
 //!
 //! # Why these go through the daemon
 //!
-//! Reads have to: DuckDB refuses a read-only connection while any process holds
-//! the write lock, and the daemon is always running (TQ-15). Writes have to for a
-//! different reason — hard constraint 1, the daemon owns the single write path.
+//! Writes have to: hard constraint 1, the daemon owns the single write path.
+//! Reads go the same way so that the CLI and a model see the same store at the
+//! same moment — the daemon is the only thing that has seen every write (TQ-15).
 //!
 //! So all three call the daemon and fall back to the store only when nothing is
-//! listening, which is the one moment opening it directly is safe. `ready` uses
+//! listening, which is the one moment opening it directly is unambiguous. `ready` uses
 //! the local API, and the two writes use the MCP endpoint, so the CLI and a model
 //! are calling literally the same code rather than two implementations that agree
 //! until they do not.
 
 use anyhow::{Context, Result, bail};
-use keel_core::{CloseReason, SqliteStore};
+use keel_core::{CloseReason, Store};
 use serde_json::{Value, json};
 use std::path::Path;
 
@@ -122,8 +122,8 @@ pub fn lint(
 
     let Some(report) = read_daemon(daemon, &url)? else {
         bail!(
-            "no daemon at {daemon}. `keel lint` reads through it, because DuckDB will not open \
-             the store while the daemon holds the write lock — start it with `keel-daemon`."
+            "no daemon at {daemon}. `keel lint` reads through it, because the daemon is the \
+             one process that has seen every write — start it with `keel-daemon`."
         );
     };
 
@@ -381,10 +381,10 @@ fn run_write(home: &Path, daemon: &str, tool: &str, args: &Value) -> Result<Valu
 ///
 /// Safe only because we got here by failing to reach a daemon, which is the one
 /// condition under which nothing else is writing.
-fn directly(home: &Path, f: impl FnOnce(SqliteStore) -> Result<Value>) -> Result<Value> {
+fn directly(home: &Path, f: impl FnOnce(Store) -> Result<Value>) -> Result<Value> {
     let path = keel_core::store_path(home);
-    let store = SqliteStore::open(&path)
-        .with_context(|| format!("open the store at {}", path.display()))?;
+    let store =
+        Store::open(&path).with_context(|| format!("open the store at {}", path.display()))?;
     f(store)
 }
 

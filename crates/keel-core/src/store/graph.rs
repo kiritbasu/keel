@@ -1,10 +1,9 @@
 //! Graph traversal over `links`, in SQLite.
 //!
-//! The SQLite twin of the `GraphStore` half of [`crate::store::duck`], and the
-//! reason recursive CTEs were the capability the engine had to have: without
-//! them every traversal becomes a loop in Rust issuing one query per hop, which
-//! is both slower and — far worse — a second place where the direction can be
-//! got wrong.
+//! Every walk is one recursive CTE, and that was the capability the engine had
+//! to have: without it a traversal becomes a loop in Rust issuing one query per
+//! hop, which is both slower and — far worse — a second place where the
+//! direction can be got wrong.
 //!
 //! # Direction
 //!
@@ -32,14 +31,13 @@
 //!
 //! # Why the path is a string
 //!
-//! DuckDB has real lists, so the DuckDB file carries the path as `VARCHAR[]`
-//! and guards cycles with `list_contains`. SQLite has neither, so the path is a
-//! delimited string — `|root|a|b|` — and the cycle guard is `instr`. The
-//! delimiters on both ends of every element are what make that exact rather
-//! than a prefix match; ids are fixed-shape prefixed ULIDs, so no id can appear
-//! inside another between two bars.
+//! SQLite has no array type and no `list_contains`, so a traversal carries the
+//! path it has walked as a delimited string — `|root|a|b|` — and the cycle
+//! guard is `instr`. The delimiters on both ends of every element are what make
+//! that an exact match rather than a prefix match; ids are fixed-shape prefixed
+//! ULIDs, so no id can appear inside another between two bars.
 
-use super::SqliteStore;
+use super::Store;
 use super::rows::read_audit;
 use crate::store::{GraphStore, Neighbour};
 use crate::{Direction, EntityId, EntityType, Error, Link, LinkId, MAX_DEPTH, Relation, Result};
@@ -93,7 +91,7 @@ fn columns(direction: Direction) -> (&'static str, &'static str, &'static str) {
 
 /// Rebuild one traversal row.
 fn read_neighbour(row: &Row<'_>) -> Result<Neighbour> {
-    let e = |c: &'static str| Error::sqlite(format!("read column `{c}` of a traversal row"));
+    let e = |c: &'static str| Error::storage(format!("read column `{c}` of a traversal row"));
 
     let id = EntityId::parse(&row.get::<_, String>("id").map_err(e("id"))?)?;
     let entity_type = EntityType::parse(
@@ -139,7 +137,7 @@ fn read_neighbour(row: &Row<'_>) -> Result<Neighbour> {
 
 /// Rebuild an edge from a `links` row.
 fn read_link(row: &Row<'_>) -> Result<Link> {
-    let e = |c: &'static str| Error::sqlite(format!("read column `{c}` of `links`"));
+    let e = |c: &'static str| Error::storage(format!("read column `{c}` of `links`"));
     Ok(Link {
         id: LinkId::parse(&row.get::<_, String>("id").map_err(e("id"))?)?,
         project_id: match row
@@ -163,7 +161,7 @@ fn read_link(row: &Row<'_>) -> Result<Link> {
     })
 }
 
-impl GraphStore for SqliteStore {
+impl GraphStore for Store {
     fn neighbours(
         &self,
         root: &EntityId,
@@ -222,7 +220,7 @@ impl GraphStore for SqliteStore {
         let mut stmt = self
             .connection()
             .prepare(&sql)
-            .map_err(Error::sqlite(format!(
+            .map_err(Error::storage(format!(
                 "prepare a {direction} traversal from {root}"
             )))?;
         let mut rows = stmt
@@ -230,12 +228,15 @@ impl GraphStore for SqliteStore {
                 Value::Text(root.as_str().to_owned()),
                 Value::Integer(i64::from(depth)),
             ]))
-            .map_err(Error::sqlite(format!(
+            .map_err(Error::storage(format!(
                 "run a {direction} traversal from {root}"
             )))?;
 
         let mut out: Vec<Neighbour> = Vec::new();
-        while let Some(row) = rows.next().map_err(Error::sqlite("read a traversal row"))? {
+        while let Some(row) = rows
+            .next()
+            .map_err(Error::storage("read a traversal row"))?
+        {
             // A node reachable by two paths appears twice. Keep the shorter,
             // because "how far is this from the root" has one answer and it is
             // the nearest one; `ORDER BY depth` means the first seen wins.
@@ -264,15 +265,15 @@ impl GraphStore for SqliteStore {
         let mut stmt = self
             .connection()
             .prepare(&sql)
-            .map_err(Error::sqlite(format!(
+            .map_err(Error::storage(format!(
                 "prepare the {direction} links of {id}"
             )))?;
         let mut rows = stmt
             .query(params_from_iter(vec![Value::Text(id.as_str().to_owned())]))
-            .map_err(Error::sqlite(format!("run the {direction} links of {id}")))?;
+            .map_err(Error::storage(format!("run the {direction} links of {id}")))?;
 
         let mut out = Vec::new();
-        while let Some(row) = rows.next().map_err(Error::sqlite("read a link row"))? {
+        while let Some(row) = rows.next().map_err(Error::storage("read a link row"))? {
             out.push(read_link(row)?);
         }
         Ok(out)
@@ -297,10 +298,10 @@ mod tests {
 
     /// Insert a minimally valid entity row and return its id.
     ///
-    /// Direct SQL because `EntityStore for SqliteStore` is being written in
+    /// Direct SQL because `EntityStore for Store` is being written in
     /// parallel; these tests are about the traversal, and coupling them to
     /// another module's progress would mean neither could be finished first.
-    fn node(store: &SqliteStore, ty: EntityType, label: &str) -> EntityId {
+    fn node(store: &Store, ty: EntityType, label: &str) -> EntityId {
         let id = EntityId::generate(ty);
         let (table, label_col) = match ty {
             EntityType::Task => ("tasks", "title"),
@@ -333,7 +334,7 @@ mod tests {
     /// Draw an edge. `archived` writes it soft-deleted, which is the only way
     /// an edge ever leaves the table.
     fn link_with(
-        store: &SqliteStore,
+        store: &Store,
         from: &EntityId,
         rel: Relation,
         to: &EntityId,
@@ -363,7 +364,7 @@ mod tests {
             .unwrap();
     }
 
-    fn link(store: &SqliteStore, from: &EntityId, rel: Relation, to: &EntityId) {
+    fn link(store: &Store, from: &EntityId, rel: Relation, to: &EntityId) {
         link_with(store, from, rel, to, "", false);
     }
 
@@ -378,7 +379,7 @@ mod tests {
     /// passes the first two by accident, because both endpoints exist and both
     /// walks return one row — it is only the negative that distinguishes them.
     fn assert_direction(rel: Relation, from_type: EntityType, to_type: EntityType) {
-        let store = SqliteStore::in_memory().unwrap();
+        let store = Store::in_memory().unwrap();
         let from = node(&store, from_type, "the doer");
         let to = node(&store, to_type, "the done-to");
         link(&store, &from, rel, &to);
@@ -447,7 +448,7 @@ mod tests {
     /// would look like it worked and would return the whole graph.
     #[test]
     fn depends_on_is_never_stored_and_matches_nothing() {
-        let store = SqliteStore::in_memory().unwrap();
+        let store = Store::in_memory().unwrap();
         let blocker = node(&store, EntityType::Task, "must finish first");
         let blocked = node(&store, EntityType::Task, "waits");
 
@@ -534,7 +535,7 @@ mod tests {
     /// on a one-hop walk and both are what a caller uses to explain a result.
     #[test]
     fn a_multi_hop_walk_reports_depth_and_the_whole_path() {
-        let store = SqliteStore::in_memory().unwrap();
+        let store = Store::in_memory().unwrap();
         let a = node(&store, EntityType::Task, "a");
         let b = node(&store, EntityType::Task, "b");
         let c = node(&store, EntityType::Task, "c");
@@ -567,7 +568,7 @@ mod tests {
     /// A chain longer than the cap, asked for with the largest depth there is.
     #[test]
     fn depth_is_clamped_to_max_depth() {
-        let store = SqliteStore::in_memory().unwrap();
+        let store = Store::in_memory().unwrap();
         let chain: Vec<EntityId> = (0..usize::from(MAX_DEPTH) + 4)
             .map(|i| node(&store, EntityType::Task, &format!("step {i}")))
             .collect();
@@ -601,7 +602,7 @@ mod tests {
     /// this test either passes quickly or hangs, and hanging is the failure.
     #[test]
     fn a_cycle_terminates() {
-        let store = SqliteStore::in_memory().unwrap();
+        let store = Store::in_memory().unwrap();
         let a = node(&store, EntityType::Task, "a");
         let b = node(&store, EntityType::Task, "b");
         link(&store, &a, Relation::Blocks, &b);
@@ -629,7 +630,7 @@ mod tests {
     /// being traversable without leaving the table.
     #[test]
     fn an_archived_edge_is_not_walked() {
-        let store = SqliteStore::in_memory().unwrap();
+        let store = Store::in_memory().unwrap();
         let a = node(&store, EntityType::Task, "a");
         let b = node(&store, EntityType::Task, "b");
         let c = node(&store, EntityType::Task, "c");
@@ -651,7 +652,7 @@ mod tests {
 
     #[test]
     fn a_rels_filter_returns_only_what_was_asked_for() {
-        let store = SqliteStore::in_memory().unwrap();
+        let store = Store::in_memory().unwrap();
         let task = node(&store, EntityType::Task, "the task");
         let spec = node(&store, EntityType::Spec, "the spec");
         let other = node(&store, EntityType::Task, "the twin");
@@ -691,7 +692,7 @@ mod tests {
     /// dangling-link report is the thing that is supposed to notice.
     #[test]
     fn a_dangling_edge_is_returned_with_an_empty_label() {
-        let store = SqliteStore::in_memory().unwrap();
+        let store = Store::in_memory().unwrap();
         let task = node(&store, EntityType::Task, "the task");
         let missing = EntityId::generate(EntityType::Spec);
         link(&store, &task, Relation::Implements, &missing);
@@ -716,7 +717,7 @@ mod tests {
     /// outbound must not then be walked inbound.
     #[test]
     fn both_unions_the_two_walks_without_wandering() {
-        let store = SqliteStore::in_memory().unwrap();
+        let store = Store::in_memory().unwrap();
         let root = node(&store, EntityType::Task, "root");
         let downstream = node(&store, EntityType::Task, "downstream");
         let upstream = node(&store, EntityType::Task, "upstream");
@@ -742,7 +743,7 @@ mod tests {
 
     #[test]
     fn links_of_reports_the_edges_touching_an_entity() {
-        let store = SqliteStore::in_memory().unwrap();
+        let store = Store::in_memory().unwrap();
         let task = node(&store, EntityType::Task, "the task");
         let spec = node(&store, EntityType::Spec, "the spec");
         let blocker = node(&store, EntityType::Task, "the blocker");
@@ -770,7 +771,7 @@ mod tests {
     /// skipped.
     #[test]
     fn a_link_row_with_an_unknown_relation_is_an_error() {
-        let store = SqliteStore::in_memory().unwrap();
+        let store = Store::in_memory().unwrap();
         let a = node(&store, EntityType::Task, "a");
         let b = node(&store, EntityType::Task, "b");
         store

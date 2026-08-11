@@ -54,7 +54,9 @@ which is loud and which cannot be wrong about what it did.
 
 If you have edited files by hand and want them in — during a migration, say —
 `keel import <files> --project keel` writes each one back as a revision. Stop
-the daemon first: it holds DuckDB's write lock, and there is exactly one writer.
+the daemon first. SQLite would let the import open the store alongside a running
+daemon, which is exactly why this is worth saying: nothing would stop you, and
+you would have two writers against a store whose design assumes one.
 
 `keel generate keel --check` exits non-zero when a file differs from what Keel
 would produce. The pre-commit hook runs it for you; run it yourself if you are
@@ -113,7 +115,7 @@ Two consequences worth internalising:
 A task is not done until all of these are true:
 
 - [ ] Code compiles with zero warnings: `cargo clippy --workspace --all-targets -- -D warnings`
-      *(was `--all-features`; dropped 2026-08-09 — no workspace crate declares a feature, so it changed nothing except forcing a second full build of the vendored DuckDB, which filled the disk. See DECISIONS B-11.)*
+      *(was `--all-features`; dropped 2026-08-09 because no workspace crate declared a feature it changed anything for, while it forced a second full build of the vendored DuckDB and filled the disk. See DECISIONS B-11. Since Phase 9 no workspace crate declares a feature at all — the `bundled` chain existed only to let someone link a system DuckDB instead of the vendored one — so the flag is now a no-op rather than a hazard. It stays dropped because there is nothing left for it to do.)*
 - [ ] Formatted: `cargo fmt --all --check`
 - [ ] Tests written **and** passing — including at least one failure case, not only the happy path. The one exception is a *forward-looking* test for behaviour a later phase delivers: mark it `#[ignore = "unblocks in Phase N — see STATUS.md KEEL-x"]` so CI stays green and the intent stays visible. Never `#[ignore]` a test for behaviour the current phase is supposed to deliver.
 - [ ] No `unwrap()`, `expect()`, or `panic!()` in library code (binaries and tests may, with a message)
@@ -140,7 +142,7 @@ If you can't tick all of them, the task is `in_progress`.
 **Structure**
 
 - `keel-core` never opens a network socket, never knows about MCP, never reads env vars. Everything it needs is passed in. This boundary is what makes the CLI, daemon, and future surfaces cheap — protect it.
-- Storage access goes through three traits, named here since the spec only names the first: **`GraphStore`** (link traversal), **`DocumentStore`** (Lance documents and blobs — revisions, embeddings, search), **`EntityStore`** (DuckDB entity CRUD, links, events). No raw SQL outside their implementations.
+- Storage access goes through three traits, named here since the spec only names the first: **`GraphStore`** (link traversal), **`DocumentStore`** (documents and blobs — revisions, embeddings, search), **`EntityStore`** (entity CRUD, links, events). No raw SQL outside their implementations. The traits are named for what they hold, never for what holds it — they came through the move from DuckDB-and-Lance to one SQLite file unchanged, which is the whole return on having drawn them in Phase 0.
 - All graph traversal goes through `GraphStore`. Nobody hand-writes a recursive CTE at a call site. See "Graph direction" below for why.
 
 **Errors**
@@ -189,7 +191,7 @@ Rules:
 
 Violating these means rework, not a refactor:
 
-1. **The daemon owns the single write path.** No other process writes to DuckDB. Even after Quack lands, writes go through the daemon — six of the seven steps in a write have nothing to do with locking.
+1. **The daemon owns the single write path.** No other process writes to the store. Since Phase 9 this is a convention rather than something the engine enforces: DuckDB refused a second connection outright, and SQLite in WAL mode will let another process open the file and write to it quite happily. Nothing will stop you. The rule stands because six of the seven steps in a Keel write — validation, provenance, the event, the revision, the embedding, the index — have nothing to do with locking, and a second writer skips every one of them.
 2. **The mirror is one-directional, with no exceptions.** Nothing reads a generated file back into the store on its own. `keel import` exists for deliberate migrations and is run by a person. Any code that diffs mirror state against database state is a bug.
 3. **Soft delete only.** Nothing is ever `DELETE`d, links included.
 4. **No silent truncation.** Every list that can be cut reports that it was cut, with a total.

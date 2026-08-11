@@ -83,9 +83,8 @@ if [ "$skill_only" = true ]; then
 fi
 
 say "Building Keel"
-note "The first build compiles DuckDB from source and takes a few minutes."
-note "That keeps the installed binary self-contained. For fast *development*"
-note "builds, see README 'Faster builds' — it links a system libduckdb instead."
+note "SQLite is compiled in, so the installed binary is self-contained: there"
+note "is no database to install alongside it and nothing to keep in step."
 cd "$repo_root"
 cargo build --release --workspace
 

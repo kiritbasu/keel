@@ -22,8 +22,9 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      # DuckDB is vendored and compiled from source, which dominates build time.
-      # Without a cache every run pays it again.
+      # Dependencies dominate a cold build; the workspace's own crates are
+      # quick. Caching the registry and target directory keeps a run to the
+      # part that actually changed.
       - uses: Swatinem/rust-cache@v2
 
       - name: Format
@@ -31,7 +32,7 @@ jobs:
 
       - name: Clippy
         # Not --all-features: no workspace crate declares a feature, so the flag
-        # buys nothing and forces a second full build of the vendored DuckDB.
+        # buys nothing and only costs a second full build (DECISIONS B-11).
         run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Test

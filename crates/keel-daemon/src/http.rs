@@ -314,7 +314,7 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
 }
 
 /// The newest event id, used to detect that a call changed something.
-fn latest_event(store: &keel_core::SqliteStore) -> Option<keel_core::EventId> {
+fn latest_event(store: &keel_core::Store) -> Option<keel_core::EventId> {
     use keel_core::EntityStore;
     store.latest_event_id().ok().flatten()
 }
@@ -345,10 +345,10 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
 /// Turn a tool call into an HTTP response, for the REST surface.
 /// Regenerate a project's repository files from Keel.
 ///
-/// Lives here rather than in the CLI because the daemon holds the store's
-/// write lock, and DuckDB will not open a second connection — read-only or
-/// otherwise — while it does. D-5 says non-daemon processes go through this
-/// API; for generation that is not merely the tidy option, it is the only one.
+/// Lives here rather than in the CLI because D-5 says non-daemon processes go
+/// through this API. Generation reads the whole store and writes files from it,
+/// so it wants the state the single writer has actually committed — and the
+/// daemon is the only thing that can answer for that.
 async fn api_generate(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
     use keel_core::{Entity, EntityQuery, EntityStore, EntityType, Mode, generate};
 
@@ -1019,7 +1019,7 @@ async fn api_activity(
 // anyway, and boxing it would put a `*` at every call site for nothing.
 #[allow(clippy::result_large_err)]
 fn resolve_path_id(
-    store: &keel_core::SqliteStore,
+    store: &keel_core::Store,
     raw: &str,
 ) -> std::result::Result<keel_core::EntityId, Response> {
     use keel_core::EntityStore;

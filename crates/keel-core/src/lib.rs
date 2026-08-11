@@ -14,7 +14,7 @@
 //! - [`audit`] — the provenance block every row carries.
 //! - [`link`] — typed edges and, crucially, their direction.
 //! - [`event`] — the append-only mutation log.
-//! - [`document`] — prose revisions, which live in Lance rather than DuckDB.
+//! - [`document`] — prose revisions, versioned and diffable.
 //!
 //! # The one thing to read first
 //!
@@ -37,18 +37,11 @@ pub mod generate;
 pub mod id;
 pub mod link;
 pub mod lint;
-// The one-way move from the DuckDB-and-Lance store to the SQLite one. It lives
-// beside `store` rather than inside it because it belongs to neither engine: it
-// reads one and writes the other, and it goes away with KEEL-130.
-pub mod migrate;
 pub mod mirror;
 pub mod next;
 pub mod note;
 pub mod render_decisions;
 pub mod render_status;
-// Beside `backup` only while both engines are in the tree. KEEL-130 deletes
-// that one and renames this to `backup`.
-pub mod sqlite_backup;
 pub mod store;
 pub mod style;
 pub mod types;
@@ -83,8 +76,8 @@ pub use mirror::{Manifest, MirrorFile, MirrorReport};
 pub use next::{Candidate, NextUp, Ready, ReadyFilter, ready};
 pub use note::{NewNote, Note};
 pub use store::{
-    Blob, Created, DocumentStore, DuckStore, EntityQuery, EntityStore, GraphStore, Neighbour, Page,
-    SearchHit, SearchQuery, SearchSource, SqliteStore, store_path,
+    Blob, Created, DocumentStore, EntityQuery, EntityStore, GraphStore, Neighbour, Page, SearchHit,
+    SearchQuery, SearchSource, Store, store_path,
 };
 pub use style::{Warning, check as check_style};
 pub use types::{

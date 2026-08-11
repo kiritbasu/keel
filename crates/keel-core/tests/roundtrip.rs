@@ -2,9 +2,9 @@
 //! archive.
 //!
 //! Phase 0's exit criteria name this first. Nothing here mocks the store —
-//! these open a real DuckDB file with the Lance extension loaded, because the
-//! bugs worth catching at this layer live in the mapping between Rust structs
-//! and SQL columns, and a mock has no columns to get wrong.
+//! these open a real SQLite file, because the bugs worth catching at this layer
+//! live in the mapping between Rust structs and SQL columns, and a mock has no
+//! columns to get wrong.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -13,9 +13,9 @@ use keel_core::*;
 use serde_json::json;
 
 /// A store in a fresh temporary directory, plus the directory's guard.
-fn store() -> (SqliteStore, tempfile::TempDir) {
+fn store() -> (Store, tempfile::TempDir) {
     let dir = tempfile::tempdir().expect("create a temp dir");
-    let store = SqliteStore::open(dir.path().join("keel.sqlite")).expect("open the store");
+    let store = Store::open(dir.path().join("keel.sqlite")).expect("open the store");
     (store, dir)
 }
 
@@ -26,7 +26,7 @@ fn claude() -> Provenance {
 }
 
 /// Create a project and return its id.
-fn project(store: &mut SqliteStore) -> EntityId {
+fn project(store: &mut Store) -> EntityId {
     let created = store
         .create(Project::new("keel", "Keel").into(), &claude())
         .expect("create the project");
@@ -141,7 +141,7 @@ fn a_fresh_store_opens_and_migrates() {
     // this was written; the SQLite one has one, by construction.
     assert_eq!(
         applied,
-        keel_core::store::sqlite::schema::migrations().len() as i64,
+        keel_core::store::schema::migrations().len() as i64,
         "a fresh store must record every migration it applied"
     );
 
@@ -157,10 +157,10 @@ fn a_fresh_store_opens_and_migrates() {
 fn opening_an_existing_store_is_idempotent() {
     let dir = tempfile::tempdir().unwrap();
     {
-        let mut s = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut s = Store::open(dir.path().join("keel.sqlite")).unwrap();
         project(&mut s);
     }
-    let s = SqliteStore::open(dir.path().join("keel.sqlite")).expect("re-open");
+    let s = Store::open(dir.path().join("keel.sqlite")).expect("re-open");
     let applied: i64 = s
         .connection()
         .query_row("SELECT count(*) FROM _keel_migrations", [], |r| r.get(0))
@@ -171,7 +171,7 @@ fn opening_an_existing_store_is_idempotent() {
     // that is not about it.
     assert_eq!(
         applied,
-        keel_core::store::sqlite::schema::migrations().len() as i64,
+        keel_core::store::schema::migrations().len() as i64,
         "migrations must not re-run"
     );
     let projects: i64 = s
@@ -548,7 +548,7 @@ fn a_row_with_no_number_is_still_readable_and_gets_repaired() {
 fn a_binary_older_than_the_store_refuses_to_open_it() {
     let dir = tempfile::tempdir().expect("temp dir");
     {
-        let store = SqliteStore::open(dir.path().join("keel.sqlite")).expect("open a fresh store");
+        let store = Store::open(dir.path().join("keel.sqlite")).expect("open a fresh store");
         store
             .connection()
             .execute(
@@ -558,7 +558,7 @@ fn a_binary_older_than_the_store_refuses_to_open_it() {
             .expect("record a migration this binary does not ship");
     }
 
-    let err = SqliteStore::open(dir.path().join("keel.sqlite"))
+    let err = Store::open(dir.path().join("keel.sqlite"))
         .expect_err("a store newer than the binary must not open")
         .to_string();
 
@@ -583,12 +583,12 @@ fn a_binary_older_than_the_store_refuses_to_open_it() {
 fn a_store_at_the_current_schema_opens_normally() {
     let dir = tempfile::tempdir().expect("temp dir");
     {
-        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).expect("first open");
+        let mut store = Store::open(dir.path().join("keel.sqlite")).expect("first open");
         store
             .create(Project::new("keel", "Keel").into(), &claude())
             .expect("write to it");
     }
-    let store = SqliteStore::open(dir.path().join("keel.sqlite"))
+    let store = Store::open(dir.path().join("keel.sqlite"))
         .expect("reopening at the same schema must work");
     let page = store
         .list(&EntityQuery::default().of_type(EntityType::Project))

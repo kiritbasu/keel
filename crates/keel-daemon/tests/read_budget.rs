@@ -50,8 +50,8 @@ impl Daemon {
     async fn start() -> Self {
         let dir = tempfile::tempdir().unwrap();
         {
-            let mut store = keel_core::SqliteStore::open(dir.path().join("keel.sqlite"))
-                .expect("open the store");
+            let mut store =
+                keel_core::Store::open(dir.path().join("keel.sqlite")).expect("open the store");
             keel_core::fixture::load(&mut store).expect("load the fixture");
 
             let project = project_id(&store, "harbour");
@@ -152,7 +152,7 @@ struct Timing {
     bytes: usize,
 }
 
-fn project_id(store: &keel_core::SqliteStore, slug: &str) -> keel_core::EntityId {
+fn project_id(store: &keel_core::Store, slug: &str) -> keel_core::EntityId {
     let page = store
         .list(
             &EntityQuery::default()

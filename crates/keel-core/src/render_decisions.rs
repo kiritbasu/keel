@@ -22,8 +22,7 @@
 //! back.
 
 use crate::{
-    DecisionStatus, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error, Result,
-    SqliteStore,
+    DecisionStatus, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error, Result, Store,
 };
 use std::fmt::Write as _;
 
@@ -37,7 +36,7 @@ const SUPERSEDED: &str = "## Superseded";
 ///
 /// Ordered by number, which is assignment order, so the sequence reads as the
 /// project's history — the same reasoning as `KEEL-1` being the oldest task.
-pub fn render(store: &SqliteStore, project_id: &EntityId) -> Result<String> {
+pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
     let Some(Entity::Project(project)) = store.get(project_id)? else {
         return Err(Error::NotFound {
             entity_type: EntityType::Project,

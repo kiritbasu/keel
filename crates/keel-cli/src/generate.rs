@@ -3,22 +3,24 @@
 //! # Why this goes through the daemon
 //!
 //! D-5 says everything other than the daemon either connects read-only or goes
-//! through the daemon's API. The read-only half turns out not to exist:
-//! **DuckDB refuses a read-only connection while any process holds the write
-//! lock**, so a second process cannot read the store while the daemon is
-//! running — and the daemon is always running. Verified, not assumed; the
-//! error is the same conflicting-lock message a writer gets.
+//! through the daemon's API. Under the old engine the read-only half did not
+//! exist at all — it refused a second connection outright while the daemon held
+//! the write lock — so the API was the only route. SQLite in WAL mode does
+//! permit that second reader, so the constraint is now Keel's rather than the
+//! engine's.
 //!
-//! That leaves the API, which is the right answer anyway. Generation is
-//! exactly the operation you want to run against a *live* store, because the
-//! whole point is that the repository reflects what Keel currently holds.
+//! The API is still the right answer, for the reason that was always the better
+//! one: generation is exactly the operation you want to run against a *live*
+//! store, because the whole point is that the repository reflects what Keel
+//! currently holds. A reader going round the daemon sees a consistent snapshot,
+//! but not necessarily the write the daemon is in the middle of.
 //!
 //! The direct fallback exists for the case the API cannot serve: no daemon
-//! running at all. Opening the store then is safe precisely because nothing
-//! else holds it.
+//! running at all. Opening the store then is unambiguous, because nothing is
+//! writing to it.
 
 use anyhow::{Context, Result, bail};
-use keel_core::{Mode, SqliteStore, generate};
+use keel_core::{Mode, Store, generate};
 use std::path::PathBuf;
 
 /// Run a generation, preferring the daemon.
@@ -140,7 +142,7 @@ fn directly(
     check: bool,
 ) -> Result<keel_core::GenerateReport> {
     let path = keel_core::store_path(home);
-    let store = SqliteStore::open(&path).with_context(|| {
+    let store = Store::open(&path).with_context(|| {
         format!(
             "open the store at {}. No daemon answered either, so there is no way to read Keel",
             path.display()

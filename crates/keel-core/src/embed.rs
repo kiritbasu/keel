@@ -111,7 +111,7 @@ impl Embedder for FastEmbedder {
             return Err(Error::Embedding {
                 context: "embed documents".to_owned(),
                 reason: format!(
-                    "the model returned a {}-dimensional vector but the documents dataset \
+                    "the model returned a {}-dimensional vector but the documents table \
                      expects {}. The model and the schema have diverged",
                     bad.len(),
                     self.dimensions

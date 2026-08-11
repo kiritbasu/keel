@@ -27,8 +27,7 @@ use keel_core::{
     Actor, Decision, DecisionStatus, Document, EntityId, EntityStore, EntityType, Environment,
     EnvironmentStatus, Metric, MetricDirection, MetricObservation, Milestone, MilestoneStatus,
     NewLink, Project, Provenance, Question, QuestionKind, QuestionStatus, Relation, RiskSeverity,
-    Spec, SpecKind, SpecStatus, SqliteStore, Surface, Task, TaskKind, TaskPriority, TaskStatus,
-    Term,
+    Spec, SpecKind, SpecStatus, Store, Surface, Task, TaskKind, TaskPriority, TaskStatus, Term,
 };
 
 /// What the bootstrap created.
@@ -66,7 +65,7 @@ type Row<'a> = (
 );
 
 /// Seed the Keel project.
-pub fn run(store: &mut SqliteStore, repo_path: Option<String>) -> Result<Summary> {
+pub fn run(store: &mut Store, repo_path: Option<String>) -> Result<Summary> {
     // Attributed to Claude Code, because that is what wrote it, and to a
     // session id that says where it came from. G3 is the whole provenance
     // guarantee and a bootstrap is not exempt from it.
@@ -1192,7 +1191,7 @@ fn find(
 
 /// Write the first revision of an artifact's body.
 fn write_doc(
-    store: &mut SqliteStore,
+    store: &mut Store,
     entity_id: &EntityId,
     project_id: &EntityId,
     title: &str,
@@ -1216,7 +1215,7 @@ fn write_doc(
 /// Archive every project that is not the one named.
 ///
 /// Soft delete, like everything else — the rows stay, they just stop appearing.
-pub fn archive_other_projects(store: &mut SqliteStore, keep: &EntityId) -> Result<usize> {
+pub fn archive_other_projects(store: &mut Store, keep: &EntityId) -> Result<usize> {
     use keel_core::EntityQuery;
     let prov = Provenance {
         actor: Actor::Human,
@@ -1269,7 +1268,7 @@ mod tests {
     #[test]
     fn the_bootstrap_seeds_a_coherent_project() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
         let summary = run(&mut store, None).unwrap();
 
         assert!(summary.entities > 80, "got {}", summary.entities);
@@ -1288,7 +1287,7 @@ mod tests {
     #[test]
     fn running_the_bootstrap_twice_creates_nothing_new() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
         run(&mut store, None).unwrap();
         let before: i64 = store
             .connection()
@@ -1305,7 +1304,7 @@ mod tests {
     #[test]
     fn archiving_other_projects_leaves_the_named_one_alone() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
         keel_core::fixture::load(&mut store).unwrap();
         let projects_before: i64 = store
             .connection()

@@ -5,13 +5,13 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use keel_core::sqlite_backup as backup;
+use keel_core::backup;
 use keel_core::*;
 use std::sync::Arc;
 
-fn loaded_store() -> (SqliteStore, tempfile::TempDir, fixture::FixtureSummary) {
+fn loaded_store() -> (Store, tempfile::TempDir, fixture::FixtureSummary) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = SqliteStore::open(dir.path().join("keel.sqlite"))
+    let mut store = Store::open(dir.path().join("keel.sqlite"))
         .unwrap()
         .with_embedder(Arc::new(HashEmbedder::new()));
     let summary = fixture::load(&mut store).expect("load the fixture");
@@ -196,7 +196,7 @@ fn the_fixture_records_more_than_one_actor() {
 fn loading_the_fixture_twice_creates_nothing_new() {
     // Because it goes through the ordinary write path, idempotency applies.
     let dir = tempfile::tempdir().unwrap();
-    let mut store = SqliteStore::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     fixture::load(&mut store).unwrap();
 
     let before: i64 = store
@@ -352,7 +352,7 @@ fn a_backup_restores_and_diffs_clean() {
     let restored_manifest = backup::restore(backup_dir.path(), &restored_root).expect("restore");
     assert_eq!(restored_manifest, manifest);
 
-    let restored = SqliteStore::open(&restored_root).expect("open the restored store");
+    let restored = Store::open(&restored_root).expect("open the restored store");
     backup::verify_restore(&restored, &manifest).expect("restore diff");
 
     // And the restored store is not merely row-count-equal — it works.
@@ -385,7 +385,7 @@ fn a_restored_document_keeps_its_embedding() {
     let root = target.path().join("restored").join("keel.sqlite");
     backup::restore(backup_dir.path(), &root).unwrap();
 
-    let restored = SqliteStore::open(&root).unwrap();
+    let restored = Store::open(&root).unwrap();
     let with_vectors: i64 = restored
         .connection()
         .query_row(
@@ -424,7 +424,7 @@ fn restoring_over_an_existing_store_is_refused() {
 
     let occupied = tempfile::tempdir().unwrap();
     let occupied_store = occupied.path().join("keel.sqlite");
-    SqliteStore::open(&occupied_store).unwrap();
+    Store::open(&occupied_store).unwrap();
 
     let err = backup::restore(backup_dir.path(), &occupied_store).unwrap_err();
     assert!(

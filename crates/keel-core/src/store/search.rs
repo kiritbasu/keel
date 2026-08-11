@@ -1,7 +1,7 @@
 //! Hybrid search: FTS5 for keywords, `sqlite-vec` for meaning, fused by rank.
 //!
 //! This is the seventh `DocumentStore` method, and the `impl DocumentStore for
-//! SqliteStore` block lives here because this file is what completes the trait.
+//! Store` block lives here because this file is what completes the trait.
 //! The other six are inherent methods in [`super::docs`]; every one of them is
 //! delegated to below in the fully-qualified form, for the reason that file's
 //! module doc gives — inside the impl block `self.revision(…)` resolves to the
@@ -12,9 +12,10 @@
 //!
 //! BM25 over `fts_entities`, which [`super::schema`] builds and triggers keep in
 //! step with the rows underneath it. Nothing here refreshes, rebuilds or
-//! invalidates anything, and that absence is the point of the task: the DuckDB
-//! store's full-text index did not track inserts, so the first search after
-//! *any* write rebuilt the whole index — 217 ms against a 13 ms mean.
+//! invalidates anything, and that absence is the whole point: the DuckDB store
+//! this replaced had a full-text index that did not track inserts, so the first
+//! search after *any* write rebuilt the entire index — 217 ms against a 13 ms
+//! mean, measured on the live store while a decision was being written.
 //!
 //! Two things about FTS5 will bite at runtime rather than at compile time.
 //!
@@ -72,7 +73,7 @@
 //! Retrieving exactly `k` and *then* filtering by project is how a search
 //! returns three results when forty exist.
 
-use super::SqliteStore;
+use super::Store;
 use crate::store::{Blob, DocumentStore, Page, SearchHit, SearchQuery, SearchSource};
 use crate::{BlobId, Document, DocumentDiff, Embedder, EntityId, EntityType, Error, Result};
 use chrono::{DateTime, Utc};
@@ -135,9 +136,9 @@ fn fts_match(text: &str) -> Option<String> {
 
 /// A short window of `body` around the first query term that appears in it.
 ///
-/// The same shape as the DuckDB store's, written out again because that one is
-/// private to its module. The duplication is deliberate and small; sharing it
-/// would mean making an implementation detail of one store public to the other.
+/// Windowed rather than truncated from the front, because a hit whose excerpt
+/// does not contain the thing that was searched for tells the reader nothing
+/// about why it matched.
 fn excerpt(body: &str, query: &str) -> String {
     let lower = body.to_lowercase();
     let start = query
@@ -206,24 +207,15 @@ fn reciprocal_rank_fusion(lists: Vec<Vec<SearchHit>>, limit: usize) -> Vec<Searc
     fused
 }
 
-impl SqliteStore {
+impl Store {
     /// Hybrid search across both indexes, fused by reciprocal rank.
     ///
-    /// Keyword only, today, because `SqliteStore` has nowhere to keep an
-    /// embedder: the struct has no such field, and adding one is an edit to
-    /// `mod.rs` that this task was not allowed to make. The semantic half is
-    /// reachable now through [`SqliteStore::search_with`], and the three lines
-    /// that close the gap are the ones `DuckStore` already has — an
-    /// `embedder: Option<Arc<dyn Embedder>>` field, `with_embedder`, and an
-    /// `embedder()` accessor. When they land, the call below passes
-    /// `self.embedder()` instead of `None` and this comment goes.
-    ///
-    /// Stated plainly because the failure it describes is silent: a daemon that
-    /// switched stores without noticing would keep returning results, just
-    /// keyword ones, and nothing in the output would say the semantic half had
-    /// stopped running.
+    /// Uses whatever embedder was attached with [`Store::with_embedder`]. If
+    /// none was, this is keyword search and nothing says so in the output —
+    /// which is why attaching one is not really optional. See
+    /// [`Store::search_with`] for the caller-supplied variant.
     pub fn search(&self, query: &SearchQuery) -> Result<Page<SearchHit>> {
-        // The store's own embedder, when one was attached. This used to be a
+        // The store's own embedder, when one was attached. This was briefly a
         // hard `None`, which meant the semantic half never ran no matter what
         // the caller had set up — silently, since keyword results kept coming.
         self.search_with(query, self.embedder())
@@ -242,9 +234,8 @@ impl SqliteStore {
         embedder: Option<&dyn Embedder>,
     ) -> Result<Page<SearchHit>> {
         if query.text.trim().is_empty() {
-            // Refused rather than answered with nothing, and refused the same
-            // way the DuckDB store refuses it so the two cannot disagree while
-            // both exist. An empty result would read to a model as "there is
+            // Refused rather than answered with nothing. An empty result
+            // would read to a model as "there is
             // nothing about this in the store", which is a different and much
             // more damaging claim than "you did not say what to look for".
             return Err(Error::Invalid {
@@ -344,22 +335,22 @@ impl SqliteStore {
         let mut stmt = self
             .conn
             .prepare(&sql)
-            .map_err(Error::sqlite("prepare the keyword search"))?;
+            .map_err(Error::storage("prepare the keyword search"))?;
         let mut rows = stmt
             .query(params_from_iter(params))
-            .map_err(Error::sqlite(format!(
+            .map_err(Error::storage(format!(
                 "run the keyword search for `{}`",
                 query.text
             )))?;
 
         let e = |c: &'static str| {
             let context = format!("read column `{c}` of a keyword hit");
-            move |source| Error::Sqlite { context, source }
+            move |source| Error::Storage { context, source }
         };
         let mut out = Vec::new();
         while let Some(row) = rows
             .next()
-            .map_err(Error::sqlite("read a keyword search hit"))?
+            .map_err(Error::storage("read a keyword search hit"))?
         {
             let label: String = row.get("label").map_err(e("label"))?;
             let body: String = row.get("body").map_err(e("body"))?;
@@ -449,22 +440,22 @@ impl SqliteStore {
         let mut stmt = self
             .conn
             .prepare(&sql)
-            .map_err(Error::sqlite("prepare the semantic search"))?;
+            .map_err(Error::storage("prepare the semantic search"))?;
         let mut rows = stmt
             .query(params_from_iter(params))
-            .map_err(Error::sqlite(format!(
+            .map_err(Error::storage(format!(
                 "run the semantic search for `{}`",
                 query.text
             )))?;
 
         let e = |c: &'static str| {
             let context = format!("read column `{c}` of a semantic hit");
-            move |source| Error::Sqlite { context, source }
+            move |source| Error::Storage { context, source }
         };
         let mut out = Vec::new();
         while let Some(row) = rows
             .next()
-            .map_err(Error::sqlite("read a semantic search hit"))?
+            .map_err(Error::storage("read a semantic search hit"))?
         {
             // Cosine *distance*: 0 is identical, 1 is orthogonal. Reported as a
             // similarity so that `SearchHit::score`'s "higher is better" holds
@@ -534,18 +525,21 @@ impl SqliteStore {
                 "SELECT id, created_at FROM {table} WHERE id IN ({})",
                 placeholders(ids.len())
             );
-            let mut stmt = self.conn.prepare(&sql).map_err(Error::sqlite(format!(
+            let mut stmt = self.conn.prepare(&sql).map_err(Error::storage(format!(
                 "prepare the date filter over `{table}`"
             )))?;
             let mut rows = stmt
                 .query(params_from_iter(ids.into_iter().map(Value::Text)))
-                .map_err(Error::sqlite(format!(
+                .map_err(Error::storage(format!(
                     "read creation times from `{table}` to filter search hits"
                 )))?;
-            while let Some(row) = rows.next().map_err(Error::sqlite("read a creation time"))? {
+            while let Some(row) = rows
+                .next()
+                .map_err(Error::storage("read a creation time"))?
+            {
                 let context = |c: &'static str| {
                     let context = format!("read column `{c}` of `{table}`");
-                    move |source| Error::Sqlite { context, source }
+                    move |source| Error::Storage { context, source }
                 };
                 let id: String = row.get("id").map_err(context("id"))?;
                 let raw: String = row.get("created_at").map_err(context("created_at"))?;
@@ -566,36 +560,36 @@ impl SqliteStore {
     }
 }
 
-impl DocumentStore for SqliteStore {
+impl DocumentStore for Store {
     // Every one of these is the inherent method, named in full. `self.method(…)`
     // would resolve to the trait method being defined here and recurse until
     // the stack ran out — at runtime, with nothing at compile time to say so.
     fn write_revision(&mut self, document: Document) -> Result<Document> {
-        SqliteStore::write_revision(self, document)
+        Store::write_revision(self, document)
     }
 
     fn revision(&self, entity_id: &EntityId, version: Option<i32>) -> Result<Option<Document>> {
-        SqliteStore::revision(self, entity_id, version)
+        Store::revision(self, entity_id, version)
     }
 
     fn revisions(&self, entity_id: &EntityId) -> Result<Vec<Document>> {
-        SqliteStore::revisions(self, entity_id)
+        Store::revisions(self, entity_id)
     }
 
     fn diff(&self, entity_id: &EntityId, from: i32, to: i32) -> Result<DocumentDiff> {
-        SqliteStore::diff(self, entity_id, from, to)
+        Store::diff(self, entity_id, from, to)
     }
 
     fn search(&self, query: &SearchQuery) -> Result<Page<SearchHit>> {
-        SqliteStore::search(self, query)
+        Store::search(self, query)
     }
 
     fn put_blob(&mut self, blob: Blob) -> Result<BlobId> {
-        SqliteStore::put_blob(self, blob)
+        Store::put_blob(self, blob)
     }
 
     fn get_blob(&self, blob_id: &BlobId) -> Result<Option<Blob>> {
-        SqliteStore::get_blob(self, blob_id)
+        Store::get_blob(self, blob_id)
     }
 }
 
@@ -604,7 +598,7 @@ impl DocumentStore for SqliteStore {
 mod tests {
     use super::*;
     use crate::store::rows::spec_for;
-    use crate::store::sqlite::rows::{insert_params, insert_stmt};
+    use crate::store::rows::{insert_params, insert_stmt};
     use crate::{Actor, Entity, Project, Spec, Task};
 
     /// An embedder that maps text to a topic, not to its words.
@@ -669,7 +663,7 @@ mod tests {
         DateTime::from_timestamp_micros(Utc::now().timestamp_micros()).unwrap_or_default()
     }
 
-    fn insert_entity(store: &SqliteStore, entity: &Entity) {
+    fn insert_entity(store: &Store, entity: &Entity) {
         let spec = spec_for(entity.entity_type());
         store
             .conn
@@ -678,8 +672,8 @@ mod tests {
     }
 
     /// A store with one project in it, and that project's id.
-    fn store_with_a_project() -> (SqliteStore, EntityId) {
-        let store = SqliteStore::in_memory().unwrap();
+    fn store_with_a_project() -> (Store, EntityId) {
+        let store = Store::in_memory().unwrap();
         let mut project = Project::new("keel", "Keel");
         project.description = Some("a local-first store for everything but the code".to_owned());
         let id = project.id.clone();
@@ -687,14 +681,14 @@ mod tests {
         (store, id)
     }
 
-    fn add_project(store: &SqliteStore, slug: &str, name: &str) -> EntityId {
+    fn add_project(store: &Store, slug: &str, name: &str) -> EntityId {
         let project = Project::new(slug, name);
         let id = project.id.clone();
         insert_entity(store, &project.into());
         id
     }
 
-    fn add_task(store: &SqliteStore, project: &EntityId, title: &str, body: &str) -> EntityId {
+    fn add_task(store: &Store, project: &EntityId, title: &str, body: &str) -> EntityId {
         add_task_created_at(store, project, title, body, stored_now())
     }
 
@@ -704,7 +698,7 @@ mod tests {
     /// `Task::new` leaves it at zero — the entity half fills it in, and these
     /// tests insert rows directly.
     fn add_task_created_at(
-        store: &SqliteStore,
+        store: &Store,
         project: &EntityId,
         title: &str,
         body: &str,
@@ -731,7 +725,7 @@ mod tests {
     /// embedder is supplied. Prose types are indexed from `documents`, so a
     /// spec with no revision is a spec with no searchable text.
     fn add_spec(
-        store: &mut SqliteStore,
+        store: &mut Store,
         project: &EntityId,
         title: &str,
         body: &str,
