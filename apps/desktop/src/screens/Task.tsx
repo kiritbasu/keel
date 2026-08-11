@@ -9,7 +9,7 @@
  * Everything here already existed in the store. None of it had ever been shown.
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   api,
   type Digest,
@@ -313,6 +313,7 @@ export function TaskScreen({ route, generation }: ScreenProps) {
             projectKey={key}
           />
           <Relationships related={related} project={project} />
+          {reference && <AskClaude reference={reference} />}
         </aside>
       </div>
     </Page>
@@ -565,6 +566,62 @@ function Relationships({ related, project }: { related: Related[]; project: stri
           </div>
         ))}
       </div>
+    </Card>
+  );
+}
+
+/**
+ * Prompts you can paste into Claude Code, with this task's identifier in them.
+ *
+ * The app cannot write — Claude and Keel are the only writers — and a read-only
+ * surface can read as either deliberate or inert. The difference is whether it
+ * hands you the next move. These are the four things you most often want to do
+ * to a task you are looking at, already addressed to the right one.
+ *
+ * Copying rather than deep-linking: there is no URL that puts text into a
+ * Claude Code session, and a button that pretended otherwise would be worse
+ * than one that is honest about the clipboard.
+ */
+function AskClaude({ reference }: { reference: string }) {
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const prompts = [
+    `close ${reference} as done with the commit`,
+    `what is blocking ${reference}`,
+    `split ${reference} into sub-tasks`,
+    `add a note to ${reference}`,
+  ];
+
+  async function copy(prompt: string) {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopied(prompt);
+      window.setTimeout(() => setCopied((c: string | null) => (c === prompt ? null : c)), 1500);
+    } catch {
+      // A denied clipboard is not worth an error state on a convenience: the
+      // text is on screen and can be selected by hand.
+    }
+  }
+
+  return (
+    <Card title="Ask Claude">
+      <ul className="space-y-1">
+        {prompts.map((prompt) => (
+          <li key={prompt}>
+            <button
+              type="button"
+              onClick={() => copy(prompt)}
+              title="Copy, then paste into Claude Code"
+              className="w-full rounded-control px-2 py-1.5 text-left text-small text-ink-muted hover:bg-surface-hover hover:text-ink"
+            >
+              <span className="font-mono text-micro">
+                {copied === prompt ? "copied" : "copy"}
+              </span>{" "}
+              {prompt}
+            </button>
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }

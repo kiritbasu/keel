@@ -321,3 +321,29 @@ describe("what this is part of", () => {
     expect(screen.getByText("github.com/kb/keel/issues/2")).toBeTruthy();
   });
 });
+
+describe("the ask-Claude prompts", () => {
+  // The app cannot write, and a read-only surface reads as either deliberate
+  // or inert. The difference is whether it hands you the next move.
+  it("offers prompts already addressed to this task", async () => {
+    await show();
+    // Matching on the button's accessible name: the prompt is a bare text node
+    // beside the "copy" affordance, so it is not an element of its own.
+    expect(screen.getByRole("button", { name: /close .+ as done with the commit/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /what is blocking/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /split .+ into sub-tasks/ })).toBeTruthy();
+  });
+
+  it("copies one to the clipboard", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    await show();
+    const button = screen.getByRole("button", { name: /what is blocking/ });
+    fireEvent.click(button);
+    // Whatever this task's readable identifier is, the prompt carries it —
+    // a prompt addressed to no task is worse than no prompt.
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringMatching(/^what is blocking \S+$/),
+    );
+  });
+});
