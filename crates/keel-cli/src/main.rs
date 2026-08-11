@@ -44,7 +44,14 @@ enum Command {
     ///
     /// Exits non-zero if anything is actually broken, so it can gate a backup
     /// or a deploy.
-    Fsck,
+    Fsck {
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+        ///
+        /// Read through the daemon when one is running: it holds DuckDB's write
+        /// lock and no second process can open the store while it does.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
+        daemon: String,
+    },
 
     /// Back up both engines to Parquet.
     Backup {
@@ -104,7 +111,14 @@ enum Command {
     },
 
     /// Print a one-line summary of what is in the store.
-    Status,
+    Status {
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+        ///
+        /// Read through the daemon when one is running: it holds DuckDB's write
+        /// lock and no second process can open the store while it does.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
+        daemon: String,
+    },
 
     /// Regenerate a project's repository files from Keel.
     ///
@@ -165,6 +179,9 @@ enum Command {
     RenderStatus {
         /// Project id, slug or name. Must match exactly one project.
         project: String,
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
+        daemon: String,
         /// Write here instead of standard output.
         #[arg(long)]
         out: Option<PathBuf>,
@@ -261,16 +278,17 @@ fn main() -> Result<()> {
     let home = resolve_home(cli.home.clone())?;
 
     match &cli.command {
-        Command::Fsck => run_fsck(&home, cli.json),
+        Command::Fsck { daemon } => run_fsck(&home, daemon, cli.json),
         Command::Backup { dest } => run_backup(&home, dest.clone(), cli.json),
         Command::Restore { source, target } => run_restore(source, target, cli.json),
         Command::Fixture => run_fixture(&home, cli.json),
-        Command::Status => run_status(&home, cli.json),
+        Command::Status { daemon } => run_status(&home, daemon, cli.json),
         Command::RenderStatus {
             project,
+            daemon,
             out,
             force,
-        } => run_render_status(&home, project, out.clone(), *force),
+        } => run_render_status(&home, daemon, project, out.clone(), *force),
         Command::Note { action } => run_note(&home, action, cli.json),
         Command::Archive { id, version } => {
             use keel_core::{Actor, EntityId, EntityStore, Provenance, Surface};
@@ -514,14 +532,37 @@ const SHRINK_FLOOR: f64 = 0.5;
 
 fn run_render_status(
     home: &PathBuf,
+    daemon: &str,
     project: &str,
     out: Option<PathBuf>,
     force: bool,
 ) -> Result<()> {
-    let store = open(home)?;
-    let found = resolve_project(&store, project)?;
-
-    let markdown = keel_core::render_status::render(&store, found.id())?;
+    // Percent-encode by hand rather than adding a crate for it. A project
+    // reference is a slug, key or name, so the reachable characters are few —
+    // but a name with a space or an ampersand would otherwise truncate the
+    // query and render the wrong project's tracker, which is silent and wrong.
+    let encoded: String = project
+        .bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                (b as char).to_string()
+            }
+            other => format!("%{other:02X}"),
+        })
+        .collect();
+    let path_and_query = format!("/api/render-status?project={encoded}");
+    let markdown = match read_via_daemon(daemon, &path_and_query)? {
+        Some(v) => v
+            .get("markdown")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+            .context("the daemon's render-status response had no markdown")?,
+        None => {
+            let store = open(home)?;
+            let found = resolve_project(&store, project)?;
+            keel_core::render_status::render(&store, found.id())?
+        }
+    };
     let Some(path) = out else {
         print!("{markdown}");
         return Ok(());
@@ -669,13 +710,54 @@ fn resolve_home(explicit: Option<PathBuf>) -> Result<PathBuf> {
     Ok(home.join(".keel"))
 }
 
+/// Ask the daemon for a read, returning `None` if it is not answering.
+///
+/// The store has one writer and DuckDB will not grant a second connection
+/// while it holds the lock, so a read-shaped command has two choices: go
+/// through the daemon, or work only when the daemon is stopped. The second is
+/// what `fsck` used to do, and an integrity check you must stop the thing you
+/// want to check in order to run is not much of a check (TQ-15, KEEL-57).
+///
+/// `None` means "no daemon answered", which is a normal state — nothing is
+/// holding the lock, so opening the store directly is correct and safe. A
+/// daemon that answers with an *error* is a different thing and is returned as
+/// one, because silently falling back would hide a real failure behind a
+/// conflicting-lock error a moment later.
+fn read_via_daemon(base: &str, path: &str) -> Result<Option<serde_json::Value>> {
+    let response = match ureq::get(&format!("{base}{path}"))
+        .timeout(std::time::Duration::from_secs(30))
+        .call()
+    {
+        Ok(r) => r,
+        Err(ureq::Error::Status(code, r)) => {
+            let body = r.into_string().unwrap_or_default();
+            let message = serde_json::from_str::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|v| {
+                    v.pointer("/error/message")
+                        .and_then(|m| m.as_str())
+                        .map(str::to_owned)
+                })
+                .unwrap_or(body);
+            bail!("the daemon at {base} refused {path} ({code}): {message}");
+        }
+        Err(_) => return Ok(None),
+    };
+    let body: serde_json::Value = response
+        .into_json()
+        .with_context(|| format!("read the daemon's response to {path}"))?;
+    Ok(Some(body.get("data").cloned().unwrap_or(body)))
+}
+
 fn open(home: &PathBuf) -> Result<DuckStore> {
     DuckStore::open(home).with_context(|| format!("open the store at {}", home.display()))
 }
 
-fn run_fsck(home: &PathBuf, json: bool) -> Result<()> {
-    let store = open(home)?;
-    let report = fsck::check(&store)?;
+fn run_fsck(home: &PathBuf, daemon: &str, json: bool) -> Result<()> {
+    let report: fsck::FsckReport = match read_via_daemon(daemon, "/api/fsck")? {
+        Some(v) => serde_json::from_value(v).context("parse the daemon's fsck report")?,
+        None => fsck::check(&open(home)?)?,
+    };
 
     if json {
         println!("{}", serde_json::to_string_pretty(&report)?);
@@ -876,37 +958,58 @@ fn run_fixture(home: &PathBuf, json: bool) -> Result<()> {
     Ok(())
 }
 
-fn run_status(home: &PathBuf, json: bool) -> Result<()> {
+fn run_status(home: &PathBuf, daemon: &str, json: bool) -> Result<()> {
     use keel_core::{EntityQuery, EntityStore, EntityType};
-    let store = open(home)?;
 
-    let projects = store.list(&EntityQuery::default().of_type(EntityType::Project))?;
-    let open_tasks = store.list(
-        &EntityQuery::default()
-            .of_type(EntityType::Task)
-            .with_status(["todo", "in_progress", "review"]),
-    )?;
-    let open_questions = store.list(
-        &EntityQuery::default()
-            .of_type(EntityType::Question)
-            .with_status(["open"]),
-    )?;
+    let counts = match read_via_daemon(daemon, "/api/status")? {
+        Some(v) => v,
+        None => {
+            let store = open(home)?;
+            serde_json::json!({
+                "projects": store
+                    .list(&EntityQuery::default().of_type(EntityType::Project))?
+                    .total,
+                "open_tasks": store
+                    .list(
+                        &EntityQuery::default()
+                            .of_type(EntityType::Task)
+                            .with_status(["todo", "in_progress", "review"]),
+                    )?
+                    .total,
+                "open_questions": store
+                    .list(
+                        &EntityQuery::default()
+                            .of_type(EntityType::Question)
+                            .with_status(["open"]),
+                    )?
+                    .total,
+            })
+        }
+    };
+    let n = |k: &str| {
+        counts
+            .get(k)
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0)
+    };
+    let (projects, open_tasks, open_questions) =
+        (n("projects"), n("open_tasks"), n("open_questions"));
 
     if json {
         println!(
             "{}",
             serde_json::to_string_pretty(&serde_json::json!({
                 "home": home.display().to_string(),
-                "projects": projects.total,
-                "open_tasks": open_tasks.total,
-                "open_questions": open_questions.total,
+                "projects": projects,
+                "open_tasks": open_tasks,
+                "open_questions": open_questions,
             }))?
         );
     } else {
         println!("{}", home.display());
-        println!("  {} project(s)", projects.total);
-        println!("  {} open task(s)", open_tasks.total);
-        println!("  {} open question(s)", open_questions.total);
+        println!("  {projects} project(s)");
+        println!("  {open_tasks} open task(s)");
+        println!("  {open_questions} open question(s)");
     }
     Ok(())
 }
@@ -990,6 +1093,13 @@ mod render_status_tests {
     //! near-empty project by accident and it replaced a real tracker with that
     //! project's stub — no comparison, no backup, no way to tell afterwards.
 
+    /// A port nothing listens on, so these exercise the direct-store path.
+    ///
+    /// Pinned rather than left to the default: the default is the real daemon,
+    /// and a test that quietly passes only when the developer's daemon happens
+    /// to be stopped is a test that fails in CI for reasons nobody can see.
+    const NO_DAEMON: &str = "http://127.0.0.1:9";
+
     use super::*;
     use keel_core::{Actor, EntityStore, Project, Provenance};
 
@@ -1043,6 +1153,7 @@ mod render_status_tests {
         let (home, _store) = store_with(&[("empty", "Empty")]);
         let err = run_render_status(
             &home.path().to_path_buf(),
+            NO_DAEMON,
             "empty",
             Some(path.clone()),
             false,
@@ -1067,6 +1178,7 @@ mod render_status_tests {
         let (home, _store) = store_with(&[("empty", "Empty")]);
         run_render_status(
             &home.path().to_path_buf(),
+            NO_DAEMON,
             "empty",
             Some(path.clone()),
             true,
@@ -1082,11 +1194,11 @@ mod render_status_tests {
         let (home, _store) = store_with(&[("keel", "Keel")]);
         let home = home.path().to_path_buf();
 
-        run_render_status(&home, "keel", Some(path.clone()), false).unwrap();
+        run_render_status(&home, NO_DAEMON, "keel", Some(path.clone()), false).unwrap();
         let first = std::fs::metadata(&path).unwrap().modified().unwrap();
 
         std::thread::sleep(std::time::Duration::from_millis(20));
-        run_render_status(&home, "keel", Some(path.clone()), false).unwrap();
+        run_render_status(&home, NO_DAEMON, "keel", Some(path.clone()), false).unwrap();
         let second = std::fs::metadata(&path).unwrap().modified().unwrap();
 
         assert_eq!(

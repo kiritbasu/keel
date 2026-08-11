@@ -42,6 +42,14 @@ pub fn router(state: AppState) -> Router {
         // Generation writes files into the user's repository, so it is a POST:
         // it is not a safe, cacheable read even though it only reads the store.
         .route("/api/generate", post(api_generate))
+        // Read-shaped CLI commands, served here because they cannot open the
+        // store themselves while this process holds the write lock — which is
+        // always (TQ-15, KEEL-57). `fsck` is the one that matters: an integrity
+        // check you have to stop the thing you want to check in order to run is
+        // not much of a check.
+        .route("/api/fsck", get(api_fsck))
+        .route("/api/status", get(api_status))
+        .route("/api/render-status", get(api_render_status))
         // The Tauri webview is served from `tauri://localhost`, so every call
         // to the daemon is cross-origin and needs CORS. Scoped to the local
         // API: the MCP endpoint is not called from a browser, and giving it
@@ -565,6 +573,96 @@ async fn api_entity_history(
                 "total": page.total,
                 "truncated": page.truncated,
             }})),
+        )
+            .into_response(),
+        Err(e) => api_error(StatusCode::INTERNAL_SERVER_ERROR, codes::INTERNAL_ERROR, e),
+    }
+}
+
+/// Cross-engine integrity, run inside the process that holds the lock.
+async fn api_fsck(State(state): State<AppState>) -> Response {
+    let store = state.store();
+    match keel_core::fsck::check(&store) {
+        Ok(report) => (StatusCode::OK, Json(json!({ "data": report }))).into_response(),
+        Err(e) => api_error(StatusCode::INTERNAL_SERVER_ERROR, codes::INTERNAL_ERROR, e),
+    }
+}
+
+/// A one-line summary of what is in the store.
+async fn api_status(State(state): State<AppState>) -> Response {
+    use keel_core::{EntityQuery, EntityStore, EntityType};
+    let store = state.store();
+    let counts = (|| -> keel_core::Result<Value> {
+        let projects = store.list(&EntityQuery::default().of_type(EntityType::Project))?;
+        let tasks = store.list(
+            &EntityQuery::default()
+                .of_type(EntityType::Task)
+                .with_status(["todo", "in_progress", "review"]),
+        )?;
+        let questions = store.list(
+            &EntityQuery::default()
+                .of_type(EntityType::Question)
+                .with_status(["open"]),
+        )?;
+        Ok(json!({
+            "projects": projects.total,
+            "open_tasks": tasks.total,
+            "open_questions": questions.total,
+        }))
+    })();
+    match counts {
+        Ok(v) => (StatusCode::OK, Json(json!({ "data": v }))).into_response(),
+        Err(e) => api_error(StatusCode::INTERNAL_SERVER_ERROR, codes::INTERNAL_ERROR, e),
+    }
+}
+
+/// The tracker as markdown, rendered from the task rows.
+///
+/// Returns the text rather than writing a file: where it goes is the caller's
+/// business, and the daemon has no idea which repository the caller is standing
+/// in. `POST /api/generate` is the one that writes.
+async fn api_render_status(
+    State(state): State<AppState>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    use keel_core::EntityStore as _;
+
+    let Some(project) = params.get("project") else {
+        return api_error(
+            StatusCode::BAD_REQUEST,
+            codes::INVALID_PARAMS,
+            "`project` is required: a tracker belongs to one project",
+        );
+    };
+    use keel_core::{EntityQuery, EntityType};
+
+    let store = state.store();
+    // Matched by slug, key or name, the same three a person would type. The
+    // CLI resolves the same way; a project the CLI can name and the daemon
+    // cannot would be a difference nobody could explain.
+    let needle = project.to_lowercase();
+    let found = match store.list(&EntityQuery::default().of_type(EntityType::Project)) {
+        Ok(page) => page.items.into_iter().find(|e| match e {
+            keel_core::Entity::Project(p) => {
+                p.slug.to_lowercase() == needle
+                    || p.key.to_lowercase() == needle
+                    || p.name.to_lowercase() == needle
+            }
+            _ => false,
+        }),
+        Err(e) => return api_error(StatusCode::INTERNAL_SERVER_ERROR, codes::INTERNAL_ERROR, e),
+    };
+    let Some(found) = found else {
+        return api_error(
+            StatusCode::NOT_FOUND,
+            codes::INVALID_PARAMS,
+            format!("no project named `{project}`"),
+        );
+    };
+    match keel_core::render_status::render(&store, found.id()) {
+        Ok(markdown) => (
+            StatusCode::OK,
+            Json(json!({ "data": { "markdown": markdown } })),
         )
             .into_response(),
         Err(e) => api_error(StatusCode::INTERNAL_SERVER_ERROR, codes::INTERNAL_ERROR, e),
