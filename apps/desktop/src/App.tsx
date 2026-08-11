@@ -20,7 +20,8 @@ import {
   type Route,
   type ScreenId,
 } from "./lib/router";
-import { Button, Tooltip, cx } from "./components/ui";
+import { Button, Menu, MenuItem, cx } from "./components/ui";
+import { defaultProject, rememberProject } from "./lib/lastProject";
 import { CommandPalette } from "./components/CommandPalette";
 import { ThemeControl } from "./components/ThemeControl";
 import { HomeScreen } from "./screens/Home";
@@ -35,16 +36,116 @@ import { ActivityScreen } from "./screens/Activity";
 
 export type { ScreenId } from "./lib/router";
 
-const SCREENS: Array<{ id: ScreenId; label: string; key: string }> = [
-  { id: "home", label: "Home", key: "1" },
-  { id: "project", label: "Project", key: "2" },
+type NavItem = { id: ScreenId; label: string; key: string };
+
+/**
+ * The screens that belong to the project you are in. Always live, because a
+ * project is always selected — see `lib/lastProject`.
+ *
+ * Roadmap sits here even though it can render across every project, because
+ * "the roadmap of the thing I am looking at" is what you want nine times out of
+ * ten. The all-projects address still exists and the palette still reaches it.
+ */
+const PROJECT_SCREENS: NavItem[] = [
+  { id: "project", label: "Overview", key: "1" },
+  { id: "board", label: "Board", key: "2" },
   { id: "roadmap", label: "Roadmap", key: "3" },
-  { id: "board", label: "Board", key: "4" },
-  { id: "documents", label: "Documents", key: "5" },
-  { id: "search", label: "Search", key: "6" },
-  { id: "metrics", label: "Metrics", key: "7" },
+  { id: "documents", label: "Library", key: "4" },
+  { id: "metrics", label: "Metrics", key: "5" },
+];
+
+/**
+ * The screens that mean something without a project.
+ *
+ * `activity` keeps its own name for now. §C4 would call it "What changed", but
+ * that name promises the grouped-by-session view it does not yet have, and the
+ * screen already carries one header claiming a job it does not do. Renaming it
+ * is TQ-35's to decide along with whether it survives at all.
+ */
+const GLOBAL_SCREENS: NavItem[] = [
+  { id: "home", label: "All projects", key: "6" },
+  { id: "search", label: "Search", key: "7" },
   { id: "activity", label: "Activity", key: "8" },
 ];
+
+const SCREENS: NavItem[] = [...PROJECT_SCREENS, ...GLOBAL_SCREENS];
+
+/**
+ * Whether a nav item should carry the project in its address.
+ *
+ * Not the same as `NEEDS_PROJECT`, and the difference is Roadmap: it renders
+ * happily without one, so the router does not require it, but in the rail it is
+ * a project screen and should link to the project you are in.
+ */
+function isProjectScreen(id: ScreenId): boolean {
+  return PROJECT_SCREENS.some((s) => s.id === id);
+}
+
+/** One row in the rail. Never disabled — see `lib/lastProject`. */
+function NavLink({
+  item,
+  route,
+  project,
+}: {
+  item: NavItem;
+  route: Route;
+  project?: string;
+}) {
+  const here = route.screen === item.id;
+  return (
+    <a
+      href={href({ screen: item.id, project })}
+      aria-current={here ? "page" : undefined}
+      className={cx(
+        "flex w-full items-center justify-between rounded-control px-2.5 py-1.5 text-left text-small",
+        here
+          ? "bg-accent-quiet text-accent"
+          : "text-ink-muted hover:bg-surface-hover hover:text-ink",
+      )}
+    >
+      {item.label}
+      <kbd className="font-mono text-micro text-ink-faint">{item.key}</kbd>
+    </a>
+  );
+}
+
+/**
+ * One row naming the project you are in, opening the full list.
+ *
+ * One row instead of N: the old rail listed every project, so the shell grew
+ * with the store and the thing you needed on launch sank further down it.
+ */
+function ProjectSwitcher({
+  projects,
+  current,
+}: {
+  projects: Entity[];
+  current: string;
+}) {
+  const name =
+    projects.find((p) => String(p.slug ?? "") === current)?.name ?? current;
+  return (
+    <Menu label={<span className="truncate">{String(name)}</span>} align="left">
+      {(close) =>
+        projects.map((p) => {
+          const slug = String(p.slug ?? "");
+          return (
+            <MenuItem
+              key={p.id}
+              selected={slug === current}
+              onClick={() => {
+                close();
+                navigate({ screen: "project", project: slug });
+              }}
+            >
+              {String(p.name ?? slug)}
+            </MenuItem>
+          );
+        })
+      }
+    </Menu>
+  );
+}
 
 export function App() {
   const route = useRoute();
@@ -57,14 +158,41 @@ export function App() {
   const [generation, setGeneration] = useState(0);
   const refresh = useCallback(() => setGeneration((g) => g + 1), []);
 
+  // Whether the project list has come back yet, which is not the same question
+  // as whether it is empty. Before it has, "there is no project to fall back
+  // on" is unknown rather than false, and acting on it would bounce a
+  // project-scoped address to Home a beat before the answer arrived.
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
+
   useEffect(() => {
     api
       .projects()
       .then((r) => setProjects(r.projects ?? []))
-      .catch(() => setProjects([]));
+      .catch(() => setProjects([]))
+      .finally(() => setProjectsLoaded(true));
   }, [generation]);
 
   useEffect(() => subscribe(refresh), [refresh]);
+
+  const slugs = useMemo(
+    () => projects.map((p) => String(p.slug ?? "")).filter(Boolean),
+    [projects],
+  );
+
+  // The project to fall back on when the address does not name one. Null only
+  // when the store has no projects at all, which is the one case where a
+  // project-scoped screen genuinely cannot be shown.
+  const fallbackProject = useMemo(() => defaultProject(slugs), [slugs]);
+
+  // What the navigation points at: the project in the address if there is one,
+  // otherwise the one we would fall back to. This is what makes the project
+  // section of the rail live even while you are on a global screen.
+  const activeProject = route.project ?? fallbackProject ?? undefined;
+
+  // Remember where you were, so the next cold launch opens here.
+  useEffect(() => {
+    if (route.project) rememberProject(route.project);
+  }, [route.project]);
 
   // Keep the address honest.
   //
@@ -77,10 +205,18 @@ export function App() {
   //
   // This cannot loop: `parseHash(toHash(r))` is `r`, so the corrected address
   // parses to the same route and the effect's inputs do not change again.
+  // A project-scoped screen with no project used to fall back to Home. Now it
+  // fills in the remembered project instead, and only falls back to Home when
+  // there is genuinely no project to fill in. That is the difference between
+  // "you cannot go there yet" and "you can, and here is where".
   const canonical =
-    NEEDS_PROJECT[route.screen] && !route.project
-      ? toHash({ screen: "home", query: route.query })
-      : toHash(route);
+    !NEEDS_PROJECT[route.screen] || route.project
+      ? toHash(route)
+      : fallbackProject
+        ? toHash({ ...route, project: fallbackProject })
+        : projectsLoaded
+          ? toHash({ screen: "home", query: route.query })
+          : toHash(route);
   useEffect(() => {
     if (window.location.hash !== canonical) {
       window.history.replaceState(
@@ -122,17 +258,20 @@ export function App() {
       }
 
       const match = SCREENS.find((s) => s.key === e.key);
-      if (match && (!NEEDS_PROJECT[match.id] || route.project)) {
+      if (match && (!NEEDS_PROJECT[match.id] || activeProject)) {
         // Consume the key. Without this, navigating to a screen whose input
         // autofocuses means the same physical keypress also lands *in* that
         // input — pressing 6 for Search left a stray "6" in the search box.
         e.preventDefault();
-        navigate({ screen: match.id, ...(NEEDS_PROJECT[match.id] ? { project: route.project } : {}) });
+        navigate({
+          screen: match.id,
+          ...(isProjectScreen(match.id) ? { project: activeProject } : {}),
+        });
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [route.project]);
+  }, [route.project, activeProject]);
 
   const current = useMemo(() => {
     const shared = { route, generation };
@@ -166,56 +305,32 @@ export function App() {
           <div className="text-micro text-ink-faint">the project spine</div>
         </div>
 
+        {/* The project first, because five of the eight screens below are
+            about one and choosing it used to be the last thing on the rail. */}
+        {activeProject && (
+          <div className="px-2 pb-2">
+            <ProjectSwitcher projects={projects} current={activeProject} />
+          </div>
+        )}
+
         <div className="px-2">
-          {SCREENS.map((s) => {
-            const disabled = NEEDS_PROJECT[s.id] && !route.project;
-            const link = (
-              <a
-                href={disabled ? undefined : href({ screen: s.id, project: route.project })}
-                aria-disabled={disabled}
-                aria-current={route.screen === s.id ? "page" : undefined}
-                onClick={(e) => disabled && e.preventDefault()}
-                className={cx(
-                  "flex w-full items-center justify-between rounded px-2.5 py-1.5 text-left text-small",
-                  route.screen === s.id
-                    ? "bg-surface-hover text-ink"
-                    : "text-ink-muted hover:bg-surface-hover hover:text-ink",
-                  disabled && "cursor-not-allowed opacity-35 hover:bg-transparent",
-                )}
-              >
-                {s.label}
-                <kbd className="font-mono text-micro text-ink-faint">{s.key}</kbd>
-              </a>
-            );
-            return (
-              <div key={s.id}>
-                {disabled ? <Tooltip text="Pick a project first" align="left">{link}</Tooltip> : link}
-              </div>
-            );
-          })}
+          {activeProject &&
+            PROJECT_SCREENS.map((s) => (
+              <NavLink key={s.id} item={s} route={route} project={activeProject} />
+            ))}
+
+          {activeProject && <hr className="mx-2.5 my-2 border-border-subtle" />}
+
+          {GLOBAL_SCREENS.map((s) => (
+            <NavLink key={s.id} item={s} route={route} />
+          ))}
         </div>
 
-        <div className="mt-6 px-2">
-          <div className="px-2.5 pb-1 text-micro tracking-wide text-ink-faint uppercase">Projects</div>
-          {projects.length === 0 && <div className="px-2.5 py-1 text-small text-ink-faint">none yet</div>}
-          {projects.map((p) => {
-            const slug = String(p.slug ?? "");
-            return (
-              <a
-                key={p.id}
-                href={href({ screen: "project", project: slug })}
-                className={cx(
-                  "block w-full truncate rounded px-2.5 py-1 text-left text-small",
-                  route.project === slug
-                    ? "bg-surface-hover text-ink"
-                    : "text-ink-muted hover:bg-surface-hover hover:text-ink",
-                )}
-              >
-                {String(p.name ?? slug)}
-              </a>
-            );
-          })}
-        </div>
+        {projectsLoaded && projects.length === 0 && (
+          <div className="mt-4 px-4 text-small text-ink-faint">
+            No projects yet. Ask Claude to make one.
+          </div>
+        )}
 
         <div className="mt-auto px-3 py-3">
           <div className="flex items-center gap-2">

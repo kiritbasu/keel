@@ -116,8 +116,8 @@ describe("navigation keys", () => {
   it("moves to a global screen and puts it in the address", async () => {
     render(<App />);
     await settle();
-    fireEvent.keyDown(window, { key: "3" });
-    await waitFor(() => expect(window.location.hash).toBe("#/roadmap"));
+    fireEvent.keyDown(window, { key: "7" });
+    await waitFor(() => expect(window.location.hash).toBe("#/search"));
   });
 
   it("sends `/` to search", async () => {
@@ -131,18 +131,18 @@ describe("navigation keys", () => {
     window.location.hash = "#/projects/keel";
     render(<App />);
     await settle();
-    fireEvent.keyDown(window, { key: "4" });
+    fireEvent.keyDown(window, { key: "2" });
     await waitFor(() => expect(window.location.hash).toBe("#/projects/keel/board"));
   });
 
-  // Failure case: the shortcut for a screen that needs a project must do
-  // nothing rather than navigate somewhere that cannot render.
-  it("does nothing for a project-scoped screen with no project", async () => {
+  // This used to do nothing, and that was the bug rather than the safeguard.
+  // A project-scoped shortcut pressed from a global screen now falls back to
+  // the project you were last in, because there is always one.
+  it("falls back to the remembered project rather than doing nothing", async () => {
     render(<App />);
     await settle();
-    fireEvent.keyDown(window, { key: "4" });
-    await settle();
-    expect(window.location.hash).toBe("#/");
+    fireEvent.keyDown(window, { key: "2" });
+    await waitFor(() => expect(window.location.hash).toBe("#/projects/keel/board"));
   });
 
   // Failure case: this is the bug that put a stray "6" in the search box.
@@ -180,5 +180,53 @@ describe("addresses", () => {
     await settle();
     const board = screen.getByRole("link", { name: /Board/ });
     expect(board.getAttribute("href")).toBe("#/projects/keel/board");
+  });
+});
+
+describe("the rail, with the project first", () => {
+  // The Phase 8 exit criterion, asserted rather than eyeballed. Five of the
+  // eight items used to render at 35% opacity with "Pick a project first" on a
+  // cold launch, and the control that would have fixed that sat below them.
+  it("disables nothing on a cold launch", async () => {
+    render(<App />);
+    await settle();
+    const rail = screen.getByRole("navigation");
+    const links = [...rail.querySelectorAll("a")];
+
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      expect(link.getAttribute("aria-disabled")).toBeNull();
+      expect(link.getAttribute("href")).toBeTruthy();
+    }
+  });
+
+  // The address says nothing about a project, and the project screens still
+  // point somewhere real. That is the whole of C1 in one assertion.
+  it("points the project screens at a project even from a global screen", async () => {
+    render(<App />);
+    await settle();
+    expect(window.location.hash).toBe("#/");
+    expect(screen.getByRole("link", { name: /Board/ }).getAttribute("href")).toBe(
+      "#/projects/keel/board",
+    );
+    expect(screen.getByRole("link", { name: /Library/ }).getAttribute("href")).toBe(
+      "#/projects/keel/documents",
+    );
+  });
+
+  it("names the project you are in, as one row rather than one per project", async () => {
+    render(<App />);
+    await settle();
+    // A button, not a list: the old rail grew a row for every project, so the
+    // shell got taller as the store did.
+    expect(screen.getByRole("button", { name: /Keel/ })).toBeTruthy();
+  });
+
+  it("keeps Roadmap with the project, though the router does not demand one", async () => {
+    render(<App />);
+    await settle();
+    expect(screen.getByRole("link", { name: /Roadmap/ }).getAttribute("href")).toBe(
+      "#/projects/keel/roadmap",
+    );
   });
 });
