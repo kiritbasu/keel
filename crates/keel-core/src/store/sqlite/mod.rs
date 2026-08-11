@@ -14,6 +14,7 @@ pub mod entity;
 pub mod graph;
 pub mod rows;
 pub mod schema;
+pub mod search;
 pub mod vector;
 
 use crate::{Error, Result};
@@ -33,6 +34,7 @@ use std::path::{Path, PathBuf};
 pub struct SqliteStore {
     conn: Connection,
     path: PathBuf,
+    embedder: Option<std::sync::Arc<dyn crate::Embedder>>,
 }
 
 impl SqliteStore {
@@ -59,7 +61,11 @@ impl SqliteStore {
             path.display()
         )))?;
 
-        let mut store = SqliteStore { conn, path };
+        let mut store = SqliteStore {
+            conn,
+            path,
+            embedder: None,
+        };
         store.configure()?;
         store.migrate()?;
         Ok(store)
@@ -78,10 +84,33 @@ impl SqliteStore {
         let mut store = SqliteStore {
             conn,
             path: PathBuf::from(":memory:"),
+            embedder: None,
         };
         store.configure()?;
         store.migrate()?;
         Ok(store)
+    }
+
+    /// Attach an embedder, enabling the semantic half of hybrid search.
+    ///
+    /// Optional on purpose, and the same shape `DuckStore` uses: a store with
+    /// no embedder is still fully usable and still searchable by keyword, so
+    /// search degrades rather than failing. Passing it in rather than building
+    /// it here is what keeps `keel-core` free of decisions about model files
+    /// and network access.
+    ///
+    /// **Attaching it is not optional in practice, though.** Without it,
+    /// `search` returns keyword hits only — and that failure is silent, since
+    /// results keep arriving and are merely worse. Every caller that opens a
+    /// store for a human or a model should attach one.
+    pub fn with_embedder(mut self, embedder: std::sync::Arc<dyn crate::Embedder>) -> Self {
+        self.embedder = Some(embedder);
+        self
+    }
+
+    /// The attached embedder, if any.
+    pub fn embedder(&self) -> Option<&dyn crate::Embedder> {
+        self.embedder.as_deref()
     }
 
     /// Where this store lives. `:memory:` for an in-memory one.

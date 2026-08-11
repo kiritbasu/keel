@@ -37,6 +37,10 @@ pub mod generate;
 pub mod id;
 pub mod link;
 pub mod lint;
+// The one-way move from the DuckDB-and-Lance store to the SQLite one. It lives
+// beside `store` rather than inside it because it belongs to neither engine: it
+// reads one and writes the other, and it goes away with KEEL-130.
+pub mod migrate;
 pub mod mirror;
 pub mod next;
 pub mod note;
