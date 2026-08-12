@@ -35,7 +35,18 @@ pub fn run(
     let report = match via_daemon(daemon, project, repo.as_deref(), check) {
         Ok(report) => report,
         Err(e) => {
-            tracing::debug!(error = %e, "daemon unavailable, opening the store directly");
+            // The fallback used to fire on *any* transport error, including
+            // the thirty-second timeout you get from a daemon that is alive
+            // and busy. That is the case most likely to produce a second
+            // writer — a slow generate against a working daemon — so the
+            // fallback caused the thing it was meant to route around.
+            //
+            // `may_read_directly` asks the only question with a safe answer:
+            // is anything holding the port. Connection refused means no; a
+            // timeout means yes and busy, which is a reason to stop.
+            crate::writes::may_read_directly(daemon)
+                .with_context(|| format!("ask the daemon at {daemon} to generate: {e}"))?;
+            tracing::debug!(error = %e, "no daemon is running, opening the store directly");
             directly(home, project, repo, check)?
         }
     };

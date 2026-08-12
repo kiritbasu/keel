@@ -14,11 +14,12 @@ mod generate;
 mod import;
 mod rubric;
 mod work;
+mod writes;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use keel_core::{Store, backup, fixture, fsck};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Keel's command-line client.
 #[derive(Parser)]
@@ -34,6 +35,17 @@ struct Cli {
     /// Print machine-readable JSON instead of prose.
     #[arg(long, global = true)]
     json: bool,
+
+    /// Write to the store even though a daemon appears to be running.
+    ///
+    /// Every command that writes probes for a daemon first and refuses if one
+    /// answers, because the daemon owns the single write path and a write that
+    /// goes round it skips six of the seven steps. This is the escape for the
+    /// cases where a person knows better — a wedged daemon, a store being
+    /// repaired. A flag rather than an environment variable, so that using it
+    /// shows up in a shell history.
+    #[arg(long, global = true)]
+    force: bool,
 
     #[command(subcommand)]
     command: Command,
@@ -385,7 +397,7 @@ fn main() -> Result<()> {
         Command::Fsck { daemon } => run_fsck(&home, daemon, cli.json),
         Command::Backup { dest } => run_backup(&home, dest.clone(), cli.json),
         Command::Restore { source, target } => run_restore(source, target, cli.json),
-        Command::Fixture => run_fixture(&home, cli.json),
+        Command::Fixture => run_fixture(&home, cli.force, cli.json),
         Command::Status { daemon } => run_status(&home, daemon, cli.json),
         Command::RenderStatus {
             project,
@@ -393,10 +405,11 @@ fn main() -> Result<()> {
             out,
             force,
         } => run_render_status(&home, daemon, project, out.clone(), *force),
-        Command::Note { action } => run_note(&home, action, cli.json),
+        Command::Note { action } => run_note(&home, action, cli.force, cli.json),
         Command::Archive { id, version } => {
             use keel_core::{Actor, EntityId, EntityStore, Provenance, Surface};
-            let mut store = open(&home)?;
+            let mut store =
+                writes::open_for_write(&home, &writes::daemon_url(), cli.force, "archive a row")?;
             let prov = Provenance::anonymous(Actor::Human).with_surface(Surface::Cli);
             let archived = store.archive(&EntityId::parse(id)?, *version, &prov)?;
             println!("{} — archived", archived.id());
@@ -460,11 +473,14 @@ fn main() -> Result<()> {
             priority,
         } => run_task_add(
             &home,
-            project,
-            title,
-            body.clone(),
-            status,
-            priority,
+            TaskDraft {
+                project,
+                title,
+                body: body.clone(),
+                status,
+                priority,
+            },
+            cli.force,
             cli.json,
         ),
         Command::Gate {
@@ -761,10 +777,13 @@ fn run_render_status(
     Ok(())
 }
 
-fn run_note(home: &PathBuf, action: &NoteAction, json: bool) -> Result<()> {
+fn run_note(home: &Path, action: &NoteAction, force: bool, json: bool) -> Result<()> {
     use keel_core::{Actor, EntityId, EntityStore, NewNote, NoteId, Provenance, Surface};
 
-    let mut store = open(home)?;
+    // `Ls` only reads, but it shares this store handle with `Add` and
+    // `Retract`, and a read is safe alongside a daemon in WAL mode. Probing for
+    // all three keeps the funnel one function rather than three.
+    let mut store = writes::open_for_write(home, &writes::daemon_url(), force, "write a note")?;
     // `cli` rather than `code`: this is a person at a terminal, and the whole
     // point of `surface` is telling those apart when reading the history back.
     let prov = Provenance::anonymous(Actor::Human).with_surface(Surface::Cli);
@@ -815,29 +834,34 @@ fn run_note(home: &PathBuf, action: &NoteAction, json: bool) -> Result<()> {
     Ok(())
 }
 
-fn run_task_add(
-    home: &PathBuf,
-    project: &str,
-    title: &str,
+/// What `keel task` was asked to create.
+///
+/// A struct rather than six parameters because it was already at the edge of
+/// readable and `--force` pushed it over — and because the fields arrive
+/// together from one clap variant, so they belong together here too.
+struct TaskDraft<'a> {
+    project: &'a str,
+    title: &'a str,
     body: Option<String>,
-    status: &str,
-    priority: &str,
-    json: bool,
-) -> Result<()> {
+    status: &'a str,
+    priority: &'a str,
+}
+
+fn run_task_add(home: &Path, draft: TaskDraft<'_>, force: bool, json: bool) -> Result<()> {
     use keel_core::{Actor, EntityStore, Provenance, Surface, Task, TaskPriority, TaskStatus};
 
-    let mut store = open(home)?;
-    let found = resolve_project(&store, project)?;
+    let mut store = writes::open_for_write(home, &writes::daemon_url(), force, "add a task")?;
+    let found = resolve_project(&store, draft.project)?;
     let prov = Provenance::anonymous(Actor::Human).with_surface(Surface::Cli);
 
     let mut task = Task::new(
         found.id().clone(),
-        title,
+        draft.title,
         "A row this test needs in the store.",
     );
-    task.status = TaskStatus::parse(status)?;
-    task.priority = TaskPriority::parse(priority)?;
-    task.body = body;
+    task.status = TaskStatus::parse(draft.status)?;
+    task.priority = TaskPriority::parse(draft.priority)?;
+    task.body = draft.body;
 
     let created = store.create(task.into(), &prov)?;
     if json {
@@ -1112,8 +1136,13 @@ fn init_store_git(target: &std::path::Path) -> Result<bool> {
     Ok(true)
 }
 
-fn run_fixture(home: &PathBuf, json: bool) -> Result<()> {
-    let mut store = open(home)?;
+fn run_fixture(home: &Path, force: bool, json: bool) -> Result<()> {
+    let mut store = writes::open_for_write(
+        home,
+        &writes::daemon_url(),
+        force,
+        "load the fixture corpus",
+    )?;
     let summary = fixture::load(&mut store)?;
 
     if json {

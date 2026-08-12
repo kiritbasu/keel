@@ -225,8 +225,19 @@ export interface Page<T> {
 // --- Calls ---------------------------------------------------------------
 
 export const api = {
+  /**
+   * Liveness. Never blocks, which is why `projects` can be stale:
+   * `store_busy` means the daemon was mid-write and answered from the last
+   * count it saw rather than waiting for the lock.
+   */
   health: () =>
-    get<{ status: string; protocol: string; version: string; projects: number }>("/api/health"),
+    get<{
+      status: string;
+      protocol: string;
+      version: string;
+      projects: number;
+      store_busy: boolean;
+    }>("/api/health"),
 
   /** The digest. No `project` gives the cross-project roll-up. */
   context: (project?: string) => get<Digest>("/api/context", { project, depth: "full" }),

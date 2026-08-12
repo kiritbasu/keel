@@ -52,6 +52,9 @@ pub struct AppState {
     /// The token bucket on `/mcp`. Shared, because the thing it protects — the
     /// store's single write lock — is shared.
     pub rate_limit: Arc<crate::ratelimit::RateLimit>,
+    /// The last project count anybody read, so `/api/health` can answer
+    /// without taking the store lock. `-1` means nobody has read one yet.
+    projects: Arc<std::sync::atomic::AtomicI64>,
 }
 
 impl AppState {
@@ -95,6 +98,7 @@ impl AppState {
             store: Arc::new(Mutex::new(store)),
             changes,
             rate_limit: Arc::new(crate::ratelimit::RateLimit::default()),
+            projects: Arc::new(std::sync::atomic::AtomicI64::new(-1)),
         })
     }
 
@@ -105,10 +109,41 @@ impl AppState {
             store: Arc::new(Mutex::new(store)),
             changes,
             rate_limit: Arc::new(crate::ratelimit::RateLimit::default()),
+            projects: Arc::new(std::sync::atomic::AtomicI64::new(-1)),
         }
     }
 
-    /// Take the write handle.
+    /// Take the write handle *if it is free*, and never wait for it.
+    ///
+    /// Exists for `/api/health`, which is the probe the CLI uses to decide
+    /// whether a daemon is alive. Health taking the store lock made that probe
+    /// block exactly when the daemon was busy — so the one question worth
+    /// asking during a slow write was the one question that could not be
+    /// answered during a slow write.
+    pub fn try_store(&self) -> Option<MutexGuard<'_, Store>> {
+        match self.store.try_lock() {
+            Ok(guard) => Some(guard),
+            Err(std::sync::TryLockError::WouldBlock) => None,
+            Err(std::sync::TryLockError::Poisoned(p)) => Some(p.into_inner()),
+        }
+    }
+
+    /// Remember how many projects the store held, so health can answer while
+    /// the store is busy.
+    pub fn remember_project_count(&self, n: usize) {
+        self.projects
+            .store(n as i64, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// The last project count anybody observed, or `None` if nobody has.
+    pub fn last_project_count(&self) -> Option<usize> {
+        match self.projects.load(std::sync::atomic::Ordering::Relaxed) {
+            n if n < 0 => None,
+            n => Some(n as usize),
+        }
+    }
+
+    /// Take the write handle, waiting for it if something else holds it.
     ///
     /// Recovers from a poisoned lock rather than propagating the panic. A
     /// poisoned mutex means some earlier request panicked mid-handler; the

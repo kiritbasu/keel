@@ -325,20 +325,41 @@ fn latest_event(store: &keel_core::Store) -> Option<keel_core::EventId> {
 // would serve, so the desktop app and any future web build are one bundle
 // with a different base URL.
 
+/// Liveness, and it must never block.
+///
+/// This is the probe the CLI uses to decide whether a daemon owns the store, so
+/// it is asked at exactly the moment a slow write is in progress — and it used
+/// to take the store lock, which meant the question could not be answered
+/// precisely when it mattered. A `keel generate` holding the lock for thirty
+/// seconds made health hang for thirty seconds, the CLI concluded the daemon
+/// was unreachable, and it opened the store itself. The probe caused the second
+/// writer it existed to prevent.
+///
+/// So: `try_store`, never `store`. When the lock is held the last known project
+/// count is reported and `store_busy` says the number may be stale. A stale
+/// count on a health page costs nothing; a health page that hangs costs the
+/// constraint.
 async fn health(State(state): State<AppState>) -> Json<Value> {
-    let store = state.store();
-    let projects = {
-        use keel_core::{EntityQuery, EntityStore, EntityType};
-        store
-            .list(&EntityQuery::default().of_type(EntityType::Project))
-            .map(|p| p.total)
-            .unwrap_or(0)
+    let (projects, busy) = match state.try_store() {
+        Some(store) => {
+            use keel_core::{EntityQuery, EntityStore, EntityType};
+            let n = store
+                .list(&EntityQuery::default().of_type(EntityType::Project))
+                .map(|p| p.total)
+                .unwrap_or(0);
+            drop(store);
+            state.remember_project_count(n);
+            (n, false)
+        }
+        None => (state.last_project_count().unwrap_or(0), true),
     };
+
     Json(json!({
         "status": "ok",
         "protocol": PROTOCOL_VERSION,
         "version": env!("CARGO_PKG_VERSION"),
         "projects": projects,
+        "store_busy": busy,
     }))
 }
 
