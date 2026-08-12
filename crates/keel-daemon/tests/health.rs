@@ -19,6 +19,20 @@
 //! generous timeout. Without the fix health waits for a lock nothing will
 //! release, so the timeout fires every time; with it, health answers at once
 //! and the number is never close to the boundary.
+//!
+//! # The warm-up, which is not politeness
+//!
+//! `daemon()` makes one throwaway request before handing back, and the timed
+//! sections would be meaningless without it. Measured on macOS: the *first*
+//! HTTP request a test process makes takes **12.7 seconds** and the second
+//! takes **0.9 milliseconds**. That is `reqwest` building its client and
+//! loading the system trust store, and it has nothing whatever to do with the
+//! daemon — but a two-second assertion that happens to be the first request
+//! measures it and blames the store lock.
+//!
+//! This bit once already. Two tests here failed for a day looking exactly like
+//! a health regression, and the only difference between them and the one that
+//! passed was that the passing one made a call before starting its clock.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -39,8 +53,13 @@ async fn daemon() -> (String, AppState, tempfile::TempDir) {
     tokio::spawn(async move {
         let _ = axum::serve(listener, app).await;
     });
+    let base = format!("http://{addr}");
 
-    (format!("http://{addr}"), state, dir)
+    // Pay the client's one-off startup cost here, outside anything timed. See
+    // the module doc: this is twelve seconds on a cold process.
+    let _ = health(&base).await;
+
+    (base, state, dir)
 }
 
 async fn health(base: &str) -> Value {
@@ -167,3 +186,4 @@ async fn the_schema_is_reported_without_the_store() {
 
     held.give_back();
 }
+
