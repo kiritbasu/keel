@@ -261,3 +261,83 @@ async fn a_daemon_fed_rubbish_keeps_answering() {
         "a real call after the rubbish must still work"
     );
 }
+
+// --- Blob responses -------------------------------------------------------
+
+/// A blob is bytes an agent put in the store while reading prose it did not
+/// write, and the daemon hands them to a renderer. Two headers stand between
+/// that and script execution.
+///
+/// The sharp case is SVG: a document that may contain `<script>`, served with
+/// an image media type. A diagram written by a prompt-influenced agent is
+/// stored cross-site scripting the moment something renders it as a document
+/// rather than as an image.
+#[tokio::test]
+async fn a_blob_is_served_with_headers_that_stop_it_executing() {
+    let (base, _dir) = daemon().await;
+    let client = reqwest::Client::new();
+
+    let created: Value = client
+        .post(format!("{base}/mcp"))
+        .json(&json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                      "params": {"name": "keel_create",
+                                 "arguments": {"type": "project", "title": "Blobs",
+                                               "slug": "blobs"}}}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(created.pointer("/result").is_some(), "{created}");
+
+    // A one-pixel PNG, base64. The bytes do not matter; the headers do.
+    let png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    let design: Value = client
+        .post(format!("{base}/mcp"))
+        .json(&json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                      "params": {"name": "keel_create",
+                                 "arguments": {"type": "design", "project": "blobs",
+                                               "title": "A mockup", "image": png}}}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+
+    let blob_id = design
+        .pointer("/result/structuredContent/entity/blob_id")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("no blob id in {design}"));
+
+    let response = client
+        .get(format!("{base}/api/blob/{blob_id}"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+
+    let header = |name: &str| {
+        response
+            .headers()
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_owned()
+    };
+
+    assert_eq!(
+        header("x-content-type-options"),
+        "nosniff",
+        "without this the declared media type is a suggestion, and a browser is free to \
+         decide a blob starting with `<` is really HTML"
+    );
+    let csp = header("content-security-policy");
+    assert!(
+        csp.contains("sandbox"),
+        "an SVG is a document that may contain <script>; the sandbox is what denies it \
+         whatever it turns out to contain: {csp:?}"
+    );
+    assert!(csp.contains("default-src 'none'"), "{csp:?}");
+}

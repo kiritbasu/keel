@@ -836,6 +836,30 @@ async fn api_blob(State(state): State<AppState>, Path(id): Path<String>) -> Resp
                     header::CACHE_CONTROL,
                     "public, max-age=31536000, immutable".to_owned(),
                 ),
+                // A blob is bytes an agent put in the store, and the agent was
+                // reading prose it did not write. Two headers stand between
+                // that and script execution in whatever renders it.
+                //
+                // `nosniff` stops a browser deciding a blob declared
+                // `image/png` is really HTML because it starts with `<`.
+                // Without it the declared type is a suggestion.
+                //
+                // The CSP is the one that matters for SVG. An SVG is a document
+                // that may contain `<script>`, and it is served with an image
+                // media type — so a diagram written by a prompt-influenced
+                // agent is stored cross-site scripting the moment something
+                // renders it as a document rather than as an image.
+                // `sandbox` with no allowances denies scripts, forms, plugins
+                // and same-origin access to whatever a blob response is loaded
+                // into, whatever it turns out to contain.
+                (
+                    header::HeaderName::from_static("x-content-type-options"),
+                    "nosniff".to_owned(),
+                ),
+                (
+                    header::CONTENT_SECURITY_POLICY,
+                    "default-src 'none'; sandbox".to_owned(),
+                ),
             ],
             blob.bytes,
         )
