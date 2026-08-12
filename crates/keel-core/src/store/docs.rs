@@ -344,6 +344,39 @@ impl Store {
             document.entity_id
         )))?;
 
+        // The event, inside the same transaction as the revision it describes.
+        //
+        // `Action::Revised` was declared from the beginning and never once
+        // constructed, so a session that only wrote prose left no trace at all:
+        // not in the changelog, which is derived from the event log, and not in
+        // the app's live feed. Whole sessions of work were invisible, and
+        // nothing looked broken — the feed simply had less in it.
+        //
+        // Provenance comes off the document rather than from a parameter. The
+        // author, session and surface were already decided at the boundary and
+        // recorded on the revision; taking them from anywhere else would let
+        // the row and its event disagree about who wrote it.
+        let provenance = crate::Provenance {
+            actor: document.author,
+            session_id: document.session_id.clone(),
+            surface: document.surface,
+        };
+        let summary = format!(
+            "revised {} “{}” to v{}",
+            document.entity_type, document.title, document.version
+        );
+        crate::store::entity::append_event_inner(
+            &tx,
+            crate::NewEvent::new(document.entity_id.clone(), crate::Action::Revised, summary)
+                .in_project(document.project_id.clone())
+                .with_meta(serde_json::json!({
+                    "version": document.version,
+                    "doc_id": document.doc_id.as_str(),
+                })),
+            &provenance,
+            document.created_at,
+        )?;
+
         tx.commit().map_err(Error::storage(format!(
             "commit revision {} of {}",
             document.version, document.entity_id

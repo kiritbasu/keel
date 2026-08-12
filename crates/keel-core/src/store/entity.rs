@@ -717,7 +717,11 @@ fn insert_note_row(conn: &Connection, note: &Note) -> Result<()> {
 /// carry the same timestamp rather than two instants a microsecond apart, and
 /// taking a `&Connection` so it can be the second statement of a transaction
 /// rather than a separate autocommitting write that a crash can lose.
-fn append_event_inner(
+///
+/// `pub(super)` because `docs::write_revision` needs it too: a revision is a
+/// mutation like any other and has to appear in the changelog, and its
+/// transaction is already open by the time it wants one.
+pub(super) fn append_event_inner(
     conn: &Connection,
     event: NewEvent,
     provenance: &Provenance,
@@ -979,16 +983,31 @@ impl EntityStore for Store {
         let now = Utc::now();
         *entity.audit_mut() = Audit::new(provenance, now);
 
-        insert_entity_row(self.connection(), &entity)?;
-
+        // The row and the event that records it commit together or not at all.
+        //
+        // This is not a theoretical crash window. The idempotent retry returns
+        // `created: false` *before* re-writing anything, so a row that landed
+        // without its event never gets one on a second attempt: the history is
+        // gone permanently, and the store reads as though the entity simply
+        // appeared. That is the shape of failure this codebase is built to
+        // refuse — plausible, quiet, and unrecoverable.
+        let tx = self
+            .conn
+            .transaction()
+            .map_err(Error::storage(format!("create the {entity_type}")))?;
+        insert_entity_row(&tx, &entity)?;
         let summary = format!("created {entity_type} “{}”", entity.label());
         append_event_inner(
-            self.connection(),
+            &tx,
             NewEvent::new(entity.id().clone(), Action::Created, summary)
                 .in_project(project_of(&entity)),
             provenance,
             now,
         )?;
+        tx.commit().map_err(Error::storage(format!(
+            "commit the {entity_type} `{}`",
+            entity.label()
+        )))?;
 
         Ok(Created {
             entity,
@@ -1099,7 +1118,6 @@ impl EntityStore for Store {
         let now = Utc::now();
         let next_version = current_version + 1;
         *entity.audit_mut() = entity.audit().touched(provenance, now, next_version);
-        write_back(self.connection(), &entity, expected_version)?;
 
         let project = project_of(&entity);
         let action = if is_status_change(&applied) {
@@ -1107,6 +1125,16 @@ impl EntityStore for Store {
         } else {
             Action::Updated
         };
+
+        // The row and every event describing it, together. An update that lands
+        // its version bump and loses its events is worse than one that fails:
+        // the optimistic-concurrency check will happily accept the next write,
+        // so nothing ever notices the hole.
+        let tx = self
+            .conn
+            .transaction()
+            .map_err(Error::storage(format!("update {id}")))?;
+        write_back(&tx, &entity, expected_version)?;
 
         // One event per field. Verbose, but "what changed" is the question the
         // activity feed exists to answer, and a single event with a bag of
@@ -1119,7 +1147,7 @@ impl EntityStore for Store {
                 render(&change.after)
             );
             append_event_inner(
-                self.connection(),
+                &tx,
                 NewEvent::new(entity.id().clone(), action, summary)
                     .in_project(project.clone())
                     .field_change(
@@ -1131,6 +1159,8 @@ impl EntityStore for Store {
                 now,
             )?;
         }
+        tx.commit()
+            .map_err(Error::storage(format!("commit the update to {id}")))?;
 
         Ok(entity)
     }
@@ -1167,16 +1197,25 @@ impl EntityStore for Store {
         let mut audit = entity.audit().touched(provenance, now, current_version + 1);
         audit.archived_at = Some(now);
         *entity.audit_mut() = audit;
-        write_back(self.connection(), &entity, expected_version)?;
+
+        // Three statements, one outcome. Half an archive — the row put away
+        // with its links still live — is a graph that traverses into something
+        // nothing shows, which is precisely the empty-looking-but-wrong result
+        // the graph rules warn about.
+        let tx = self
+            .conn
+            .transaction()
+            .map_err(Error::storage(format!("archive {id}")))?;
+        write_back(&tx, &entity, expected_version)?;
 
         // Archiving a parent archives its links but never its children
         // (SPEC §3.1). Orphaned children surface in `fsck` rather than
         // disappearing, because a cascade is unrecoverable and an orphan is
         // merely untidy.
-        archive_links_touching(self.connection(), id, now, provenance)?;
+        archive_links_touching(&tx, id, now, provenance)?;
 
         append_event_inner(
-            self.connection(),
+            &tx,
             NewEvent::new(
                 entity.id().clone(),
                 Action::Archived,
@@ -1186,6 +1225,8 @@ impl EntityStore for Store {
             provenance,
             now,
         )?;
+        tx.commit()
+            .map_err(Error::storage(format!("commit the archive of {id}")))?;
 
         Ok(entity)
     }
@@ -1336,7 +1377,10 @@ impl EntityStore for Store {
             audit: Audit::new(provenance, now),
         };
 
-        insert_link_row(self.connection(), &stored)?;
+        let tx = self.conn.transaction().map_err(Error::storage(format!(
+            "create the link {from_id} {rel} {to_id}"
+        )))?;
+        insert_link_row(&tx, &stored)?;
 
         // Summaries name the artifacts, not their ids. This text is what the
         // activity feed and the Sunday-review digest actually show a human.
@@ -1355,7 +1399,7 @@ impl EntityStore for Store {
             format!("“{from_label}” {rel} “{to_label}”")
         };
         append_event_inner(
-            self.connection(),
+            &tx,
             NewEvent::new(from_id, Action::Linked, summary)
                 .in_project(stored.project_id.clone())
                 .with_meta(serde_json::json!({
@@ -1366,6 +1410,8 @@ impl EntityStore for Store {
             provenance,
             now,
         )?;
+        tx.commit()
+            .map_err(Error::storage(format!("commit the link {}", stored.id)))?;
 
         Ok(stored)
     }
@@ -1391,8 +1437,11 @@ impl EntityStore for Store {
         // Soft delete, links included (hard constraint 3): this sets
         // `archived_at` and never issues a DELETE.
         let now = Utc::now();
-        set_link_archived(self.connection(), &existing.id, Some(now), now, provenance)?;
 
+        // Labels are read before the transaction opens, because the closure
+        // borrowing `self` and the transaction borrowing `self.conn` mutably
+        // cannot both be live — and because the labels are the same either way:
+        // an unlink does not change what the endpoints are called.
         let label_of = |id: &EntityId| {
             self.get(id)
                 .ok()
@@ -1401,14 +1450,24 @@ impl EntityStore for Store {
                 .unwrap_or_else(|| id.to_string())
         };
         let summary = format!("unlinked “{}” {rel} “{}”", label_of(&from), label_of(&to));
+
+        let tx = self
+            .conn
+            .transaction()
+            .map_err(Error::storage(format!("remove the link {}", existing.id)))?;
+        set_link_archived(&tx, &existing.id, Some(now), now, provenance)?;
         append_event_inner(
-            self.connection(),
+            &tx,
             NewEvent::new(from.clone(), Action::Linked, summary)
                 .in_project(existing.project_id.clone())
                 .with_meta(serde_json::json!({ "removed": true, "rel": rel.as_str() })),
             provenance,
             now,
         )?;
+        tx.commit().map_err(Error::storage(format!(
+            "commit the removal of link {}",
+            existing.id
+        )))?;
 
         let mut archived = existing;
         archived.audit.archived_at = Some(now);
