@@ -466,3 +466,98 @@ fn verify_restore_notices_a_missing_table() {
         "a row-count mismatch must be reported: {err}"
     );
 }
+
+// --- The checks added in Phase 11 ----------------------------------------
+//
+// Three orphans the non-atomic write path could produce, and the file-level
+// check nothing ever ran. Each corrupts the store behind the API, which is the
+// only way to reach a state keel-core now refuses to create.
+
+#[test]
+fn fsck_notices_a_row_with_no_creation_event() {
+    let (store, _d, _) = loaded_store();
+    store
+        .connection()
+        .execute_batch(
+            "DELETE FROM events WHERE op = 'created' AND entity_id = \
+             (SELECT min(id) FROM tasks);",
+        )
+        .unwrap();
+
+    let report = fsck::check(&store).unwrap();
+    let finding = report
+        .findings
+        .iter()
+        .find(|f| f.check == "row_without_creation_event")
+        .expect("fsck should have found the row with no history");
+    assert_eq!(
+        finding.severity,
+        fsck::Severity::Warning,
+        "the row still works; what is missing is its provenance"
+    );
+    assert!(finding.count >= 1);
+}
+
+#[test]
+fn fsck_notices_a_live_link_into_an_archived_row() {
+    let (store, _d, _) = loaded_store();
+    // Archive a row without archiving what points at it — the half-archive the
+    // transaction in KEEL-141 now prevents.
+    store
+        .connection()
+        .execute_batch(
+            "UPDATE tasks SET archived_at = '2026-08-12T00:00:00.000000Z' \
+             WHERE id = (SELECT to_id FROM links WHERE archived_at IS NULL \
+                         AND to_id LIKE 'tsk_%' LIMIT 1);",
+        )
+        .unwrap();
+
+    let report = fsck::check(&store).unwrap();
+    let finding = report
+        .errors()
+        .find(|f| f.check == "live_link_to_archived")
+        .expect("fsck should have found the live edge into an archived row");
+    assert!(
+        finding.detail.contains("disagree"),
+        "the finding must say what breaks: {}",
+        finding.detail
+    );
+}
+
+#[test]
+fn fsck_notices_a_blob_nothing_points_at() {
+    let (store, _d, _) = loaded_store();
+    store
+        .connection()
+        .execute_batch(
+            "INSERT INTO blobs (blob_id, entity_id, project_id, media_type, byte_length, \
+             sha256, bytes, created_at) \
+             VALUES ('blb_01ZZZZZZZZZZZZZZZZZZZZZZZZ', NULL, NULL, 'image/png', 3, 'abc', \
+             x'010203', '2026-08-12T00:00:00.000000Z');",
+        )
+        .unwrap();
+
+    let report = fsck::check(&store).unwrap();
+    let finding = report
+        .findings
+        .iter()
+        .find(|f| f.check == "orphan_blob")
+        .expect("fsck should have found the orphaned blob");
+    assert!(
+        finding.remedy.contains("DELETE"),
+        "an orphaned blob is the one thing that can only be reclaimed by deletion: {}",
+        finding.remedy
+    );
+}
+
+/// A healthy store passes SQLite's own check, and the helper reports that as
+/// `None` rather than as an empty list somebody has to interpret.
+#[test]
+fn a_healthy_store_passes_the_page_integrity_check() {
+    let (store, _d, _) = loaded_store();
+    assert_eq!(
+        fsck::page_integrity(&store, "integrity_check").unwrap(),
+        None
+    );
+    assert_eq!(fsck::page_integrity(&store, "quick_check").unwrap(), None);
+}

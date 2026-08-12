@@ -235,6 +235,37 @@ fn truncate(s: &str, n: usize) -> String {
     s.chars().take(n).collect::<String>() + "…"
 }
 
+/// Ask SQLite whether the file underneath the rows is intact.
+///
+/// `Ok(None)` means clean. `Ok(Some(text))` is what SQLite said was wrong,
+/// joined into one line.
+///
+/// `which` is `integrity_check` for the full audit or `quick_check` for the
+/// cheap one the daemon runs at startup — the difference is that the quick
+/// version skips index verification, which is most of the cost and rarely the
+/// thing that is wrong.
+///
+/// Both return the single row `ok` when there is nothing to report, which is
+/// why this compares against that string rather than counting rows.
+pub fn page_integrity(store: &Store, which: &str) -> Result<Option<String>> {
+    let mut stmt = store
+        .connection()
+        .prepare(&format!("PRAGMA {which}"))
+        .map_err(Error::storage(format!("prepare PRAGMA {which}")))?;
+    let problems: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(0))
+        .map_err(Error::storage(format!("run PRAGMA {which}")))?
+        .filter_map(std::result::Result::ok)
+        .filter(|line| line != "ok")
+        .collect();
+
+    if problems.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(problems.join("; ")))
+    }
+}
+
 /// Run every integrity check.
 ///
 /// Exits non-zero only on errors, so a warning-only report can still gate a
@@ -695,6 +726,131 @@ pub fn check(store: &Store) -> Result<FsckReport> {
                 count: n,
             });
         }
+    }
+
+    // --- The page store itself ------------------------------------------
+    //
+    // Everything above asks whether the *rows* agree with each other. Nothing
+    // asked whether the file underneath them is intact, so file-level damage —
+    // a truncated write, a sync client copying `.db` and `-wal` at different
+    // instants — surfaced as a random unrelated error somewhere else entirely,
+    // days later, looking like a bug in whatever happened to read the bad page.
+    //
+    // `integrity_check` rather than `quick_check`: this is the deliberate audit
+    // and it should look at the indexes too. The daemon runs `quick_check` at
+    // startup instead, where the cost is paid on every boot.
+    checks_run += 1;
+    if let Some(problems) = page_integrity(store, "integrity_check")? {
+        findings.push(Finding {
+            severity: Severity::Error,
+            check: "page_integrity".to_owned(),
+            detail: format!(
+                "SQLite reports the database file itself as damaged: {problems}. This is not a \
+                 modelling problem — pages or indexes on disk are wrong, and any read may \
+                 return the wrong answer rather than an error"
+            ),
+            remedy: "restore from the most recent backup (`keel restore`). If there is none, \
+                     `sqlite3 keel.sqlite .recover` salvages what it can. Then find out why: \
+                     the usual cause is ~/.keel sitting in a Dropbox, iCloud or network folder \
+                     that copies the .sqlite, -wal and -shm files at different moments"
+                .to_owned(),
+            count: 1,
+        });
+    }
+
+    // --- A row with no creation event ------------------------------------
+    //
+    // The orphan the non-atomic write path produced, and the reason it was
+    // unrecoverable: the idempotent retry returns `created: false` before it
+    // reaches the event append, so a second attempt never backfills the
+    // history. Fixed in KEEL-141, but rows written before that are still out
+    // there and nothing could see them.
+    //
+    // A warning rather than an error. The row is complete and usable; what is
+    // missing is its provenance, which cannot be reconstructed and does not
+    // stop anything working.
+    checks_run += 1;
+    let n = count(
+        "SELECT count(*) FROM v_entities v \
+         WHERE NOT EXISTS (SELECT 1 FROM events e WHERE e.entity_id = v.id AND e.op = 'created')",
+        "row_without_creation_event",
+    )?;
+    if n > 0 {
+        findings.push(Finding {
+            severity: Severity::Warning,
+            check: "row_without_creation_event".to_owned(),
+            detail: format!(
+                "{n} row(s) have no `created` event. They work, but the changelog and the \
+                 activity feed have no record of them arriving, so they read as though they \
+                 were always there"
+            ),
+            remedy: "nothing to repair — the history cannot be reconstructed. If the count is \
+                     growing, something is writing rows outside keel-core's write path"
+                .to_owned(),
+            count: n,
+        });
+    }
+
+    // --- An archived row with live links ---------------------------------
+    //
+    // `archive` puts the row away and archives its links in the same
+    // transaction. A pair that disagrees means one of the two landed alone —
+    // and a live edge into an archived row is the worst kind, because
+    // traversal returns a neighbour that nothing will render.
+    checks_run += 1;
+    let n = count(
+        "SELECT count(*) FROM links l \
+         WHERE l.archived_at IS NULL \
+           AND EXISTS (SELECT 1 FROM v_entities v \
+                       WHERE v.id IN (l.from_id, l.to_id) AND v.archived_at IS NOT NULL)",
+        "live_link_to_archived",
+    )?;
+    if n > 0 {
+        findings.push(Finding {
+            severity: Severity::Error,
+            check: "live_link_to_archived".to_owned(),
+            detail: format!(
+                "{n} live link(s) touch an archived row. Traversal returns the archived \
+                 neighbour, and every renderer then drops it — so the graph and the board \
+                 disagree about whether that artifact exists"
+            ),
+            remedy: "archive the links: UPDATE links SET archived_at = \
+                     strftime('%Y-%m-%dT%H:%M:%f000Z', 'now') WHERE archived_at IS NULL AND \
+                     (from_id IN (SELECT id FROM v_entities WHERE archived_at IS NOT NULL) OR \
+                     to_id IN (SELECT id FROM v_entities WHERE archived_at IS NOT NULL))"
+                .to_owned(),
+            count: n,
+        });
+    }
+
+    // --- A blob nothing points at ----------------------------------------
+    //
+    // The one fsck had no check for at all, which is what made it permanent: an
+    // orphaned blob is invisible, so nobody knows it is safe to delete and
+    // nobody ever deletes it. A 5 MB screenshot from a half-failed create sits
+    // in the file forever.
+    checks_run += 1;
+    let n = count(
+        "SELECT count(*) FROM blobs b \
+         WHERE b.entity_id IS NULL \
+            OR NOT EXISTS (SELECT 1 FROM v_entities v WHERE v.id = b.entity_id)",
+        "orphan_blob",
+    )?;
+    if n > 0 {
+        findings.push(Finding {
+            severity: Severity::Warning,
+            check: "orphan_blob".to_owned(),
+            detail: format!(
+                "{n} blob(s) belong to no row. They are unreachable — nothing links to a blob \
+                 except the entity that owns it — so they are bytes in the file that no \
+                 screen can ever show"
+            ),
+            remedy: "reclaim them once you have a backup: DELETE FROM blobs WHERE entity_id IS \
+                     NULL OR entity_id NOT IN (SELECT id FROM v_entities). This is the one \
+                     place a DELETE is right, because there is nothing to soft-delete *from*"
+                .to_owned(),
+            count: n,
+        });
     }
 
     findings.sort_by(|a, b| {

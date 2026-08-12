@@ -69,6 +69,32 @@ impl AppState {
         let mut store =
             Store::open(&path).with_context(|| format!("open the store at {}", path.display()))?;
 
+        // Ask SQLite whether the file is intact, once, at startup.
+        //
+        // `quick_check` rather than `integrity_check`: it skips index
+        // verification, which is most of the cost and rarely the thing that is
+        // wrong. The full check is what `keel fsck` runs.
+        //
+        // A loud log rather than a refusal to start. A damaged page is
+        // sometimes in a table nothing reads, and a daemon that will not boot
+        // leaves the user with no way to run a backup or export what survives —
+        // which turns a recoverable problem into an unrecoverable one.
+        match keel_core::fsck::page_integrity(&store, "quick_check") {
+            Ok(None) => {}
+            Ok(Some(problems)) => tracing::error!(
+                store = %path.display(),
+                %problems,
+                "THE STORE FILE IS DAMAGED. Reads may return wrong answers rather than errors. \
+                 Restore from a backup (`keel restore`) and check whether ~/.keel is inside a \
+                 Dropbox, iCloud or network folder — copying the .sqlite, -wal and -shm files \
+                 at different moments is the usual cause."
+            ),
+            // The check itself failing is not the same as the store failing it,
+            // and saying so is the difference between "your data is damaged"
+            // and "I could not tell".
+            Err(e) => tracing::warn!(error = %e, "could not run the startup integrity check"),
+        }
+
         if embeddings {
             // Constructed here rather than inside `keel-core`, which must not
             // decide whether to touch the network or where model files live.
