@@ -948,6 +948,16 @@ fn resolve_home(explicit: Option<PathBuf>) -> Result<PathBuf> {
     Ok(home.join(".keel"))
 }
 
+/// Open the store under a home directory.
+///
+/// `home` is the directory; the store is one file inside it. Every caller goes
+/// through `store_path` rather than joining a filename, because a surface that
+/// picks the wrong name gets a brand-new empty store instead of an error.
+fn open(home: &Path) -> Result<Store> {
+    let path = keel_core::store_path(home);
+    Store::open(&path).with_context(|| format!("open the store at {}", path.display()))
+}
+
 /// Ask the daemon for a read, returning `None` if it is not answering.
 ///
 /// The daemon is the single writer, so a read-shaped command has two choices:
@@ -958,56 +968,11 @@ fn resolve_home(explicit: Option<PathBuf>) -> Result<PathBuf> {
 /// the daemon's back, but the daemon's answer is the one that has seen every
 /// write, so it stays the front door.
 ///
-/// `None` means "no daemon answered", which is a normal state — nothing is
-/// holding the lock, so opening the store directly is correct and safe. A
-/// daemon that answers with an *error* is a different thing and is returned as
-/// one, because silently falling back would hide a real failure behind a
-/// conflicting-lock error a moment later.
+/// Thirty seconds rather than `writes::read`'s caller-chosen default, because
+/// these are whole-store reports and a busy daemon should be waited for rather
+/// than gone around.
 fn read_via_daemon(base: &str, path: &str) -> Result<Option<serde_json::Value>> {
-    let response = match ureq::get(&format!("{base}{path}"))
-        .timeout(std::time::Duration::from_secs(30))
-        .call()
-    {
-        Ok(r) => r,
-        // A 404 is not the daemon declining — it is a daemon that predates the
-        // endpoint, which means it is older than this binary. Falling back would
-        // open the store it is holding the lock on and fail with a
-        // conflicting-lock error that names none of this.
-        Err(ureq::Error::Status(404, _)) => {
-            bail!(
-                "the daemon at {base} does not know {path}, so it is older than this binary.\n\n\
-                 Restart it from a current build: `./plugin/install.sh` then `keel-daemon`.\n\
-                 Until then this command can only run with the daemon stopped."
-            );
-        }
-        Err(ureq::Error::Status(code, r)) => {
-            let body = r.into_string().unwrap_or_default();
-            let message = serde_json::from_str::<serde_json::Value>(&body)
-                .ok()
-                .and_then(|v| {
-                    v.pointer("/error/message")
-                        .and_then(|m| m.as_str())
-                        .map(str::to_owned)
-                })
-                .unwrap_or(body);
-            bail!("the daemon at {base} refused {path} ({code}): {message}");
-        }
-        Err(_) => return Ok(None),
-    };
-    let body: serde_json::Value = response
-        .into_json()
-        .with_context(|| format!("read the daemon's response to {path}"))?;
-    Ok(Some(body.get("data").cloned().unwrap_or(body)))
-}
-
-/// Open the store under a home directory.
-///
-/// `home` is the directory; the store is one file inside it. Every caller goes
-/// through `store_path` rather than joining a filename, because a surface that
-/// picks the wrong name gets a brand-new empty store instead of an error.
-fn open(home: &Path) -> Result<Store> {
-    let path = keel_core::store_path(home);
-    Store::open(&path).with_context(|| format!("open the store at {}", path.display()))
+    writes::read(base, path, std::time::Duration::from_secs(30))
 }
 
 fn run_fsck(home: &Path, daemon: &str, json: bool) -> Result<()> {

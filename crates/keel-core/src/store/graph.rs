@@ -38,9 +38,9 @@
 //! ULIDs, so no id can appear inside another between two bars.
 
 use super::Store;
-use super::rows::read_audit;
+use super::rows::{LINK_COLUMNS, read_link};
 use crate::store::{GraphStore, Neighbour};
-use crate::{Direction, EntityId, EntityType, Error, Link, LinkId, MAX_DEPTH, Relation, Result};
+use crate::{Direction, EntityId, EntityType, Error, Link, MAX_DEPTH, Relation, Result};
 use rusqlite::types::Value;
 use rusqlite::{Row, params_from_iter};
 
@@ -132,32 +132,6 @@ fn read_neighbour(row: &Row<'_>) -> Result<Neighbour> {
         anchor,
         depth: u8::try_from(depth).unwrap_or(MAX_DEPTH),
         path,
-    })
-}
-
-/// Rebuild an edge from a `links` row.
-fn read_link(row: &Row<'_>) -> Result<Link> {
-    let e = |c: &'static str| Error::storage(format!("read column `{c}` of `links`"));
-    Ok(Link {
-        id: LinkId::parse(&row.get::<_, String>("id").map_err(e("id"))?)?,
-        project_id: match row
-            .get::<_, Option<String>>("project_id")
-            .map_err(e("project_id"))?
-        {
-            Some(p) => Some(EntityId::parse(&p)?),
-            None => None,
-        },
-        from_type: EntityType::parse(&row.get::<_, String>("from_type").map_err(e("from_type"))?)?,
-        from_id: EntityId::parse(&row.get::<_, String>("from_id").map_err(e("from_id"))?)?,
-        rel: Relation::parse(&row.get::<_, String>("rel").map_err(e("rel"))?)?,
-        to_type: EntityType::parse(&row.get::<_, String>("to_type").map_err(e("to_type"))?)?,
-        to_id: EntityId::parse(&row.get::<_, String>("to_id").map_err(e("to_id"))?)?,
-        anchor: row
-            .get::<_, Option<String>>("anchor")
-            .map_err(e("anchor"))?
-            .unwrap_or_default(),
-        note: row.get::<_, Option<String>>("note").map_err(e("note"))?,
-        audit: read_audit(row, "links")?,
     })
 }
 
@@ -257,11 +231,7 @@ impl GraphStore for Store {
             Direction::Both => "from_id = ?1 OR to_id = ?1",
         };
 
-        let sql = format!(
-            "SELECT id, project_id, from_type, from_id, rel, to_type, to_id, anchor, note, \
-             created_at, updated_at, version, created_by, updated_by, session_id, surface, \
-             archived_at FROM links WHERE ({clause}) AND archived_at IS NULL ORDER BY id"
-        );
+        let sql = format!("{LINK_COLUMNS} WHERE ({clause}) AND archived_at IS NULL ORDER BY id");
         let mut stmt = self
             .connection()
             .prepare(&sql)
@@ -284,6 +254,9 @@ impl GraphStore for Store {
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    // Only the fixtures below mint link ids; nothing in this module's own code
+    // does any more, now that reading a link row lives in `rows`.
+    use crate::LinkId;
 
     /// A timestamp in the format the store writes. Fixed rather than `now()`
     /// so a failure is never about the clock.

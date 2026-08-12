@@ -30,6 +30,7 @@
 
 use anyhow::{Context, Result, bail};
 use keel_core::Store;
+use serde_json::Value;
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::Path;
 use std::time::Duration;
@@ -199,6 +200,53 @@ pub fn may_read_directly(daemon: &str) -> Result<()> {
         ),
         Daemon::Unknown(why) => bail!("could not reach the daemon at {daemon}: {why}"),
     }
+}
+
+/// GET one path on the daemon, returning `Ok(None)` when nothing is listening.
+///
+/// One copy, in the module that already owns "is the daemon there and may I
+/// talk to it". There were two — `work::read_daemon` and `main::read_via_daemon`
+/// — differing only in their timeout and identical in every judgement that
+/// actually matters: that a 404 means the daemon predates this binary rather
+/// than declining, that an error body's `error.message` is what a person should
+/// see, and that a connection failure is a normal absence rather than a
+/// problem. Three judgements maintained twice is three chances for the copies
+/// to disagree about what "no daemon" means.
+///
+/// `None` is a normal state: nothing is holding the store, so opening it
+/// directly is correct and safe. A daemon that answers with an *error* is a
+/// different thing and is returned as one, because falling back silently would
+/// hide a real failure behind a conflicting-lock error a moment later.
+pub fn read(base: &str, path: &str, timeout: std::time::Duration) -> Result<Option<Value>> {
+    let response = match ureq::get(&format!("{base}{path}")).timeout(timeout).call() {
+        Ok(r) => r,
+        // A 404 is not the daemon declining — it is a daemon that predates the
+        // endpoint, which means it is older than this binary. Falling back
+        // would open the store it is holding and fail with a lock error that
+        // names none of this.
+        Err(ureq::Error::Status(404, _)) => bail!(
+            "the daemon at {base} does not know {path}, so it is older than this binary.\n\n\
+             Restart it from a current build: `./plugin/install.sh` then `keel-daemon`.\n\
+             Until then this command can only run with the daemon stopped."
+        ),
+        Err(ureq::Error::Status(code, r)) => {
+            let text = r.into_string().unwrap_or_default();
+            let message = serde_json::from_str::<Value>(&text)
+                .ok()
+                .and_then(|v| {
+                    v.pointer("/error/message")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                })
+                .unwrap_or(text);
+            bail!("the daemon at {base} refused {path} ({code}): {message}");
+        }
+        Err(_) => return Ok(None),
+    };
+    let body: Value = response
+        .into_json()
+        .with_context(|| format!("read the daemon's response to {path}"))?;
+    Ok(Some(body.get("data").cloned().unwrap_or(body)))
 }
 
 #[cfg(test)]

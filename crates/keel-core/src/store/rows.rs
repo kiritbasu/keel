@@ -28,10 +28,10 @@
 use crate::{
     Actor, Artifact, ArtifactKind, Audit, BlobId, CloseReason, Decision, DecisionStatus, Design,
     DesignState, Entity, EntityId, EntityType, Environment, EnvironmentStatus, Error, Feedback,
-    FeedbackKind, Metric, MetricDirection, MetricObservation, Milestone, MilestoneKind,
-    MilestoneStatus, Project, ProjectStatus, Question, QuestionKind, QuestionStatus, Result,
-    RiskSeverity, Sentiment, Spec, SpecKind, SpecStatus, Surface, Task, TaskKind, TaskPriority,
-    TaskStatus,
+    FeedbackKind, Link, LinkId, Metric, MetricDirection, MetricObservation, Milestone,
+    MilestoneKind, MilestoneStatus, Project, ProjectStatus, Question, QuestionKind, QuestionStatus,
+    Relation, Result, RiskSeverity, Sentiment, Spec, SpecKind, SpecStatus, Surface, Task, TaskKind,
+    TaskPriority, TaskStatus,
 };
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use rusqlite::Row;
@@ -414,6 +414,39 @@ pub fn read_audit(row: &Row<'_>, table: &str) -> Result<Audit> {
             None => None,
         },
         archived_at: get_ots(row, table, "archived_at")?,
+    })
+}
+
+/// Every column of `links`, in the order [`read_link`] expects.
+///
+/// One string rather than three, because the reader and the query have to agree
+/// and there was nothing making them: the list and the mapping were both
+/// hand-copied into two modules, so adding a link column meant four edits and a
+/// miss failed at runtime on whichever path had been forgotten. A `SELECT *`
+/// would have the same effect and hide the ordering, which is worth being able
+/// to read.
+pub const LINK_COLUMNS: &str = "SELECT id, project_id, from_type, from_id, rel, to_type, to_id, \
+     anchor, note, created_at, updated_at, version, created_by, updated_by, session_id, surface, \
+     archived_at FROM links";
+
+/// Rebuild an edge from a `links` row.
+///
+/// Lives here rather than beside either of its callers because both of them
+/// needed it and each had grown its own copy — identical in behaviour, and
+/// differing only in how they spelt the error, which is exactly the kind of
+/// duplication that stays in step right up until it does not.
+pub fn read_link(row: &Row<'_>) -> Result<Link> {
+    Ok(Link {
+        id: LinkId::parse(&get_s(row, "links", "id")?)?,
+        project_id: get_oid(row, "links", "project_id")?,
+        from_type: EntityType::parse(&get_s(row, "links", "from_type")?)?,
+        from_id: EntityId::parse(&get_s(row, "links", "from_id")?)?,
+        rel: Relation::parse(&get_s(row, "links", "rel")?)?,
+        to_type: EntityType::parse(&get_s(row, "links", "to_type")?)?,
+        to_id: EntityId::parse(&get_s(row, "links", "to_id")?)?,
+        anchor: get_os(row, "links", "anchor")?.unwrap_or_default(),
+        note: get_os(row, "links", "note")?,
+        audit: read_audit(row, "links")?,
     })
 }
 

@@ -20,8 +20,8 @@
 //! `budget_exceeded`. That is not a failure — it is the store telling you the
 //! open-question register needs pruning, which is real information.
 
-use keel_core::store::EventScope;
-use keel_core::{
+use crate::store::EventScope;
+use crate::{
     Cursor, Entity, EntityId, EntityQuery, EntityStore, EntityType, MilestoneStatus,
     QuestionStatus, Result, Store, TaskStatus,
 };
@@ -180,7 +180,7 @@ pub struct Digest {
     /// **The answer to "what should I do next".** Ranked, named, with reasons.
     ///
     /// The counts in `next` restate the problem; this names the task. See
-    /// [`keel_core::next`] for the ranking.
+    /// [`crate::next`] for the ranking.
     pub next_up: Option<NextUpJson>,
     /// What was cut.
     pub truncated: Vec<Truncation>,
@@ -407,7 +407,7 @@ pub fn build(
         }
         Some(project_id) => {
             let Some(Entity::Project(p)) = store.get(project_id)? else {
-                return Err(keel_core::Error::NotFound {
+                return Err(crate::Error::NotFound {
                     entity_type: EntityType::Project,
                     id: project_id.to_string(),
                 });
@@ -450,7 +450,7 @@ pub fn build(
 
             digest.environments = environments(store, project_id)?;
             digest.recent = recent_activity(store, Some(project_id), since, limit)?;
-            let ranked = keel_core::next::rank(store, project_id)?;
+            let ranked = crate::next::rank(store, project_id)?;
             let total_ready = ranked.ready.len();
             let next_up: NextUpJson = ranked.into();
             if total_ready > next_up.ready.len() {
@@ -520,7 +520,7 @@ fn trim_section(digest: &mut Digest, section: &str) {
     }
 }
 
-fn project_line(store: &Store, p: &keel_core::Project) -> Result<ProjectLine> {
+fn project_line(store: &Store, p: &crate::Project) -> Result<ProjectLine> {
     let tasks = store.list(
         &EntityQuery::in_project(p.id.clone())
             .of_type(EntityType::Task)
@@ -544,7 +544,7 @@ fn project_line(store: &Store, p: &keel_core::Project) -> Result<ProjectLine> {
     // The one derivation, shared with the ranking and the generated tracker.
     // Counting a `blocked` status here is what let the digest and the file
     // state different numbers about the same project (TQ-25).
-    let blocked = keel_core::next::blocked_tasks(store, &p.id)?.len();
+    let blocked = crate::next::blocked_tasks(store, &p.id)?.len();
 
     let questions = store.list(
         &EntityQuery::in_project(p.id.clone())
@@ -612,7 +612,7 @@ fn needs_attention(store: &Store, project: &EntityId, limit: usize) -> Result<(V
 
     // Blocked is derived from the edges, so this section asks the graph rather
     // than reading a column that used to claim the same thing.
-    let blocked_ids = keel_core::next::blocked_tasks(store, project)?;
+    let blocked_ids = crate::next::blocked_tasks(store, project)?;
 
     let mut urgent: Vec<(u8, Item)> = page
         .items
@@ -623,7 +623,7 @@ fn needs_attention(store: &Store, project: &EntityId, limit: usize) -> Result<(V
                 // more than an unblocked p0 does.
                 let rank = if blocked_ids.contains(&t.id) {
                     0
-                } else if t.priority == keel_core::TaskPriority::P0 {
+                } else if t.priority == crate::TaskPriority::P0 {
                     1
                 } else {
                     2
@@ -709,7 +709,7 @@ fn recent_decisions(store: &Store, project: &EntityId, limit: usize) -> Result<(
     let page = store.list(
         &EntityQuery::in_project(project.clone())
             .of_type(EntityType::Decision)
-            .with_status([keel_core::DecisionStatus::Accepted.as_str()])
+            .with_status([crate::DecisionStatus::Accepted.as_str()])
             .limited(2000),
     )?;
     let total = page.items.len();
@@ -728,9 +728,9 @@ fn current_specs(store: &Store, project: &EntityId, limit: usize) -> Result<(Vec
         &EntityQuery::in_project(project.clone())
             .of_type(EntityType::Spec)
             .with_status([
-                keel_core::SpecStatus::Draft.as_str(),
-                keel_core::SpecStatus::Review.as_str(),
-                keel_core::SpecStatus::Approved.as_str(),
+                crate::SpecStatus::Draft.as_str(),
+                crate::SpecStatus::Review.as_str(),
+                crate::SpecStatus::Approved.as_str(),
             ])
             .limited(2000),
     )?;
@@ -835,8 +835,8 @@ pub struct NextItem {
     pub why: String,
 }
 
-impl From<keel_core::Candidate> for NextItem {
-    fn from(c: keel_core::Candidate) -> Self {
+impl From<crate::Candidate> for NextItem {
+    fn from(c: crate::Candidate) -> Self {
         NextItem {
             id: c.id.to_string(),
             reference: c.reference,
@@ -848,8 +848,8 @@ impl From<keel_core::Candidate> for NextItem {
     }
 }
 
-impl From<keel_core::NextUp> for NextUpJson {
-    fn from(n: keel_core::NextUp) -> Self {
+impl From<crate::NextUp> for NextUpJson {
+    fn from(n: crate::NextUp) -> Self {
         NextUpJson {
             // Three is a deliberate cap on `ready`: a ranked list of thirty is
             // the same "you work it out" the counts were. The rest is one

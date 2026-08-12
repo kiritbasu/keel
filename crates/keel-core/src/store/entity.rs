@@ -44,7 +44,7 @@
 
 use super::Store;
 use super::rows::{
-    from_row, insert_params, insert_stmt, ots, parse_ts, read_audit, select_from, ts,
+    LINK_COLUMNS, from_row, insert_params, insert_stmt, ots, parse_ts, read_link, select_from, ts,
 };
 use crate::store::patch::{apply_changes, is_status_change};
 use crate::store::rows::{Col, spec_for};
@@ -138,42 +138,6 @@ fn get_oid(row: &Row<'_>, table: &'static str, col: &'static str) -> Result<Opti
         Some(raw) if !raw.is_empty() => Ok(Some(EntityId::parse(&raw)?)),
         _ => Ok(None),
     }
-}
-
-/// Rebuild a link from a row.
-fn read_link(row: &Row<'_>) -> Result<Link> {
-    Ok(Link {
-        id: LinkId::parse(&row.get::<_, String>("id").map_err(col_err("links", "id"))?)?,
-        project_id: get_oid(row, "links", "project_id")?,
-        from_type: EntityType::parse(
-            &row.get::<_, String>("from_type")
-                .map_err(col_err("links", "from_type"))?,
-        )?,
-        from_id: EntityId::parse(
-            &row.get::<_, String>("from_id")
-                .map_err(col_err("links", "from_id"))?,
-        )?,
-        rel: Relation::parse(
-            &row.get::<_, String>("rel")
-                .map_err(col_err("links", "rel"))?,
-        )?,
-        to_type: EntityType::parse(
-            &row.get::<_, String>("to_type")
-                .map_err(col_err("links", "to_type"))?,
-        )?,
-        to_id: EntityId::parse(
-            &row.get::<_, String>("to_id")
-                .map_err(col_err("links", "to_id"))?,
-        )?,
-        anchor: row
-            .get::<_, Option<String>>("anchor")
-            .map_err(col_err("links", "anchor"))?
-            .unwrap_or_default(),
-        note: row
-            .get::<_, Option<String>>("note")
-            .map_err(col_err("links", "note"))?,
-        audit: read_audit(row, "links")?,
-    })
 }
 
 /// The seventeen link params, in insert order.
@@ -873,10 +837,7 @@ fn find_link(
         " AND archived_at IS NULL"
     };
     let sql = format!(
-        "SELECT id, project_id, from_type, from_id, rel, to_type, to_id, anchor, note, \
-         created_at, updated_at, version, created_by, updated_by, session_id, surface, \
-         archived_at FROM links \
-         WHERE from_id = ? AND rel = ? AND to_id = ? AND anchor = ?{archived}"
+        "{LINK_COLUMNS} WHERE from_id = ? AND rel = ? AND to_id = ? AND anchor = ?{archived}"
     );
     let mut stmt = conn
         .prepare(&sql)

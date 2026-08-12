@@ -121,7 +121,8 @@ pub fn lint(
         url = format!("/api/lint?project={}&limit=10000", urlencode(project));
     }
 
-    let Some(report) = read_daemon(daemon, &url)? else {
+    let Some(report) = crate::writes::read(daemon, &url, std::time::Duration::from_secs(60))?
+    else {
         bail!(
             "no daemon at {daemon}. `keel lint` reads through it, because the daemon is the \
              one process that has seen every write — start it with `keel-daemon`."
@@ -213,37 +214,6 @@ fn urlencode(value: &str) -> String {
                 .collect(),
         })
         .collect()
-}
-
-/// GET one path on the daemon, returning `Ok(None)` when nothing is listening.
-fn read_daemon(base: &str, path: &str) -> Result<Option<Value>> {
-    let response = match ureq::get(&format!("{base}{path}"))
-        .timeout(std::time::Duration::from_secs(60))
-        .call()
-    {
-        Ok(r) => r,
-        Err(ureq::Error::Status(404, _)) => bail!(
-            "the daemon at {base} does not know {path}, so it is older than this binary.\n\n\
-             Restart it from a current build: `./plugin/install.sh` then `keel-daemon`."
-        ),
-        Err(ureq::Error::Status(code, r)) => {
-            let text = r.into_string().unwrap_or_default();
-            let message = serde_json::from_str::<Value>(&text)
-                .ok()
-                .and_then(|v| {
-                    v.pointer("/error/message")
-                        .and_then(Value::as_str)
-                        .map(str::to_owned)
-                })
-                .unwrap_or(text);
-            bail!("the daemon at {base} refused {path} ({code}): {message}");
-        }
-        Err(_) => return Ok(None),
-    };
-    let body: Value = response
-        .into_json()
-        .with_context(|| format!("read the daemon's response to {path}"))?;
-    Ok(Some(body.get("data").cloned().unwrap_or(body)))
 }
 
 /// Print `keel claim`.

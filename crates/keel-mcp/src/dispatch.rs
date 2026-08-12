@@ -13,7 +13,6 @@
 //! update onto the 409 payload from SPEC §7.3 — current state plus the events
 //! since the caller's read — so an agent can usually merge rather than give up.
 
-use crate::context;
 use crate::protocol::{RpcError, codes};
 use keel_core::{
     Actor, Cursor, Direction, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error,
@@ -364,11 +363,12 @@ fn keel_context(store: &Store, args: &Value) -> Result<Value, RpcError> {
         Some(p) => Some(resolve_project(store, &p)?),
         None => matched_by_cwd.clone(),
     };
-    let depth = context::Depth::parse(opt_str(args, "depth").as_deref().unwrap_or("standard"))
-        .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e))?;
+    let depth =
+        keel_core::digest::Depth::parse(opt_str(args, "depth").as_deref().unwrap_or("standard"))
+            .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e))?;
     let since = opt_time(args, "since")?;
 
-    let digest = context::build(store, project.as_ref(), depth, since)
+    let digest = keel_core::digest::build(store, project.as_ref(), depth, since)
         .map_err(|e| to_rpc_error(store, e))?;
 
     let unmatched = cwd.as_deref().filter(|_| matched_by_cwd.is_none());

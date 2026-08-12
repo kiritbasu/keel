@@ -17,15 +17,23 @@
 //! [`context`] builds the `keel_context` digest, which is important enough to
 //! live on its own.
 
-pub mod context;
 pub mod dispatch;
 pub mod protocol;
 pub mod tools;
 
-pub use context::{Depth, Digest};
 pub use dispatch::{
     ToolCall, dispatch, dispatch_prepared, entity_json, payload, resolve_project, to_rpc_error,
 };
+/// The digest lives in `keel-core` now.
+///
+/// It was 1,000 lines of pure store logic sitting behind the MCP layer, so the
+/// only way to ask for a project's digest was to speak JSON-RPC — which is
+/// backwards for the one call the whole product is organised around. `keel
+/// doctor` and the CLI could not reach it at all.
+///
+/// Re-exported rather than moved silently, because `keel_mcp::Digest` is a
+/// path callers already write.
+pub use keel_core::digest::{Depth, Digest};
 pub use protocol::{
     HeaderCheck, PROTOCOL_VERSION, Request, Response, RpcError, check_headers, codes,
 };
