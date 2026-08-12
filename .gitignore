@@ -27,3 +27,7 @@ node_modules/
 /fuzz/target
 /fuzz/corpus
 /fuzz/artifacts
+
+# cargo-mutants output. A build artifact, and one that gets rewritten while the
+# tool runs — which is how a mutated source file ended up committed once.
+/mutants.out
