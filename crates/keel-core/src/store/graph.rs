@@ -248,6 +248,36 @@ impl GraphStore for Store {
         }
         Ok(out)
     }
+
+    fn links_in_project(&self, project_id: &EntityId, rel: Relation) -> Result<Vec<Link>> {
+        // `rel` is bound rather than interpolated even though it comes from an
+        // enum and cannot contain anything dangerous. Nothing about that is
+        // guaranteed by the type — `Relation::as_str` is a `match` somebody
+        // could add a case to — and a bound parameter costs nothing.
+        let sql = format!(
+            "{LINK_COLUMNS} WHERE project_id = ?1 AND rel = ?2 AND archived_at IS NULL ORDER BY id"
+        );
+        let mut stmt = self
+            .connection()
+            .prepare(&sql)
+            .map_err(Error::storage(format!(
+                "prepare the {rel} links of {project_id}"
+            )))?;
+        let mut rows = stmt
+            .query(params_from_iter(vec![
+                Value::Text(project_id.as_str().to_owned()),
+                Value::Text(rel.as_str().to_owned()),
+            ]))
+            .map_err(Error::storage(format!(
+                "run the {rel} links of {project_id}"
+            )))?;
+
+        let mut out = Vec::new();
+        while let Some(row) = rows.next().map_err(Error::storage("read a link row"))? {
+            out.push(read_link(row)?);
+        }
+        Ok(out)
+    }
 }
 
 #[cfg(test)]

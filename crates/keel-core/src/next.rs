@@ -27,8 +27,8 @@
 //! drew rather than from a judgement this module invents.
 
 use crate::{
-    Direction, Entity, EntityId, EntityQuery, EntityStore, EntityType, GraphStore, Relation,
-    Result, TaskStatus,
+    Entity, EntityId, EntityQuery, EntityStore, EntityType, GraphStore, Relation, Result,
+    TaskStatus,
 };
 
 /// The label that marks a task as a decision someone has to make.
@@ -101,12 +101,35 @@ pub fn blocked_tasks(
             .limited(5_000),
     )?;
 
+    // One query for every `blocks` edge in the project, rather than one per
+    // open task. The old shape walked the graph from each task in turn, and the
+    // digest asks this question three times in a single call — thirty tasks
+    // meant ninety traversals plus a `get` per blocker, all under the daemon's
+    // one lock. The answer is identical; only the number of round trips
+    // changed.
+    let edges = store.links_in_project(project_id, Relation::Blocks)?;
+    let mut blockers_of: std::collections::HashMap<&EntityId, Vec<&EntityId>> = Default::default();
+    for link in &edges {
+        blockers_of
+            .entry(&link.to_id)
+            .or_default()
+            .push(&link.from_id);
+    }
+
+    // Liveness for the blockers, resolved from what is already loaded wherever
+    // possible. Most blockers are tasks in the same project, which this page
+    // already holds.
+    let known: std::collections::HashMap<&EntityId, &Entity> =
+        page.items.iter().map(|e| (e.id(), e)).collect();
+
     let mut blocked = std::collections::HashSet::new();
+    let mut liveness: std::collections::HashMap<EntityId, bool> = Default::default();
     for entity in &page.items {
         let Entity::Task(task) = entity else { continue };
         if is_closed(task.status) {
             continue;
         }
+
         // Fail closed. `matches!(store.get(…), Ok(Some(e)) if is_live(&e))`
         // read almost identically and treated a storage error as "no live
         // blocker" — so one unreadable link row promoted a genuinely blocked
@@ -115,28 +138,42 @@ pub fn blocked_tasks(
         // codebase is most afraid of: an answer that looks like work you can
         // start.
         //
-        // Unreadable now means blocked. It is the conservative direction: the
+        // Unreadable still means blocked. It is the conservative direction: the
         // worst case is a task that stays off the ready list until `fsck`
         // explains why, rather than one an agent picks up and cannot finish.
         let mut has_live_blocker = false;
-        for neighbour in store.neighbours(&task.id, Direction::Inbound, &[Relation::Blocks], 1)? {
-            match store.get(&neighbour.id) {
-                Ok(Some(e)) if is_live(&e) => {
-                    has_live_blocker = true;
-                    break;
-                }
-                Ok(_) => {}
-                Err(e) => {
-                    tracing::warn!(
-                        task = %task.id,
-                        blocker = %neighbour.id,
-                        error = %e,
-                        "could not read a blocker; treating the task as blocked rather than \
-                         reporting it ready. Run `keel fsck`."
-                    );
-                    has_live_blocker = true;
-                    break;
-                }
+        for blocker in blockers_of.get(&task.id).map(Vec::as_slice).unwrap_or(&[]) {
+            let live = match known.get(*blocker) {
+                Some(entity) => is_live(entity),
+                None => match liveness.get(*blocker) {
+                    Some(cached) => *cached,
+                    // A blocker outside this project's task list — a question,
+                    // a spec, a task somewhere else. Fetched one at a time,
+                    // which is fine because it is the uncommon case and each
+                    // answer is remembered for the rest of this pass.
+                    None => {
+                        let live = match store.get(blocker) {
+                            Ok(Some(e)) => is_live(&e),
+                            Ok(None) => false,
+                            Err(e) => {
+                                tracing::warn!(
+                                    task = %task.id,
+                                    blocker = %blocker,
+                                    error = %e,
+                                    "could not read a blocker; treating the task as blocked \
+                                     rather than reporting it ready. Run `keel fsck`."
+                                );
+                                true
+                            }
+                        };
+                        liveness.insert((*blocker).clone(), live);
+                        live
+                    }
+                },
+            };
+            if live {
+                has_live_blocker = true;
+                break;
             }
         }
         if has_live_blocker {
@@ -173,7 +210,28 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
         .collect();
     let open_ids: std::collections::HashSet<&EntityId> = open.iter().map(|t| &t.id).collect();
 
+    // Every `blocks` edge in the project, once, rather than two traversals per
+    // open task. Same reasoning as `blocked_tasks`, and the same answer.
+    let edges = store.links_in_project(project_id, Relation::Blocks)?;
+    let mut blockers_of: std::collections::HashMap<&EntityId, Vec<&EntityId>> = Default::default();
+    let mut blocks_what: std::collections::HashMap<&EntityId, Vec<&EntityId>> = Default::default();
+    for link in &edges {
+        blockers_of
+            .entry(&link.to_id)
+            .or_default()
+            .push(&link.from_id);
+        blocks_what
+            .entry(&link.from_id)
+            .or_default()
+            .push(&link.to_id);
+    }
+    let known: std::collections::HashMap<&EntityId, &Entity> =
+        page.items.iter().map(|e| (e.id(), e)).collect();
+
     let mut out = NextUp::default();
+    // Blockers from outside the task page, resolved once each rather than once
+    // per task that names them.
+    let mut fetched: std::collections::HashMap<EntityId, Option<Entity>> = Default::default();
 
     for task in &open {
         // Inbound `blocks` edges — what is stopping this. Only live blockers
@@ -185,28 +243,44 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
         // so this task stays off the ready list. The label says why, because a
         // blocked task with no visible reason is its own kind of dead end.
         let mut blockers: Vec<String> = Vec::new();
-        for neighbour in store.neighbours(&task.id, Direction::Inbound, &[Relation::Blocks], 1)? {
-            match store.get(&neighbour.id) {
-                Ok(Some(e)) if is_live(&e) => blockers.push(e.label().to_owned()),
-                Ok(_) => {}
-                Err(e) => {
-                    tracing::warn!(
-                        task = %task.id,
-                        blocker = %neighbour.id,
-                        error = %e,
-                        "could not read a blocker while ranking"
-                    );
-                    blockers.push(format!("{} (unreadable — run `keel fsck`)", neighbour.id));
+        for blocker in blockers_of.get(&task.id).map(Vec::as_slice).unwrap_or(&[]) {
+            if let Some(entity) = known.get(*blocker) {
+                if is_live(entity) {
+                    blockers.push(entity.label().to_owned());
                 }
+                continue;
+            }
+            if !fetched.contains_key(*blocker) {
+                let resolved = match store.get(blocker) {
+                    Ok(found) => found,
+                    Err(e) => {
+                        tracing::warn!(
+                            task = %task.id,
+                            blocker = %blocker,
+                            error = %e,
+                            "could not read a blocker while ranking"
+                        );
+                        blockers.push(format!("{blocker} (unreadable — run `keel fsck`)"));
+                        continue;
+                    }
+                };
+                fetched.insert((*blocker).clone(), resolved);
+            }
+            if let Some(Some(entity)) = fetched.get(*blocker)
+                && is_live(entity)
+            {
+                blockers.push(entity.label().to_owned());
             }
         }
 
         // Outbound `blocks` edges to work that is still open — what finishing
         // this would release.
-        let unblocks = store
-            .neighbours(&task.id, Direction::Outbound, &[Relation::Blocks], 1)?
-            .into_iter()
-            .filter(|n| open_ids.contains(&n.id))
+        let unblocks = blocks_what
+            .get(&task.id)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
+            .iter()
+            .filter(|id| open_ids.contains(**id))
             .count();
 
         let priority = task.priority.as_str().to_owned();

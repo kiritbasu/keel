@@ -545,3 +545,56 @@ fn an_unreadable_blocker_names_itself_in_the_reason() {
         row.why
     );
 }
+
+/// The counted answer and the looped one agree.
+///
+/// `Store::task_counts` replaced a loop over every task row with a `GROUP BY`,
+/// and the two definitions of "open" and "urgent" now live in one place each —
+/// the enum predicates, which the SQL is built from. This asserts they still
+/// produce the same numbers as reading the rows and asking the predicates
+/// directly, which is what the loop did.
+#[test]
+fn the_counted_totals_match_counting_the_rows() {
+    use keel_core::{EntityQuery, EntityType};
+
+    let mut f = setup();
+    for (title, priority, status) in [
+        ("open p0", TaskPriority::P0, TaskStatus::Todo),
+        ("open p1", TaskPriority::P1, TaskStatus::InProgress),
+        ("open p2", TaskPriority::P2, TaskStatus::Todo),
+        ("open p3", TaskPriority::P3, TaskStatus::Review),
+        ("done p0", TaskPriority::P0, TaskStatus::Done),
+        ("wont p1", TaskPriority::P1, TaskStatus::WontDo),
+    ] {
+        f.task(title, priority, status);
+    }
+
+    let rows = f
+        .store
+        .list(
+            &EntityQuery::in_project(f.project.clone())
+                .of_type(EntityType::Task)
+                .limited(5_000),
+        )
+        .unwrap();
+    let mut open = 0;
+    let mut urgent = 0;
+    for entity in &rows.items {
+        if let Entity::Task(t) = entity
+            && t.status.is_open()
+        {
+            open += 1;
+            if t.priority.is_urgent() {
+                urgent += 1;
+            }
+        }
+    }
+
+    assert_eq!(
+        f.store.task_counts(&f.project).unwrap(),
+        (open, urgent),
+        "the counted answer and the looped one have diverged"
+    );
+    assert_eq!(open, 4, "the fixture should have four open tasks");
+    assert_eq!(urgent, 2, "two of them p0 or p1");
+}

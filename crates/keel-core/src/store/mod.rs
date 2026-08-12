@@ -323,6 +323,61 @@ impl Store {
             .map_err(Error::storage("checkpoint the store before shutting down"))
     }
 
+    /// How many of a project's tasks are open, and how many of those are
+    /// urgent.
+    ///
+    /// Counted by the database rather than by loading every row and looping.
+    /// The digest asks this once per project on the single most-called tool in
+    /// the surface, and the old shape read up to two thousand full task rows —
+    /// every column, every label list, every close message — to produce two
+    /// integers.
+    ///
+    /// The two definitions stay in Rust. The `IN` lists are built from
+    /// [`crate::TaskStatus::is_open`] and [`crate::TaskPriority::is_urgent`]
+    /// rather than written out in SQL, because a status added to the enum and
+    /// forgotten in a hand-written query is a count that is quietly wrong — and
+    /// a count nobody can tell is wrong is worse than a slow one.
+    pub fn task_counts(&self, project_id: &EntityId) -> Result<(usize, usize)> {
+        let open: Vec<&str> = crate::TaskStatus::ALL
+            .iter()
+            .filter(|s| s.is_open())
+            .map(|s| s.as_str())
+            .collect();
+        let urgent: Vec<&str> = crate::TaskPriority::ALL
+            .iter()
+            .filter(|p| p.is_urgent())
+            .map(|p| p.as_str())
+            .collect();
+
+        let quoted = |values: &[&str]| {
+            values
+                .iter()
+                .map(|v| format!("'{v}'"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        // Interpolated rather than bound, and safe because every value comes
+        // from a `&'static str` in an enum — there is no caller input anywhere
+        // in this statement. Binding a variable-length `IN` list means
+        // generating placeholders and threading the params, for a query whose
+        // shape is fixed at compile time.
+        let sql = format!(
+            "SELECT
+               COALESCE(sum(CASE WHEN status IN ({open}) THEN 1 ELSE 0 END), 0),
+               COALESCE(sum(CASE WHEN status IN ({open}) AND priority IN ({urgent})
+                            THEN 1 ELSE 0 END), 0)
+             FROM tasks WHERE project_id = ?1 AND archived_at IS NULL",
+            open = quoted(&open),
+            urgent = quoted(&urgent),
+        );
+
+        self.conn
+            .query_row(&sql, [project_id.as_str()], |r| {
+                Ok((r.get::<_, i64>(0)? as usize, r.get::<_, i64>(1)? as usize))
+            })
+            .map_err(Error::storage(format!("count the tasks in {project_id}")))
+    }
+
     /// How many pages the write-ahead log currently holds.
     ///
     /// The number that says whether checkpointing is keeping up. It should
@@ -1094,6 +1149,18 @@ pub trait GraphStore {
 
     /// The edges immediately touching an entity, unwalked.
     fn links_of(&self, id: &EntityId, direction: Direction) -> Result<Vec<Link>>;
+
+    /// Every live edge of one relation within a project.
+    ///
+    /// For the questions that are about a whole project rather than about one
+    /// row: which of these thirty tasks is blocked, and by what. Answering that
+    /// with [`GraphStore::links_of`] means one query per task, three times over
+    /// in a single digest — fine at thirty and a latency cliff at three
+    /// hundred, all of it under the daemon's one lock.
+    ///
+    /// `blocks` is the only relation with a caller today, and the parameter is
+    /// there because the shape of the question is not specific to it.
+    fn links_in_project(&self, project_id: &EntityId, rel: Relation) -> Result<Vec<Link>>;
 }
 
 /// Revisions, blobs, embeddings and search.

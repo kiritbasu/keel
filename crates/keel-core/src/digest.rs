@@ -521,25 +521,12 @@ fn trim_section(digest: &mut Digest, section: &str) {
 }
 
 fn project_line(store: &Store, p: &crate::Project) -> Result<ProjectLine> {
-    let tasks = store.list(
-        &EntityQuery::in_project(p.id.clone())
-            .of_type(EntityType::Task)
-            .limited(2000),
-    )?;
-
-    let mut open = 0;
-    let mut urgent = 0;
-    for t in &tasks.items {
-        if let Entity::Task(t) = t {
-            if !t.status.is_open() {
-                continue;
-            }
-            open += 1;
-            if t.priority.is_urgent() {
-                urgent += 1;
-            }
-        }
-    }
+    // Counted by the database. This used to load up to two thousand full task
+    // rows — every column of every one — and loop over them to produce two
+    // integers, once per project, on the most-called tool in the surface. It
+    // also silently capped at two thousand, so a large enough project would
+    // have reported a number that was merely plausible.
+    let (open, urgent) = store.task_counts(&p.id)?;
 
     // The one derivation, shared with the ranking and the generated tracker.
     // Counting a `blocked` status here is what let the digest and the file
