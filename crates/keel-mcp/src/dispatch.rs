@@ -1063,68 +1063,38 @@ fn keel_create(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
         entity.set_idempotency_key(key);
     }
 
-    let created = store
-        .create(entity, &provenance)
-        .map_err(|e| to_rpc_error(store, e))?;
-
-    // A prose body becomes the first document revision rather than a column.
-    let mut document = Value::Null;
+    // House style, B-46. Before the write and at the authoring boundary rather
+    // than inside `write_revision`, because `keel import` writes revisions too
+    // and that is a person deliberately migrating text they did not write — the
+    // same carve-out the mirror rule already makes for it.
+    //
+    // Checked *before* the create, not after. It used to run once the row had
+    // landed, so a refused body left a headless row behind and the caller saw
+    // an error that did not mention it (KEEL-171).
     let mut style_warnings = Vec::new();
-    if let Some(text) = body.filter(|_| entity_type.has_document()) {
-        // House style, B-46. At the authoring boundary rather than inside
-        // `write_revision`, because `keel import` writes revisions too and that
-        // is a person deliberately migrating text they did not write — the same
-        // carve-out the mirror rule already makes for it.
-        style_warnings = keel_core::check_style(entity_type, "body", &text, title.as_deref())
+    if let Some(text) = body.as_deref().filter(|_| entity_type.has_document()) {
+        style_warnings = keel_core::check_style(entity_type, "body", text, title.as_deref())
             .map_err(|e| to_rpc_error(store, e))?;
-
-        let doc = keel_core::Document::first(
-            entity_type,
-            created.entity.id().clone(),
-            created.entity.project_id().cloned(),
-            title.clone().unwrap_or_default(),
-            text,
-            provenance.actor,
-            chrono::Utc::now(),
-        )
-        .map_err(|e| to_rpc_error(store, e))?
-        .attributed(provenance.session_id.clone(), provenance.surface);
-        let written = store
-            .write_revision(doc)
-            .map_err(|e| to_rpc_error(store, e))?;
-        document = serde_json::to_value(&written).unwrap_or(Value::Null);
     }
 
-    // The blob is stored after the entity so it can name its owner, then the
-    // entity is pointed at it. Two writes rather than one because a blob whose
-    // `entity_id` is null is invisible to `fsck`'s referential checks, and an
-    // image nothing can trace back to an artifact is how a store fills with
-    // bytes nobody dares delete.
-    if let Some((bytes, media_type)) = image
-        && created.created
-    {
-        let byte_length = bytes.len();
-        let blob = keel_core::store::Blob::new(bytes, media_type.clone(), chrono::Utc::now())
-            .owned_by(
-                created.entity.id().clone(),
-                created
-                    .entity
-                    .project_id()
-                    .cloned()
-                    .unwrap_or_else(|| created.entity.id().clone()),
-            );
-        let blob_id = store.put_blob(blob).map_err(|e| to_rpc_error(store, e))?;
+    let byte_length = image.as_ref().map(|(bytes, _)| bytes.len());
+    let media_type = image.as_ref().map(|(_, media)| media.clone());
 
-        let mut changes = Map::new();
-        changes.insert("blob_id".to_owned(), json!(blob_id.as_str()));
-        store
-            .update(
-                created.entity.id(),
-                created.entity.audit().version,
-                &changes,
-                &provenance,
-            )
-            .map_err(|e| to_rpc_error(store, e))?;
+    // One call, one transaction. The entity, its first revision, the image and
+    // the row's pointer at that image land together or not at all — this used
+    // to be four store calls orchestrated here, and a crash between any two of
+    // them left a body-less entity or a blob nothing points at.
+    let created = store
+        .create_with_document(entity, body.clone(), image, &provenance)
+        .map_err(|e| to_rpc_error(store, e))?;
+
+    let document = created
+        .document
+        .as_ref()
+        .and_then(|d| serde_json::to_value(d).ok())
+        .unwrap_or(Value::Null);
+
+    if let Some(blob_id) = &created.blob_id {
         tracing::info!(
             entity = %created.entity.id(),
             %blob_id,
@@ -1160,11 +1130,10 @@ fn keel_create(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
         }
     }
 
-    // Re-read so `current_doc_version` reflects the revision just written.
-    let entity = store
-        .get(created.entity.id())
-        .map_err(|e| to_rpc_error(store, e))?
-        .unwrap_or(created.entity);
+    // `create_with_document` already re-read the row, so `current_doc_version`
+    // and `blob_id` reflect what the transaction wrote. Seeding a glossary term
+    // above does not touch this row, so there is nothing else to catch up on.
+    let entity = created.entity;
 
     let identifier =
         readable_ref(store, &entity).unwrap_or_else(|| entity.id().as_str().to_owned());

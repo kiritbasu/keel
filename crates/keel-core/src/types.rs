@@ -1386,6 +1386,37 @@ impl Entity {
         dispatch!(self, e => e.idempotency_key = key);
     }
 
+    /// Point this entity at a stored blob.
+    ///
+    /// Only `design` and `artifact` have somewhere to put it, and the other
+    /// eleven are refused rather than ignored: an image silently dropped is a
+    /// caller who thinks a screenshot was attached and a store where it never
+    /// was.
+    ///
+    /// A typed setter rather than a `blob_id` field change through
+    /// `apply_changes`, because this runs *before* the row is inserted — which
+    /// is what removes the second write the composite create used to need.
+    pub fn set_blob_id(&mut self, blob_id: &BlobId) -> Result<()> {
+        match self {
+            Entity::Design(d) => {
+                d.blob_id = Some(blob_id.clone());
+                Ok(())
+            }
+            Entity::Artifact(a) => {
+                a.blob_id = Some(blob_id.clone());
+                Ok(())
+            }
+            other => Err(Error::Invalid {
+                entity_type: other.entity_type(),
+                field: "image".to_owned(),
+                problem: format!("{} does not hold an image", other.entity_type()),
+                expected: "type `design` for a mockup or screenshot, or `artifact` for anything \
+                           else"
+                    .to_owned(),
+            }),
+        }
+    }
+
     /// The one-line human label: whatever this type calls its name.
     ///
     /// Exists because `name`, `title`, `term` and `summary` are four different

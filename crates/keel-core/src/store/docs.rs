@@ -148,7 +148,7 @@ fn read_document(row: &Row<'_>) -> Result<Document> {
 /// use the same statement. A `rusqlite::Transaction` derefs to `Connection`, so
 /// `&tx` is accepted here and the blob commits or vanishes with everything else
 /// in that transaction.
-fn insert_blob(conn: &Connection, blob: &Blob) -> Result<()> {
+pub(super) fn insert_blob_in(conn: &Connection, blob: &Blob) -> Result<()> {
     conn.execute(
         "INSERT INTO blobs \
            (blob_id, entity_id, project_id, media_type, byte_length, sha256, bytes, created_at) \
@@ -170,22 +170,225 @@ fn insert_blob(conn: &Connection, blob: &Blob) -> Result<()> {
     Ok(())
 }
 
-impl Store {
-    /// The highest revision number recorded for an entity, or zero.
-    fn max_version(&self, entity_id: &EntityId) -> Result<i32> {
-        let n: Option<i32> = self
-            .conn
-            .query_row(
-                "SELECT max(version) FROM documents WHERE entity_id = ?1",
-                [entity_id.as_str()],
-                |r| r.get(0),
-            )
-            .map_err(Error::storage(format!(
-                "find the latest revision of {entity_id}"
-            )))?;
-        Ok(n.unwrap_or(0))
+/// Write one revision through whatever connection is handed in.
+///
+/// The whole of `write_revision`'s work, minus the transaction — because the
+/// composite create needs the same steps inside a transaction it already holds,
+/// and a second copy of "demote, insert, advance the header, record the event"
+/// is exactly the sort of duplicate that drifts a column at a time.
+///
+/// Everything that changes state is here: demoting the old current revision,
+/// inserting the new one, advancing the header's `current_doc_version` and
+/// appending the `Revised` event. *History:* under DuckDB-and-Lance those were
+/// writes across two engines with nothing that could bracket them, so a crash
+/// between two of them left a document whose header disagreed with it.
+pub(super) fn write_revision_in(
+    conn: &Connection,
+    embedder: Option<&dyn crate::Embedder>,
+    mut document: Document,
+) -> Result<Document> {
+    let table = document.entity_type.table();
+    // Only five types carry prose, and only their tables have a
+    // `current_doc_version` column. A hand-built `Document` for a task
+    // would otherwise fail on the header update with "no such column",
+    // after the revision had already been inserted.
+    if !document.entity_type.has_document() {
+        return Err(Error::Invariant {
+            operation: format!("write a revision of {}", document.entity_id),
+            problem: format!(
+                "{} has no prose body; only spec, decision, question, feedback and \
+                 design have documents",
+                document.entity_type
+            ),
+        });
     }
 
+    // `documents.entity_id` names a row in one of five tables, so no
+    // foreign key can enforce it and this check is the only thing standing
+    // between a typo and a document nothing can ever reach.
+    let exists: i64 = conn
+        .query_row(
+            &format!("SELECT count(*) FROM {table} WHERE id = ?1"),
+            [document.entity_id.as_str()],
+            |r| r.get(0),
+        )
+        .map_err(Error::storage(format!(
+            "check that {} exists before writing its document",
+            document.entity_id
+        )))?;
+    if exists == 0 {
+        return Err(Error::Invariant {
+            operation: format!("write a revision of {}", document.entity_id),
+            problem: format!(
+                "no {} exists with that id; create the entity before writing its body",
+                document.entity_type
+            ),
+        });
+    }
+
+    if let Some(current) = current_revision_in(conn, &document.entity_id)?
+        && current.body_hash == document.body_hash
+    {
+        return Ok(current);
+    }
+
+    let previous = max_version_in(conn, &document.entity_id)?;
+    document.version = previous + 1;
+    document.parent_version = if previous == 0 { None } else { Some(previous) };
+    document.status = DocStatus::Current;
+
+    // Embed here, on the way in, rather than expecting the caller to have
+    // done it. A revision written without a vector is not a broken write —
+    // it is a document that never appears in a semantic result and never
+    // says so, because the keyword half keeps answering. That is the same
+    // silence `search` warns about, one layer earlier.
+    if document.embedding.is_none()
+        && let Some(embedder) = embedder
+    {
+        match embedder.embed_one(&document.searchable_text()) {
+            Ok(v) => {
+                document.embedding = Some(v);
+                document.embedding_model = embedder.model_name().to_owned();
+            }
+            // A failed embed must not lose the write. The document stays
+            // readable and keyword-searchable; a later re-embed pass picks
+            // it up, which is what `embedding_version` is for.
+            Err(e) => tracing::warn!(
+                entity_id = %document.entity_id,
+                error = %e,
+                "embedding failed; storing the revision without a vector"
+            ),
+        }
+    }
+
+    let params: Vec<Value> = vec![
+        Value::Text(document.doc_id.as_str().to_owned()),
+        Value::Text(document.entity_type.as_str().to_owned()),
+        Value::Text(document.entity_id.as_str().to_owned()),
+        os(document.project_id.as_ref().map(|p| p.as_str().to_owned())),
+        i(document.version),
+        document.parent_version.map(i).unwrap_or(Value::Null),
+        Value::Text(document.title.clone()),
+        Value::Text(document.body.clone()),
+        Value::Text(document.body_hash.clone()),
+        os(document.media_ref.clone()),
+        Value::Text(document.status.as_str().to_owned()),
+        Value::Text(document.author.as_str().to_owned()),
+        os(document.session_id.clone()),
+        os(document.surface.map(|s| s.as_str().to_owned())),
+        Value::Text(render_ts(document.created_at)),
+        document
+            .embedding
+            .as_ref()
+            .map(|v| Value::Blob(embedding_bytes(v)))
+            .unwrap_or(Value::Null),
+        Value::Text(document.embedding_model.clone()),
+        i(document.embedding_version),
+    ];
+
+    // Demote first, so there is never a moment with two current revisions
+    // — not even one another connection could observe, since the demotion
+    // and the insert commit together.
+    conn.execute(
+        "UPDATE documents SET status = 'superseded' \
+         WHERE entity_id = ?1 AND status = 'current'",
+        [document.entity_id.as_str()],
+    )
+    .map_err(Error::storage(format!(
+        "supersede the previous revision of {}",
+        document.entity_id
+    )))?;
+
+    conn.execute(
+        &format!("INSERT INTO documents ({DOC_COLS}) VALUES ({DOC_VALUES})"),
+        params_from_iter(params),
+    )
+    .map_err(Error::storage(format!(
+        "write revision {} of {}",
+        document.version, document.entity_id
+    )))?;
+
+    conn.execute(
+        &format!("UPDATE {table} SET current_doc_version = ?1 WHERE id = ?2"),
+        params![document.version, document.entity_id.as_str()],
+    )
+    .map_err(Error::storage(format!(
+        "advance current_doc_version on {}",
+        document.entity_id
+    )))?;
+
+    // The event, inside the same transaction as the revision it describes.
+    //
+    // `Action::Revised` was declared from the beginning and never once
+    // constructed, so a session that only wrote prose left no trace at all:
+    // not in the changelog, which is derived from the event log, and not in
+    // the app's live feed. Whole sessions of work were invisible, and
+    // nothing looked broken — the feed simply had less in it.
+    //
+    // Provenance comes off the document rather than from a parameter. The
+    // author, session and surface were already decided at the boundary and
+    // recorded on the revision; taking them from anywhere else would let
+    // the row and its event disagree about who wrote it.
+    let provenance = crate::Provenance {
+        actor: document.author,
+        session_id: document.session_id.clone(),
+        surface: document.surface,
+    };
+    let summary = format!(
+        "revised {} “{}” to v{}",
+        document.entity_type, document.title, document.version
+    );
+    crate::store::entity::append_event_inner(
+        conn,
+        crate::NewEvent::new(document.entity_id.clone(), crate::Action::Revised, summary)
+            .in_project(document.project_id.clone())
+            .with_meta(serde_json::json!({
+                "version": document.version,
+                "doc_id": document.doc_id.as_str(),
+            })),
+        &provenance,
+        document.created_at,
+    )?;
+
+    Ok(document)
+}
+
+/// The highest revision number recorded for an entity, or zero.
+fn max_version_in(conn: &Connection, entity_id: &EntityId) -> Result<i32> {
+    let n: Option<i32> = conn
+        .query_row(
+            "SELECT max(version) FROM documents WHERE entity_id = ?1",
+            [entity_id.as_str()],
+            |r| r.get(0),
+        )
+        .map_err(Error::storage(format!(
+            "find the latest revision of {entity_id}"
+        )))?;
+    Ok(n.unwrap_or(0))
+}
+
+/// The current revision of an entity, read through a caller's connection.
+///
+/// By version rather than by `status = 'current'`, for the reason
+/// [`Store::revision`] gives: the two agree, and asking by version means a store
+/// whose statuses have drifted still hands back its newest revision rather than
+/// nothing — and "nothing" reads as "this document does not exist".
+fn current_revision_in(conn: &Connection, entity_id: &EntityId) -> Result<Option<Document>> {
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT {DOC_COLS} FROM documents WHERE entity_id = ?1 ORDER BY version DESC LIMIT 1"
+        ))
+        .map_err(Error::storage("prepare a revision lookup"))?;
+    let mut rows = stmt
+        .query([entity_id.as_str()])
+        .map_err(Error::storage("run a revision lookup"))?;
+    match rows.next().map_err(Error::storage("read a revision row"))? {
+        Some(row) => Ok(Some(read_document(row)?)),
+        None => Ok(None),
+    }
+}
+
+impl Store {
     /// Append a revision, and return it with the version the store assigned.
     ///
     /// The returned version is the one that was written, not the one the
@@ -206,183 +409,18 @@ impl Store {
     /// crash between the second and the third left a document whose header
     /// disagreed with it. That is what the transaction is here to make
     /// impossible.
-    pub fn write_revision(&mut self, mut document: Document) -> Result<Document> {
-        let table = document.entity_type.table();
-
-        // Only five types carry prose, and only their tables have a
-        // `current_doc_version` column. A hand-built `Document` for a task
-        // would otherwise fail on the header update with "no such column",
-        // after the revision had already been inserted.
-        if !document.entity_type.has_document() {
-            return Err(Error::Invariant {
-                operation: format!("write a revision of {}", document.entity_id),
-                problem: format!(
-                    "{} has no prose body; only spec, decision, question, feedback and \
-                     design have documents",
-                    document.entity_type
-                ),
-            });
-        }
-
-        // `documents.entity_id` names a row in one of five tables, so no
-        // foreign key can enforce it and this check is the only thing standing
-        // between a typo and a document nothing can ever reach.
-        let exists: i64 = self
-            .conn
-            .query_row(
-                &format!("SELECT count(*) FROM {table} WHERE id = ?1"),
-                [document.entity_id.as_str()],
-                |r| r.get(0),
-            )
-            .map_err(Error::storage(format!(
-                "check that {} exists before writing its document",
-                document.entity_id
-            )))?;
-        if exists == 0 {
-            return Err(Error::Invariant {
-                operation: format!("write a revision of {}", document.entity_id),
-                problem: format!(
-                    "no {} exists with that id; create the entity before writing its body",
-                    document.entity_type
-                ),
-            });
-        }
-
-        if let Some(current) = self.revision(&document.entity_id, None)?
-            && current.body_hash == document.body_hash
-        {
-            return Ok(current);
-        }
-
-        let previous = self.max_version(&document.entity_id)?;
-        document.version = previous + 1;
-        document.parent_version = if previous == 0 { None } else { Some(previous) };
-        document.status = DocStatus::Current;
-
-        // Embed here, on the way in, rather than expecting the caller to have
-        // done it. A revision written without a vector is not a broken write —
-        // it is a document that never appears in a semantic result and never
-        // says so, because the keyword half keeps answering. That is the same
-        // silence `search` warns about, one layer earlier.
-        if document.embedding.is_none()
-            && let Some(embedder) = self.embedder()
-        {
-            match embedder.embed_one(&document.searchable_text()) {
-                Ok(v) => {
-                    document.embedding = Some(v);
-                    document.embedding_model = embedder.model_name().to_owned();
-                }
-                // A failed embed must not lose the write. The document stays
-                // readable and keyword-searchable; a later re-embed pass picks
-                // it up, which is what `embedding_version` is for.
-                Err(e) => tracing::warn!(
-                    entity_id = %document.entity_id,
-                    error = %e,
-                    "embedding failed; storing the revision without a vector"
-                ),
-            }
-        }
-
-        let params: Vec<Value> = vec![
-            Value::Text(document.doc_id.as_str().to_owned()),
-            Value::Text(document.entity_type.as_str().to_owned()),
-            Value::Text(document.entity_id.as_str().to_owned()),
-            os(document.project_id.as_ref().map(|p| p.as_str().to_owned())),
-            i(document.version),
-            document.parent_version.map(i).unwrap_or(Value::Null),
-            Value::Text(document.title.clone()),
-            Value::Text(document.body.clone()),
-            Value::Text(document.body_hash.clone()),
-            os(document.media_ref.clone()),
-            Value::Text(document.status.as_str().to_owned()),
-            Value::Text(document.author.as_str().to_owned()),
-            os(document.session_id.clone()),
-            os(document.surface.map(|s| s.as_str().to_owned())),
-            Value::Text(render_ts(document.created_at)),
-            document
-                .embedding
-                .as_ref()
-                .map(|v| Value::Blob(embedding_bytes(v)))
-                .unwrap_or(Value::Null),
-            Value::Text(document.embedding_model.clone()),
-            i(document.embedding_version),
-        ];
-
+    pub fn write_revision(&mut self, document: Document) -> Result<Document> {
+        let embedder = self.embedder.clone();
         let tx = self
             .conn
             .transaction()
             .map_err(Error::storage("begin a revision write"))?;
-
-        // Demote first, so there is never a moment with two current revisions
-        // — not even one another connection could observe, since the demotion
-        // and the insert commit together.
-        tx.execute(
-            "UPDATE documents SET status = 'superseded' \
-             WHERE entity_id = ?1 AND status = 'current'",
-            [document.entity_id.as_str()],
-        )
-        .map_err(Error::storage(format!(
-            "supersede the previous revision of {}",
-            document.entity_id
-        )))?;
-
-        tx.execute(
-            &format!("INSERT INTO documents ({DOC_COLS}) VALUES ({DOC_VALUES})"),
-            params_from_iter(params),
-        )
-        .map_err(Error::storage(format!(
-            "write revision {} of {}",
-            document.version, document.entity_id
-        )))?;
-
-        tx.execute(
-            &format!("UPDATE {table} SET current_doc_version = ?1 WHERE id = ?2"),
-            params![document.version, document.entity_id.as_str()],
-        )
-        .map_err(Error::storage(format!(
-            "advance current_doc_version on {}",
-            document.entity_id
-        )))?;
-
-        // The event, inside the same transaction as the revision it describes.
-        //
-        // `Action::Revised` was declared from the beginning and never once
-        // constructed, so a session that only wrote prose left no trace at all:
-        // not in the changelog, which is derived from the event log, and not in
-        // the app's live feed. Whole sessions of work were invisible, and
-        // nothing looked broken — the feed simply had less in it.
-        //
-        // Provenance comes off the document rather than from a parameter. The
-        // author, session and surface were already decided at the boundary and
-        // recorded on the revision; taking them from anywhere else would let
-        // the row and its event disagree about who wrote it.
-        let provenance = crate::Provenance {
-            actor: document.author,
-            session_id: document.session_id.clone(),
-            surface: document.surface,
-        };
-        let summary = format!(
-            "revised {} “{}” to v{}",
-            document.entity_type, document.title, document.version
-        );
-        crate::store::entity::append_event_inner(
-            &tx,
-            crate::NewEvent::new(document.entity_id.clone(), crate::Action::Revised, summary)
-                .in_project(document.project_id.clone())
-                .with_meta(serde_json::json!({
-                    "version": document.version,
-                    "doc_id": document.doc_id.as_str(),
-                })),
-            &provenance,
-            document.created_at,
-        )?;
-
+        let written = write_revision_in(&tx, embedder.as_deref(), document)?;
         tx.commit().map_err(Error::storage(format!(
             "commit revision {} of {}",
-            document.version, document.entity_id
+            written.version, written.entity_id
         )))?;
-
-        Ok(document)
+        Ok(written)
     }
 
     /// Fetch a revision — the current one if `version` is `None`.
@@ -503,7 +541,7 @@ impl Store {
     /// taken from a caller, because a hash nobody has checked is not a content
     /// address, it is a claim.
     pub fn put_blob(&mut self, blob: Blob) -> Result<BlobId> {
-        insert_blob(&self.conn, &blob)?;
+        insert_blob_in(&self.conn, &blob)?;
         Ok(blob.blob_id)
     }
 
@@ -830,7 +868,7 @@ mod tests {
                 params_from_iter(insert_params(&entity)),
             )
             .unwrap();
-            insert_blob(&tx, &blob).unwrap();
+            insert_blob_in(&tx, &blob).unwrap();
             tx.commit().unwrap();
         }
 
@@ -859,7 +897,7 @@ mod tests {
                 params_from_iter(insert_params(&doomed)),
             )
             .unwrap();
-            insert_blob(&tx, &orphan).unwrap();
+            insert_blob_in(&tx, &orphan).unwrap();
             tx.rollback().unwrap();
         }
 

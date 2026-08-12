@@ -894,8 +894,28 @@ fn render(v: &serde_json::Value) -> String {
     }
 }
 
-impl EntityStore for Store {
-    fn create(&mut self, mut entity: Entity, provenance: &Provenance) -> Result<Created> {
+/// What a create turns out to be, once the store has been consulted.
+///
+/// Split out of `create` so the composite create — an entity, its first
+/// revision and an image, all in one transaction — can reach the same
+/// validation, idempotency and numbering rules without a second copy of them.
+/// A rule that exists twice is a rule that will differ once.
+pub(super) enum Prepared {
+    /// Something with this key, or a title that means the same thing, is
+    /// already here. Nothing is written.
+    Existing(Entity),
+    /// A genuinely new row, numbered and stamped, ready to insert.
+    Fresh(Entity),
+}
+
+impl Store {
+    /// Everything `create` does before it opens a transaction.
+    pub(super) fn prepare_create(
+        &self,
+        mut entity: Entity,
+        provenance: &Provenance,
+        now: DateTime<Utc>,
+    ) -> Result<Prepared> {
         // Before the idempotency lookup, so a bad write is refused rather than
         // quietly matching an existing row and reporting success.
         validate_entity(&entity)?;
@@ -915,10 +935,7 @@ impl EntityStore for Store {
             // returns *archived* matches — deliberately, because silently
             // minting a second row alongside an archived one is how a store
             // fills up with near-duplicates.
-            return Ok(Created {
-                entity: existing,
-                created: false,
-            });
+            return Ok(Prepared::Existing(existing));
         }
 
         // A near-miss on the title is the same failure the key exists to
@@ -946,10 +963,7 @@ impl EntityStore for Store {
                 "returning an existing {entity_type} with a near-identical title rather than \
                  creating a second row"
             );
-            return Ok(Created {
-                entity: existing,
-                created: false,
-            });
+            return Ok(Prepared::Existing(existing));
         }
 
         // Readable identifiers are assigned here rather than in the
@@ -980,8 +994,45 @@ impl EntityStore for Store {
             self.check_task_parent(t)?;
         }
 
-        let now = Utc::now();
         *entity.audit_mut() = Audit::new(provenance, now);
+        Ok(Prepared::Fresh(entity))
+    }
+}
+
+/// Insert a prepared entity and the event that records it.
+///
+/// The two statements every create shares, so the composite create adds a
+/// revision and a blob to *this* rather than reimplementing it.
+pub(super) fn insert_created(
+    conn: &Connection,
+    entity: &Entity,
+    provenance: &Provenance,
+    now: DateTime<Utc>,
+) -> Result<()> {
+    let entity_type = entity.entity_type();
+    insert_entity_row(conn, entity)?;
+    let summary = format!("created {entity_type} “{}”", entity.label());
+    append_event_inner(
+        conn,
+        NewEvent::new(entity.id().clone(), Action::Created, summary).in_project(project_of(entity)),
+        provenance,
+        now,
+    )?;
+    Ok(())
+}
+
+impl EntityStore for Store {
+    fn create(&mut self, entity: Entity, provenance: &Provenance) -> Result<Created> {
+        let now = Utc::now();
+        let entity = match self.prepare_create(entity, provenance, now)? {
+            Prepared::Existing(existing) => {
+                return Ok(Created {
+                    entity: existing,
+                    created: false,
+                });
+            }
+            Prepared::Fresh(entity) => entity,
+        };
 
         // The row and the event that records it commit together or not at all.
         //
@@ -991,19 +1042,12 @@ impl EntityStore for Store {
         // gone permanently, and the store reads as though the entity simply
         // appeared. That is the shape of failure this codebase is built to
         // refuse — plausible, quiet, and unrecoverable.
+        let entity_type = entity.entity_type();
         let tx = self
             .conn
             .transaction()
             .map_err(Error::storage(format!("create the {entity_type}")))?;
-        insert_entity_row(&tx, &entity)?;
-        let summary = format!("created {entity_type} “{}”", entity.label());
-        append_event_inner(
-            &tx,
-            NewEvent::new(entity.id().clone(), Action::Created, summary)
-                .in_project(project_of(&entity)),
-            provenance,
-            now,
-        )?;
+        insert_created(&tx, &entity, provenance, now)?;
         tx.commit().map_err(Error::storage(format!(
             "commit the {entity_type} `{}`",
             entity.label()
