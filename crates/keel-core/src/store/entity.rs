@@ -24,13 +24,23 @@
 //! `unlink` marks its event `{"removed": true}`, and without it an unlink is
 //! indistinguishable from a link in the log.
 //!
-//! # Why every helper is a free function
+//! # Why every helper is a free function taking `&Connection`
+//!
+//! Two reasons, and the second is the load-bearing one.
 //!
 //! Sibling modules in `store` add their own inherent `impl Store` blocks, and
 //! two modules defining a method of the same name on one type is a compile
 //! error. The names a store's private helpers want — `count`, `query_one`,
-//! `find_link` — are exactly the ones that would collide, so they are
-//! module-private functions taking `&Store` or `&Connection` instead.
+//! `find_link` — are exactly the ones that would collide.
+//!
+//! And a helper that reaches for `store.connection()` itself can only ever
+//! autocommit, which is why nothing above these was atomic. A
+//! `rusqlite::Transaction` derefs to `Connection`, so a helper that takes
+//! `&Connection` serves both an ordinary write and one bracketed by a
+//! transaction, with the same statement text and no second copy to drift.
+//! `insert_entity_row`, `append_event_inner`, `write_back`, `insert_link_row`,
+//! `set_link_archived`, `archive_links_touching` and `insert_note_row` are that
+//! substrate.
 
 use super::Store;
 use super::rows::{
@@ -327,13 +337,12 @@ fn validate_on_create(entity: &Entity) -> Result<()> {
 
 /// Run a query expected to yield at most one entity.
 fn query_one(
-    store: &Store,
+    conn: &Connection,
     entity_type: EntityType,
     sql: &str,
     params: Vec<Value>,
 ) -> Result<Option<Entity>> {
-    let mut stmt = store
-        .connection()
+    let mut stmt = conn
         .prepare(sql)
         .map_err(Error::storage(format!("prepare a {entity_type} lookup")))?;
     let mut rows = stmt
@@ -350,13 +359,12 @@ fn query_one(
 
 /// Run a query yielding many entities of one type.
 fn query_many(
-    store: &Store,
+    conn: &Connection,
     entity_type: EntityType,
     sql: &str,
     params: Vec<Value>,
 ) -> Result<Vec<Entity>> {
-    let mut stmt = store
-        .connection()
+    let mut stmt = conn
         .prepare(sql)
         .map_err(Error::storage(format!("prepare a {entity_type} list")))?;
     let mut rows = stmt
@@ -381,9 +389,8 @@ fn count(conn: &Connection, sql: &str, params: Vec<Value>) -> Result<usize> {
 }
 
 /// Run a note query and read the rows.
-fn query_notes(store: &Store, sql: &str, params: Vec<Value>) -> Result<Vec<Note>> {
-    let mut stmt = store
-        .connection()
+fn query_notes(conn: &Connection, sql: &str, params: Vec<Value>) -> Result<Vec<Note>> {
+    let mut stmt = conn
         .prepare(sql)
         .map_err(Error::storage("prepare a note query"))?;
     let mut rows = stmt
@@ -397,9 +404,8 @@ fn query_notes(store: &Store, sql: &str, params: Vec<Value>) -> Result<Vec<Note>
 }
 
 /// Run an event query and read the rows.
-fn query_events(store: &Store, sql: &str, params: Vec<Value>) -> Result<Vec<Event>> {
-    let mut stmt = store
-        .connection()
+fn query_events(conn: &Connection, sql: &str, params: Vec<Value>) -> Result<Vec<Event>> {
+    let mut stmt = conn
         .prepare(sql)
         .map_err(Error::storage("prepare an event query"))?;
     let mut rows = stmt
@@ -415,7 +421,7 @@ fn query_events(store: &Store, sql: &str, params: Vec<Value>) -> Result<Vec<Even
 /// Find an existing entity by idempotency key, honouring each type's
 /// uniqueness scope.
 fn find_by_key(
-    store: &Store,
+    conn: &Connection,
     entity_type: EntityType,
     project_id: Option<&EntityId>,
     key: &str,
@@ -443,7 +449,18 @@ fn find_by_key(
         ),
     };
     let sql = format!("{} WHERE {predicate}", select_from(&spec));
-    query_one(store, entity_type, &sql, params)
+    query_one(conn, entity_type, &sql, params)
+}
+
+/// Read one entity by id through whatever connection is handed in.
+///
+/// The `&Connection` twin of [`EntityStore::get`], so a helper running inside a
+/// transaction reads what that transaction has written rather than what the
+/// store looked like before it opened.
+fn get_entity(conn: &Connection, id: &EntityId) -> Result<Option<Entity>> {
+    let entity_type = id.entity_type();
+    let sql = format!("{} WHERE id = ?", select_from(&spec_for(entity_type)));
+    query_one(conn, entity_type, &sql, vec![id_param(id)])
 }
 
 /// A live entity of this type in this project whose label means the same thing
@@ -523,7 +540,7 @@ fn next_number_in(conn: &Connection, table: &str, project_id: &EntityId) -> Resu
 /// between the two in which another writer could land — the exact race the
 /// requirement exists to close, and the reason this asserts on the number of
 /// rows the statement changed rather than trusting the earlier read.
-fn write_back(store: &Store, entity: &Entity, expected_version: i32) -> Result<()> {
+fn write_back(conn: &Connection, entity: &Entity, expected_version: i32) -> Result<()> {
     let entity_type = entity.entity_type();
     let spec = spec_for(entity_type);
     let assignments: Vec<String> = spec
@@ -565,8 +582,7 @@ fn write_back(store: &Store, entity: &Entity, expected_version: i32) -> Result<(
     params.push(id_param(entity.id()));
     params.push(Value::Integer(i64::from(expected_version)));
 
-    let affected = store
-        .connection()
+    let affected = conn
         .execute(&sql, params_from_iter(params))
         .map_err(Error::storage(format!("update {}", entity.id())))?;
 
@@ -574,7 +590,7 @@ fn write_back(store: &Store, entity: &Entity, expected_version: i32) -> Result<(
         // Either the row moved under us or it never existed. Re-read to tell
         // the caller which, because "stale" and "missing" need different
         // responses from an agent.
-        return match store.get(entity.id())? {
+        return match get_entity(conn, entity.id())? {
             Some(current) => Err(Error::StaleVersion {
                 entity_type,
                 id: entity.id().to_string(),
@@ -590,12 +606,119 @@ fn write_back(store: &Store, entity: &Entity, expected_version: i32) -> Result<(
     Ok(())
 }
 
+/// Insert an entity's row through whatever connection is handed in.
+///
+/// One of the write primitives that take a `&Connection` rather than a `&Store`
+/// (KEEL-140). A `rusqlite::Transaction` derefs to `Connection`, so the same
+/// function serves an autocommitting write and one bracketed by a transaction —
+/// which is the whole reason anything above it can be made atomic.
+fn insert_entity_row(conn: &Connection, entity: &Entity) -> Result<()> {
+    let entity_type = entity.entity_type();
+    let spec = spec_for(entity_type);
+    conn.execute(&insert_stmt(&spec), params_from_iter(insert_params(entity)))
+        .map_err(Error::storage(format!(
+            "create the {entity_type} `{}`",
+            entity.label()
+        )))?;
+    Ok(())
+}
+
+/// Insert a link row.
+fn insert_link_row(conn: &Connection, link: &Link) -> Result<()> {
+    conn.execute(
+        "INSERT INTO links (id, project_id, from_type, from_id, rel, to_type, to_id, \
+         anchor, note, created_at, updated_at, version, created_by, updated_by, \
+         session_id, surface, archived_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        params_from_iter(link_params(link)),
+    )
+    .map_err(Error::storage(format!(
+        "create the link {} {} {}",
+        link.from_id, link.rel, link.to_id
+    )))?;
+    Ok(())
+}
+
+/// Set or clear a link's `archived_at`. Soft delete only, hard constraint 3.
+fn set_link_archived(
+    conn: &Connection,
+    id: &LinkId,
+    archived: Option<DateTime<Utc>>,
+    now: DateTime<Utc>,
+    provenance: &Provenance,
+) -> Result<()> {
+    conn.execute(
+        "UPDATE links SET archived_at = ?, updated_at = ?, version = version + 1, \
+         updated_by = ? WHERE id = ?",
+        params_from_iter(vec![
+            ots(archived),
+            ts(now),
+            text(provenance.actor.as_str()),
+            text(id.as_str()),
+        ]),
+    )
+    .map_err(Error::storage(format!("archive the link {id}")))?;
+    Ok(())
+}
+
+/// Archive every live link touching an entity, in one statement.
+fn archive_links_touching(
+    conn: &Connection,
+    id: &EntityId,
+    now: DateTime<Utc>,
+    provenance: &Provenance,
+) -> Result<()> {
+    conn.execute(
+        "UPDATE links SET archived_at = ?, updated_at = ?, version = version + 1, \
+         updated_by = ? WHERE (from_id = ? OR to_id = ?) AND archived_at IS NULL",
+        params_from_iter(vec![
+            ts(now),
+            ts(now),
+            text(provenance.actor.as_str()),
+            id_param(id),
+            id_param(id),
+        ]),
+    )
+    .map_err(Error::storage(format!("archive the links touching {id}")))?;
+    Ok(())
+}
+
+/// Insert a note row.
+fn insert_note_row(conn: &Connection, note: &Note) -> Result<()> {
+    conn.execute(
+        "INSERT INTO notes (id, project_id, entity_type, entity_id, body, author, \
+         session_id, surface, created_at, archived_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+        params_from_iter(vec![
+            text(note.id.as_str()),
+            note.project_id
+                .as_ref()
+                .map(id_param)
+                .unwrap_or(Value::Null),
+            text(note.entity_type.as_str()),
+            id_param(&note.entity_id),
+            text(note.body.clone()),
+            text(note.author.as_str()),
+            otext(note.session_id.clone()),
+            otext(note.surface.map(|s| s.as_str())),
+            ts(note.created_at),
+        ]),
+    )
+    .map_err(Error::storage(format!(
+        "append a note to {}",
+        note.entity_id
+    )))?;
+    Ok(())
+}
+
 /// Append an event at a caller-chosen instant.
 ///
 /// Separate from the trait method so that a create and the event describing it
-/// carry the same timestamp rather than two instants a microsecond apart.
+/// carry the same timestamp rather than two instants a microsecond apart, and
+/// taking a `&Connection` so it can be the second statement of a transaction
+/// rather than a separate autocommitting write that a crash can lose.
 fn append_event_inner(
-    store: &Store,
+    conn: &Connection,
     event: NewEvent,
     provenance: &Provenance,
     now: DateTime<Utc>,
@@ -638,18 +761,16 @@ fn append_event_inner(
         ts(stored.created_at),
     ];
 
-    store
-        .connection()
-        .execute(
-            "INSERT INTO events (id, project_id, entity_id, entity_type, field, op, \
-             before, after, summary, meta, actor, session_id, surface, at) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            params_from_iter(params),
-        )
-        .map_err(Error::storage(format!(
-            "append a `{}` event for {}",
-            stored.action, stored.entity_id
-        )))?;
+    conn.execute(
+        "INSERT INTO events (id, project_id, entity_id, entity_type, field, op, \
+         before, after, summary, meta, actor, session_id, surface, at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        params_from_iter(params),
+    )
+    .map_err(Error::storage(format!(
+        "append a `{}` event for {}",
+        stored.action, stored.entity_id
+    )))?;
 
     Ok(stored)
 }
@@ -669,8 +790,8 @@ fn project_of(entity: &Entity) -> Option<EntityId> {
 /// This is the foreign key the schema cannot declare: `links` is polymorphic
 /// across thirteen tables (SPEC §3.1). Skipping it would let a typo create an
 /// edge to nothing, which a traversal would then silently drop.
-fn require_live(store: &Store, id: &EntityId, role: &str) -> Result<Entity> {
-    match store.get(id)? {
+fn require_live(conn: &Connection, id: &EntityId, role: &str) -> Result<Entity> {
+    match get_entity(conn, id)? {
         None => Err(Error::Invariant {
             operation: format!("link {role} {id}"),
             problem: format!("no {} exists with id {id}", id.entity_type()),
@@ -689,11 +810,10 @@ fn require_live(store: &Store, id: &EntityId, role: &str) -> Result<Entity> {
 /// thirteen tables it lives in, and a `match` over all thirteen would have to be
 /// updated every time a type is added.
 fn resolve_vertex(
-    store: &Store,
+    conn: &Connection,
     id: &EntityId,
 ) -> Result<Option<(EntityType, Option<EntityId>, bool)>> {
-    let mut stmt = store
-        .connection()
+    let mut stmt = conn
         .prepare("SELECT entity_type, project_id, archived_at FROM v_entities WHERE id = ? LIMIT 1")
         .map_err(Error::storage("prepare a vertex lookup"))?;
     let mut rows = stmt
@@ -713,7 +833,7 @@ fn resolve_vertex(
 
 /// Find one edge by its unique key.
 fn find_link(
-    store: &Store,
+    conn: &Connection,
     from_id: &EntityId,
     rel: Relation,
     to_id: &EntityId,
@@ -731,8 +851,7 @@ fn find_link(
          archived_at FROM links \
          WHERE from_id = ? AND rel = ? AND to_id = ? AND anchor = ?{archived}"
     );
-    let mut stmt = store
-        .connection()
+    let mut stmt = conn
         .prepare(&sql)
         .map_err(Error::storage("prepare a link lookup"))?;
     let mut rows = stmt
@@ -782,7 +901,7 @@ impl EntityStore for Store {
         let project_id = entity.project_id().cloned();
 
         if let Some(existing) = find_by_key(
-            self,
+            self.connection(),
             entity_type,
             project_id.as_ref(),
             entity.idempotency_key(),
@@ -860,20 +979,11 @@ impl EntityStore for Store {
         let now = Utc::now();
         *entity.audit_mut() = Audit::new(provenance, now);
 
-        let spec = spec_for(entity_type);
-        self.connection()
-            .execute(
-                &insert_stmt(&spec),
-                params_from_iter(insert_params(&entity)),
-            )
-            .map_err(Error::storage(format!(
-                "create the {entity_type} `{}`",
-                entity.label()
-            )))?;
+        insert_entity_row(self.connection(), &entity)?;
 
         let summary = format!("created {entity_type} “{}”", entity.label());
         append_event_inner(
-            self,
+            self.connection(),
             NewEvent::new(entity.id().clone(), Action::Created, summary)
                 .in_project(project_of(&entity)),
             provenance,
@@ -887,9 +997,7 @@ impl EntityStore for Store {
     }
 
     fn get(&self, id: &EntityId) -> Result<Option<Entity>> {
-        let entity_type = id.entity_type();
-        let sql = format!("{} WHERE id = ?", select_from(&spec_for(entity_type)));
-        query_one(self, entity_type, &sql, vec![id_param(id)])
+        get_entity(self.connection(), id)
     }
 
     fn update(
@@ -991,7 +1099,7 @@ impl EntityStore for Store {
         let now = Utc::now();
         let next_version = current_version + 1;
         *entity.audit_mut() = entity.audit().touched(provenance, now, next_version);
-        write_back(self, &entity, expected_version)?;
+        write_back(self.connection(), &entity, expected_version)?;
 
         let project = project_of(&entity);
         let action = if is_status_change(&applied) {
@@ -1011,7 +1119,7 @@ impl EntityStore for Store {
                 render(&change.after)
             );
             append_event_inner(
-                self,
+                self.connection(),
                 NewEvent::new(entity.id().clone(), action, summary)
                     .in_project(project.clone())
                     .field_change(
@@ -1059,28 +1167,16 @@ impl EntityStore for Store {
         let mut audit = entity.audit().touched(provenance, now, current_version + 1);
         audit.archived_at = Some(now);
         *entity.audit_mut() = audit;
-        write_back(self, &entity, expected_version)?;
+        write_back(self.connection(), &entity, expected_version)?;
 
         // Archiving a parent archives its links but never its children
         // (SPEC §3.1). Orphaned children surface in `fsck` rather than
         // disappearing, because a cascade is unrecoverable and an orphan is
         // merely untidy.
-        self.connection()
-            .execute(
-                "UPDATE links SET archived_at = ?, updated_at = ?, version = version + 1, \
-                 updated_by = ? WHERE (from_id = ? OR to_id = ?) AND archived_at IS NULL",
-                params_from_iter(vec![
-                    ts(now),
-                    ts(now),
-                    text(provenance.actor.as_str()),
-                    id_param(id),
-                    id_param(id),
-                ]),
-            )
-            .map_err(Error::storage(format!("archive the links touching {id}")))?;
+        archive_links_touching(self.connection(), id, now, provenance)?;
 
         append_event_inner(
-            self,
+            self.connection(),
             NewEvent::new(
                 entity.id().clone(),
                 Action::Archived,
@@ -1185,7 +1281,7 @@ impl EntityStore for Store {
                 limit,
                 query.offset
             );
-            all.extend(query_many(self, entity_type, &sql, params)?);
+            all.extend(query_many(self.connection(), entity_type, &sql, params)?);
         }
 
         // Across types, order by id — which is creation order, since ULIDs sort
@@ -1203,34 +1299,24 @@ impl EntityStore for Store {
         // silently and plausibly.
         let (from_id, rel, to_id, anchor, note) = link.normalised()?;
 
-        let from = require_live(self, &from_id, "source")?;
-        let to = require_live(self, &to_id, "target")?;
+        let from = require_live(self.connection(), &from_id, "source")?;
+        let to = require_live(self.connection(), &to_id, "target")?;
 
         // Re-creating an existing edge returns it rather than erroring: the
         // unique index would reject it, and an agent re-asserting a true fact
         // should not be punished for it.
-        if let Some(existing) = find_link(self, &from_id, rel, &to_id, &anchor, true)? {
+        if let Some(existing) = find_link(self.connection(), &from_id, rel, &to_id, &anchor, true)?
+        {
             if existing.audit.is_archived() {
                 // Un-archive rather than insert a duplicate: the unique index
                 // covers archived rows too, so a second insert would fail.
                 let now = Utc::now();
-                self.connection()
-                    .execute(
-                        "UPDATE links SET archived_at = NULL, updated_at = ?, \
-                         version = version + 1, updated_by = ? WHERE id = ?",
-                        params_from_iter(vec![
-                            ts(now),
-                            text(provenance.actor.as_str()),
-                            text(existing.id.as_str()),
-                        ]),
-                    )
-                    .map_err(Error::storage(format!("restore the link {}", existing.id)))?;
-                return find_link(self, &from_id, rel, &to_id, &anchor, true)?.ok_or_else(|| {
-                    Error::Invariant {
+                set_link_archived(self.connection(), &existing.id, None, now, provenance)?;
+                return find_link(self.connection(), &from_id, rel, &to_id, &anchor, true)?
+                    .ok_or_else(|| Error::Invariant {
                         operation: format!("restore the link {}", existing.id),
                         problem: "the link vanished between restoring and re-reading it".to_owned(),
-                    }
-                });
+                    });
             }
             return Ok(existing);
         }
@@ -1250,17 +1336,7 @@ impl EntityStore for Store {
             audit: Audit::new(provenance, now),
         };
 
-        self.connection()
-            .execute(
-                "INSERT INTO links (id, project_id, from_type, from_id, rel, to_type, to_id, \
-                 anchor, note, created_at, updated_at, version, created_by, updated_by, \
-                 session_id, surface, archived_at) \
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                params_from_iter(link_params(&stored)),
-            )
-            .map_err(Error::storage(format!(
-                "create the link {from_id} {rel} {to_id}"
-            )))?;
+        insert_link_row(self.connection(), &stored)?;
 
         // Summaries name the artifacts, not their ids. This text is what the
         // activity feed and the Sunday-review digest actually show a human.
@@ -1279,7 +1355,7 @@ impl EntityStore for Store {
             format!("“{from_label}” {rel} “{to_label}”")
         };
         append_event_inner(
-            self,
+            self.connection(),
             NewEvent::new(from_id, Action::Linked, summary)
                 .in_project(stored.project_id.clone())
                 .with_meta(serde_json::json!({
@@ -1305,26 +1381,17 @@ impl EntityStore for Store {
         let (from, rel, to) = Relation::normalise(from_id.clone(), rel, to_id.clone());
 
         let existing =
-            find_link(self, &from, rel, &to, anchor, false)?.ok_or_else(|| Error::Invariant {
-                operation: format!("remove the link {from} {rel} {to}"),
-                problem: "no live link matches those endpoints, relation and anchor".to_owned(),
+            find_link(self.connection(), &from, rel, &to, anchor, false)?.ok_or_else(|| {
+                Error::Invariant {
+                    operation: format!("remove the link {from} {rel} {to}"),
+                    problem: "no live link matches those endpoints, relation and anchor".to_owned(),
+                }
             })?;
 
         // Soft delete, links included (hard constraint 3): this sets
         // `archived_at` and never issues a DELETE.
         let now = Utc::now();
-        self.connection()
-            .execute(
-                "UPDATE links SET archived_at = ?, updated_at = ?, version = version + 1, \
-                 updated_by = ? WHERE id = ?",
-                params_from_iter(vec![
-                    ts(now),
-                    ts(now),
-                    text(provenance.actor.as_str()),
-                    text(existing.id.as_str()),
-                ]),
-            )
-            .map_err(Error::storage(format!("archive the link {}", existing.id)))?;
+        set_link_archived(self.connection(), &existing.id, Some(now), now, provenance)?;
 
         let label_of = |id: &EntityId| {
             self.get(id)
@@ -1335,7 +1402,7 @@ impl EntityStore for Store {
         };
         let summary = format!("unlinked “{}” {rel} “{}”", label_of(&from), label_of(&to));
         append_event_inner(
-            self,
+            self.connection(),
             NewEvent::new(from.clone(), Action::Linked, summary)
                 .in_project(existing.project_id.clone())
                 .with_meta(serde_json::json!({ "removed": true, "rel": rel.as_str() })),
@@ -1349,7 +1416,7 @@ impl EntityStore for Store {
     }
 
     fn append_event(&mut self, event: NewEvent, provenance: &Provenance) -> Result<Event> {
-        append_event_inner(self, event, provenance, Utc::now())
+        append_event_inner(self.connection(), event, provenance, Utc::now())
     }
 
     fn events(
@@ -1394,7 +1461,10 @@ impl EntityStore for Store {
         // range and "catch me up" is quietly wrong.
         let sql =
             format!("{EVENT_COLUMNS} FROM events{where_clause} ORDER BY id ASC LIMIT {limit}");
-        Ok(Page::new(query_events(self, &sql, params)?, total))
+        Ok(Page::new(
+            query_events(self.connection(), &sql, params)?,
+            total,
+        ))
     }
 
     fn resolve_ref(&self, reference: &str) -> Result<Option<EntityId>> {
@@ -1604,7 +1674,10 @@ impl EntityStore for Store {
         let sql = format!(
             "{EVENT_COLUMNS} FROM events WHERE entity_id = ? ORDER BY id ASC LIMIT {limit}"
         );
-        Ok(Page::new(query_events(self, &sql, params)?, total))
+        Ok(Page::new(
+            query_events(self.connection(), &sql, params)?,
+            total,
+        ))
     }
 
     fn add_note(&mut self, note: NewNote, provenance: &Provenance) -> Result<Note> {
@@ -1613,7 +1686,8 @@ impl EntityStore for Store {
         // The subject must exist. `v_entities` is why this is one query rather
         // than a match over thirteen tables — resolving an id without knowing
         // its type is exactly what the view was built for.
-        let Some((entity_type, project_id, archived)) = resolve_vertex(self, &note.entity_id)?
+        let Some((entity_type, project_id, archived)) =
+            resolve_vertex(self.connection(), &note.entity_id)?
         else {
             // Deliberately not `NotFound`: its message quotes the id inside
             // backticks, so appending an explanation there produced prose
@@ -1659,31 +1733,7 @@ impl EntityStore for Store {
             archived_at: None,
         };
 
-        self.connection()
-            .execute(
-                "INSERT INTO notes (id, project_id, entity_type, entity_id, body, author, \
-                 session_id, surface, created_at, archived_at) \
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)",
-                params_from_iter(vec![
-                    text(stored.id.as_str()),
-                    stored
-                        .project_id
-                        .as_ref()
-                        .map(id_param)
-                        .unwrap_or(Value::Null),
-                    text(stored.entity_type.as_str()),
-                    id_param(&stored.entity_id),
-                    text(stored.body.clone()),
-                    text(stored.author.as_str()),
-                    otext(stored.session_id.clone()),
-                    otext(stored.surface.map(|s| s.as_str())),
-                    ts(stored.created_at),
-                ]),
-            )
-            .map_err(Error::storage(format!(
-                "append a note to {}",
-                stored.entity_id
-            )))?;
+        insert_note_row(self.connection(), &stored)?;
 
         Ok(stored)
     }
@@ -1695,7 +1745,7 @@ impl EntityStore for Store {
             " AND archived_at IS NULL"
         };
         query_notes(
-            self,
+            self.connection(),
             &format!("{NOTE_COLUMNS} FROM notes WHERE entity_id = ?{filter} ORDER BY id ASC"),
             vec![id_param(entity_id)],
         )
@@ -1703,7 +1753,7 @@ impl EntityStore for Store {
 
     fn notes_in_project(&self, project_id: &EntityId) -> Result<Vec<Note>> {
         query_notes(
-            self,
+            self.connection(),
             &format!(
                 "{NOTE_COLUMNS} FROM notes WHERE project_id = ? AND archived_at IS NULL \
                  ORDER BY id ASC"
@@ -1732,7 +1782,7 @@ impl EntityStore for Store {
             });
         }
         query_notes(
-            self,
+            self.connection(),
             &format!("{NOTE_COLUMNS} FROM notes WHERE id = ?"),
             vec![text(id.as_str())],
         )?
