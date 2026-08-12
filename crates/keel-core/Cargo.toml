@@ -27,3 +27,9 @@ fastembed.workspace = true
 insta.workspace = true
 proptest.workspace = true
 tempfile.workspace = true
+# `hooks` gets rusqlite's authorizer and progress-handler callbacks, which is
+# how `tests/support/faults.rs` simulates a crash between two statements and a
+# killed process mid-statement. A dev-dependency rather than a workspace
+# feature: cargo turns it on for test builds and leaves it off in the shipped
+# binaries, which have no use for an API that only exists to make writes fail.
+rusqlite = { workspace = true, features = ["hooks"] }
