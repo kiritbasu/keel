@@ -157,3 +157,107 @@ async fn a_body_under_the_limit_is_served_normally() {
         .unwrap();
     assert_eq!(response.status(), 200);
 }
+
+// --- Malformed input ------------------------------------------------------
+//
+// `/mcp` had never been fed anything that was not a well-formed request. A
+// JSON-RPC client cannot act on a bare 400 with an HTML body or an empty one:
+// it needs the envelope, because that is the only thing it knows how to read.
+// A server that stops speaking the protocol at the first bad byte is one whose
+// errors are indistinguishable from being down.
+
+/// Every one of these is broken in a different way, and every one has to come
+/// back as JSON-RPC.
+#[tokio::test]
+async fn malformed_bodies_come_back_as_json_rpc_errors() {
+    let (base, _dir) = daemon().await;
+    let client = reqwest::Client::new();
+
+    let cases: Vec<(&str, String)> = vec![
+        ("not json at all", "this is not json".to_owned()),
+        ("empty", String::new()),
+        ("a bare array", "[]".to_owned()),
+        ("a bare string", "\"hello\"".to_owned()),
+        ("truncated", "{\"jsonrpc\": \"2.0\", \"method\":".to_owned()),
+        ("no method", json!({"jsonrpc": "2.0", "id": 1}).to_string()),
+        (
+            "method is not a string",
+            json!({"jsonrpc": "2.0", "id": 1, "method": 42}).to_string(),
+        ),
+        (
+            "unknown method",
+            json!({"jsonrpc": "2.0", "id": 1, "method": "tools/teleport"}).to_string(),
+        ),
+        (
+            "tools/call with no name",
+            json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {}}).to_string(),
+        ),
+        (
+            "arguments is a string",
+            json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                   "params": {"name": "keel_search", "arguments": "query"}})
+            .to_string(),
+        ),
+    ];
+
+    for (what, body) in cases {
+        let response = client
+            .post(format!("{base}/mcp"))
+            .header("content-type", "application/json")
+            .body(body)
+            .send()
+            .await
+            .unwrap();
+
+        let status = response.status();
+        assert!(
+            status.is_client_error() || status.is_success(),
+            "{what}: a malformed request is the caller's fault, not a 5xx — got {status}"
+        );
+
+        let payload: Value = response
+            .json()
+            .await
+            .unwrap_or_else(|e| panic!("{what}: the answer was not JSON at all ({e})"));
+        assert_eq!(
+            payload["jsonrpc"], "2.0",
+            "{what}: a JSON-RPC client can only read the envelope — got {payload}"
+        );
+        let message = payload
+            .pointer("/error/message")
+            .and_then(Value::as_str)
+            .unwrap_or_else(|| panic!("{what}: no error message in {payload}"));
+        assert!(
+            !message.is_empty(),
+            "{what}: an empty message tells the caller nothing"
+        );
+    }
+}
+
+/// The one thing a malformed request must never do is take the daemon with it.
+#[tokio::test]
+async fn a_daemon_fed_rubbish_keeps_answering() {
+    let (base, _dir) = daemon().await;
+    let client = reqwest::Client::new();
+
+    for junk in ["", "{", "\u{0}\u{0}\u{0}", "[[[[[[[[", "{\"jsonrpc\":"] {
+        let _ = client
+            .post(format!("{base}/mcp"))
+            .header("content-type", "application/json")
+            .body(junk)
+            .send()
+            .await;
+    }
+
+    let after = client
+        .post(format!("{base}/mcp"))
+        .json(&body())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        after.status(),
+        200,
+        "a real call after the rubbish must still work"
+    );
+}

@@ -60,7 +60,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "syn
 tower-http = { version = "0.6", features = ["cors", "trace"] }
 async-stream = "0.3"
 futures-util = "0.3"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 # Blocking HTTP for the CLI, which is synchronous and needs to talk to the
 # daemon. `reqwest` would drag a tokio runtime into a process that has no other
 # use for one.

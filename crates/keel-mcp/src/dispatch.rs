@@ -273,6 +273,30 @@ fn tool_result(summary: String, structured: Value) -> Value {
     })
 }
 
+/// The structured half of a tool result.
+///
+/// A tool returns `{content, structuredContent, isError}` — the text for a
+/// model to read and the data for a caller to use. Everything that consumes a
+/// result wants the second, and there are three such places: the daemon's REST
+/// surface, the CLI's daemon path, and the CLI's fallback when no daemon is
+/// listening.
+///
+/// The third one did not do it. `keel ready` with no daemon running looked for
+/// `ready` at the top level, found the envelope instead, and printed "nothing
+/// ready" against a store with sixteen ready tasks in it. `claim` and `close`
+/// printed a bare id where a title belonged. All three were silent, plausible
+/// and wrong, which is why this is a named function rather than two lines
+/// repeated at each site.
+///
+/// A value that is already unwrapped is returned as-is, so calling this twice
+/// is safe.
+pub fn payload(result: &Value) -> Value {
+    result
+        .get("structuredContent")
+        .cloned()
+        .unwrap_or_else(|| result.clone())
+}
+
 /// Execute a tool call.
 pub fn dispatch(store: &mut Store, call: ToolCall<'_>) -> Result<Value, RpcError> {
     dispatch_prepared(store, call, None)

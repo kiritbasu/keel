@@ -59,6 +59,7 @@ pub fn ready(
                     arguments: &args,
                 },
             )
+            .map(|v| keel_mcp::payload(&v))
             .map_err(|e| anyhow::anyhow!("{}", e.message))
         })?,
     };
@@ -374,6 +375,11 @@ fn run_write(home: &Path, daemon: &str, tool: &str, args: &Value) -> Result<Valu
                         arguments: args,
                     },
                 )
+                // The same unwrapping the daemon path does. Without it every
+                // renderer below looks for its fields one level too high and
+                // finds nothing — quietly, because a missing field reads as an
+                // absent value rather than as a mistake.
+                .map(|v| keel_mcp::payload(&v))
                 .map_err(|e| anyhow::anyhow!("{}", e.message))
             })
         }

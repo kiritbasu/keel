@@ -1440,6 +1440,23 @@ fn run_status(home: &Path, daemon: &str, json: bool) -> Result<()> {
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod cli_definition_tests {
+    /// Clap's own audit of the argument definitions.
+    ///
+    /// It catches what review does not: two arguments claiming the same short
+    /// flag, a `default_value` that fails its own parser, a positional after a
+    /// variadic one. Every one of those is a panic at *runtime*, on the first
+    /// invocation of the affected subcommand — so without this the failure
+    /// arrives in front of whoever typed the command rather than in CI.
+    #[test]
+    fn the_argument_definitions_are_internally_consistent() {
+        use clap::CommandFactory;
+        super::Cli::command().debug_assert();
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod restore_git_tests {
     use super::init_store_git;
 
