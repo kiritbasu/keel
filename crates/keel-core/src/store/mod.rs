@@ -323,6 +323,23 @@ impl Store {
             .map_err(Error::storage("checkpoint the store before shutting down"))
     }
 
+    /// How many pages the write-ahead log currently holds.
+    ///
+    /// The number that says whether checkpointing is keeping up. It should
+    /// hover around the autocheckpoint threshold and come back down; a figure
+    /// that only ever climbs means something is holding a read snapshot open,
+    /// and the symptom of that is not an error — it is a `-wal` file quietly
+    /// larger than the database beside it, with every query still answering
+    /// correctly from it.
+    ///
+    /// A `PASSIVE` checkpoint, so asking the question does not block on a
+    /// reader and does not change what any other connection sees.
+    pub fn wal_pages(&self) -> Result<i64> {
+        self.conn
+            .query_row("PRAGMA wal_checkpoint(PASSIVE)", [], |r| r.get::<_, i64>(1))
+            .map_err(Error::storage("measure the write-ahead log"))
+    }
+
     /// Connection settings, each of which is load-bearing.
     fn configure(&mut self) -> Result<()> {
         // WAL is the whole reason the app stops stalling behind a write. In the
@@ -359,7 +376,17 @@ impl Store {
                  -- if it is, waiting beats failing, because the alternative is
                  -- a tool call that returns an error for a store that was
                  -- merely busy.
-                 PRAGMA busy_timeout = 5000;",
+                 PRAGMA busy_timeout = 5000;
+                 -- Fold the log back at 1,000 pages, which is SQLite's own
+                 -- default and is set here so it is a decision rather than an
+                 -- inheritance. The daemon runs for days and holds a
+                 -- server-sent-events connection open the whole time; a reader
+                 -- whose snapshot is never released stops the checkpoint
+                 -- advancing, and the log then grows without bound while every
+                 -- read still answers correctly from it. Stating the number
+                 -- gives the `wal_pages` test something to assert against and
+                 -- gives a future reader somewhere to change it.
+                 PRAGMA wal_autocheckpoint = 1000;",
             )
             .map_err(Error::storage("configure the store connection"))?;
 

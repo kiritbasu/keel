@@ -101,6 +101,17 @@ expect_used = "warn"
 panic = "warn"
 todo = "warn"
 unimplemented = "warn"
+# A `MutexGuard<Store>` alive across an `.await` is two bugs at once. It can
+# deadlock the runtime, and — the one nobody looks for — it pins a SQLite read
+# snapshot for as long as the future is suspended, which stops the write-ahead
+# log checkpointing past it. Everything keeps answering correctly from the log
+# while the log grows without bound, which is this codebase's defining failure
+# shape wearing a disk-space costume. The daemon runs for days, so "suspended"
+# can mean a very long time.
+#
+# A lint rather than review discipline, because the failure is invisible at the
+# call site: the code reads as an ordinary guard and an ordinary await.
+await_holding_lock = "deny"
 
 [profile.release]
 lto = "thin"
