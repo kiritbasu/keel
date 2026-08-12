@@ -20,3 +20,10 @@ apps/desktop/dist/
 apps/desktop/src-tauri/gen/
 apps/desktop/src-tauri/target/
 node_modules/
+
+# Fuzzing output. The targets and their Cargo.toml are committed; the corpus,
+# the artifacts and the build tree are not — a crashing input worth keeping
+# becomes a test case, not a binary blob in git.
+/fuzz/target
+/fuzz/corpus
+/fuzz/artifacts

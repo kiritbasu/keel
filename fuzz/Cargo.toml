@@ -1,0 +1,46 @@
+# Fuzz targets, kept out of the workspace on purpose.
+#
+# `cargo-fuzz` needs nightly — libFuzzer arrives through `-Z sanitizer=address`
+# — and a workspace member would drag that requirement onto every ordinary
+# `cargo build`. `[workspace]` here makes this its own workspace, which is what
+# `cargo fuzz init` does and what keeps `cargo test --workspace` on stable.
+
+[package]
+name = "keel-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+keel-core = { path = "../crates/keel-core" }
+serde_json = "1"
+
+[workspace]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "confine_path"
+path = "fuzz_targets/confine_path.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fts_query"
+path = "fuzz_targets/fts_query.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_id"
+path = "fuzz_targets/parse_id.rs"
+test = false
+doc = false
+bench = false

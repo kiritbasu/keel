@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # Sunday morning, for the discovery jobs at the bottom of this file. They are
+  # too slow to sit in front of a merge and their output is something to read
+  # rather than something to satisfy.
+  schedule:
+    - cron: "0 6 * * 0"
 
 env:
   CARGO_TERM_COLOR: always
@@ -12,8 +17,19 @@ env:
 
 jobs:
   check:
-    name: fmt · clippy · test
-    runs-on: macos-latest
+    name: fmt · clippy · test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Both finish. A failure on one platform should not hide the result on
+      # the other, which is the whole reason for testing two.
+      fail-fast: false
+      matrix:
+        # Linux is not decoration. This is a local-first SQLite tool, and the
+        # two things most likely to differ between platforms are the two it
+        # depends on most: file locking, and path handling. The path-traversal
+        # finding that produced `safe_path` was in exactly that area, and it
+        # was only ever exercised on macOS.
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -38,6 +54,26 @@ jobs:
       - name: Test
         run: cargo test --workspace
 
+  snapshots:
+    name: snapshots · no drift, no strays
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-insta
+
+      # The snapshots are the MCP API contract, and `cargo test` already fails
+      # when one differs. What it does not catch is a snapshot file nothing
+      # asserts on any more — left behind by a renamed or deleted test, still
+      # committed, and read by the next person as though it described something
+      # real. `--unreferenced=reject` is the difference between a contract and
+      # a folder of old contracts.
+      - name: Snapshot drift and unreferenced files
+        run: cargo insta test --workspace --unreferenced=reject
+
   deny:
     name: licences · advisories
     runs-on: ubuntu-latest
@@ -46,3 +82,106 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
+
+  # --- Discovery, not gates -------------------------------------------------
+  #
+  # Everything below is scheduled and non-blocking, deliberately. At one
+  # developer a coverage threshold that fails a PR is a number people learn to
+  # satisfy rather than a question they answer, and mutation testing is far too
+  # slow to sit in front of a merge. These run weekly and publish artifacts to
+  # read, which is the useful shape: they are for finding holes, not for
+  # refusing work.
+
+  coverage:
+    name: coverage (reported, not enforced)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Measure
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+
+      - name: Summarise
+        run: cargo llvm-cov report --summary-only | tee coverage-summary.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            lcov.info
+            coverage-summary.txt
+
+  mutants:
+    name: mutation testing (discovery)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    # Mutation testing rebuilds and re-tests once per mutant. Bounded so a
+    # runaway run cannot hold a runner all day.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants
+
+      # Scoped to the files where a surviving mutant would be a real hole: the
+      # graph traversal (an inverted walk returns a plausible empty set), the
+      # blocked/ready derivation (a wrong answer looks like work you can pick
+      # up), path confinement, and the id parser. Running it over the whole
+      # workspace would take hours and spend most of them on rendering code
+      # whose mutants a snapshot already catches.
+      - name: Mutate the load-bearing files
+        run: |
+          cargo mutants --no-shuffle -j 2 \
+            --file crates/keel-core/src/store/graph.rs \
+            --file crates/keel-core/src/next.rs \
+            --file crates/keel-core/src/safe_path.rs \
+            --file crates/keel-core/src/id.rs \
+            || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutants
+          path: mutants.out/
+
+  fuzz:
+    name: fuzz smoke (60s per target)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # cargo-fuzz needs nightly: libFuzzer arrives through
+      # `-Z sanitizer=address`, which is not on stable.
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+
+      # Sixty seconds each. Not enough to prove anything, and that is fine —
+      # these three parse untrusted strings, and the question a smoke run
+      # answers is "does any input panic", which a minute of random bytes is
+      # surprisingly good at. A long campaign would belong in its own workflow
+      # with a corpus that persists between runs.
+      - name: Smoke each target
+        run: |
+          for target in confine_path fts_query parse_id; do
+            cargo fuzz run "$target" -- -max_total_time=60
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-artifacts
+          path: fuzz/artifacts/

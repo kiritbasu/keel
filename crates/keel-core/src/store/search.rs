@@ -122,7 +122,12 @@ fn placeholders(n: usize) -> String {
 /// `None` means the text held nothing searchable — punctuation, say. That is a
 /// query with no hits rather than an error: the caller typed something, it just
 /// contained no words.
-fn fts_match(text: &str) -> Option<String> {
+///
+/// Public so the fuzz target can reach it. This is the one function in the
+/// crate that takes a raw human string and produces something another language
+/// parses, which makes "what does it do with bytes nobody expected" a question
+/// worth asking a million times rather than four.
+pub fn fts_match(text: &str) -> Option<String> {
     let terms: Vec<String> = text
         .split_whitespace()
         .filter(|t| t.chars().any(char::is_alphanumeric))
