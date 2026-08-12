@@ -2,7 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # Both names. This repository's trunk is `master` and the trigger said
+    # `main`, so a push to trunk would not have started anything even once
+    # there is a remote to push to. Listing both costs nothing and removes a
+    # way for CI to be silently absent.
+    branches: [main, master]
   pull_request:
   workflow_dispatch:
   # Sunday morning, for the discovery jobs at the bottom of this file. They are
