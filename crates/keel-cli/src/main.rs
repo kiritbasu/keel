@@ -9,6 +9,7 @@
 //! arrives in Phase 1, with the dogfooding switch.
 
 mod bootstrap;
+mod doctor;
 mod gate;
 mod generate;
 mod import;
@@ -62,6 +63,22 @@ enum Command {
         ///
         /// Read through the daemon when one is running. It is the single
         /// writer, so going through it is what guarantees a consistent read.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
+        daemon: String,
+    },
+
+    /// Ask whether anything has quietly gone wrong.
+    ///
+    /// Composes every read-only check there is — the file's own integrity,
+    /// referential integrity, whether search has any vectors, whether the
+    /// committed markdown still matches the store, how old the backup is, and
+    /// whether the clock has stepped — into one page.
+    ///
+    /// Exits non-zero only for a real problem. A degraded store says so
+    /// without failing, because a check that cannot tell the two apart is one
+    /// nobody can put in a hook.
+    Doctor {
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
         #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
         daemon: String,
     },
@@ -395,6 +412,7 @@ fn main() -> Result<()> {
 
     match &cli.command {
         Command::Fsck { daemon } => run_fsck(&home, daemon, cli.json),
+        Command::Doctor { daemon } => doctor::run(&home, daemon, cli.json),
         Command::Backup { dest } => run_backup(&home, dest.clone(), cli.json),
         Command::Restore { source, target } => run_restore(source, target, cli.json),
         Command::Fixture => run_fixture(&home, cli.force, cli.json),
@@ -526,7 +544,7 @@ fn main() -> Result<()> {
 
 #[allow(clippy::too_many_arguments)]
 fn run_import(
-    home: &PathBuf,
+    home: &Path,
     files: &[PathBuf],
     project: &str,
     as_type: &str,
@@ -615,7 +633,7 @@ fn run_import(
     Ok(())
 }
 
-fn run_bootstrap(home: &PathBuf, repo: Option<String>, only: bool, json: bool) -> Result<()> {
+fn run_bootstrap(home: &Path, repo: Option<String>, only: bool, json: bool) -> Result<()> {
     let mut store = open(home)?;
     let summary = bootstrap::run(&mut store, repo)?;
 
@@ -701,7 +719,7 @@ pub(crate) fn resolve_project(store: &Store, reference: &str) -> Result<keel_cor
 const SHRINK_FLOOR: f64 = 0.5;
 
 fn run_render_status(
-    home: &PathBuf,
+    home: &Path,
     daemon: &str,
     project: &str,
     out: Option<PathBuf>,
@@ -949,12 +967,12 @@ fn read_via_daemon(base: &str, path: &str) -> Result<Option<serde_json::Value>> 
 /// `home` is the directory; the store is one file inside it. Every caller goes
 /// through `store_path` rather than joining a filename, because a surface that
 /// picks the wrong name gets a brand-new empty store instead of an error.
-fn open(home: &PathBuf) -> Result<Store> {
+fn open(home: &Path) -> Result<Store> {
     let path = keel_core::store_path(home);
     Store::open(&path).with_context(|| format!("open the store at {}", path.display()))
 }
 
-fn run_fsck(home: &PathBuf, daemon: &str, json: bool) -> Result<()> {
+fn run_fsck(home: &Path, daemon: &str, json: bool) -> Result<()> {
     let report: fsck::FsckReport = match read_via_daemon(daemon, "/api/fsck")? {
         Some(v) => serde_json::from_value(v).context("parse the daemon's fsck report")?,
         None => fsck::check(&open(home)?)?,
@@ -992,7 +1010,7 @@ fn run_fsck(home: &PathBuf, daemon: &str, json: bool) -> Result<()> {
     Ok(())
 }
 
-fn run_backup(home: &PathBuf, dest: Option<PathBuf>, json: bool) -> Result<()> {
+fn run_backup(home: &Path, dest: Option<PathBuf>, json: bool) -> Result<()> {
     let store = open(home)?;
     let dest = dest.unwrap_or_else(|| backup::default_backup_dir(home, chrono::Utc::now()));
 
@@ -1170,7 +1188,7 @@ fn run_fixture(home: &Path, force: bool, json: bool) -> Result<()> {
     Ok(())
 }
 
-fn run_status(home: &PathBuf, daemon: &str, json: bool) -> Result<()> {
+fn run_status(home: &Path, daemon: &str, json: bool) -> Result<()> {
     use keel_core::{EntityQuery, EntityStore, EntityType};
 
     let counts = match read_via_daemon(daemon, "/api/status")? {
@@ -1363,14 +1381,8 @@ mod render_status_tests {
         std::fs::write(&path, "x".repeat(10_000)).unwrap();
 
         let (home, _store) = store_with(&[("empty", "Empty")]);
-        let err = run_render_status(
-            &home.path().to_path_buf(),
-            NO_DAEMON,
-            "empty",
-            Some(path.clone()),
-            false,
-        )
-        .unwrap_err();
+        let err = run_render_status(home.path(), NO_DAEMON, "empty", Some(path.clone()), false)
+            .unwrap_err();
 
         let message = err.to_string();
         assert!(message.contains("refusing to write"), "{message}");
@@ -1388,14 +1400,7 @@ mod render_status_tests {
         std::fs::write(&path, "x".repeat(10_000)).unwrap();
 
         let (home, _store) = store_with(&[("empty", "Empty")]);
-        run_render_status(
-            &home.path().to_path_buf(),
-            NO_DAEMON,
-            "empty",
-            Some(path.clone()),
-            true,
-        )
-        .unwrap();
+        run_render_status(home.path(), NO_DAEMON, "empty", Some(path.clone()), true).unwrap();
         assert!(std::fs::read_to_string(&path).unwrap().len() < 10_000);
     }
 

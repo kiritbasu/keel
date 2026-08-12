@@ -1,0 +1,657 @@
+//! `keel doctor` — one command that asks whether anything has quietly gone
+//! wrong.
+//!
+//! This codebase's defining fear is a failure that looks calm and correct: an
+//! empty search result that should have had rows in it, a mirror describing a
+//! store from last week, a database that reads fine and has drifted from the
+//! repository beside it. Every one of those has a check somewhere — `fsck`,
+//! `generate --check`, a count of documents without vectors — and none of them
+//! is anywhere a person would look, because looking means knowing which
+//! question to ask.
+//!
+//! So this asks all of them and prints one page. It is read-only: nothing here
+//! writes to the store, generates a file or repairs anything, because the value
+//! is in being safe to run at any moment on any store, including one you are
+//! worried about.
+//!
+//! # What "healthy" means here
+//!
+//! Exit code is non-zero only for a **problem**, not for anything merely worth
+//! knowing. A store with no embeddings is degraded and says so; a store whose
+//! pages are damaged is broken. Conflating the two would make the exit code
+//! useless for a hook, which is the same mistake as a check that cries wolf.
+
+use anyhow::{Context, Result};
+use keel_core::{Entity, EntityQuery, EntityStore, EntityType, Store, fsck, generate};
+use serde::Serialize;
+use std::path::Path;
+
+/// How stale a backup has to be before it is worth mentioning.
+const BACKUP_STALE_DAYS: i64 = 7;
+
+/// How far ahead of the wall clock an id can be before the clock has stepped.
+///
+/// A second of slack absorbs ordinary drift between the moment an id was minted
+/// and the moment this reads the clock. Anything beyond it means the machine's
+/// clock went backwards — a laptop waking from sleep, an NTP correction — which
+/// is the condition that makes the event feed go silent.
+const CLOCK_SKEW_SECONDS: i64 = 1;
+
+/// How much a finding matters.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Level {
+    /// Nothing wrong.
+    Ok,
+    /// Working, but worse than it should be. Does not fail the exit code.
+    Degraded,
+    /// Actually broken. Fails the exit code.
+    Problem,
+}
+
+impl Level {
+    fn marker(self) -> &'static str {
+        match self {
+            Level::Ok => "ok     ",
+            Level::Degraded => "warn   ",
+            Level::Problem => "PROBLEM",
+        }
+    }
+}
+
+/// One thing that was checked.
+#[derive(Debug, Clone, Serialize)]
+pub struct Check {
+    /// A short name, stable enough to grep for.
+    pub name: String,
+    /// How it went.
+    pub level: Level,
+    /// What was found, in a sentence.
+    pub detail: String,
+    /// What to do about it. Empty when there is nothing to do.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub remedy: String,
+}
+
+impl Check {
+    fn ok(name: &str, detail: impl Into<String>) -> Self {
+        Check {
+            name: name.to_owned(),
+            level: Level::Ok,
+            detail: detail.into(),
+            remedy: String::new(),
+        }
+    }
+
+    fn degraded(name: &str, detail: impl Into<String>, remedy: impl Into<String>) -> Self {
+        Check {
+            name: name.to_owned(),
+            level: Level::Degraded,
+            detail: detail.into(),
+            remedy: remedy.into(),
+        }
+    }
+
+    fn problem(name: &str, detail: impl Into<String>, remedy: impl Into<String>) -> Self {
+        Check {
+            name: name.to_owned(),
+            level: Level::Problem,
+            detail: detail.into(),
+            remedy: remedy.into(),
+        }
+    }
+}
+
+/// The whole report.
+#[derive(Debug, Clone, Serialize)]
+pub struct Report {
+    /// Every check, in the order they ran.
+    pub checks: Vec<Check>,
+}
+
+impl Report {
+    /// Whether anything is actually broken.
+    pub fn is_healthy(&self) -> bool {
+        !self.checks.iter().any(|c| c.level == Level::Problem)
+    }
+}
+
+/// Run every check and print the result.
+pub fn run(home: &Path, daemon: &str, json: bool) -> Result<()> {
+    let report = examine(home, daemon)?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+    } else {
+        for check in &report.checks {
+            println!("{}  {}", check.level.marker(), check.name);
+            println!("         {}", check.detail);
+            if !check.remedy.is_empty() {
+                println!("         → {}", check.remedy);
+            }
+        }
+        println!();
+        let problems = report
+            .checks
+            .iter()
+            .filter(|c| c.level == Level::Problem)
+            .count();
+        let degraded = report
+            .checks
+            .iter()
+            .filter(|c| c.level == Level::Degraded)
+            .count();
+        if problems == 0 && degraded == 0 {
+            println!(
+                "healthy — {} checks, nothing to report",
+                report.checks.len()
+            );
+        } else {
+            println!(
+                "{} check(s): {problems} problem(s), {degraded} worth knowing",
+                report.checks.len()
+            );
+        }
+    }
+
+    if !report.is_healthy() {
+        std::process::exit(1);
+    }
+    Ok(())
+}
+
+/// Every check, without printing anything.
+///
+/// Separate from [`run`] so a test can assert on the findings rather than on
+/// stdout, and so a future surface can render the same report differently.
+pub fn examine(home: &Path, daemon: &str) -> Result<Report> {
+    let mut checks = Vec::new();
+
+    // --- Is a daemon up ---------------------------------------------------
+    //
+    // Not a problem either way: the CLI works without one. It is the first
+    // thing to say because it changes what every other line means — a check
+    // run against a store nothing is writing to is a different check.
+    checks.push(match crate::writes::probe(daemon) {
+        crate::writes::Daemon::Listening => Check::ok(
+            "daemon",
+            format!("a daemon is listening at {daemon} and owns the write path"),
+        ),
+        crate::writes::Daemon::NotRunning => Check::degraded(
+            "daemon",
+            format!("nothing is listening at {daemon}"),
+            "start it with `keel serve`, or ignore this if you meant to run without one — \
+             MCP and the desktop app both need it",
+        ),
+        crate::writes::Daemon::Unknown(why) => Check::degraded(
+            "daemon",
+            format!("could not tell whether a daemon is running at {daemon}: {why}"),
+            "check the address",
+        ),
+    });
+
+    // Opening read-only would be nicer, but `Store::open` runs migrations and
+    // there is no read-only constructor. It is safe alongside a daemon in WAL
+    // mode, which is the whole reason `fsck` stopped requiring one to be
+    // stopped (TQ-15).
+    let store = crate::open(home).context("open the store to examine it")?;
+
+    // --- The file itself --------------------------------------------------
+    checks.push(match fsck::page_integrity(&store, "quick_check") {
+        Ok(None) => Check::ok(
+            "page_integrity",
+            "SQLite reports the database file as sound",
+        ),
+        Ok(Some(problems)) => Check::problem(
+            "page_integrity",
+            format!("the database file is damaged: {problems}"),
+            "restore from a backup (`keel restore`), then check whether ~/.keel is inside a \
+             Dropbox, iCloud or network folder — copying .sqlite, -wal and -shm at different \
+             moments is the usual cause",
+        ),
+        Err(e) => Check::degraded(
+            "page_integrity",
+            format!("could not run the integrity check: {e}"),
+            "this is not a report that the store is damaged, only that nothing could tell",
+        ),
+    });
+
+    // --- Referential integrity -------------------------------------------
+    let fsck_report = fsck::check(&store).context("run the integrity checks")?;
+    let errors = fsck_report.errors().count();
+    let warnings = fsck_report.findings.len() - errors;
+    checks.push(if errors > 0 {
+        Check::problem(
+            "fsck",
+            format!(
+                "{errors} error-level finding(s) across {} checks: {}",
+                fsck_report.checks_run,
+                fsck_report
+                    .errors()
+                    .map(|f| f.check.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            "run `keel fsck` for the detail and the remedy for each",
+        )
+    } else if warnings > 0 {
+        Check::degraded(
+            "fsck",
+            format!(
+                "{warnings} warning(s) across {} checks",
+                fsck_report.checks_run
+            ),
+            "run `keel fsck` to see them — none of them stops anything working",
+        )
+    } else {
+        Check::ok(
+            "fsck",
+            format!("{} checks, nothing found", fsck_report.checks_run),
+        )
+    });
+
+    // --- Semantic search --------------------------------------------------
+    //
+    // The silent one. Search keeps answering with keyword hits, so a store with
+    // no vectors at all looks exactly like a store with them — which is how
+    // 227 documents went unembedded for months without anything saying so.
+    let (current, without) = embedding_coverage(&store)?;
+    checks.push(if current == 0 {
+        Check::ok("embeddings", "no documents yet, so nothing to embed")
+    } else if without == 0 {
+        Check::ok(
+            "embeddings",
+            format!("all {current} current document(s) have a vector"),
+        )
+    } else if without == current {
+        Check::degraded(
+            "embeddings",
+            format!(
+                "none of the {current} current document(s) has a vector, so hybrid search has \
+                 only ever returned keyword hits"
+            ),
+            "run `keel reembed --missing`, and start the daemon with embeddings enabled so new \
+             revisions are embedded on the way in",
+        )
+    } else {
+        Check::degraded(
+            "embeddings",
+            format!("{without} of {current} current document(s) have no vector"),
+            "run `keel reembed --missing`",
+        )
+    });
+
+    // --- The repository beside the store ---------------------------------
+    checks.extend(mirror_drift(&store)?);
+
+    // --- Backups ----------------------------------------------------------
+    checks.push(backup_age(home));
+
+    // --- The clock --------------------------------------------------------
+    //
+    // Everything about event ordering assumes ULIDs only ever grow, which is
+    // true within one process and false the moment the wall clock steps back.
+    // The newest id is the cheapest place to notice.
+    checks.push(clock_sanity(&store)?);
+
+    Ok(Report { checks })
+}
+
+/// How many current revisions there are, and how many lack an embedding.
+fn embedding_coverage(store: &Store) -> Result<(i64, i64)> {
+    let current: i64 = store
+        .connection()
+        .query_row(
+            "SELECT count(*) FROM documents WHERE status = 'current'",
+            [],
+            |r| r.get(0),
+        )
+        .context("count the current revisions")?;
+    let without: i64 = store
+        .connection()
+        .query_row(
+            "SELECT count(*) FROM documents WHERE status = 'current' AND embedding IS NULL",
+            [],
+            |r| r.get(0),
+        )
+        .context("count the revisions with no embedding")?;
+    Ok((current, without))
+}
+
+/// Whether each project's committed markdown still matches the store.
+///
+/// One check per project with a checkout, because "the mirror is stale" is only
+/// actionable if it says *which* repository. Projects with no `root_path`
+/// generate nothing and are skipped silently rather than reported as fine.
+fn mirror_drift(store: &Store) -> Result<Vec<Check>> {
+    let mut out = Vec::new();
+    let projects = store
+        .list(
+            &EntityQuery::default()
+                .of_type(EntityType::Project)
+                .limited(200),
+        )
+        .context("list the projects")?;
+
+    for entity in &projects.items {
+        let Entity::Project(project) = entity else {
+            continue;
+        };
+        let Some(root) = project.root_path.as_deref() else {
+            continue;
+        };
+        let expanded = expand_tilde(root);
+        if !expanded.exists() {
+            out.push(Check::degraded(
+                &format!("mirror:{}", project.slug),
+                format!("{} has no checkout at {root}", project.name),
+                "point root_path at the repository, or clear it if this project has none",
+            ));
+            continue;
+        }
+
+        match generate::all(store, &project.id, &expanded, generate::Mode::Check) {
+            Ok(report) if report.is_current() => out.push(Check::ok(
+                &format!("mirror:{}", project.slug),
+                format!(
+                    "{} matches the store ({} files)",
+                    root,
+                    report.unchanged.len()
+                ),
+            )),
+            Ok(report) => out.push(Check::degraded(
+                &format!("mirror:{}", project.slug),
+                format!(
+                    "{} file(s) in {root} differ from the store and {} are orphaned: {}",
+                    report.written.len(),
+                    report.orphans.len(),
+                    report
+                        .written
+                        .iter()
+                        .chain(report.orphans.iter())
+                        .take(5)
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+                format!("run `keel generate {}`", project.slug),
+            )),
+            // A generation that cannot even be attempted is worth saying, and
+            // it is a problem rather than drift: the confinement check refusing
+            // a stored path lands here.
+            Err(e) => out.push(Check::problem(
+                &format!("mirror:{}", project.slug),
+                format!("could not compare {root} against the store: {e}"),
+                "the message above names what is wrong with the recorded paths",
+            )),
+        }
+    }
+    Ok(out)
+}
+
+/// When the most recent backup was taken.
+fn backup_age(home: &Path) -> Check {
+    let dir = home.join("backups");
+    let newest = std::fs::read_dir(&dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(std::result::Result::ok)
+        .filter(|e| e.path().join("keel.sqlite").is_file())
+        .filter_map(|e| e.metadata().ok()?.modified().ok())
+        .max();
+
+    let Some(at) = newest else {
+        return Check::degraded(
+            "backup",
+            format!("no backup in {}", dir.display()),
+            "run `keel backup`. The store is one file and the whole recovery story starts here",
+        );
+    };
+
+    let age = std::time::SystemTime::now()
+        .duration_since(at)
+        .unwrap_or_default();
+    let days = age.as_secs() / 86_400;
+    if i64::try_from(days).unwrap_or(i64::MAX) > BACKUP_STALE_DAYS {
+        Check::degraded(
+            "backup",
+            format!("the most recent backup is {days} day(s) old"),
+            "run `keel backup`",
+        )
+    } else {
+        Check::ok("backup", format!("backed up {days} day(s) ago"))
+    }
+}
+
+/// Whether the newest id was minted in the future.
+///
+/// A ULID carries the millisecond its minter's clock said it was, so an id
+/// ahead of the wall clock means the clock went backwards after it was written.
+/// Every event read that assumes ids only grow is wrong until the clock catches
+/// up — the live feed goes silent, and the activity cursor skips whatever was
+/// written in between.
+fn clock_sanity(store: &Store) -> Result<Check> {
+    let newest: Option<String> = store
+        .connection()
+        .query_row("SELECT max(id) FROM events", [], |r| r.get(0))
+        .context("read the newest event id")?;
+
+    let Some(newest) = newest else {
+        return Ok(Check::ok("clock", "no events yet, so nothing to compare"));
+    };
+    let Some(minted) = keel_core::id::minted_at(&newest) else {
+        return Ok(Check::problem(
+            "clock",
+            format!("the newest event id `{newest}` is not a ULID"),
+            "something wrote an event id outside keel-core; run `keel fsck`",
+        ));
+    };
+
+    let now = chrono::Utc::now();
+    let ahead = (minted - now).num_seconds();
+    if ahead > CLOCK_SKEW_SECONDS {
+        Ok(Check::problem(
+            "clock",
+            format!(
+                "the newest event claims to have been written {ahead}s in the future \
+                 ({minted}). Ids are the ordering everything else relies on, so until the \
+                 clock catches up the live feed will not advance and the activity cursor will \
+                 skip whatever is written in the meantime"
+            ),
+            "check the system clock. A laptop waking from sleep or an NTP correction is the \
+             usual cause; the store repairs itself once the wall clock passes that instant",
+        ))
+    } else {
+        Ok(Check::ok(
+            "clock",
+            format!("the newest event id agrees with the wall clock (minted {minted})"),
+        ))
+    }
+}
+
+/// Expand a leading `~`, which `root_path` is allowed to carry.
+fn expand_tilde(path: &str) -> std::path::PathBuf {
+    match path.strip_prefix("~/") {
+        Some(rest) => match std::env::var_os("HOME") {
+            Some(home) => std::path::PathBuf::from(home).join(rest),
+            None => std::path::PathBuf::from(path),
+        },
+        None => std::path::PathBuf::from(path),
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    /// `root_path` is the one field allowed a leading `~`, because a human
+    /// types it into `keel adopt` and means their home directory.
+    #[test]
+    fn a_tilde_path_expands_and_anything_else_is_left_alone() {
+        // Read HOME rather than setting it: `set_var` is unsafe in edition
+        // 2024 and the workspace denies unsafe, and a test that mutates
+        // process-wide state is a test that breaks its neighbours anyway.
+        let home = std::env::var_os("HOME").expect("HOME is set in any environment this runs in");
+        assert_eq!(
+            expand_tilde("~/development/keel"),
+            std::path::PathBuf::from(&home).join("development/keel")
+        );
+        assert_eq!(
+            expand_tilde("/absolute/path"),
+            std::path::PathBuf::from("/absolute/path")
+        );
+        assert_eq!(
+            expand_tilde("relative/path"),
+            std::path::PathBuf::from("relative/path")
+        );
+    }
+
+    /// Port 1 on loopback: privileged, nothing binds it, so the probe reports
+    /// `NotRunning` without waiting.
+    const NO_DAEMON: &str = "http://127.0.0.1:1";
+
+    fn find<'a>(report: &'a Report, name: &str) -> &'a Check {
+        report
+            .checks
+            .iter()
+            .find(|c| c.name == name)
+            .unwrap_or_else(|| {
+                panic!(
+                    "no check called `{name}`; there were {:?}",
+                    report.checks.iter().map(|c| &c.name).collect::<Vec<_>>()
+                )
+            })
+    }
+
+    /// A store with nothing wrong with it reports nothing wrong with it.
+    ///
+    /// The check that matters most: a doctor that finds problems in a healthy
+    /// store is one nobody runs twice.
+    #[test]
+    fn a_fresh_store_has_no_problems() {
+        let dir = tempfile::tempdir().unwrap();
+        let _ = crate::open(dir.path()).unwrap();
+
+        let report = examine(dir.path(), NO_DAEMON).unwrap();
+        assert!(
+            report.is_healthy(),
+            "a fresh store should be healthy: {:#?}",
+            report
+                .checks
+                .iter()
+                .filter(|c| c.level == Level::Problem)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(find(&report, "page_integrity").level, Level::Ok);
+        assert_eq!(find(&report, "fsck").level, Level::Ok);
+        assert_eq!(
+            find(&report, "backup").level,
+            Level::Degraded,
+            "a store that has never been backed up is worth saying, and is not broken"
+        );
+    }
+
+    /// The silent failure this command exists for: search that has only ever
+    /// returned half its results and never said so.
+    #[test]
+    fn documents_with_no_vectors_are_reported_without_failing() {
+        use keel_core::{Actor, EntityStore, Project, Provenance, Spec};
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = crate::open(dir.path()).unwrap();
+        let prov = Provenance::anonymous(Actor::Claude);
+        let project = store
+            .create(Project::new("demo", "Demo").into(), &prov)
+            .unwrap()
+            .entity
+            .id()
+            .clone();
+        store
+            .create_with_document(
+                Spec::new(project, "A spec").into(),
+                Some("Prose with no vector attached, because no embedder is set.".to_owned()),
+                None,
+                &prov,
+            )
+            .unwrap();
+        drop(store);
+
+        let report = examine(dir.path(), NO_DAEMON).unwrap();
+        let check = find(&report, "embeddings");
+        assert_eq!(check.level, Level::Degraded);
+        assert!(
+            check.detail.contains("keyword"),
+            "it has to say what the user is actually losing: {}",
+            check.detail
+        );
+        assert!(report.is_healthy(), "degraded search is not a broken store");
+    }
+
+    /// A clock that stepped backwards makes every event read wrong until it
+    /// catches up, and nothing else would ever mention it.
+    #[test]
+    fn an_event_id_from_the_future_is_a_problem() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = crate::open(dir.path()).unwrap();
+
+        // A ULID whose timestamp is an hour ahead. Written directly, because
+        // the generator takes its stamp from the clock and there is no way to
+        // ask it for one from the future.
+        let future = chrono::Utc::now() + chrono::Duration::hours(1);
+        let ulid = ulid_at(future);
+        store
+            .connection()
+            .execute(
+                "INSERT INTO events (id, entity_id, entity_type, op, summary, actor, at) \
+                 VALUES (?1, 'tsk_01ZZZZZZZZZZZZZZZZZZZZZZZZ', 'task', 'created', 'from the \
+                 future', 'claude', ?2)",
+                [format!("evt_{ulid}"), future.to_rfc3339()],
+            )
+            .unwrap();
+        drop(store);
+
+        let report = examine(dir.path(), NO_DAEMON).unwrap();
+        let check = find(&report, "clock");
+        assert_eq!(check.level, Level::Problem);
+        assert!(
+            check.detail.contains("future"),
+            "the message must name the condition: {}",
+            check.detail
+        );
+        assert!(!report.is_healthy(), "this one does fail the exit code");
+    }
+
+    /// Build a ULID string whose timestamp is `at`. Crockford base-32, 26
+    /// characters: 10 for the millisecond, 16 of randomness we can leave zero.
+    fn ulid_at(at: chrono::DateTime<chrono::Utc>) -> String {
+        const ALPHABET: &[u8] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+        let mut ms = u64::try_from(at.timestamp_millis()).unwrap();
+        let mut head = [b'0'; 10];
+        for slot in head.iter_mut().rev() {
+            *slot = ALPHABET[(ms & 0x1f) as usize];
+            ms >>= 5;
+        }
+        format!("{}{}", std::str::from_utf8(&head).unwrap(), "0".repeat(16))
+    }
+
+    #[test]
+    fn a_report_with_only_warnings_is_still_healthy() {
+        let report = Report {
+            checks: vec![
+                Check::ok("a", "fine"),
+                Check::degraded("b", "worse than it should be", "do something"),
+            ],
+        };
+        assert!(
+            report.is_healthy(),
+            "degraded is not broken, and conflating them makes the exit code useless"
+        );
+
+        let broken = Report {
+            checks: vec![Check::problem("c", "broken", "fix it")],
+        };
+        assert!(!broken.is_healthy());
+    }
+}

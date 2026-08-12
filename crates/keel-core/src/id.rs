@@ -18,6 +18,23 @@ use std::fmt;
 /// The number of characters in a Crockford base-32 ULID.
 const ULID_LEN: usize = 26;
 
+/// When a prefixed id says it was minted.
+///
+/// A ULID's first 48 bits are a millisecond timestamp, so an id carries its own
+/// creation time and nothing has to store one alongside it. `None` means the
+/// string is not a prefixed ULID at all.
+///
+/// This is a *claim*, not a fact: it is whatever the clock said on the machine
+/// that minted it. That is exactly what makes it worth reading — an id whose
+/// stamp is in the future is how a clock step announces itself, and comparing
+/// the newest id against the wall clock is the cheapest sanity check available
+/// for the ordering everything else assumes.
+pub fn minted_at(id: &str) -> Option<chrono::DateTime<chrono::Utc>> {
+    let body = id.split_once('_').map_or(id, |(_, rest)| rest);
+    let ulid = ulid::Ulid::from_string(body).ok()?;
+    chrono::DateTime::from_timestamp_millis(i64::try_from(ulid.timestamp_ms()).ok()?)
+}
+
 /// The process-wide monotonic ULID source.
 ///
 /// **This must not be replaced with `Ulid::new()`.** A plain ULID re-randomises
