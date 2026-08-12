@@ -20,6 +20,7 @@
 //! `budget_exceeded`. That is not a failure — it is the store telling you the
 //! open-question register needs pruning, which is real information.
 
+use keel_core::store::EventScope;
 use keel_core::{
     Cursor, Entity, EntityId, EntityQuery, EntityStore, EntityType, MilestoneStatus,
     QuestionStatus, Result, Store, TaskStatus,
@@ -776,17 +777,24 @@ fn recent_activity(
     since: Option<chrono::DateTime<chrono::Utc>>,
     limit: usize,
 ) -> Result<Vec<String>> {
-    let cursor = match since {
-        Some(t) => Cursor::Since(t),
-        None => Cursor::Beginning,
+    // `since` still goes through the feed: it is a bounded window, so reading
+    // it forwards cannot lose the newest rows. Everything else asks for the
+    // newest directly — reading 2,000 oldest-first and keeping the tail was
+    // right only while the log was under 2,000, and wrong quietly after that.
+    let page = match since {
+        Some(t) => {
+            let mut page = store.events(&Cursor::Since(t), project, 2_000)?;
+            page.items.reverse();
+            page
+        }
+        None => store.recent_events(
+            project.map_or(EventScope::Everything, EventScope::Project),
+            limit,
+        )?,
     };
-    // Read generously and keep the tail: `events` returns oldest-first so a
-    // cursor caller sees no gaps, but "recently" wants the newest.
-    let page = store.events(&cursor, project, 2_000)?;
     Ok(page
         .items
         .iter()
-        .rev()
         .take(limit)
         .map(|e| {
             format!(

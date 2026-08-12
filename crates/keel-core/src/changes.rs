@@ -127,10 +127,21 @@ pub struct ChangeQuery {
 pub fn by_session(store: &Store, query: &ChangeQuery) -> Result<ChangeLog> {
     let limit = if query.limit == 0 { 300 } else { query.limit };
 
-    let events = store.events(
-        &crate::Cursor::Beginning,
-        query.project_id.as_ref(),
-        100_000,
+    // Newest first, and only as many as could possibly survive the cut.
+    //
+    // This read used to ask for the oldest 100,000, which is the whole log
+    // today and the wrong end of it later. Asking for `limit` events would be
+    // too few, because notes are merged in afterwards and a note can displace
+    // an event — but ten times the limit cannot plausibly be displaced, and
+    // `truncated` still reports honestly either way.
+    let events = store.recent_events(
+        query
+            .project_id
+            .as_ref()
+            .map_or(crate::store::EventScope::Everything, |p| {
+                crate::store::EventScope::Project(p)
+            }),
+        limit.saturating_mul(10).max(1_000),
     )?;
     let notes = notes_for(store, query)?;
 

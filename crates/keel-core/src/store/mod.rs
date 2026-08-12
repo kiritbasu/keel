@@ -384,6 +384,21 @@ impl<T> Page<T> {
     }
 }
 
+/// What a newest-first event read covers.
+///
+/// Its own type rather than two optional parameters, because "no project and no
+/// entity" and "every project" are the same call with different meanings, and a
+/// pair of `Option`s cannot say which was meant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventScope<'a> {
+    /// Every event in the store.
+    Everything,
+    /// Every event tagged with this project.
+    Project(&'a EntityId),
+    /// One row's own history.
+    Entity(&'a EntityId),
+}
+
 /// Filters for listing entities.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct EntityQuery {
@@ -644,6 +659,24 @@ pub trait EntityStore {
         project_id: Option<&EntityId>,
         limit: usize,
     ) -> Result<Page<Event>>;
+
+    /// The newest `limit` events in a scope, most recent first.
+    ///
+    /// The counterpart to [`EntityStore::events`], which is a *feed*: it goes
+    /// oldest-first because a cursor-following caller must see every event
+    /// exactly once, and a limit there keeps the beginning.
+    ///
+    /// Four callers wanted the other end and all four asked the feed for a
+    /// generous number of rows and reversed the answer in Rust. That is right
+    /// until the log passes the number, and then it is silently, plausibly
+    /// wrong: it keeps the *oldest* rows and calls them recent. One of the four
+    /// was already broken in the live store — the 409 payload read the oldest
+    /// 500 events out of 804, so an agent resolving a stale write was shown
+    /// history from before the conflict and nothing near it.
+    ///
+    /// `total` is the number of events in scope, so a caller can still say what
+    /// it left out.
+    fn recent_events(&self, scope: EventScope<'_>, limit: usize) -> Result<Page<Event>>;
 
     /// Turn whatever a caller wrote into an id: a ULID, or `KEEL-42`.
     ///

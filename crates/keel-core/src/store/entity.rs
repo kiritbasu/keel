@@ -1593,6 +1593,36 @@ impl EntityStore for Store {
         ))
     }
 
+    fn recent_events(
+        &self,
+        scope: crate::store::EventScope<'_>,
+        limit: usize,
+    ) -> Result<Page<Event>> {
+        use crate::store::EventScope;
+
+        let (where_clause, params): (&str, Vec<Value>) = match scope {
+            EventScope::Everything => ("", Vec::new()),
+            EventScope::Project(p) => (" WHERE project_id = ?", vec![id_param(p)]),
+            EventScope::Entity(e) => (" WHERE entity_id = ?", vec![id_param(e)]),
+        };
+
+        let total = count(
+            self.connection(),
+            &format!("SELECT count(*) FROM events{where_clause}"),
+            params.clone(),
+        )?;
+
+        // Descending in SQL, so the *engine* decides which rows to keep. The
+        // whole bug this replaces was making that decision in Rust, after the
+        // engine had already thrown the interesting half away.
+        let sql =
+            format!("{EVENT_COLUMNS} FROM events{where_clause} ORDER BY id DESC LIMIT {limit}");
+        Ok(Page::new(
+            query_events(self.connection(), &sql, params)?,
+            total,
+        ))
+    }
+
     fn resolve_ref(&self, reference: &str) -> Result<Option<EntityId>> {
         // A ULID is already the answer. Checking it first means the common case
         // costs nothing and a readable reference can never shadow a real id.

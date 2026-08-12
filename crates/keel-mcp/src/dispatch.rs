@@ -45,23 +45,22 @@ pub fn to_rpc_error(store: &Store, err: Error) -> RpcError {
                 .and_then(|i| store.get(&i).ok().flatten())
                 .map(|e| entity_json(&e));
 
+            // Newest first, scoped to this row, and asked of the index rather
+            // than filtered in Rust.
+            //
+            // This read used to take the oldest 500 events in the whole store
+            // and filter them down. The live store passed 500 long ago, so an
+            // agent handed a 409 was shown history from before the conflict and
+            // nothing near it — which is worse than showing none, because it
+            // looks like an answer.
             let events_since = EntityId::parse(id)
                 .ok()
                 .and_then(|i| {
                     store
-                        .events(&Cursor::Beginning, None, 500)
+                        .recent_events(keel_core::store::EventScope::Entity(&i), 20)
                         .ok()
-                        .map(|page| (i, page))
                 })
-                .map(|(i, page)| {
-                    page.items
-                        .into_iter()
-                        .filter(|e| e.entity_id == i)
-                        .rev()
-                        .take(20)
-                        .collect::<Vec<_>>()
-                })
-                .and_then(|evts| serde_json::to_value(evts).ok());
+                .and_then(|page| serde_json::to_value(page.items).ok());
 
             RpcError::new(codes::CONFLICT, err.to_string()).with_data(json!({
                 "latest_version": latest,

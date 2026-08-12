@@ -16,8 +16,8 @@
 //! read back.
 
 use crate::{
-    Cursor, Entity, EntityId, EntityQuery, EntityStore, EntityType, Error, MilestoneStatus, Note,
-    Result, Store, TaskStatus,
+    Entity, EntityId, EntityQuery, EntityStore, EntityType, Error, MilestoneStatus, Note, Result,
+    Store, TaskStatus,
 };
 use std::fmt::Write as _;
 
@@ -339,7 +339,12 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
     // --- Changelog -------------------------------------------------------
     // Derived from the event log rather than hand-written, which is the whole
     // point: the log already knows what happened and who did it.
-    let events = store.events(&Cursor::Beginning, Some(project_id), 5_000)?;
+    //
+    // Newest first from the engine. Reading the oldest 5,000 and reversing was
+    // right until the project's log passed 5,000, at which point the changelog
+    // would have frozen — still forty rows, still plausible, describing a week
+    // that had scrolled off the top.
+    let events = store.recent_events(crate::store::EventScope::Project(project_id), 5_000)?;
     if !events.items.is_empty() {
         writeln!(out, "---")?;
         writeln!(out)?;
@@ -349,7 +354,7 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
         writeln!(out, "|---|---|---|")?;
         // Newest first, and capped — but the cap is stated, never silent.
         let shown = 40.min(events.items.len());
-        for e in events.items.iter().rev().take(shown) {
+        for e in events.items.iter().take(shown) {
             writeln!(
                 out,
                 "| {} | {} | {} |",
