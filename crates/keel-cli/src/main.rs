@@ -122,7 +122,13 @@ enum Command {
     /// effect of whichever command opened the store first after an upgrade.
     Migrate {
         /// The daemon to check for before touching anything.
-        #[arg(long, default_value = "http://127.0.0.1:7171")]
+        ///
+        /// Same default and same environment variable as every other command
+        /// with this flag. A migrate pointed at a port nothing is listening on
+        /// would conclude no daemon is running and change the schema under one
+        /// that is — which is the exact failure this command exists to prevent,
+        /// arriving through a typo in its own default.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
         daemon: String,
         /// Say what would be applied, and apply nothing.
         #[arg(long)]

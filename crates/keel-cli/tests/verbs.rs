@@ -340,3 +340,31 @@ fn generate_check_notices_a_hand_edit() {
         "the report should name the file that differs: {out}"
     );
 }
+
+/// Every command that takes `--daemon` defaults to the same place.
+///
+/// `keel migrate` shipped with `7171` where everything else has `7654`, which
+/// is worse than a cosmetic slip: a migrate pointed at a port nothing is
+/// listening on concludes no daemon is running and changes the schema under one
+/// that is. That is the exact failure the command exists to prevent, arriving
+/// through a typo in its own default.
+#[test]
+fn every_daemon_flag_points_at_the_same_daemon() {
+    let source = include_str!("../src/main.rs");
+
+    let mut defaults: Vec<&str> = source
+        .match_indices("default_value = \"http://")
+        .filter_map(|(at, _)| {
+            let rest = &source[at + "default_value = \"".len()..];
+            rest.find('"').map(|end| &rest[..end])
+        })
+        .collect();
+    defaults.sort_unstable();
+    defaults.dedup();
+
+    assert_eq!(
+        defaults.len(),
+        1,
+        "the CLI has more than one idea of where the daemon lives: {defaults:?}"
+    );
+}
