@@ -14,6 +14,15 @@ use keel_mcp::protocol::{
 use serde_json::{Value, json};
 use std::convert::Infallible;
 
+/// The largest request body the daemon will read.
+///
+/// Generous, because `keel_create` carries an inline image and the tool
+/// documents a 1 MB decoded ceiling — base64 inflates that by a third, and a
+/// limit that refuses a legitimate screenshot would be discovered by a user
+/// rather than by a test. Small enough that a runaway client cannot make the
+/// daemon hold hundreds of megabytes it will never use.
+pub const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
+
 /// Build the router.
 pub fn router(state: AppState) -> Router {
     Router::new()
@@ -73,7 +82,48 @@ pub fn router(state: AppState) -> Router {
                 .allow_headers(tower_http::cors::Any),
         )
         .layer(tower_http::trace::TraceLayer::new_for_http())
+        // A cap on how much the daemon will read, and a handler that explains
+        // it in the shape the caller is speaking.
+        //
+        // Axum's own answer to an oversized body is a bare 413 with no body at
+        // all. An MCP client parses that as a broken server rather than as a
+        // request it should make smaller — so the one error a caller could
+        // actually act on was the one that arrived unreadable.
+        .layer(axum::middleware::from_fn(explain_body_limit))
+        .layer(axum::extract::DefaultBodyLimit::max(MAX_BODY_BYTES))
         .with_state(state)
+}
+
+/// Turn a bare 413 into a JSON-RPC error that names the limit.
+///
+/// A middleware rather than a change at each handler, because the rejection
+/// happens in the extractor — before any handler runs — so there is nowhere
+/// else to catch it.
+async fn explain_body_limit(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let response = next.run(request).await;
+    if response.status() != StatusCode::PAYLOAD_TOO_LARGE {
+        return response;
+    }
+
+    (
+        StatusCode::PAYLOAD_TOO_LARGE,
+        Json(json!({
+            "jsonrpc": "2.0",
+            "error": {
+                "code": codes::INVALID_REQUEST,
+                "message": format!(
+                    "the request body is larger than {} bytes, which is this daemon's limit. \
+                     An inline image is the usual cause: pass `image_path` instead, so the \
+                     daemon reads the file itself and the bytes never travel as base64.",
+                    MAX_BODY_BYTES
+                )
+            }
+        })),
+    )
+        .into_response()
 }
 
 /// Serve a JSON-RPC response with the right status.
@@ -121,9 +171,11 @@ fn origin_ok(headers: &HeaderMap) -> bool {
         return true;
     };
     let normalised = origin.trim().to_ascii_lowercase();
-    if normalised == "null" {
-        return true;
-    }
+    // `null` used to be allowed, and it is the one value that must not be. A
+    // browser sends `Origin: null` from a sandboxed iframe, a `file://` page
+    // and a redirected cross-origin request — which is to say, from exactly
+    // the contexts an attacker can arrange and a local client never uses. It
+    // was the widest hole in the check, wearing the costume of an edge case.
     is_local_origin(&normalised)
 }
 
@@ -155,9 +207,26 @@ fn is_local_origin(normalised: &str) -> bool {
 
 /// The MCP endpoint.
 async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: String) -> Response {
-    // Before the Origin check and before the store is touched. The point is to
-    // spend as little as possible on a call that is not going to be served —
-    // an agent in a loop is cheap to refuse and expensive to answer.
+    // First, before anything is spent on this request.
+    if !origin_ok(&headers) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": codes::INVALID_REQUEST,
+                    "message": "rejected by Origin check: this daemon serves local clients only"
+                }
+            })),
+        )
+            .into_response();
+    }
+
+    // After the Origin check, and that order is the point. The limiter used to
+    // run first, so any web page the user had open could spend the whole
+    // budget on requests that were going to be refused anyway — a denial of
+    // service that costs the attacker one fetch and the user their next tool
+    // call. Checking who is asking before charging them is free.
     if let Err(retry_after) = state.rate_limit.check() {
         return (
             StatusCode::TOO_MANY_REQUESTS,
@@ -172,20 +241,6 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
                          sending it again — the same call will fail the same way.",
                         retry_after.as_secs()
                     )
-                }
-            })),
-        )
-            .into_response();
-    }
-
-    if !origin_ok(&headers) {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(json!({
-                "jsonrpc": "2.0",
-                "error": {
-                    "code": codes::INVALID_REQUEST,
-                    "message": "rejected by Origin check: this daemon serves local clients only"
                 }
             })),
         )
@@ -1372,7 +1427,6 @@ mod tests {
             "https://localhost",
             "tauri://localhost",
             "HTTP://LOCALHOST:1420",
-            "null",
         ] {
             assert!(origin_ok(&headers_with(ok)), "{ok} should be allowed");
         }
@@ -1393,6 +1447,11 @@ mod tests {
             "https://evil.example#http://localhost",
             "file:///etc/passwd",
             "localhost",
+            // The one that used to be on the allowed list. A browser sends
+            // it from a sandboxed iframe, a `file://` page and a redirected
+            // cross-origin request — every context an attacker can arrange,
+            // and none that a real MCP client ever produces.
+            "null",
         ] {
             assert!(!origin_ok(&headers_with(bad)), "{bad} should be rejected");
         }
