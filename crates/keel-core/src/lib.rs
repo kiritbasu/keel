@@ -31,6 +31,7 @@ pub mod document;
 pub mod embed;
 pub mod entity;
 pub mod enums;
+pub mod environment;
 pub mod error;
 pub mod event;
 pub mod fixture;
@@ -69,6 +70,7 @@ pub use enums::{
     MetricDirection, MilestoneKind, MilestoneStatus, ProjectStatus, QuestionKind, QuestionStatus,
     RiskSeverity, Sentiment, SpecKind, SpecStatus, TaskKind, TaskPriority, TaskStatus,
 };
+pub use environment::{Hazard, hazards};
 pub use error::{Error, Result};
 pub use event::{Action, Cursor, Event, NewEvent};
 pub use fsck::{Finding, FsckReport, Severity};

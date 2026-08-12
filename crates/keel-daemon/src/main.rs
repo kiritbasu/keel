@@ -62,8 +62,44 @@ async fn main() -> Result<()> {
         }
     };
 
-    let state = AppState::open(&home, args.embeddings)
-        .with_context(|| format!("open the Keel store at {}", home.display()))?;
+    // Before anything is opened, because it is a statement about the location
+    // rather than about the store, and because a person reading a log after a
+    // corruption should find it above the failure rather than below it.
+    for hazard in keel_core::hazards(&home) {
+        tracing::warn!(
+            home = %home.display(),
+            "{}. {}",
+            hazard.detail(),
+            hazard.remedy()
+        );
+    }
+
+    let state = match AppState::open(&home, args.embeddings) {
+        Ok(state) => state,
+        // Exit zero on a store that will not open, and do not pretend that is
+        // success — say exactly what happened first.
+        //
+        // The audience for the exit code is launchd, whose `KeepAlive` with
+        // `SuccessfulExit: false` restarts on a *non-zero* exit. A store that
+        // cannot be opened will not open on the next attempt either, so exiting
+        // non-zero produces a restart every few seconds: a loop that re-runs
+        // migration and re-attempts the model download forever, buries the real
+        // error under thousands of copies of itself, and looks from the outside
+        // like a crashing daemon rather than a store that needs attention.
+        //
+        // Staying down is the correct response to an unrecoverable condition,
+        // and zero is how you say "stay down" to launchd.
+        Err(e) => {
+            tracing::error!(
+                home = %home.display(),
+                error = %format!("{e:#}"),
+                "the store could not be opened, and this will not fix itself on a retry. \
+                 Exiting without restarting — run `keel doctor` to see what is wrong, and \
+                 `keel restore` if the file is damaged"
+            );
+            return Ok(());
+        }
+    };
 
     let app = router(state.clone());
     let listener = tokio::net::TcpListener::bind(args.bind)

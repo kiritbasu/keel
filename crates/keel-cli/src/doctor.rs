@@ -190,6 +190,37 @@ pub fn examine(home: &Path, daemon: &str) -> Result<Report> {
         ),
     });
 
+    // --- Is the store somewhere safe to keep a SQLite database ------------
+    //
+    // Degraded rather than a problem, because the detection is a heuristic and
+    // an exit code that fails on a false positive is one nobody can put in a
+    // hook. It is high in the report on purpose: it is the condition that
+    // explains a `page_integrity` finding further down.
+    let hazards = keel_core::hazards(home);
+    checks.push(if hazards.is_empty() {
+        Check::ok(
+            "location",
+            format!(
+                "{} is not under a known sync or network root",
+                home.display()
+            ),
+        )
+    } else {
+        Check::degraded(
+            "location",
+            hazards
+                .iter()
+                .map(keel_core::Hazard::detail)
+                .collect::<Vec<_>>()
+                .join("; "),
+            hazards
+                .iter()
+                .map(keel_core::Hazard::remedy)
+                .collect::<Vec<_>>()
+                .join("; "),
+        )
+    });
+
     // --- Is the schema where this binary expects it -----------------------
     //
     // Before the store is opened, because it decides whether it can be. This
@@ -562,6 +593,44 @@ mod tests {
                     report.checks.iter().map(|c| &c.name).collect::<Vec<_>>()
                 )
             })
+    }
+
+    /// A store inside a sync client's folder is called out, with the fix.
+    ///
+    /// Degraded rather than a problem: the detection is a path heuristic, and a
+    /// check that fails the exit code on a false positive is one nobody can put
+    /// in a hook.
+    #[test]
+    fn a_store_in_a_synced_folder_is_reported_without_failing_the_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("Dropbox").join(".keel");
+        std::fs::create_dir_all(&home).unwrap();
+        let _ = crate::open(&home).unwrap();
+
+        let report = examine(&home, NO_DAEMON).unwrap();
+        let location = find(&report, "location");
+
+        assert_eq!(location.level, Level::Degraded);
+        assert!(location.detail.contains("Dropbox"), "{location:?}");
+        assert!(
+            location.remedy.contains("keel backup"),
+            "the remedy should say to take a consistent snapshot first: {location:?}"
+        );
+        assert!(
+            report.is_healthy(),
+            "a location warning must not fail the exit code"
+        );
+    }
+
+    /// And an ordinary home says so, which is the half that would break
+    /// silently if the matcher were too eager.
+    #[test]
+    fn an_ordinary_home_reports_its_location_as_fine() {
+        let dir = tempfile::tempdir().unwrap();
+        let _ = crate::open(dir.path()).unwrap();
+
+        let report = examine(dir.path(), NO_DAEMON).unwrap();
+        assert_eq!(find(&report, "location").level, Level::Ok);
     }
 
     /// A store the binary is not allowed to open still gets a report.
