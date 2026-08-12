@@ -470,3 +470,78 @@ fn ready_skips_what_is_blocked_and_what_is_waiting_on_a_person() {
         "a decision is not work — nothing can start on it until a person answers"
     );
 }
+
+// --- Failing closed ------------------------------------------------------
+
+/// A blocker Keel cannot read must not be treated as a blocker that is not
+/// there.
+///
+/// The check used to be `matches!(store.get(…), Ok(Some(e)) if is_live(&e))`,
+/// which reads almost identically and turns a storage error into "no live
+/// blocker". One unreadable link row therefore promoted a genuinely blocked
+/// task onto the ready list — a silent false negative, and the shape this
+/// codebase is most afraid of, because the wrong answer is a piece of work
+/// somebody starts.
+#[test]
+fn an_unreadable_blocker_keeps_the_task_off_the_ready_list() {
+    let mut f = setup();
+    let blocked = f.task("The blocked work", TaskPriority::P0, TaskStatus::Todo);
+    let blocker = f.question("What is stopping it");
+    f.blocks(&blocker, &blocked);
+
+    // Corrupt the blocker behind the API, the way the fsck tests do. `status`
+    // is an enum on the way in, so a value outside it makes `get` fail rather
+    // than return a row.
+    f.store
+        .connection()
+        .execute(
+            "UPDATE questions SET status = 'not-a-status' WHERE id = ?1",
+            [blocker.as_str()],
+        )
+        .unwrap();
+
+    let blocked_set = next::blocked_tasks(&f.store, &f.project).unwrap();
+    assert!(
+        blocked_set.contains(&blocked),
+        "an unreadable blocker was read as no blocker, and the task became ready"
+    );
+
+    let ranked = f.rank();
+    assert!(
+        !ranked.ready.iter().any(|r| r.id == blocked),
+        "the task appeared on the ready list despite an unreadable blocker"
+    );
+    assert!(
+        ranked.blocked.iter().any(|b| b.id == blocked),
+        "the task should be reported blocked, with a reason"
+    );
+}
+
+/// And the reason says what is wrong, rather than leaving a task blocked by
+/// nothing anybody can see.
+#[test]
+fn an_unreadable_blocker_names_itself_in_the_reason() {
+    let mut f = setup();
+    let blocked = f.task("The blocked work", TaskPriority::P0, TaskStatus::Todo);
+    let blocker = f.question("What is stopping it");
+    f.blocks(&blocker, &blocked);
+    f.store
+        .connection()
+        .execute(
+            "UPDATE questions SET status = 'not-a-status' WHERE id = ?1",
+            [blocker.as_str()],
+        )
+        .unwrap();
+
+    let ranked = f.rank();
+    let row = ranked
+        .blocked
+        .iter()
+        .find(|b| b.id == blocked)
+        .expect("the task is blocked");
+    assert!(
+        row.why.contains("fsck"),
+        "a blocked row with an unreadable blocker should tell you how to find out why: {}",
+        row.why
+    );
+}

@@ -107,10 +107,38 @@ pub fn blocked_tasks(
         if is_closed(task.status) {
             continue;
         }
-        let has_live_blocker = store
-            .neighbours(&task.id, Direction::Inbound, &[Relation::Blocks], 1)?
-            .into_iter()
-            .any(|n| matches!(store.get(&n.id), Ok(Some(e)) if is_live(&e)));
+        // Fail closed. `matches!(store.get(…), Ok(Some(e)) if is_live(&e))`
+        // read almost identically and treated a storage error as "no live
+        // blocker" — so one unreadable link row promoted a genuinely blocked
+        // task to ready, in `keel_ready` and in the module the docs call the
+        // definition of blocked. That is the silent false-negative this
+        // codebase is most afraid of: an answer that looks like work you can
+        // start.
+        //
+        // Unreadable now means blocked. It is the conservative direction: the
+        // worst case is a task that stays off the ready list until `fsck`
+        // explains why, rather than one an agent picks up and cannot finish.
+        let mut has_live_blocker = false;
+        for neighbour in store.neighbours(&task.id, Direction::Inbound, &[Relation::Blocks], 1)? {
+            match store.get(&neighbour.id) {
+                Ok(Some(e)) if is_live(&e) => {
+                    has_live_blocker = true;
+                    break;
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    tracing::warn!(
+                        task = %task.id,
+                        blocker = %neighbour.id,
+                        error = %e,
+                        "could not read a blocker; treating the task as blocked rather than \
+                         reporting it ready. Run `keel fsck`."
+                    );
+                    has_live_blocker = true;
+                    break;
+                }
+            }
+        }
         if has_live_blocker {
             blocked.insert(task.id.clone());
         }
@@ -151,14 +179,27 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
         // Inbound `blocks` edges — what is stopping this. Only live blockers
         // count: a blocker that is finished is not a blocker, and leaving it
         // in would freeze work forever behind something already done.
-        let blockers: Vec<String> = store
-            .neighbours(&task.id, Direction::Inbound, &[Relation::Blocks], 1)?
-            .into_iter()
-            .filter_map(|n| match store.get(&n.id) {
-                Ok(Some(e)) if is_live(&e) => Some(e.label().to_owned()),
-                _ => None,
-            })
-            .collect();
+        //
+        // Fail closed here too, for the same reason as `blocked_tasks`: an
+        // unreadable blocker becomes a named blocker rather than no blocker,
+        // so this task stays off the ready list. The label says why, because a
+        // blocked task with no visible reason is its own kind of dead end.
+        let mut blockers: Vec<String> = Vec::new();
+        for neighbour in store.neighbours(&task.id, Direction::Inbound, &[Relation::Blocks], 1)? {
+            match store.get(&neighbour.id) {
+                Ok(Some(e)) if is_live(&e) => blockers.push(e.label().to_owned()),
+                Ok(_) => {}
+                Err(e) => {
+                    tracing::warn!(
+                        task = %task.id,
+                        blocker = %neighbour.id,
+                        error = %e,
+                        "could not read a blocker while ranking"
+                    );
+                    blockers.push(format!("{} (unreadable — run `keel fsck`)", neighbour.id));
+                }
+            }
+        }
 
         // Outbound `blocks` edges to work that is still open — what finishing
         // this would release.
