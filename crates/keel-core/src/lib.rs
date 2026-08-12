@@ -79,7 +79,7 @@ pub use next::{Candidate, NextUp, Ready, ReadyFilter, ready};
 pub use note::{NewNote, Note};
 pub use store::{
     Blob, Created, DocumentStore, EntityQuery, EntityStore, GraphStore, Neighbour, Page, SearchHit,
-    SearchQuery, SearchSource, Store, store_path,
+    SearchQuery, SearchSource, Store, pending_migrations_at, shipped_schema_version, store_path,
 };
 pub use style::{Warning, check as check_style};
 pub use types::{

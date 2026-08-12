@@ -134,3 +134,36 @@ async fn a_busy_daemon_still_reports_its_version_and_protocol() {
 
     held.give_back();
 }
+
+/// The schema number is what another binary compares itself against before
+/// writing through this daemon, so it has to be there and it has to be the
+/// number this build actually ships — not the package version, which moves for
+/// reasons that have nothing to do with the tables.
+#[tokio::test]
+async fn health_reports_the_schema_a_caller_should_compare_against() {
+    let (base, _state, _dir) = daemon().await;
+
+    let body = health(&base).await;
+
+    assert_eq!(
+        body["schema"],
+        keel_core::shipped_schema_version(),
+        "a CLI cannot tell whether this daemon is older without this"
+    );
+}
+
+/// And it survives a busy store, for the same reason the version does: a check
+/// that fails during a long write would refuse writes exactly when the daemon
+/// is working hardest.
+#[tokio::test]
+async fn the_schema_is_reported_without_the_store() {
+    let (base, state, _dir) = daemon().await;
+    let held = HeldLock::take(state);
+
+    let busy = tokio::time::timeout(Duration::from_secs(2), health(&base))
+        .await
+        .expect("health must not wait for the store lock");
+    assert_eq!(busy["schema"], keel_core::shipped_schema_version());
+
+    held.give_back();
+}

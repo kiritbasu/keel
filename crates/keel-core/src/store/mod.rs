@@ -86,12 +86,48 @@ impl std::fmt::Debug for Store {
 }
 
 impl Store {
-    /// Open or create a store at `path`, applying any migrations it is missing.
+    /// Open or create a store at `path`, **without** migrating one that
+    /// already exists.
+    ///
+    /// This is the door for everything that is not the store's owner. An
+    /// existing store with migrations pending is refused, with a message
+    /// naming `keel migrate`, because applying them here is how a newer binary
+    /// alters the schema underneath a running older daemon — the corruption
+    /// the newer-store guard in [`Store::migrate`] was written after, arriving
+    /// through the front door instead of the back. Six of the seven steps in a
+    /// Keel write are not locking, and neither is a migration: it is a change
+    /// to what every other process believes the tables look like.
+    ///
+    /// A store this call *creates* is migrated, and that is not an exception
+    /// to the rule. Nothing else can own a file that did not exist a moment
+    /// ago, so there is no second process whose beliefs could be invalidated.
     ///
     /// Creating the parent directory is deliberate: the daemon's first run has
     /// no `~/.keel`, and failing with "unable to open database file" for a
     /// missing directory is a worse first experience than making it.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
+        let existed = path.as_ref().exists();
+        Self::open_inner(
+            path,
+            if existed {
+                Pending::Refuse
+            } else {
+                Pending::Apply
+            },
+        )
+    }
+
+    /// Open a store and apply every migration it is missing.
+    ///
+    /// The owner's door, and there are meant to be few callers: the daemon at
+    /// startup, `keel migrate`, and a restore — which reads a snapshot that may
+    /// have been written by an older binary, migrations being forward-only.
+    /// Everything else uses [`Store::open`] and is told to run the command.
+    pub fn open_and_migrate(path: impl AsRef<Path>) -> Result<Self> {
+        Self::open_inner(path, Pending::Apply)
+    }
+
+    fn open_inner(path: impl AsRef<Path>, pending: Pending) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         if let Some(parent) = path.parent()
             && !parent.exists()
@@ -116,7 +152,7 @@ impl Store {
             vector_search: false,
         };
         store.configure()?;
-        store.migrate()?;
+        store.migrate(pending)?;
         store.seed_id_generator()?;
         Ok(store)
     }
@@ -138,7 +174,7 @@ impl Store {
             vector_search: false,
         };
         store.configure()?;
-        store.migrate()?;
+        store.migrate(Pending::Apply)?;
         store.seed_id_generator()?;
         Ok(store)
     }
@@ -340,7 +376,11 @@ impl Store {
     /// single-user store is a fiction that costs more to maintain than it
     /// repays, and SPEC §11 runs a backup before every migration anyway —
     /// restoring is the rollback.
-    fn migrate(&mut self) -> Result<()> {
+    ///
+    /// `pending` decides what happens when there is something to apply, which
+    /// is the difference between the owner's door and everyone else's. See
+    /// [`Store::open`].
+    fn migrate(&mut self, pending: Pending) -> Result<()> {
         self.conn
             .execute_batch(
                 "CREATE TABLE IF NOT EXISTS _keel_migrations (
@@ -382,6 +422,37 @@ impl Store {
                      empty, which does not fail until something else reads them.\n\n\
                      Rebuild and reinstall: ./plugin/install.sh\n\
                      To run an old binary deliberately, point it at another store with --home."
+                ),
+            });
+        }
+
+        // Refuse to migrate from a process that does not own the store.
+        //
+        // The guard above catches a binary older than the store. This catches
+        // the other order — a binary newer than the store — and that one is
+        // reached by ordinary use rather than by accident: install a new build,
+        // run any CLI command while the daemon is still up from the old one,
+        // and without this the schema changes underneath a process that has
+        // already decided what the tables look like.
+        let outstanding = self.pending_migrations()?;
+        if !outstanding.is_empty() && pending == Pending::Refuse {
+            let list = outstanding
+                .iter()
+                .map(|m| format!("{} ({})", m.0, m.1))
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(Error::Invariant {
+                operation: "open the store".to_owned(),
+                problem: format!(
+                    "this store is at schema {newest} and this binary ships {shipped}, so \
+                     {} migration(s) have not been applied: {list}.\n\n\
+                     They are not applied here. Migrating is a schema change every other \
+                     process can see, and a daemon that is already running has decided what \
+                     the tables look like — so doing it from whichever command happened to \
+                     open the store next is how the schema moves under a live reader.\n\n\
+                     Run `keel migrate`. It stops on a running daemon and tells you to stop \
+                     it first, which is the point.",
+                    outstanding.len()
                 ),
             });
         }
@@ -431,6 +502,103 @@ impl Store {
         }
         Ok(())
     }
+
+    /// The migrations this binary ships that this store has not recorded.
+    ///
+    /// Public because the answer is what `keel migrate` prints before it does
+    /// anything and what `keel doctor` reports, and because a caller that has
+    /// been refused an open deserves to be able to ask why without parsing the
+    /// refusal.
+    pub fn pending_migrations(&self) -> Result<Vec<(i32, String)>> {
+        let mut out = Vec::new();
+        for migration in schema::migrations() {
+            let seen: i64 = self
+                .conn
+                .query_row(
+                    "SELECT count(*) FROM _keel_migrations WHERE id = ?1",
+                    [migration.id],
+                    |r| r.get(0),
+                )
+                .map_err(Error::storage("read the migration ledger"))?;
+            if seen == 0 {
+                out.push((migration.id, migration.name.to_owned()));
+            }
+        }
+        Ok(out)
+    }
+
+    /// The newest migration this store has recorded, or 0 for an empty one.
+    ///
+    /// This is the number worth comparing between two processes. The package
+    /// version moves for reasons that have nothing to do with the tables; this
+    /// moves only when the shape of the data does.
+    pub fn schema_version(&self) -> Result<i32> {
+        self.conn
+            .query_row(
+                "SELECT COALESCE(max(id), 0) FROM _keel_migrations",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(Error::storage("read the migration ledger"))
+    }
+}
+
+/// What a store at `path` has not applied, without opening it as a [`Store`].
+///
+/// `keel migrate` needs this and cannot get it from a `Store`, because the
+/// store it is about to migrate is precisely the one [`Store::open`] refuses —
+/// and that refusal names `keel migrate`, so going through it would be a loop.
+/// A plain connection and one `SELECT` is also honestly what the question is:
+/// no configure, no vector registration, no id seeding, nothing that writes.
+///
+/// A store with no ledger table at all has applied nothing, which is what a
+/// file that is not a Keel store looks like too. That is the right answer for
+/// the first and a harmless one for the second, since migrating it would fail
+/// on its own terms a moment later.
+pub fn pending_migrations_at(path: impl AsRef<Path>) -> Result<Vec<(i32, String)>> {
+    let path = path.as_ref();
+    let conn = Connection::open(path).map_err(Error::storage(format!(
+        "open the store at {} to read its migration ledger",
+        path.display()
+    )))?;
+
+    let mut applied = std::collections::HashSet::new();
+    if let Ok(mut stmt) = conn.prepare("SELECT id FROM _keel_migrations") {
+        let rows = stmt
+            .query_map([], |r| r.get::<_, i32>(0))
+            .map_err(Error::storage("read the migration ledger"))?;
+        for id in rows {
+            applied.insert(id.map_err(Error::storage("read the migration ledger"))?);
+        }
+    }
+
+    Ok(schema::migrations()
+        .into_iter()
+        .filter(|m| !applied.contains(&m.id))
+        .map(|m| (m.id, m.name.to_owned()))
+        .collect())
+}
+
+/// The newest schema this binary knows how to produce.
+///
+/// Free-standing because the interesting comparison — mine against yours — is
+/// made by processes that have no store open, `keel migrate` deciding whether
+/// to bother and the CLI reading a daemon's `/api/health` among them.
+pub fn shipped_schema_version() -> i32 {
+    schema::migrations().iter().map(|m| m.id).max().unwrap_or(0)
+}
+
+/// What an open should do about migrations it finds outstanding.
+///
+/// Two words rather than a `bool`, because `Store::open(path, true)` at a call
+/// site says nothing about which way `true` goes, and this is a decision where
+/// guessing wrong corrupts a store rather than merely misbehaving.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Pending {
+    /// Apply them. Only the owner may.
+    Apply,
+    /// Refuse the open and say to run `keel migrate`.
+    Refuse,
 }
 
 /// The outcome of a create.

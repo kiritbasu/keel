@@ -114,6 +114,21 @@ enum Command {
         target: PathBuf,
     },
 
+    /// Apply any schema migrations the store is missing.
+    ///
+    /// Nothing else applies them to a store that already exists. A migration
+    /// changes what every process believes the tables look like, so it happens
+    /// when someone asks for it and the daemon is stopped — not as a side
+    /// effect of whichever command opened the store first after an upgrade.
+    Migrate {
+        /// The daemon to check for before touching anything.
+        #[arg(long, default_value = "http://127.0.0.1:7171")]
+        daemon: String,
+        /// Say what would be applied, and apply nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// Load the realistic fixture corpus into an empty store.
     Fixture,
 
@@ -432,6 +447,9 @@ fn main() -> Result<()> {
         Command::Reembed { missing } => run_reembed(&home, *missing, cli.force, cli.json),
         Command::Backup { dest } => run_backup(&home, dest.clone(), cli.json),
         Command::Restore { source, target } => run_restore(source, target, cli.json),
+        Command::Migrate { daemon, dry_run } => {
+            run_migrate(&home, daemon, *dry_run, cli.force, cli.json)
+        }
         Command::Fixture => run_fixture(&home, cli.force, cli.json),
         Command::Status { daemon } => run_status(&home, daemon, cli.json),
         Command::RenderStatus {
@@ -1111,6 +1129,92 @@ fn run_backup(home: &Path, dest: Option<PathBuf>, json: bool) -> Result<()> {
     Ok(())
 }
 
+/// Apply the schema migrations the store is missing.
+///
+/// The whole command is the ceremony. There is nothing here that `Store::open`
+/// could not have done silently, and doing it silently is the bug: an upgrade
+/// leaves a running daemon holding beliefs about the tables, and the next CLI
+/// call to open the store would rewrite them underneath it.
+fn run_migrate(home: &Path, daemon: &str, dry_run: bool, force: bool, json: bool) -> Result<()> {
+    let path = keel_core::store_path(home);
+    if !path.exists() {
+        bail!(
+            "there is no store at {} to migrate.\n\n\
+             A store is created already migrated, so this command has nothing to do until one \
+             exists. `keel bootstrap` or `keel fixture` makes one.",
+            path.display()
+        );
+    }
+
+    // Read the ledger without opening a Store, because a Store is exactly what
+    // cannot be opened here: `Store::open` refuses a store with migrations
+    // pending, and its refusal names this command. Asking the ledger directly
+    // is the way out of that loop, and it is a read, so it is safe alongside a
+    // live daemon.
+    let pending = keel_core::pending_migrations_at(&path)?;
+
+    if pending.is_empty() {
+        let version = keel_core::shipped_schema_version();
+        if json {
+            println!(
+                "{}",
+                serde_json::json!({"schema": version, "pending": [], "applied": []})
+            );
+        } else {
+            println!("nothing to do — the store is at schema {version}");
+        }
+        return Ok(());
+    }
+
+    if dry_run {
+        if json {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "pending": pending.iter().map(|(id, name)| serde_json::json!({"id": id, "name": name})).collect::<Vec<_>>(),
+                    "applied": [],
+                })
+            );
+        } else {
+            println!("{} migration(s) pending:", pending.len());
+            for (id, name) in &pending {
+                println!("  {id}  {name}");
+            }
+            println!("\nrun `keel migrate` without --dry-run to apply them");
+        }
+        return Ok(());
+    }
+
+    // The same probe that guards every other write from a non-daemon process,
+    // for the same reason and more sharply: a schema change under a live reader
+    // is worse than a poorly-attributed row.
+    writes::refuse_if_daemon_is_running(daemon, force, "migrate the store")?;
+    keel_core::Store::open_and_migrate(&path)
+        .with_context(|| format!("migrate the store at {}", path.display()))?;
+    let applied = pending;
+
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "schema": keel_core::shipped_schema_version(),
+                "pending": [],
+                "applied": applied.iter().map(|(id, name)| serde_json::json!({"id": id, "name": name})).collect::<Vec<_>>(),
+            })
+        );
+    } else {
+        println!("applied {} migration(s):", applied.len());
+        for (id, name) in &applied {
+            println!("  {id}  {name}");
+        }
+        println!(
+            "the store is at schema {}",
+            keel_core::shipped_schema_version()
+        );
+    }
+    Ok(())
+}
+
 fn run_restore(source: &PathBuf, target: &PathBuf, json: bool) -> Result<()> {
     // `target` is a home directory, the same thing `--home` names, and the
     // store file goes inside it. Naming the file here instead would make a
@@ -1120,7 +1224,15 @@ fn run_restore(source: &PathBuf, target: &PathBuf, json: bool) -> Result<()> {
     // Re-open and verify rather than trusting the restore. "Assert equality,
     // don't eyeball it" is the exit criterion, and a restore that silently
     // dropped a table is exactly the failure a backup exists to prevent.
-    let restored = open(target)?;
+    //
+    // One of the three places allowed to migrate: a snapshot may have been
+    // written by an older binary, migrations are forward-only, and a restore
+    // that stopped to tell you to run another command would be a poor thing to
+    // meet in the middle of a recovery. The target is a directory the restore
+    // itself just made, so nothing else can be holding it.
+    let path = keel_core::store_path(target);
+    let restored = keel_core::Store::open_and_migrate(&path)
+        .with_context(|| format!("open the restored store at {}", path.display()))?;
     let problems: Vec<String> = match backup::verify_restore(&restored, &manifest) {
         Ok(()) => Vec::new(),
         Err(e) => vec![e.to_string()],

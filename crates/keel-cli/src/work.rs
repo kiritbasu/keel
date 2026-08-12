@@ -359,6 +359,9 @@ fn require_session(session: Option<&str>) -> Result<String> {
 /// see who is at the other end of it. `surface: cli` is sent so the record still
 /// says where it came from, which is the part that is knowable.
 fn run_write(home: &Path, daemon: &str, tool: &str, args: &Value) -> Result<Value> {
+    // Before the write, not after: an older daemon accepts it and stores it in
+    // the shape it knows, so there is nothing to notice afterwards.
+    crate::writes::refuse_if_daemon_is_older(daemon)?;
     match call_daemon(daemon, tool, args)? {
         Some(v) => Ok(v),
         None => {

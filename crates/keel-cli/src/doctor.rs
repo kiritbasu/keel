@@ -190,10 +190,49 @@ pub fn examine(home: &Path, daemon: &str) -> Result<Report> {
         ),
     });
 
-    // Opening read-only would be nicer, but `Store::open` runs migrations and
-    // there is no read-only constructor. It is safe alongside a daemon in WAL
-    // mode, which is the whole reason `fsck` stopped requiring one to be
-    // stopped (TQ-15).
+    // --- Is the schema where this binary expects it -----------------------
+    //
+    // Before the store is opened, because it decides whether it can be. This
+    // is also the one check that has to run first for a duller reason: with
+    // migrations pending `Store::open` refuses, so asking anything else would
+    // mean reporting "could not open the store" for a condition that has a
+    // name and a fix.
+    let path = keel_core::store_path(home);
+    let pending = keel_core::pending_migrations_at(&path).unwrap_or_default();
+    checks.push(if pending.is_empty() {
+        Check::ok(
+            "schema",
+            format!(
+                "the store is at schema {}, which is what this binary ships",
+                keel_core::shipped_schema_version()
+            ),
+        )
+    } else {
+        let names = pending
+            .iter()
+            .map(|(id, name)| format!("{id} ({name})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        Check::problem(
+            "schema",
+            format!(
+                "{} migration(s) have not been applied: {names}",
+                pending.len()
+            ),
+            "stop the daemon and run `keel migrate`. Nothing applies them on its own, \
+             deliberately — a schema change from whichever process opened the store next is \
+             how the tables move under a daemon that is already running",
+        )
+    });
+    if !pending.is_empty() {
+        // Everything below reads the store, and this binary will not open one
+        // whose schema it has not been allowed to bring up to date. Report what
+        // is known rather than failing with a message about a lock.
+        return Ok(Report { checks });
+    }
+
+    // Opening alongside a live daemon is safe in WAL mode, which is the whole
+    // reason `fsck` stopped requiring one to be stopped (TQ-15).
     let store = crate::open(home).context("open the store to examine it")?;
 
     // --- The file itself --------------------------------------------------
@@ -525,6 +564,30 @@ mod tests {
             })
     }
 
+    /// A store the binary is not allowed to open still gets a report.
+    ///
+    /// This is the case that would otherwise be the worst experience in the
+    /// tool: `Store::open` refuses a store with migrations pending, and doctor
+    /// is the first thing anyone runs when a command starts refusing. Failing
+    /// with "could not open the store" would be true and useless.
+    #[test]
+    fn migrations_pending_are_a_problem_and_not_a_crash() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = keel_core::store_path(dir.path());
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::File::create(&path).unwrap();
+
+        let report = examine(dir.path(), NO_DAEMON).expect("doctor must still produce a report");
+
+        let schema = find(&report, "schema");
+        assert_eq!(schema.level, Level::Problem);
+        assert!(
+            schema.remedy.contains("keel migrate"),
+            "the remedy has to name the command: {schema:?}"
+        );
+        assert!(!report.is_healthy());
+    }
+
     /// A store with nothing wrong with it reports nothing wrong with it.
     ///
     /// The check that matters most: a doctor that finds problems in a healthy
@@ -544,6 +607,7 @@ mod tests {
                 .filter(|c| c.level == Level::Problem)
                 .collect::<Vec<_>>()
         );
+        assert_eq!(find(&report, "schema").level, Level::Ok);
         assert_eq!(find(&report, "page_integrity").level, Level::Ok);
         assert_eq!(find(&report, "fsck").level, Level::Ok);
         assert_eq!(

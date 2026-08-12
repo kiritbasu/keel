@@ -413,6 +413,14 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
         "status": "ok",
         "protocol": PROTOCOL_VERSION,
         "version": env!("CARGO_PKG_VERSION"),
+        // The number another process should compare itself against. `version`
+        // moves for reasons that have nothing to do with the tables — a CLI
+        // one patch release ahead of the daemon is fine, and a CLI one
+        // migration ahead is not. Reported from what this binary ships rather
+        // than from the store, because it answers "what does the process
+        // holding the store believe the tables look like", and after startup
+        // those are the same number.
+        "schema": keel_core::shipped_schema_version(),
         "projects": projects,
         "store_busy": busy,
     }))

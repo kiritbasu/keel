@@ -101,27 +101,85 @@ fn socket_addr(base: &str) -> Option<SocketAddr> {
 /// flag rather than an environment variable so that it appears in the shell
 /// history of whoever used it.
 pub fn open_for_write(home: &Path, daemon: &str, force: bool, what: &str) -> Result<Store> {
-    if !force {
-        match probe(daemon) {
-            Daemon::NotRunning => {}
-            Daemon::Listening => bail!(
-                "a daemon is running at {daemon}, and it owns the single write path.\n\n\
-                 Writing to the store from here would skip validation, provenance, the event, \
-                 the revision, the embedding and the index — six of the seven steps in a Keel \
-                 write. Nothing would fail; the row would simply be poorer than every other row.\n\n\
-                 Ask the daemon instead, or stop it and retry. To write anyway — a wedged \
-                 daemon, a store being repaired — pass --force."
-            ),
-            Daemon::Unknown(why) => bail!(
-                "could not tell whether a daemon is running at {daemon}: {why}\n\n\
-                 Refusing to {what}, because a second writer against a live store skips most \
-                 of what a Keel write does. Pass --force if you know no daemon is running."
-            ),
-        }
-    }
-
+    refuse_if_daemon_is_running(daemon, force, what)?;
     let path = keel_core::store_path(home);
     Store::open(&path).with_context(|| format!("open the store at {}", path.display()))
+}
+
+/// The probe half of [`open_for_write`], for the one caller that cannot open a
+/// store to do its work.
+///
+/// `keel migrate` needs the same refusal and cannot go through `open_for_write`
+/// to get it: the store it is about to migrate is one `Store::open` declines to
+/// open, which is the whole reason the command exists.
+pub fn refuse_if_daemon_is_running(daemon: &str, force: bool, what: &str) -> Result<()> {
+    if force {
+        return Ok(());
+    }
+    match probe(daemon) {
+        Daemon::NotRunning => Ok(()),
+        Daemon::Listening => bail!(
+            "a daemon is running at {daemon}, and it owns the single write path.\n\n\
+             Writing to the store from here would skip validation, provenance, the event, \
+             the revision, the embedding and the index — six of the seven steps in a Keel \
+             write. Nothing would fail; the row would simply be poorer than every other row.\n\n\
+             Ask the daemon instead, or stop it and retry. To write anyway — a wedged \
+             daemon, a store being repaired — pass --force."
+        ),
+        Daemon::Unknown(why) => bail!(
+            "could not tell whether a daemon is running at {daemon}: {why}\n\n\
+             Refusing to {what}, because a second writer against a live store skips most \
+             of what a Keel write does. Pass --force if you know no daemon is running."
+        ),
+    }
+}
+
+/// Refuse to write through a daemon that is older than this binary.
+///
+/// The pair to the guard in `Store::open`. That one stops a newer CLI changing
+/// the schema under a running older daemon; this one stops the same pair of
+/// processes doing the quieter version of the same thing — the CLI asking for a
+/// write in terms the daemon does not have, and the daemon writing something
+/// close enough to look fine.
+///
+/// The comparison is the schema number, not the package version. A CLI a patch
+/// release ahead of the daemon is nothing to stop; a CLI a migration ahead is.
+///
+/// Silent when nothing answers, because that is the normal case and the caller
+/// has its own handling for it: this is a check on a daemon that is there, not
+/// a second probe for whether one is.
+pub fn refuse_if_daemon_is_older(base: &str) -> Result<()> {
+    let Ok(response) = ureq::get(&format!("{base}/api/health"))
+        .timeout(PROBE_TIMEOUT)
+        .call()
+    else {
+        return Ok(());
+    };
+    let Ok(body) = response.into_json::<serde_json::Value>() else {
+        return Ok(());
+    };
+    // A daemon predating the field reports nothing, and that is itself the
+    // answer: it was built before schema numbers were compared, so it is older
+    // than any binary that knows to ask.
+    let theirs = body.get("schema").and_then(serde_json::Value::as_i64);
+    let ours = i64::from(keel_core::shipped_schema_version());
+    match theirs {
+        Some(theirs) if theirs >= ours => Ok(()),
+        _ => {
+            let theirs = theirs
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| "an unreported schema".to_owned());
+            bail!(
+                "the daemon at {base} is at schema {theirs} and this binary ships {ours}, so it \
+                 is older than this command.\n\n\
+                 It would accept the write and store it in the shape it knows, which is not the \
+                 shape this binary would read back. Nothing errors; the row is simply wrong in a \
+                 way that surfaces later and somewhere else.\n\n\
+                 Restart the daemon from a current build: `./plugin/install.sh`, then stop and \
+                 start it. `keel migrate` brings the store up with the daemon stopped."
+            )
+        }
+    }
 }
 
 /// Whether a *read* may fall back to opening the store directly.
@@ -215,5 +273,84 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         open_for_write(dir.path(), "http://127.0.0.1:1", false, "test")
             .expect("no daemon means the write is unambiguous");
+    }
+
+    /// A stand-in daemon that answers one `/api/health` with whatever body the
+    /// test wants, so the version comparison can be driven from both sides
+    /// without building two versions of the daemon.
+    fn health_server(body: &'static str) -> (String, std::thread::JoinHandle<()>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let thread = std::thread::spawn(move || {
+            let Ok((mut socket, _)) = listener.accept() else {
+                return;
+            };
+            let mut buf = [0u8; 1024];
+            let _ = socket.read(&mut buf);
+            let _ = socket.write_all(
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\
+                     Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .as_bytes(),
+            );
+        });
+        (base, thread)
+    }
+
+    #[test]
+    fn a_daemon_at_our_schema_is_written_to() {
+        let body: &'static str = Box::leak(
+            format!(
+                r#"{{"status":"ok","schema":{}}}"#,
+                keel_core::shipped_schema_version()
+            )
+            .into_boxed_str(),
+        );
+        let (base, thread) = health_server(body);
+
+        refuse_if_daemon_is_older(&base).expect("a daemon at our schema is fine to write through");
+        thread.join().unwrap();
+    }
+
+    #[test]
+    fn an_older_daemon_is_refused_before_the_write() {
+        let (base, thread) = health_server(r#"{"status":"ok","schema":0}"#);
+
+        let err = refuse_if_daemon_is_older(&base)
+            .expect_err("a daemon behind this binary's schema must not be written through");
+        let message = err.to_string();
+        assert!(
+            message.contains("older than this command"),
+            "the refusal should say which way round it is: {message}"
+        );
+        assert!(
+            message.contains("keel migrate"),
+            "and how to fix it: {message}"
+        );
+        thread.join().unwrap();
+    }
+
+    /// A daemon built before the field existed reports nothing, and that is the
+    /// answer rather than a reason to shrug: it predates schema comparison, so
+    /// it predates this binary.
+    #[test]
+    fn a_daemon_that_does_not_report_a_schema_is_treated_as_older() {
+        let (base, thread) = health_server(r#"{"status":"ok","version":"0.1.0"}"#);
+
+        let err = refuse_if_daemon_is_older(&base).expect_err("an unreported schema is not a pass");
+        assert!(err.to_string().contains("an unreported schema"), "{err}");
+        thread.join().unwrap();
+    }
+
+    /// Nothing listening is not a version mismatch. The caller has its own
+    /// handling for an absent daemon, and turning silence into a refusal would
+    /// break every offline command.
+    #[test]
+    fn nothing_listening_is_not_a_refusal() {
+        refuse_if_daemon_is_older("http://127.0.0.1:1")
+            .expect("an absent daemon is the caller's problem, not this check's");
     }
 }

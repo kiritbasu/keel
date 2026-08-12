@@ -66,8 +66,13 @@ impl AppState {
     /// silently opens an empty store rather than failing.
     pub fn open(home: &Path, embeddings: bool) -> Result<Self> {
         let path = keel_core::store_path(home);
-        let store =
-            Store::open(&path).with_context(|| format!("open the store at {}", path.display()))?;
+        // The daemon is the process that owns the store, so it is the process
+        // that migrates it. Every other caller uses `Store::open` and is told
+        // to run `keel migrate` — see the doc comment there for why applying a
+        // schema change from whatever command opened the store next is the
+        // failure worth this asymmetry.
+        let store = Store::open_and_migrate(&path)
+            .with_context(|| format!("open the store at {}", path.display()))?;
 
         // Ask SQLite whether the file is intact, once, at startup.
         //
