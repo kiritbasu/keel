@@ -14,7 +14,10 @@ const TASK = {
   id: "tsk_me",
   type: "task",
   title: "The task detail view",
-  body: "Clicking a card opens the task at its own URL.",
+  // Both nullable, and both exercised below: a row normally carries one of them
+  // rather than both, and which one depends on whether it predates 8G.
+  body: "Clicking a card opens the task at its own URL." as string | null,
+  summary: null as string | null,
   status: "in_progress",
   priority: "p0",
   kind: "task",
@@ -235,6 +238,54 @@ describe("what it shows", () => {
   it("falls back to the summary for an event with no field", async () => {
     await show();
     expect(screen.getByText(/created task/)).toBeTruthy();
+  });
+});
+
+// KEEL-170. This card read `body` alone, so the thirty-one tasks written since
+// `summary` became required — several hundred words each, in the field every
+// list already shows — displayed "No description." The store was never the
+// problem, which is what made it hard to see: the row was complete and the page
+// said it was empty.
+describe("the description, whichever field carries it", () => {
+  const body = TASK.body;
+  const summary = TASK.summary;
+  afterEach(() => {
+    TASK.body = body;
+    TASK.summary = summary;
+  });
+
+  it("shows the summary when there is no body", async () => {
+    TASK.body = null;
+    TASK.summary = "The board never says which phase a task belongs to.";
+    await show();
+    expect(screen.getByText("The board never says which phase a task belongs to.")).toBeTruthy();
+    expect(screen.queryByText("No description.")).toBeNull();
+  });
+
+  // Said out loud, because a required one-or-two-sentence summary is not the
+  // long-form detail a reader opening the page is looking for. Showing it
+  // unlabelled would answer the question with something else and look right.
+  it("says when what it is showing is the summary", async () => {
+    TASK.body = null;
+    TASK.summary = "Short, and standing in for a body that was never written.";
+    await show();
+    expect(screen.getByText("from the summary")).toBeTruthy();
+  });
+
+  it("prefers the body when both are there, and does not label it", async () => {
+    TASK.summary = "One sentence that must not win.";
+    await show();
+    expect(screen.getByText("Clicking a card opens the task at its own URL.")).toBeTruthy();
+    expect(screen.queryByText("One sentence that must not win.")).toBeNull();
+    expect(screen.queryByText("from the summary")).toBeNull();
+  });
+
+  it("says there is no description only when neither field has one", async () => {
+    TASK.body = null;
+    TASK.summary = null;
+    await show();
+    expect(screen.getByText("No description.")).toBeTruthy();
+    expect(screen.queryByText("from the summary")).toBeNull();
   });
 });
 

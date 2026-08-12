@@ -228,9 +228,28 @@ export function TaskScreen({ route, generation }: ScreenProps) {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-5">
-          <Card title="Description">
-            {task.body ? (
-              <Markdown>{String(task.body)}</Markdown>
+          {/* Two fields can hold the description and a row usually has one of
+              them, not both. `body` is optional and long-form; `summary` is
+              required since 8G and is what every list shows. So the rows written
+              before that rule have a body and no summary, and the rows written
+              since tend to have a summary and no body — and this card used to
+              read `body` alone, which meant thirty-one tasks carrying a
+              seven-hundred-character description displayed "No description."
+              (KEEL-170).
+
+              Prefer the body, fall back to the summary, and say which one it is
+              rather than letting a one-sentence summary pass for the long-form
+              detail a reader came here to find. */}
+          <Card
+            title="Description"
+            actions={
+              !task.body && task.summary ? (
+                <span className="text-small text-ink-faint">from the summary</span>
+              ) : undefined
+            }
+          >
+            {task.body || task.summary ? (
+              <Markdown>{String(task.body || task.summary)}</Markdown>
             ) : (
               <Empty message="No description." />
             )}
