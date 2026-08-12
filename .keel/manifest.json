@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-12T06:51:22.030386+00:00",
+  "generated_at": "2026-08-12T08:27:13.534508+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/the-fixture-corpus-stays-compiled-in-ungated.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZTFE58YF4AZATMPAHDQ8R87",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "6982068b9822b4593851bafee9060f80f50ae04a0dad8cf0180a0c0e015fbf7b"
         }
       ]
     },
