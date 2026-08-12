@@ -89,6 +89,63 @@ pub fn all(
     repo_root: &Path,
     mode: Mode,
 ) -> Result<GenerateReport> {
+    plan(store, project_id, repo_root)?.apply(mode)
+}
+
+/// Everything a generate decided, with nothing written yet.
+///
+/// The half that reads the store, separated from the half that touches the
+/// filesystem, so a caller holding a lock on the store can drop it in between.
+/// The daemon does exactly that; `all` is the two halves back to back for
+/// callers that have nothing to let go of.
+#[derive(Debug)]
+pub struct GeneratePlan {
+    /// Adopted prose, written before the mirror so that an artifact with an
+    /// explicit home is not also emitted into `.keel/`.
+    adopted: Vec<PlannedFile>,
+    /// The `.keel/` mirror, which has its own manifest and orphan handling.
+    mirror: mirror::MirrorPlan,
+    /// The tracker and the decision log, rendered from rows.
+    rendered: Vec<PlannedFile>,
+    /// What could not be represented as a file, decided while reading.
+    unrepresented: Vec<String>,
+}
+
+impl GeneratePlan {
+    /// Write what the plan decided, or say what writing it would do.
+    ///
+    /// Touches the filesystem and nothing else. No store, no lock.
+    pub fn apply(self, mode: Mode) -> Result<GenerateReport> {
+        let mut report = GenerateReport {
+            unrepresented: self.unrepresented,
+            ..GenerateReport::default()
+        };
+        write_planned(
+            &self.adopted,
+            mode,
+            &mut report.written,
+            &mut report.unchanged,
+        )?;
+
+        let mirror_report = self.mirror.apply(mode)?;
+        report.written.extend(mirror_report.written);
+        report.unchanged.extend(mirror_report.unchanged);
+        report.orphans.extend(mirror_report.orphans);
+
+        write_planned(
+            &self.rendered,
+            mode,
+            &mut report.written,
+            &mut report.unchanged,
+        )?;
+        Ok(report)
+    }
+}
+
+/// Decide every file a project's repository should contain.
+///
+/// Reads the store and nothing else — no file is opened, created or compared.
+pub fn plan(store: &Store, project_id: &EntityId, repo_root: &Path) -> Result<GeneratePlan> {
     let Some(Entity::Project(project)) = store.get(project_id)? else {
         return Err(Error::NotFound {
             entity_type: EntityType::Project,
@@ -97,6 +154,8 @@ pub fn all(
     };
 
     let mut report = GenerateReport::default();
+    let mut adopted_files: Vec<PlannedFile> = Vec::new();
+    let mut rendered: Vec<PlannedFile> = Vec::new();
 
     // --- Adopted prose files ---------------------------------------------
     //
@@ -132,28 +191,23 @@ pub fn all(
                     .push(format!("{relative} — no revision to write yet"));
                 continue;
             };
-            let content = adopted_file(entity, &doc.body);
             // Second layer. The value was checked on the way into the store,
             // but a row written before that check existed — or by `keel import`
             // — reaches this line all the same, and this is where it turns into
             // a write.
-            write_or_check(
-                &crate::safe_path::confine(repo_root, relative)?,
-                &content,
-                relative,
-                mode,
-                &mut report,
-            )?;
+            adopted_files.push(PlannedFile {
+                absolute: crate::safe_path::confine(repo_root, relative)?,
+                relative: relative.to_owned(),
+                content: adopted_file(entity, &doc.body),
+                banner_counts: true,
+            });
             adopted.push(entity.id().clone());
             adopted_paths.push(relative.to_owned());
         }
     }
 
     // --- The `.keel/` mirror ---------------------------------------------
-    let mirror_report = mirror::generate_except(store, project_id, repo_root, &adopted, mode)?;
-    report.written.extend(mirror_report.written);
-    report.unchanged.extend(mirror_report.unchanged);
-    report.orphans.extend(mirror_report.orphans);
+    let mirror = mirror::plan_except(store, project_id, repo_root, &adopted)?;
 
     // --- The tracker ------------------------------------------------------
     if let Some(status_path) = project.status_path.as_deref() {
@@ -169,14 +223,12 @@ pub fn all(
                  document, so one thing owns the file"
             ));
         } else {
-            let markdown = render_status::render(store, project_id)?;
-            write_or_check(
-                &crate::safe_path::confine(repo_root, status_path)?,
-                &markdown,
-                status_path,
-                mode,
-                &mut report,
-            )?;
+            rendered.push(PlannedFile {
+                absolute: crate::safe_path::confine(repo_root, status_path)?,
+                relative: status_path.to_owned(),
+                content: render_status::render(store, project_id)?,
+                banner_counts: true,
+            });
         }
     }
 
@@ -194,18 +246,21 @@ pub fn all(
                  archive the document, so one thing owns the file"
             ));
         } else {
-            let markdown = render_decisions::render(store, project_id)?;
-            write_or_check(
-                &crate::safe_path::confine(repo_root, decisions_path)?,
-                &markdown,
-                decisions_path,
-                mode,
-                &mut report,
-            )?;
+            rendered.push(PlannedFile {
+                absolute: crate::safe_path::confine(repo_root, decisions_path)?,
+                relative: decisions_path.to_owned(),
+                content: render_decisions::render(store, project_id)?,
+                banner_counts: true,
+            });
         }
     }
 
-    Ok(report)
+    Ok(GeneratePlan {
+        adopted: adopted_files,
+        mirror,
+        rendered,
+        unrepresented: report.unrepresented,
+    })
 }
 
 /// Whether a recorded `mirror_path` means "adopt this file" or "put it in the
@@ -242,35 +297,64 @@ fn adopted_file(entity: &Entity, body: &str) -> String {
     )
 }
 
-/// Write when the content differs, or record what a write would do.
-fn write_or_check(
-    path: &Path,
-    content: &str,
-    relative: &str,
+/// A file the generator has decided on, with nothing written yet.
+///
+/// Deciding and writing are separate phases so that the daemon can let go of
+/// the store between them. Rendering a project's files reads the whole store
+/// and then writes a few dozen small files, and holding the write lock across
+/// the second half made a `keel generate` block every other request — including
+/// the health probe the CLI uses to decide whether a daemon is even there.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlannedFile {
+    /// Where it goes, already confined to the repository root.
+    pub absolute: PathBuf,
+    /// Its path relative to the root, which is what reports name.
+    pub relative: String,
+    /// What it should contain.
+    pub content: String,
+    /// Whether the presence of a generated banner is part of "has this
+    /// changed".
+    ///
+    /// True for adopted prose and the rendered documents: a file that has never
+    /// been generated has no banner, and leaving it alone would mean the first
+    /// switch-over never marks it as generated. False for the mirror, whose
+    /// files always carry a header and whose comparison is only about the body.
+    pub banner_counts: bool,
+}
+
+/// Write the files a plan decided on, or record what writing them would do.
+///
+/// The whole filesystem half of a generate, and the only part that needs to run
+/// with nothing held.
+pub(crate) fn write_planned(
+    files: &[PlannedFile],
     mode: Mode,
-    report: &mut GenerateReport,
+    written: &mut Vec<String>,
+    unchanged: &mut Vec<String>,
 ) -> Result<()> {
-    // Equal *content* is not enough: a file that has never been generated has
-    // no banner, and leaving it alone would mean the first switch-over never
-    // marks it as generated. So a missing banner is itself a difference, once.
-    let existing = std::fs::read_to_string(path).ok();
-    if let Some(old) = &existing
-        && strip_banner(old) == strip_banner(content)
-        && has_banner(old) == has_banner(content)
-    {
-        report.unchanged.push(relative.to_owned());
-        return Ok(());
-    }
+    for file in files {
+        // Compare ignoring the banner, which carries a generation timestamp and
+        // would otherwise make every file look changed every time.
+        let existing = std::fs::read_to_string(&file.absolute).ok();
+        if let Some(old) = &existing
+            && strip_banner(old) == strip_banner(&file.content)
+            && (!file.banner_counts || has_banner(old) == has_banner(&file.content))
+        {
+            unchanged.push(file.relative.clone());
+            continue;
+        }
 
-    report.written.push(relative.to_owned());
-    if mode == Mode::Check {
-        return Ok(());
-    }
+        written.push(file.relative.clone());
+        if mode == Mode::Check {
+            continue;
+        }
 
-    // Atomic, because one of the files this writes is `product/CLAUDE.md` —
-    // loaded at the start of every Claude Code session, so a torn write
-    // silently removes the second half of the standing contract.
-    crate::atomic::write(path, content)
+        // Atomic, because one of the files this writes is `product/CLAUDE.md` —
+        // loaded at the start of every Claude Code session, so a torn write
+        // silently removes the second half of the standing contract.
+        crate::atomic::write(&file.absolute, &file.content)?;
+    }
+    Ok(())
 }
 
 /// Whether a file already declares itself generated.

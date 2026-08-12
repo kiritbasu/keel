@@ -21,7 +21,9 @@ pub mod protocol;
 pub mod tools;
 
 pub use context::{Depth, Digest};
-pub use dispatch::{ToolCall, dispatch, entity_json, resolve_project, to_rpc_error};
+pub use dispatch::{
+    ToolCall, dispatch, dispatch_prepared, entity_json, resolve_project, to_rpc_error,
+};
 pub use protocol::{
     HeaderCheck, PROTOCOL_VERSION, Request, Response, RpcError, check_headers, codes,
 };

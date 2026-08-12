@@ -281,6 +281,16 @@ impl Store {
         self.embedder.as_deref()
     }
 
+    /// The embedder as something that outlives the borrow.
+    ///
+    /// For a caller that holds the store behind a lock and wants to embed
+    /// *without* it: clone the handle, let the lock go, do the model inference,
+    /// come back. [`Store::embedder`] cannot be used that way because the
+    /// borrow is the lock.
+    pub fn embedder_handle(&self) -> Option<std::sync::Arc<dyn crate::Embedder>> {
+        self.embedder.clone()
+    }
+
     /// Where this store lives. `:memory:` for an in-memory one.
     pub fn path(&self) -> &Path {
         &self.path

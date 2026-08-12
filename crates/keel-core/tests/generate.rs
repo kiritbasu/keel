@@ -644,3 +644,97 @@ fn a_generated_file_is_never_left_half_written() {
         "the file is a prefix of the new content"
     );
 }
+
+/// Deciding and writing are two phases, and the second needs nothing from the
+/// store.
+///
+/// This is the property the daemon depends on: it holds the whole store behind
+/// one mutex, so a generate that wrote files with the lock held blocked every
+/// other request for the length of a few dozen filesystem writes — including
+/// the health probe the CLI uses to decide whether a daemon is there at all.
+///
+/// Asserted by closing the store between the halves. If `apply` ever reaches
+/// back for a row, this stops compiling rather than failing at runtime, which
+/// is the strongest form the assertion can take.
+#[test]
+fn a_plan_can_be_applied_after_the_store_is_gone() {
+    let repo = tempfile::tempdir().unwrap();
+    let (store, project_id, _spec) = fixture(repo.path(), "# Spec\n\nBody.\n");
+
+    let plan = generate::plan(&store, &project_id, repo.path()).unwrap();
+
+    // Nothing has been written yet. A plan is a decision, and a decision that
+    // had already touched the disk would not be one.
+    assert!(
+        !repo.path().join("product/SPEC.md").exists(),
+        "planning must not write anything"
+    );
+    assert!(!repo.path().join(".keel").exists());
+
+    drop(store);
+
+    let report = plan.apply(Mode::Write).unwrap();
+    assert!(repo.path().join("product/SPEC.md").is_file());
+    assert!(repo.path().join(".keel/manifest.json").is_file());
+    assert!(
+        report.written.iter().any(|p| p == "product/SPEC.md"),
+        "the report should name what it wrote: {:?}",
+        report.written
+    );
+}
+
+/// The split must not have changed what a generate produces.
+///
+/// Two runs, one through each door, against identical stores: same files, same
+/// report. A refactor of this shape is exactly the kind that silently drops one
+/// file, and the mirror's own orphan pass would then delete it on the next run.
+#[test]
+fn planning_then_applying_matches_generating_directly() {
+    let one = tempfile::tempdir().unwrap();
+    let (store_a, project_a, _) = fixture(one.path(), "# Spec\n\nBody.\n");
+    let direct = generate::all(&store_a, &project_a, one.path(), Mode::Write).unwrap();
+
+    let two = tempfile::tempdir().unwrap();
+    let (store_b, project_b, _) = fixture(two.path(), "# Spec\n\nBody.\n");
+    let split = generate::plan(&store_b, &project_b, two.path())
+        .unwrap()
+        .apply(Mode::Write)
+        .unwrap();
+
+    assert_eq!(direct.written, split.written);
+    assert_eq!(direct.unchanged, split.unchanged);
+    assert_eq!(direct.orphans, split.orphans);
+    assert_eq!(direct.unrepresented, split.unrepresented);
+
+    for relative in &direct.written {
+        let a = std::fs::read_to_string(one.path().join(relative)).unwrap();
+        let b = std::fs::read_to_string(two.path().join(relative)).unwrap();
+        assert_eq!(
+            generate::strip_banner_public(&a),
+            generate::strip_banner_public(&b),
+            "{relative} differs between the two doors"
+        );
+    }
+}
+
+/// A check run still reads the files it is comparing against, and still writes
+/// none of them.
+#[test]
+fn a_checked_plan_reports_without_writing() {
+    let repo = tempfile::tempdir().unwrap();
+    let (store, project_id, _) = fixture(repo.path(), "# Spec\n\nBody.\n");
+
+    let report = generate::plan(&store, &project_id, repo.path())
+        .unwrap()
+        .apply(Mode::Check)
+        .unwrap();
+
+    assert!(
+        report.written.iter().any(|p| p == "product/SPEC.md"),
+        "check should say the file would be written"
+    );
+    assert!(
+        !repo.path().join("product/SPEC.md").exists(),
+        "and must not have written it"
+    );
+}

@@ -322,14 +322,21 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
                     era,
                 );
             };
+            // Embedding the query is model inference — the one expensive thing
+            // on a read path, and the last thing that should happen while every
+            // other request waits on the store. Done here, before the lock, so
+            // the critical section is two SQL queries.
+            let query_vector = state.embed_query(name, request.arguments());
+
             let mut store = state.store();
             let before = latest_event(&store);
-            let outcome = keel_mcp::dispatch(
+            let outcome = keel_mcp::dispatch_prepared(
                 &mut store,
                 keel_mcp::ToolCall {
                     name,
                     arguments: request.arguments(),
                 },
+                query_vector,
             );
             // Announce after the lock is released, so a slow subscriber can
             // never hold the write handle.
@@ -479,7 +486,22 @@ async fn api_generate(State(state): State<AppState>, Json(body): Json<Value>) ->
     };
 
     let mode = if check { Mode::Check } else { Mode::Write };
-    match generate::all(&store, &project.id, &repo_root, mode) {
+
+    // Decide with the store, write without it.
+    //
+    // This used to be one `generate::all` under the lock, and the lock covered
+    // several dozen small file writes as well as every read. A generate against
+    // this project's own store took long enough that the CLI's health probe
+    // timed out and concluded no daemon was there — so the daemon produced the
+    // second writer the probe exists to prevent.
+    let plan = match generate::plan(&store, &project.id, &repo_root) {
+        Ok(plan) => plan,
+        Err(e) => return internal_error(&format!("plan the generate for {}: {e}", project.slug)),
+    };
+    let slug = project.slug.clone();
+    drop(store);
+
+    match plan.apply(mode) {
         Ok(report) => (
             StatusCode::OK,
             Json(json!({ "data": {
@@ -491,7 +513,7 @@ async fn api_generate(State(state): State<AppState>, Json(body): Json<Value>) ->
             }})),
         )
             .into_response(),
-        Err(e) => internal_error(&format!("generate {}: {e}", project.slug)),
+        Err(e) => internal_error(&format!("generate {slug}: {e}")),
     }
 }
 

@@ -117,6 +117,115 @@ pub fn generate_except(
     skip: &[EntityId],
     mode: crate::generate::Mode,
 ) -> Result<MirrorReport> {
+    plan_except(store, project_id, repo_root, skip)?.apply(mode)
+}
+
+/// The mirror's files, decided but not written.
+///
+/// Exists so that the store can be let go of between deciding and writing —
+/// see [`crate::generate::GeneratePlan`], which holds one of these.
+#[derive(Debug)]
+pub struct MirrorPlan {
+    repo_root: PathBuf,
+    root: PathBuf,
+    /// The files, in the order they should be written.
+    writes: Vec<crate::generate::PlannedFile>,
+    /// What went into each of them, for the manifest.
+    files: Vec<MirrorFile>,
+    /// The manifest, already serialised.
+    manifest_json: String,
+}
+
+impl MirrorPlan {
+    /// Write what the plan decided, and reconcile what a previous run left.
+    ///
+    /// Touches the filesystem and nothing else.
+    pub fn apply(self, mode: crate::generate::Mode) -> Result<MirrorReport> {
+        if mode == crate::generate::Mode::Write {
+            for folder in ["specs", "decisions"] {
+                std::fs::create_dir_all(self.root.join(folder)).map_err(Error::io(format!(
+                    "create {}",
+                    self.root.join(folder).display()
+                )))?;
+            }
+        }
+
+        // What the last run produced, so this one can tell what it has stopped
+        // producing. Read before anything is written. A missing or unreadable
+        // manifest means "nothing known", never "everything is an orphan" — the
+        // one reading that could delete a tree.
+        let previous: Vec<String> = std::fs::read_to_string(self.root.join("manifest.json"))
+            .ok()
+            .and_then(|raw| serde_json::from_str::<Manifest>(&raw).ok())
+            .map(|m| m.files.into_iter().map(|f| f.path).collect())
+            .unwrap_or_default();
+
+        let mut report = MirrorReport::default();
+        crate::generate::write_planned(
+            &self.writes,
+            mode,
+            &mut report.written,
+            &mut report.unchanged,
+        )?;
+
+        // --- Orphans ------------------------------------------------------
+        //
+        // Bounded three ways, because this is the only place generation
+        // deletes: the path must have been produced by a previous run of *this*
+        // project, must live under the mirror root, and must still be a file.
+        // Anything the mirror did not write is not the mirror's to remove.
+        let produced: std::collections::BTreeSet<&str> =
+            self.files.iter().map(|f| f.path.as_str()).collect();
+        for stale in &previous {
+            if produced.contains(stale.as_str()) {
+                continue;
+            }
+            if !stale.starts_with(".keel/") || stale.contains("..") {
+                continue;
+            }
+            let Ok(absolute) = crate::safe_path::confine(&self.repo_root, stale) else {
+                // A manifest entry that no longer confines is a manifest
+                // somebody has edited. Skipping it is the fail-closed
+                // direction: the mirror declines to delete a file it cannot
+                // prove it owns.
+                continue;
+            };
+            if !absolute.is_file() {
+                continue;
+            }
+            if mode == crate::generate::Mode::Write {
+                std::fs::remove_file(&absolute)
+                    .map_err(Error::io(format!("remove the orphaned {stale}")))?;
+            }
+            report.orphans.push(stale.clone());
+        }
+        report.orphans.sort();
+
+        // The manifest carries a timestamp, so it always differs; written
+        // unconditionally rather than pretending to compare it. It is therefore
+        // left out of the report, or every `--check` run would claim the tree
+        // is dirty because a clock moved.
+        if mode == crate::generate::Mode::Write {
+            crate::atomic::write(
+                &crate::safe_path::confine(&self.repo_root, ".keel/manifest.json")?,
+                &format!("{}\n", self.manifest_json),
+            )?;
+        }
+
+        Ok(report)
+    }
+}
+
+/// Decide the mirror's files, skipping artifacts that have adopted a real
+/// repository file.
+///
+/// Reads the store and nothing else.
+pub fn plan_except(
+    store: &Store,
+    project_id: &EntityId,
+    repo_root: &Path,
+    skip: &[EntityId],
+) -> Result<MirrorPlan> {
     let Some(Entity::Project(project)) = store.get(project_id)? else {
         return Err(Error::NotFound {
             entity_type: EntityType::Project,
@@ -125,28 +234,7 @@ pub fn generate_except(
     };
 
     let root = repo_root.join(".keel");
-    if mode == crate::generate::Mode::Write {
-        std::fs::create_dir_all(root.join("specs")).map_err(Error::io(format!(
-            "create {}",
-            root.join("specs").display()
-        )))?;
-        std::fs::create_dir_all(root.join("decisions")).map_err(Error::io(format!(
-            "create {}",
-            root.join("decisions").display()
-        )))?;
-    }
-
-    // What the last run produced, so this one can tell what it has stopped
-    // producing. Read before anything is written. A missing or unreadable
-    // manifest means "nothing known", never "everything is an orphan" — the
-    // one reading that could delete a tree.
-    let previous: Vec<String> = std::fs::read_to_string(root.join("manifest.json"))
-        .ok()
-        .and_then(|raw| serde_json::from_str::<Manifest>(&raw).ok())
-        .map(|m| m.files.into_iter().map(|f| f.path).collect())
-        .unwrap_or_default();
-
-    let mut report = MirrorReport::default();
+    let mut writes: Vec<crate::generate::PlannedFile> = Vec::new();
     let mut files: Vec<MirrorFile> = Vec::new();
 
     // --- README ----------------------------------------------------------
@@ -168,13 +256,7 @@ pub fn generate_except(
          - `manifest.json` — which artifacts produced which file\n",
         project.name, project.id, project.slug
     );
-    write_if_changed(
-        &root.join("README.md"),
-        &readme,
-        ".keel/README.md",
-        mode,
-        &mut report,
-    )?;
+    writes.push(planned(repo_root, ".keel/README.md", readme)?);
 
     // --- Specs and decisions, one file each ------------------------------
     for (entity_type, folder) in [
@@ -206,13 +288,7 @@ pub fn generate_except(
             // currently escape — which is exactly why it is checked. A slug
             // rule that grows a case for some future character is a change
             // nobody would think to re-examine here.
-            write_if_changed(
-                &crate::safe_path::confine(repo_root, &relative)?,
-                &content,
-                &relative,
-                mode,
-                &mut report,
-            )?;
+            writes.push(planned(repo_root, &relative, content)?);
 
             files.push(MirrorFile {
                 path: relative,
@@ -302,13 +378,7 @@ pub fn generate_except(
     if !any {
         writeln!(open, "*Nothing recorded.*").map_err(fmt_err)?;
     }
-    write_if_changed(
-        &crate::safe_path::confine(repo_root, ".keel/questions.md")?,
-        &open,
-        ".keel/questions.md",
-        mode,
-        &mut report,
-    )?;
+    writes.push(planned(repo_root, ".keel/questions.md", open)?);
     files.push(MirrorFile {
         path: ".keel/questions.md".to_owned(),
         contributors,
@@ -371,70 +441,49 @@ pub fn generate_except(
             });
         }
     }
-    write_if_changed(
-        &crate::safe_path::confine(repo_root, ".keel/glossary.md")?,
-        &glossary,
-        ".keel/glossary.md",
-        mode,
-        &mut report,
-    )?;
+    writes.push(planned(repo_root, ".keel/glossary.md", glossary)?);
     files.push(MirrorFile {
         path: ".keel/glossary.md".to_owned(),
         contributors: term_contributors,
     });
 
-    // --- Orphans ----------------------------------------------------------
-    //
-    // Bounded three ways, because this is the only place generation deletes:
-    // the path must have been produced by a previous run of *this* project,
-    // must live under the mirror root, and must still be a file. Anything the
-    // mirror did not write is not the mirror's to remove.
-    let produced: std::collections::BTreeSet<&str> =
-        files.iter().map(|f| f.path.as_str()).collect();
-    for stale in &previous {
-        if produced.contains(stale.as_str()) {
-            continue;
-        }
-        if !stale.starts_with(".keel/") || stale.contains("..") {
-            continue;
-        }
-        let Ok(absolute) = crate::safe_path::confine(repo_root, stale) else {
-            // A manifest entry that no longer confines is a manifest somebody
-            // has edited. Skipping it is the fail-closed direction: the mirror
-            // declines to delete a file it cannot prove it owns.
-            continue;
-        };
-        if !absolute.is_file() {
-            continue;
-        }
-        if mode == crate::generate::Mode::Write {
-            std::fs::remove_file(&absolute)
-                .map_err(Error::io(format!("remove the orphaned {stale}")))?;
-        }
-        report.orphans.push(stale.clone());
-    }
-    report.orphans.sort();
-
     // --- Manifest --------------------------------------------------------
+    //
+    // Serialised here rather than in `apply`, because it is entirely a
+    // statement about what the store said. Writing it, and reading the previous
+    // one to work out what has been orphaned, belong to the other half.
     let manifest = Manifest {
         project_id: project_id.clone(),
         generated_at: chrono::Utc::now().to_rfc3339(),
         files,
     };
-    let json = serde_json::to_string_pretty(&manifest)
+    let manifest_json = serde_json::to_string_pretty(&manifest)
         .map_err(Error::json("serialise the mirror manifest"))?;
-    // The manifest carries a timestamp, so it always differs; written
-    // unconditionally rather than pretending to compare it. It is therefore
-    // left out of the report, or every `--check` run would claim the tree is
-    // dirty because a clock moved.
-    if mode == crate::generate::Mode::Write {
-        crate::atomic::write(
-            &crate::safe_path::confine(repo_root, ".keel/manifest.json")?,
-            &format!("{json}\n"),
-        )?;
-    }
 
-    Ok(report)
+    Ok(MirrorPlan {
+        repo_root: repo_root.to_path_buf(),
+        root,
+        writes,
+        files: manifest.files,
+        manifest_json,
+    })
+}
+
+/// One planned mirror file.
+///
+/// The mirror's own comparison ignores the banner entirely — every file it
+/// writes has one, so its presence is never the difference.
+fn planned(
+    repo_root: &Path,
+    relative: &str,
+    content: String,
+) -> Result<crate::generate::PlannedFile> {
+    Ok(crate::generate::PlannedFile {
+        absolute: crate::safe_path::confine(repo_root, relative)?,
+        relative: relative.to_owned(),
+        content,
+        banner_counts: false,
+    })
 }
 
 /// The generated-file header.
@@ -478,54 +527,18 @@ fn render_prose(entity: &Entity, body: &str) -> String {
     out
 }
 
-/// Write only when the content differs.
-///
-/// Not an optimisation — the mirror is regenerated on every relevant write, and
-/// rewriting an unchanged file would touch its mtime, dirty the working tree
-/// and produce a stream of empty commits.
-fn write_if_changed(
-    path: &Path,
-    content: &str,
-    relative: &str,
-    mode: crate::generate::Mode,
-    report: &mut MirrorReport,
-) -> Result<()> {
-    // Compare ignoring the header, which carries a fresh timestamp every run
-    // and would otherwise make every file look changed every time.
-    let existing = std::fs::read_to_string(path).ok();
-    if let Some(old) = &existing
-        && strip_header(old) == strip_header(content)
-    {
-        report.unchanged.push(relative.to_owned());
-        return Ok(());
-    }
-
-    report.written.push(relative.to_owned());
-    if mode == crate::generate::Mode::Check {
-        return Ok(());
-    }
-
-    crate::atomic::write(path, content)
-}
-
-/// Drop the generated header comment, for change comparison.
-fn strip_header(content: &str) -> String {
-    let mut out = String::new();
-    let mut in_header = false;
-    for line in content.lines() {
-        if line.trim_start().starts_with("<!-- keel:generated") {
-            in_header = !line.contains("-->");
-            continue;
-        }
-        if in_header {
-            in_header = !line.contains("-->");
-            continue;
-        }
-        out.push_str(line);
-        out.push('\n');
-    }
-    out
-}
+// `write_if_changed` and `strip_header` used to live here. Writing moved to
+// `generate::write_planned`, which both halves of a generate now share: they
+// were two near-identical functions with one real difference — whether a file's
+// *lack* of a banner counts as a change, which is true for adopted prose being
+// generated for the first time and never true for the mirror. That difference
+// is a field on the planned file now rather than a second copy of the
+// comparison.
+//
+// The comparison is not an optimisation, in either version: the mirror is
+// regenerated on every relevant write, and rewriting an unchanged file would
+// touch its mtime, dirty the working tree and produce a stream of empty
+// commits.
 
 /// A filesystem-safe slug.
 fn slugify(name: &str) -> String {
@@ -588,12 +601,16 @@ mod tests {
         // The header carries a timestamp. Without stripping it, every file
         // would look changed on every run and the repo would fill with empty
         // commits.
+        //
+        // Asserted against `generate`'s copy of the rule, which is now the only
+        // copy: the mirror had its own, identical but for a trailing newline.
+        use crate::generate::strip_banner_public as strip;
         let a = "<!-- keel:generated spec spc_1 v1 2026-08-09T10:00:00Z\n     source -->\n# Title\n\nBody\n";
         let b = "<!-- keel:generated spec spc_1 v1 2026-08-09T23:59:59Z\n     source -->\n# Title\n\nBody\n";
-        assert_eq!(strip_header(a), strip_header(b));
+        assert_eq!(strip(a), strip(b));
 
         let c = "<!-- keel:generated spec spc_1 v2 2026-08-09T10:00:00Z\n     source -->\n# Title\n\nDifferent\n";
-        assert_ne!(strip_header(a), strip_header(c));
+        assert_ne!(strip(a), strip(c));
     }
 
     #[test]

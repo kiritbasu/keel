@@ -233,6 +233,28 @@ impl Store {
         query: &SearchQuery,
         embedder: Option<&dyn Embedder>,
     ) -> Result<Page<SearchHit>> {
+        self.search_prepared(query, embedder, None)
+    }
+
+    /// Search with the query text already turned into a vector.
+    ///
+    /// Embedding a query is the one expensive thing on the read path — model
+    /// inference, tens of milliseconds — and a caller that serialises the whole
+    /// store behind a lock does not want it happening inside the critical
+    /// section. The daemon embeds first and hands the result in here, so the
+    /// lock covers two SQL queries and nothing else.
+    ///
+    /// `precomputed` must be an embedding of `query.text` from the same model
+    /// the corpus was embedded with. Nothing checks that, because nothing can:
+    /// a vector carries no provenance. Passing one from a different model does
+    /// not fail, it returns confidently irrelevant neighbours — which is why
+    /// the only caller is the one that owns both ends.
+    pub fn search_prepared(
+        &self,
+        query: &SearchQuery,
+        embedder: Option<&dyn Embedder>,
+        precomputed: Option<&[f32]>,
+    ) -> Result<Page<SearchHit>> {
         if query.text.trim().is_empty() {
             // Refused rather than answered with nothing. An empty result
             // would read to a model as "there is
@@ -258,10 +280,13 @@ impl Store {
             tracing::warn!(error = %e, "keyword search failed; returning semantic hits only");
             Vec::new()
         }));
-        lists.push(self.search_semantic(query, embedder).unwrap_or_else(|e| {
-            tracing::warn!(error = %e, "semantic search failed; returning keyword hits only");
-            Vec::new()
-        }));
+        lists.push(
+            self.search_semantic(query, embedder, precomputed)
+                .unwrap_or_else(|e| {
+                    tracing::warn!(error = %e, "semantic search failed; returning keyword hits only");
+                    Vec::new()
+                }),
+        );
 
         // `total` counts distinct artifacts, not raw hits: a row both halves
         // found is one result, and counting it twice would make `truncated`
@@ -387,10 +412,8 @@ impl Store {
         &self,
         query: &SearchQuery,
         embedder: Option<&dyn Embedder>,
+        precomputed: Option<&[f32]>,
     ) -> Result<Vec<SearchHit>> {
-        let Some(embedder) = embedder else {
-            return Ok(Vec::new());
-        };
         // If `sqlite-vec` never registered, `vec_distance_cosine` does not
         // exist and this query would fail outright — turning a search into an
         // error for a caller who only wanted results. Degrade to keyword-only
@@ -399,7 +422,17 @@ impl Store {
         if !self.vector_search_available() {
             return Ok(Vec::new());
         }
-        let vector = embedder.embed_one(&query.text)?;
+        let owned;
+        let vector: &[f32] = match precomputed {
+            Some(v) => v,
+            None => {
+                let Some(embedder) = embedder else {
+                    return Ok(Vec::new());
+                };
+                owned = embedder.embed_one(&query.text)?;
+                &owned
+            }
+        };
         let probe: Vec<u8> = vector.iter().flat_map(|f| f.to_le_bytes()).collect();
         let width = probe.len() as i64;
 

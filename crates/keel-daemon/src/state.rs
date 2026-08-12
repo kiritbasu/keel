@@ -187,6 +187,43 @@ impl AppState {
         });
     }
 
+    /// Turn a search tool call's query text into a vector, before the store
+    /// lock is taken.
+    ///
+    /// Embedding is model inference — tens of milliseconds of CPU — and it used
+    /// to happen inside `search`, which happens inside the critical section
+    /// that every other request is queued behind. Nothing about it needs the
+    /// store; it needs the model, and the model is reachable without waiting.
+    ///
+    /// `None` in three cases, all of which fall back to the old behaviour and
+    /// none of which is an error: the call is not a search, there is no query
+    /// text to embed, or the store is busy right now — the handle lives on the
+    /// store, so getting it means a lock, and this one will not wait for one.
+    /// A search that arrives during a slow write embeds inside the lock as it
+    /// always did, which is no worse than before and far better than blocking
+    /// here to avoid blocking later.
+    pub fn embed_query(&self, tool: &str, arguments: &serde_json::Value) -> Option<Vec<f32>> {
+        if tool != "keel_search" {
+            return None;
+        }
+        let text = arguments.get("query").and_then(|v| v.as_str())?;
+        if text.trim().is_empty() {
+            return None;
+        }
+        let embedder = self.try_store()?.embedder_handle()?;
+        match embedder.embed_one(text) {
+            Ok(vector) => Some(vector),
+            // The store would have hit the same failure and handled it the same
+            // way — semantic half empty, keyword half answers. Logged rather
+            // than swallowed, because a search that has quietly stopped being
+            // hybrid is this codebase's defining failure.
+            Err(e) => {
+                tracing::warn!(error = %e, "could not embed the search query ahead of the lock");
+                None
+            }
+        }
+    }
+
     /// Build state around an already-open store. Used by tests.
     pub fn from_store(store: Store) -> Self {
         let (changes, _) = tokio::sync::broadcast::channel(256);

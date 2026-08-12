@@ -275,10 +275,27 @@ fn tool_result(summary: String, structured: Value) -> Value {
 
 /// Execute a tool call.
 pub fn dispatch(store: &mut Store, call: ToolCall<'_>) -> Result<Value, RpcError> {
+    dispatch_prepared(store, call, None)
+}
+
+/// Execute a tool call with the search query already embedded.
+///
+/// The one thing on the read path that costs real time is turning a query into
+/// a vector, and a caller that holds the store behind a lock wants that done
+/// before it takes the lock. Only `keel_search` looks at `query_vector`;
+/// passing one for anything else is harmless and ignored.
+///
+/// [`dispatch`] is this with `None`, for every caller that has no lock to be
+/// careful with.
+pub fn dispatch_prepared(
+    store: &mut Store,
+    call: ToolCall<'_>,
+    query_vector: Option<Vec<f32>>,
+) -> Result<Value, RpcError> {
     let args = call.arguments;
     match call.name {
         "keel_context" => keel_context(store, args),
-        "keel_search" => keel_search(store, args),
+        "keel_search" => keel_search(store, args, query_vector),
         "keel_get" => keel_get(store, args),
         "keel_projects" => keel_projects(store, args),
         "keel_activity" => keel_activity(store, args),
@@ -435,7 +452,11 @@ fn project_for_directory(store: &Store, dir: &str) -> Option<EntityId> {
     best.map(|(_, id)| id)
 }
 
-fn keel_search(store: &Store, args: &Value) -> Result<Value, RpcError> {
+fn keel_search(
+    store: &Store,
+    args: &Value,
+    query_vector: Option<Vec<f32>>,
+) -> Result<Value, RpcError> {
     let text = req_str(args, "query")?;
     let project_id = match opt_str(args, "project") {
         Some(p) => Some(resolve_project(store, &p)?),
@@ -452,7 +473,9 @@ fn keel_search(store: &Store, args: &Value) -> Result<Value, RpcError> {
         limit: opt_i64(args, "limit").unwrap_or(20).clamp(1, 100) as usize,
     };
 
-    let page = store.search(&query).map_err(|e| to_rpc_error(store, e))?;
+    let page = store
+        .search_prepared(&query, store.embedder(), query_vector.as_deref())
+        .map_err(|e| to_rpc_error(store, e))?;
     let summary = if page.items.is_empty() {
         format!(
             "No matches for “{}”. Try fewer words, or drop the type filter.",
