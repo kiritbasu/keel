@@ -7,8 +7,10 @@
 //! Three modules, in the order a request meets them:
 //!
 //! - [`protocol`] — JSON-RPC and the 2026-07-28 stateless wire contract.
-//! - [`tools`] — the nine tool definitions. These descriptions *are* the
-//!   product; they are the only documentation an agent gets.
+//! - [`tools`] — the thirteen tool definitions. These descriptions *are* the
+//!   product; they are the only documentation an agent gets. The count is
+//!   asserted in the snapshot suite, because it has been wrong here before:
+//!   this line said "nine" through the tenth tool and the thirteenth.
 //! - [`dispatch`] — executing a call against `keel-core`, and turning domain
 //!   errors into something a model can act on.
 //!

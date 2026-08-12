@@ -12,10 +12,18 @@
 //! One [`keel_core::Store`] behind one mutex, for the whole process (D-5).
 //! That is not a performance decision — SQLite in WAL mode would permit a
 //! second process to open this file and write to it — it is the design rule
-//! that makes the seven-step write path
+//! that makes the write path
 //! (validate → resolve links → embed → write entity → append revision → append
-//! event → regenerate mirror) atomic from a caller's point of view. Six of
-//! those steps have nothing to do with locking.
+//! event) atomic from a caller's point of view. Most of those steps have
+//! nothing to do with locking, which is the actual argument for the rule.
+//!
+//! Generating the mirror is **not** one of those steps, though this said it was
+//! for a long time. It is a separate command, run deliberately — `keel
+//! generate`, or `POST /api/generate` — and it is not part of a write and never
+//! was. The distinction matters more than a tidy list: a reader who believes
+//! files are rewritten on every write concludes the repository is always
+//! current, which is exactly the belief `keel generate --check` and the
+//! pre-commit hook exist to correct.
 //!
 //! The lock is `std::sync::Mutex`, held across synchronous work and never
 //! across an `.await`. At one user and a few thousand rows this is correct and

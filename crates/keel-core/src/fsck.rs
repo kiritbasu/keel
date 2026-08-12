@@ -266,6 +266,36 @@ pub fn page_integrity(store: &Store, which: &str) -> Result<Option<String>> {
     }
 }
 
+/// Every check this module can report, by name.
+///
+/// Declared rather than derived because a check nobody can enumerate is a check
+/// nobody can prove has a test. `tests/fsck_coverage.rs` asserts that every name
+/// here has a corruption test that trips it, and the test at the bottom of this
+/// file asserts the list matches what the code actually emits — so a new check
+/// cannot be added silently in either direction.
+pub const CHECKS: [&str; 20] = [
+    "dangling_link_source",
+    "dangling_link_target",
+    "depends_on_stored",
+    "link_type_mismatch",
+    "orphan_document",
+    "multiple_current_revisions",
+    "orphan_task",
+    "stale_in_progress",
+    "duplicate_task_number",
+    "task_without_number",
+    "project_without_key",
+    "task_parent_cycle",
+    "task_parent_dangling",
+    "unresolved_id_reference",
+    "event_without_actor",
+    "event_without_session",
+    "page_integrity",
+    "row_without_creation_event",
+    "live_link_to_archived",
+    "orphan_blob",
+];
+
 /// Run every integrity check.
 ///
 /// Exits non-zero only on errors, so a warning-only report can still gate a
@@ -868,6 +898,42 @@ pub fn check(store: &Store) -> Result<FsckReport> {
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+
+    /// `CHECKS` lists exactly the names this file emits.
+    ///
+    /// Read out of the source rather than out of a run, because most checks
+    /// only produce a finding against a corrupted store and a test that had to
+    /// corrupt one nineteen different ways to enumerate them would be the very
+    /// thing `tests/fsck_coverage.rs` exists to be. The `dangling_link_*` pair
+    /// is built by format string, so it is the one entry that has to be spelt
+    /// out here as well.
+    #[test]
+    fn the_declared_check_list_matches_what_the_code_emits() {
+        let source = include_str!("fsck.rs");
+        let mut emitted: Vec<String> = source
+            .match_indices("check: \"")
+            .filter_map(|(at, _)| {
+                let rest = &source[at + "check: \"".len()..];
+                rest.find('"').map(|end| rest[..end].to_owned())
+            })
+            .collect();
+        emitted.extend([
+            "dangling_link_source".to_owned(),
+            "dangling_link_target".to_owned(),
+        ]);
+        emitted.sort();
+        emitted.dedup();
+        // The two examples in the tests below are literals of the same shape.
+        emitted.retain(|name| name != "dangling_link" || CHECKS.contains(&name.as_str()));
+
+        let mut declared: Vec<String> = CHECKS.iter().map(|c| (*c).to_owned()).collect();
+        declared.sort();
+
+        assert_eq!(
+            emitted, declared,
+            "fsck::CHECKS and the check names in this file have diverged"
+        );
+    }
 
     #[test]
     fn a_report_with_only_warnings_is_clean() {
