@@ -117,6 +117,7 @@ impl Store {
         };
         store.configure()?;
         store.migrate()?;
+        store.seed_id_generator()?;
         Ok(store)
     }
 
@@ -138,7 +139,42 @@ impl Store {
         };
         store.configure()?;
         store.migrate()?;
+        store.seed_id_generator()?;
         Ok(store)
+    }
+
+    /// Make sure this process cannot mint an id below one already stored.
+    ///
+    /// The id generator is monotonic within a process and starts from nothing
+    /// in a new one, so a clock that has moved backwards since the last write —
+    /// sleep and wake is the common case, not a restart — makes a fresh process
+    /// mint ids that sort *below* what is already there. Nothing errors: the
+    /// live-update stream simply stops noticing writes, and the activity cursor
+    /// skips them permanently.
+    ///
+    /// Two tables, because two orderings depend on it: `events.id` is the feed,
+    /// and entity ids are creation order in every list.
+    fn seed_id_generator(&self) -> Result<()> {
+        for sql in [
+            "SELECT max(id) FROM events",
+            "SELECT max(id) FROM v_entities",
+        ] {
+            let highest: Option<String> = self
+                .conn
+                .query_row(sql, [], |r| r.get(0))
+                .map_err(Error::storage("read the highest stored id"))?;
+            if let Some(highest) = highest
+                && crate::id::ensure_above(&highest)
+            {
+                tracing::warn!(
+                    %highest,
+                    "the newest stored id is at or ahead of this machine's clock, so the clock \
+                     has moved backwards since the last write. Ids are primed above it; nothing \
+                     is lost, but check the system clock"
+                );
+            }
+        }
+        Ok(())
     }
 
     /// Attach an embedder, enabling the semantic half of hybrid search.

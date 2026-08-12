@@ -18,6 +18,52 @@ use std::fmt;
 /// The number of characters in a Crockford base-32 ULID.
 const ULID_LEN: usize = 26;
 
+/// Make sure every id minted from now on sorts above `highest`.
+///
+/// Returns whether it had to do anything.
+///
+/// The generator is monotonic *within a process*: it remembers the last id it
+/// produced and increments rather than going backwards. A fresh process starts
+/// from nil and takes its first stamp straight from the clock, so if the wall
+/// clock has moved backwards since the store was last written — a laptop waking
+/// from sleep, an NTP correction, a restore onto a machine with a different
+/// clock — the new process mints ids *below* ones already stored.
+///
+/// Nothing errors when that happens. The live-update stream compares the newest
+/// event id against the one it last saw and concludes nothing has changed, so
+/// the app goes quiet for every write until the clock catches up; the activity
+/// cursor moves past those events and never comes back for them. Both are the
+/// silent-and-plausible failure this codebase exists to refuse.
+///
+/// Priming is one throwaway id at `highest + 1ms`, which leaves the generator's
+/// `previous` above everything stored. Subsequent calls increment from there
+/// until the clock genuinely passes it, at which point normal minting resumes.
+pub fn ensure_above(highest: &str) -> bool {
+    let body = highest.split_once('_').map_or(highest, |(_, rest)| rest);
+    let Ok(stored) = ulid::Ulid::from_string(body) else {
+        return false;
+    };
+
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    if u128::from(stored.timestamp_ms()) < now_ms {
+        return false;
+    }
+
+    let ahead = std::time::UNIX_EPOCH + std::time::Duration::from_millis(stored.timestamp_ms() + 1);
+    match GENERATOR.lock() {
+        Ok(mut guard) => {
+            let _ = guard.generate_from_datetime(ahead);
+        }
+        Err(poisoned) => {
+            let _ = poisoned.into_inner().generate_from_datetime(ahead);
+        }
+    }
+    true
+}
+
 /// When a prefixed id says it was minted.
 ///
 /// A ULID's first 48 bits are a millisecond timestamp, so an id carries its own

@@ -175,3 +175,93 @@ fn the_change_log_groups_the_newest_changes() {
     );
     assert!(log.truncated, "a cut log must say it was cut");
 }
+
+// --- A clock that stepped backwards --------------------------------------
+
+/// The feed has to keep advancing after the wall clock moves backwards.
+///
+/// The id generator is monotonic within a process and starts from nothing in a
+/// new one, so a laptop waking from sleep — far more common than a restart —
+/// makes a fresh process mint ids that sort *below* what is already stored.
+/// Nothing errors: the live-update stream compares the newest id against the
+/// one it last saw, concludes nothing changed, and goes quiet for every write
+/// until the clock catches up.
+#[test]
+fn a_stored_id_from_the_future_does_not_freeze_the_feed() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("keel.sqlite");
+
+    let project = {
+        let mut store = Store::open(&path).unwrap();
+        let project = store
+            .create(Project::new("keel", "Keel").into(), &prov())
+            .unwrap()
+            .entity
+            .id()
+            .clone();
+
+        // An event minted an hour ahead, which is what the store looks like
+        // after the clock steps back.
+        store
+            .connection()
+            .execute(
+                "INSERT INTO events (id, project_id, entity_id, entity_type, op, summary, \
+                 actor, at) VALUES (?1, ?2, ?2, 'project', 'updated', 'from the future', \
+                 'claude', ?3)",
+                rusqlite::params![
+                    format!("evt_{}", ulid_an_hour_ahead()),
+                    project.as_str(),
+                    (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339()
+                ],
+            )
+            .unwrap();
+        project
+    };
+
+    // A fresh process, exactly as after a restart or a wake.
+    let mut store = Store::open(&path).unwrap();
+    let before = store.latest_event_id().unwrap().expect("an event exists");
+
+    store
+        .create(
+            Task::new(
+                project.clone(),
+                "Written after the clock stepped",
+                "A summary.",
+            )
+            .into(),
+            &prov(),
+        )
+        .unwrap();
+
+    let after = store.latest_event_id().unwrap().expect("two events exist");
+    assert!(
+        after > before,
+        "the new event sorted below the one from the future ({after} <= {before}), so the \
+         live-update stream would see no change and the activity cursor would skip it"
+    );
+
+    // And the newest-first read agrees, which is what the digest and the
+    // changelog actually show.
+    let newest = store
+        .recent_events(EventScope::Project(&project), 1)
+        .unwrap();
+    assert_eq!(
+        newest.items[0].summary, "created task “Written after the clock stepped”",
+        "the newest event should be the one just written, not the one from the future"
+    );
+}
+
+/// A ULID an hour in the future, built by hand: the generator takes its stamp
+/// from the clock and cannot be asked for one.
+fn ulid_an_hour_ahead() -> String {
+    const ALPHABET: &[u8] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    let at = chrono::Utc::now() + chrono::Duration::hours(1);
+    let mut ms = u64::try_from(at.timestamp_millis()).unwrap();
+    let mut head = [b'0'; 10];
+    for slot in head.iter_mut().rev() {
+        *slot = ALPHABET[(ms & 0x1f) as usize];
+        ms >>= 5;
+    }
+    format!("{}{}", std::str::from_utf8(&head).unwrap(), "0".repeat(16))
+}
