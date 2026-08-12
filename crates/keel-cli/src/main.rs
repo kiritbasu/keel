@@ -83,6 +83,22 @@ enum Command {
         daemon: String,
     },
 
+    /// Give every current revision that has no vector one.
+    ///
+    /// Embedding happens on the way into a new revision and nowhere else, so
+    /// turning the feature on leaves the existing corpus invisible to the
+    /// vector half of hybrid search — permanently, because nothing would ever
+    /// rewrite those rows. This is the pass that fixes that.
+    ///
+    /// The first run downloads the model, which needs network access.
+    Reembed {
+        /// Only revisions with no vector at all. The default and, for now, the
+        /// only mode: re-embedding rows that already have a vector is TQ-3,
+        /// which is still open.
+        #[arg(long, default_value_t = true)]
+        missing: bool,
+    },
+
     /// Back up the store: one consistent snapshot, plus a manifest.
     Backup {
         /// Where to write it. Defaults to `<home>/backups/<timestamp>`.
@@ -413,6 +429,7 @@ fn main() -> Result<()> {
     match &cli.command {
         Command::Fsck { daemon } => run_fsck(&home, daemon, cli.json),
         Command::Doctor { daemon } => doctor::run(&home, daemon, cli.json),
+        Command::Reembed { missing } => run_reembed(&home, *missing, cli.force, cli.json),
         Command::Backup { dest } => run_backup(&home, dest.clone(), cli.json),
         Command::Restore { source, target } => run_restore(source, target, cli.json),
         Command::Fixture => run_fixture(&home, cli.force, cli.json),
@@ -1006,6 +1023,68 @@ fn run_fsck(home: &Path, daemon: &str, json: bool) -> Result<()> {
             "{} error-level finding(s); the store is not consistent",
             report.errors().count()
         );
+    }
+    Ok(())
+}
+
+/// Backfill the vectors that were never written.
+fn run_reembed(home: &Path, missing: bool, force: bool, json: bool) -> Result<()> {
+    if !missing {
+        bail!(
+            "only `--missing` is supported. Re-embedding rows that already have a vector is              what happens when the model changes, and how to do that is TQ-3, which is open"
+        );
+    }
+
+    let mut store = writes::open_for_write(home, &writes::daemon_url(), force, "re-embed")?;
+    let (current, absent) = store.documents_missing_embeddings()?;
+    if absent == 0 {
+        if json {
+            println!(
+                "{}",
+                serde_json::json!({"missing": 0, "embedded": 0, "failed": 0})
+            );
+        } else {
+            println!("nothing to do — all {current} current document(s) have a vector");
+        }
+        return Ok(());
+    }
+
+    let models = home.join("models");
+    std::fs::create_dir_all(&models)
+        .with_context(|| format!("create the model cache at {}", models.display()))?;
+    if !json {
+        println!(
+            "embedding {absent} of {current} current document(s)\n\
+             the first run downloads the model into {}, which needs network access",
+            models.display()
+        );
+    }
+
+    let embedder = keel_embed::FastEmbedder::new(&models)
+        .context("load the embedding model. The first run downloads it")?;
+
+    let report = store.reembed_missing(&embedder, |done, total| {
+        if !json {
+            println!("  {done}/{total}");
+        }
+    })?;
+
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "missing": report.missing,
+                "embedded": report.embedded,
+                "failed": report.failed,
+            })
+        );
+    } else if report.failed > 0 {
+        println!(
+            "{} embedded, {} refused by the model and left keyword-searchable",
+            report.embedded, report.failed
+        );
+    } else {
+        println!("{} document(s) embedded", report.embedded);
     }
     Ok(())
 }

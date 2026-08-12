@@ -1601,6 +1601,7 @@ dependencies = [
  "chrono",
  "clap",
  "keel-core",
+ "keel-embed",
  "keel-mcp",
  "serde",
  "serde_json",

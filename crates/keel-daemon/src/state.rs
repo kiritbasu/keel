@@ -66,7 +66,7 @@ impl AppState {
     /// silently opens an empty store rather than failing.
     pub fn open(home: &Path, embeddings: bool) -> Result<Self> {
         let path = keel_core::store_path(home);
-        let mut store =
+        let store =
             Store::open(&path).with_context(|| format!("open the store at {}", path.display()))?;
 
         // Ask SQLite whether the file is intact, once, at startup.
@@ -95,37 +95,91 @@ impl AppState {
             Err(e) => tracing::warn!(error = %e, "could not run the startup integrity check"),
         }
 
-        if embeddings {
-            // Constructed here rather than inside `keel-core`, which must not
-            // decide whether to touch the network or where model files live.
-            // The directory is derived from `home` rather than asked of the
-            // store, because the store is now a file and has no directory of
-            // its own to hang a models cache off.
-            let models = home.join("models");
-            std::fs::create_dir_all(&models).ok();
-            match keel_embed::FastEmbedder::new(&models) {
-                Ok(e) => {
-                    tracing::info!(dir = %models.display(), "embedding model loaded");
-                    store = store.with_embedder(Arc::new(e));
-                }
-                // Degrade rather than refuse to start. Keyword search still
-                // works, and a daemon that will not boot because a model
-                // download failed is worse than one with weaker search.
-                Err(e) => tracing::warn!(
-                    error = %e,
-                    "could not load the embedding model; semantic search is disabled and \
-                     search falls back to keyword only"
-                ),
-            }
+        // Two conditions that make search quietly worse, said out loud at the
+        // one moment somebody is watching the logs.
+        //
+        // Neither of these fails a query. Search keeps returning keyword hits,
+        // which is why a store went months with 227 unembedded documents and
+        // nothing anywhere said so: results kept arriving and were merely
+        // worse. That is the exact silence this project is built to refuse.
+        if !store.vector_search_available() {
+            tracing::warn!(
+                "sqlite-vec did not register, so `vec_distance_cosine` is unavailable and \
+                 search is keyword-only. This is a build problem, not a data problem — \
+                 results will keep arriving and will simply be worse."
+            );
+        }
+        match store.documents_missing_embeddings() {
+            Ok((current, missing)) if missing > 0 => tracing::warn!(
+                current,
+                missing,
+                "{missing} of {current} current document(s) have no vector, so the semantic \
+                 half of search cannot see them. Run `keel reembed --missing`."
+            ),
+            Ok(_) => {}
+            Err(e) => tracing::warn!(error = %e, "could not count the missing embeddings"),
         }
 
         let (changes, _) = tokio::sync::broadcast::channel(256);
-        Ok(AppState {
+        let state = AppState {
             store: Arc::new(Mutex::new(store)),
             changes,
             rate_limit: Arc::new(crate::ratelimit::RateLimit::default()),
             projects: Arc::new(std::sync::atomic::AtomicI64::new(-1)),
-        })
+        };
+
+        if embeddings {
+            state.load_embedder_in_background(home.join("models"));
+        }
+
+        Ok(state)
+    }
+
+    /// Load the embedding model on another thread and attach it when it is
+    /// ready.
+    ///
+    /// It used to load inline, before the socket was bound, so the first run on
+    /// a fresh machine left the daemon unreachable for the length of a 130 MB
+    /// download — which reads as a broken install, not a slow one. Nothing
+    /// needs the model to answer a request: search without it returns keyword
+    /// hits, which is what it will do for the first minute either way.
+    ///
+    /// Constructed here rather than inside `keel-core`, which must not decide
+    /// whether to touch the network or where model files live. The directory is
+    /// derived from `home` rather than asked of the store, because the store is
+    /// a file now and has no directory of its own to hang a cache off.
+    fn load_embedder_in_background(&self, models: std::path::PathBuf) {
+        let store = self.store.clone();
+        std::thread::spawn(move || {
+            std::fs::create_dir_all(&models).ok();
+            match keel_embed::FastEmbedder::new(&models) {
+                Ok(e) => {
+                    // Taking the lock here is safe and brief: it is one field
+                    // assignment, and by now the daemon is already serving.
+                    match store.lock() {
+                        Ok(mut guard) => {
+                            guard.set_embedder(Arc::new(e));
+                            tracing::info!(
+                                dir = %models.display(),
+                                "embedding model loaded; semantic search is live"
+                            );
+                        }
+                        Err(poisoned) => {
+                            poisoned.into_inner().set_embedder(Arc::new(e));
+                            tracing::info!("embedding model loaded after a poisoned lock");
+                        }
+                    }
+                }
+                // Degrade rather than take the daemon down. Keyword search
+                // still works, and a daemon that dies because a model download
+                // failed is worse than one with weaker search.
+                Err(e) => tracing::warn!(
+                    error = %e,
+                    "could not load the embedding model; semantic search stays off and search \
+                     falls back to keyword only"
+                ),
+            }
+        });
     }
 
     /// Build state around an already-open store. Used by tests.

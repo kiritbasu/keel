@@ -391,6 +391,14 @@ impl Store {
         let Some(embedder) = embedder else {
             return Ok(Vec::new());
         };
+        // If `sqlite-vec` never registered, `vec_distance_cosine` does not
+        // exist and this query would fail outright — turning a search into an
+        // error for a caller who only wanted results. Degrade to keyword-only
+        // instead. Whoever opened the store is expected to have said so loudly
+        // at startup; `Store::vector_search_available` is what they ask.
+        if !self.vector_search_available() {
+            return Ok(Vec::new());
+        }
         let vector = embedder.embed_one(&query.text)?;
         let probe: Vec<u8> = vector.iter().flat_map(|f| f.to_le_bytes()).collect();
         let width = probe.len() as i64;

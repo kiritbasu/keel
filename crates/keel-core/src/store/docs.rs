@@ -1051,3 +1051,111 @@ mod tests {
         assert_eq!(rows, 0, "the refused revision was written anyway");
     }
 }
+
+/// How many revisions to embed per batch.
+///
+/// Inference is batched because per-item calls dominate a pass over the whole
+/// corpus, and 32 is small enough that a failure loses a fraction of a second
+/// of work rather than the whole run.
+pub const REEMBED_BATCH: usize = 32;
+
+/// What a re-embedding pass did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ReembedReport {
+    /// Revisions that had no vector when the pass started.
+    pub missing: usize,
+    /// Revisions that have one now.
+    pub embedded: usize,
+    /// Revisions the model refused, which stay readable and keyword-searchable.
+    pub failed: usize,
+}
+
+impl Store {
+    /// Give every current revision that has no vector one.
+    ///
+    /// Embedding happens on the way into a new revision and nowhere else, so
+    /// turning the feature on left the entire existing corpus invisible to the
+    /// vector half of hybrid search — permanently, because nothing would ever
+    /// rewrite those rows. This is the pass that fixes that, and it is the
+    /// reason `embedding_version` exists.
+    ///
+    /// `progress` is called after each batch with (done, total), because the
+    /// first run is slow enough that a silent wait reads as a hang.
+    ///
+    /// A batch the model refuses is logged and skipped rather than aborting the
+    /// pass: one unembeddable document should not stop the other two hundred.
+    pub fn reembed_missing(
+        &mut self,
+        embedder: &dyn crate::Embedder,
+        mut progress: impl FnMut(usize, usize),
+    ) -> Result<ReembedReport> {
+        let mut report = ReembedReport::default();
+
+        let pending: Vec<(String, String, String)> = {
+            let mut stmt = self
+                .conn
+                .prepare(
+                    "SELECT doc_id, title, body FROM documents \
+                     WHERE status = 'current' AND embedding IS NULL ORDER BY doc_id",
+                )
+                .map_err(Error::storage("list the revisions with no embedding"))?;
+            let rows = stmt
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                .map_err(Error::storage("list the revisions with no embedding"))?;
+            rows.collect::<std::result::Result<_, _>>()
+                .map_err(Error::storage("read a revision with no embedding"))?
+        };
+
+        report.missing = pending.len();
+        if pending.is_empty() {
+            return Ok(report);
+        }
+
+        for batch in pending.chunks(REEMBED_BATCH) {
+            // The same text the write path embeds, so a backfilled vector and a
+            // freshly written one are comparable. Anything else would make
+            // search results depend on when a document happened to be embedded.
+            let texts: Vec<String> = batch
+                .iter()
+                .map(|(_, title, body)| Document::searchable_text_of(title, body))
+                .collect();
+
+            let vectors = match embedder.embed(&texts) {
+                Ok(v) => v,
+                Err(e) => {
+                    tracing::warn!(
+                        error = %e,
+                        batch = batch.len(),
+                        "a batch could not be embedded; skipping it and continuing"
+                    );
+                    report.failed += batch.len();
+                    progress(report.embedded + report.failed, report.missing);
+                    continue;
+                }
+            };
+
+            // One transaction per batch. A killed pass then leaves whole
+            // batches done and the rest untouched, which is exactly what
+            // re-running it expects to find.
+            let tx = self
+                .conn
+                .transaction()
+                .map_err(Error::storage("begin a re-embedding batch"))?;
+            for ((doc_id, _, _), vector) in batch.iter().zip(vectors.iter()) {
+                tx.execute(
+                    "UPDATE documents SET embedding = ?1, embedding_model = ?2, \
+                     embedding_version = embedding_version + 1 WHERE doc_id = ?3",
+                    params![embedding_bytes(vector), embedder.model_name(), doc_id],
+                )
+                .map_err(Error::storage(format!("store the vector for {doc_id}")))?;
+            }
+            tx.commit()
+                .map_err(Error::storage("commit a re-embedding batch"))?;
+
+            report.embedded += batch.len();
+            progress(report.embedded + report.failed, report.missing);
+        }
+
+        Ok(report)
+    }
+}

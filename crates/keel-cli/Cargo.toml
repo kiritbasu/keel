@@ -20,6 +20,9 @@ keel-core.workspace = true
 # `keel close` talk to the daemon's MCP endpoint without a second copy of the
 # handshake to keep in step. It brings no network dependency with it.
 keel-mcp.workspace = true
+# Only `keel reembed` constructs an embedder. It is the one CLI command whose
+# job is the model, so it is the one place the ONNX dependency is worth having.
+keel-embed.workspace = true
 clap = { workspace = true, features = ["env"] }
 anyhow.workspace = true
 tracing.workspace = true

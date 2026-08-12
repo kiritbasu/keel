@@ -272,7 +272,18 @@ impl Document {
     /// Title and body together: a spec called "Rate limiting" whose body never
     /// repeats the phrase should still be found by searching for it.
     pub fn searchable_text(&self) -> String {
-        format!("{}\n\n{}", self.title, self.body)
+        Document::searchable_text_of(&self.title, &self.body)
+    }
+
+    /// The same text, from the two columns rather than from a whole document.
+    ///
+    /// The re-embedding pass reads only `title` and `body` — reading every
+    /// column of every revision to embed two of them is a lot of bytes for
+    /// nothing — and it must produce the identical string the write path does,
+    /// or a backfilled vector and a freshly written one are not comparable and
+    /// results depend on when a document happened to be embedded.
+    pub fn searchable_text_of(title: &str, body: &str) -> String {
+        format!("{title}\n\n{body}")
     }
 }
 

@@ -659,3 +659,108 @@ fn a_document_survives_reopening_the_store() {
     assert_eq!(doc.body, "This must survive a restart.");
     assert_eq!(doc.project_id, Some(project_id));
 }
+
+// --- Backfilling the vectors that were never written ---------------------
+
+/// The pass that makes semantic search real on a corpus that predates it.
+///
+/// Embedding happens on the way into a new revision and nowhere else, so a
+/// store that had the feature turned on late kept every existing document
+/// invisible to the vector half — permanently, because nothing would ever
+/// rewrite those rows.
+#[test]
+fn reembed_gives_every_vectorless_revision_a_vector() {
+    use keel_core::Embedder;
+
+    // Written with no embedder attached, which is exactly how the live store
+    // came to hold 227 documents with null embeddings.
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let project = store
+        .create(Project::new("demo", "Demo").into(), &prov())
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+
+    for title in ["First spec", "Second spec", "Third spec"] {
+        store
+            .create_with_document(
+                Spec::new(project.clone(), title).into(),
+                Some(format!("The body of {title}, with words in it.")),
+                None,
+                &prov(),
+            )
+            .unwrap();
+    }
+
+    let (current, missing) = store.documents_missing_embeddings().unwrap();
+    assert_eq!(current, 3);
+    assert_eq!(missing, 3, "no embedder was attached, so none has a vector");
+
+    let embedder = HashEmbedder::new();
+    let mut steps = Vec::new();
+    let report = store
+        .reembed_missing(&embedder, |done, total| steps.push((done, total)))
+        .unwrap();
+
+    assert_eq!(report.missing, 3);
+    assert_eq!(report.embedded, 3);
+    assert_eq!(report.failed, 0);
+    assert!(!steps.is_empty(), "a slow pass has to report progress");
+
+    let (_, still_missing) = store.documents_missing_embeddings().unwrap();
+    assert_eq!(still_missing, 0);
+
+    // The stored width has to match what the schema and the query expect, or
+    // `vec_distance_cosine` errors on every comparison.
+    let width: i64 = store
+        .connection()
+        .query_row(
+            "SELECT length(embedding) FROM documents WHERE status = 'current' LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(width as usize, embedder.dimensions() * 4);
+
+    // And the model is recorded, which is what a later model change reads to
+    // find stale rows.
+    let model: String = store
+        .connection()
+        .query_row(
+            "SELECT embedding_model FROM documents WHERE status = 'current' LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(model, embedder.model_name());
+}
+
+/// Running it twice must not rewrite what it already did.
+#[test]
+fn a_second_reembed_pass_has_nothing_to_do() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let project = store
+        .create(Project::new("demo", "Demo").into(), &prov())
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+    store
+        .create_with_document(
+            Spec::new(project, "A spec").into(),
+            Some("Some prose.".to_owned()),
+            None,
+            &prov(),
+        )
+        .unwrap();
+
+    let embedder = HashEmbedder::new();
+    store.reembed_missing(&embedder, |_, _| {}).unwrap();
+    let again = store.reembed_missing(&embedder, |_, _| {}).unwrap();
+
+    assert_eq!(again.missing, 0);
+    assert_eq!(again.embedded, 0);
+}

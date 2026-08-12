@@ -65,6 +65,11 @@ pub struct Store {
     conn: Connection,
     path: PathBuf,
     embedder: Option<std::sync::Arc<dyn crate::Embedder>>,
+    /// Whether `sqlite-vec`'s functions are actually callable on this
+    /// connection. Decided once at open, because the alternative is finding out
+    /// per query — and a query that fails is a search that returns an error to
+    /// a caller who only wanted results.
+    vector_search: bool,
 }
 
 /// Hand-written because a connection and an embedder have nothing worth
@@ -108,6 +113,7 @@ impl Store {
             conn,
             path,
             embedder: None,
+            vector_search: false,
         };
         store.configure()?;
         store.migrate()?;
@@ -128,6 +134,7 @@ impl Store {
             conn,
             path: PathBuf::from(":memory:"),
             embedder: None,
+            vector_search: false,
         };
         store.configure()?;
         store.migrate()?;
@@ -148,6 +155,53 @@ impl Store {
     pub fn with_embedder(mut self, embedder: std::sync::Arc<dyn crate::Embedder>) -> Self {
         self.embedder = Some(embedder);
         self
+    }
+
+    /// Attach an embedder to a store that is already open and shared.
+    ///
+    /// The builder form above consumes `self`, which is fine at startup and
+    /// impossible once the store is behind the daemon's mutex. That matters
+    /// because loading the model takes long enough to be worth doing *after*
+    /// the socket is bound — a daemon unreachable for the length of a 130 MB
+    /// download looks broken, and on a first run it is a download.
+    pub fn set_embedder(&mut self, embedder: std::sync::Arc<dyn crate::Embedder>) {
+        self.embedder = Some(embedder);
+    }
+
+    /// Whether the vector half of hybrid search can run at all.
+    ///
+    /// `false` means `sqlite-vec` did not register, so `vec_distance_cosine`
+    /// does not exist and every semantic query would fail. Search degrades to
+    /// keyword-only rather than erroring — but silently degraded search is the
+    /// exact failure this codebase keeps warning about, so whoever opens a
+    /// store is expected to *say* when this is false.
+    pub fn vector_search_available(&self) -> bool {
+        self.vector_search
+    }
+
+    /// How many current revisions have no vector.
+    ///
+    /// The number that made semantic search a fiction for months: every
+    /// document in the live store had a null embedding and nothing anywhere
+    /// said so, because the keyword half kept answering.
+    pub fn documents_missing_embeddings(&self) -> Result<(i64, i64)> {
+        let current: i64 = self
+            .conn
+            .query_row(
+                "SELECT count(*) FROM documents WHERE status = 'current'",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(Error::storage("count the current revisions"))?;
+        let missing: i64 = self
+            .conn
+            .query_row(
+                "SELECT count(*) FROM documents WHERE status = 'current' AND embedding IS NULL",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(Error::storage("count the revisions with no embedding"))?;
+        Ok((current, missing))
     }
 
     /// The attached embedder, if any.
@@ -225,7 +279,23 @@ impl Store {
                  -- merely busy.
                  PRAGMA busy_timeout = 5000;",
             )
-            .map_err(Error::storage("configure the store connection"))
+            .map_err(Error::storage("configure the store connection"))?;
+
+        // Ask once whether `sqlite-vec` actually registered, rather than
+        // discovering it on the first semantic query.
+        //
+        // Two single-element vectors, so the answer is arithmetic rather than
+        // a table read. Any error at all means the function is not there.
+        self.vector_search = self
+            .conn
+            .query_row(
+                "SELECT vec_distance_cosine(?1, ?1)",
+                [rusqlite::types::Value::Blob(vec![0, 0, 128, 63])],
+                |r| r.get::<_, f64>(0),
+            )
+            .is_ok();
+
+        Ok(())
     }
 
     /// Apply every migration this store has not seen, in order.
