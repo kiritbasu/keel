@@ -7,6 +7,44 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
+### The house-style backstop guards `body`, but the prose has moved to `summary`
+
+`que_01KZSR3XB74PTHFCKKGGCP9BDR` · question · open · severity low
+
+**Needs KB**, because it reopens the shape of TQ-34's answer rather than the answer itself.
+
+## What was found
+
+`check_style` has exactly three call sites — `note.rs:162`, `dispatch.rs:1104`, `dispatch.rs:1670` — and every one passes the field name `"body"`. Nothing checks `summary`, and nothing checks `title`. `title` is passed *into* the check only as context, so that a body which merely restates its title can be caught.
+
+`Task::validate_summary` does two checks and says so plainly: not empty, and not a reordering of the title. That was your call in TQ-34 and the reasoning holds — refused for something it does not agree with, a model swaps the word and keeps the weak sentence, so the prose ends up both bad and compliant.
+
+## Why it is worth raising anyway
+
+8G made `summary` required. The effect, visible in the data, is that prose moved out of `body` and into `summary`: 145 tasks predating the rule have a body and no summary; the 31 Phase 11 tasks have a summary averaging 770 characters and no body at all.
+
+So the field that now carries the description is the field the backstop does not look at. It is not a hypothetical. KEEL-145's summary contains this phrase:
+
+> QA panel named this the single highest-leverage move
+
+That word is on the refused list and the check is a substring match, so the same string in a `body` would have been refused with "it reads as machine-written". In a `summary` it landed without comment.
+
+There is a second demonstration, which is that filing *this question* was refused twice: once for the quotation above before it was marked as one, and once for my own sentence using the same word plainly. The body path works. Only the body path works.
+
+## What is not wrong
+
+Titles came out clean. Zero banned phrases across all 176 task titles, checked or not — which is evidence for style.rs's own claim that the tool descriptions, not the validator, are what changes what gets written.
+
+The shape is a different matter. Phase 11's titles run to a median of 69 characters against 49 for everything else, 13 of 31 over 70, and the longest is `Close the two-writer footgun: lock-free health, honest fallback, probe before direct write` — 90 characters of colon-plus-rule-of-three. The tool description tells a model not to write rule-of-three lists in a *summary*. It says nothing about the title, and the title is what every list shows.
+
+## Options
+
+1. **Leave it.** TQ-34's argument applies unchanged, and the one escape is a hyphenated compound rather than a limp sentence.
+2. **Run the refused-phrase list over `summary` too** — the objective half only, no new judgement, same warnings-versus-refusal split.
+3. **Also say something about titles in the tool description** — a length hint and "no colon-list" — on the theory that the descriptions are the mechanism and the title currently gets no guidance at all.
+
+My recommendation is 3 then 2. By style.rs's own argument 3 is where the effect is, and it costs nothing but words; 2 closes a real hole with code already written and tested, and its false-rejection risk is the one you already accepted for `body`.
+
 ### Does a browser-served write/intake endpoint require amending hard constraint 7?
 
 `que_01KZSQHK2C0CTKN36WJ9G4ZHQC` · question · open
