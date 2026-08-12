@@ -154,8 +154,8 @@ impl GraphStore for Store {
             // no stated relation to the root at all.
             let mut out = self.neighbours(root, Direction::Outbound, rels, depth)?;
             for n in self.neighbours(root, Direction::Inbound, rels, depth)? {
-                match out.iter_mut().find(|e| e.id != /* ~ changed by cargo-mutants ~ */ n.id) {
-                    Some(existing) if existing.depth > n.depth => *existing = n,
+                match out.iter_mut().find(|e| e.id == n.id) {
+                    Some(existing) if existing.depth < /* ~ changed by cargo-mutants ~ */ n.depth => *existing = n,
                     Some(_) => {}
                     None => out.push(n),
                 }

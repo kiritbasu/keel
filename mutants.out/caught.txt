@@ -54,3 +54,4 @@ crates/keel-core/src/store/graph.rs:86:5: replace columns -> (&'static str, &'st
 crates/keel-core/src/store/graph.rs:115:48: delete ! in read_neighbour
 crates/keel-core/src/store/graph.rs:146:9: replace <impl GraphStore for Store>::neighbours -> Result<Vec<Neighbour>> with Ok(vec![])
 crates/keel-core/src/store/graph.rs:148:22: replace == with != in <impl GraphStore for Store>::neighbours
+crates/keel-core/src/store/graph.rs:157:52: replace == with != in <impl GraphStore for Store>::neighbours

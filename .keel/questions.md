@@ -7,6 +7,40 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
+### What should Keel measure, and should it measure anything by itself?
+
+`que_01KZTTC4VTBVG7KZ7H00RDQ4ZB` · question · open · severity low
+
+The Metrics screen was removed on 2026-08-12 rather than repaired. This is what looking at it turned up, so the rethink can start here instead of from scratch.
+
+## Nothing was ever calculated
+
+There is no code path anywhere that computes an observation. Every `MetricObservation::new` in the tree is in a test or in the demo fixture. Both artifact types work perfectly and nothing has ever filled them in automatically.
+
+The consequence was visible in the data: the newest reading was two days old, `Tests passing` said 425 when the real number was 851, `Projects tracked` said 1 when it was 3, and the gate metric — sessions where Claude writes without being asked — had never had a single observation in the three days since it was created.
+
+## Recording one was effectively impossible
+
+`keel_create` reads `metric_id`, `value` and `observed_at` from the top level of its arguments, and its published schema declares none of them. A model following the tool's own documentation cannot record a measurement; it gets `argument metric_id: missing or not a string`. That is KEEL-172, and it is very likely the whole explanation for the staleness. The data was not neglected — it was unreachable.
+
+## Three of the four metrics were about Keel, not about a project
+
+`Projects tracked` and `Sessions where Claude writes unprompted` are hardcoded in `bootstrap.rs` and mean nothing for any other project. `Agent orientation cost` is about Keel's own digest budget. Only `Tests passing` generalises, and Keel cannot compute even that.
+
+So the screen presented itself as a general feature while displaying this repository's dogfooding.
+
+## The question
+
+Two quite different products are hiding in here, and the choice matters more than the screen did.
+
+**A log a person keeps.** Metrics are whatever someone decides to track, recorded by hand or by their CI. Keel stores and charts them and computes nothing. Honest, general, and only as good as the discipline behind it — which measured zero out of four over three days.
+
+**Something Keel derives itself.** There is a real opportunity here that nobody has taken: Keel already computes open and blocked task counts for the digest, documents missing embeddings for `doctor`, `fsck` finding counts, and the digest's own token size against its budget — several times a day, throwing every one away. A `keel measure` command could record those as observations for any project, and it would be generic by construction because it only uses what Keel already knows.
+
+The second is more interesting and more work. It also changes what a metric *is*: derived and trustworthy rather than asserted. Worth deciding before either is built.
+
+One number to note while deciding: the digest currently reports `budget_exceeded: true`. The product has a stated 3–4k token budget it is quietly missing, and nothing anywhere surfaces that.
+
 ### The house-style backstop guards `body`, but the prose has moved to `summary`
 
 `que_01KZSR3XB74PTHFCKKGGCP9BDR` · question · open · severity low

@@ -13,3 +13,4 @@ crates/keel-core/src/next.rs:502:9: delete match arm Entity::Question(q) in is_l
 crates/keel-core/src/next.rs:501:28: delete ! in is_live
 crates/keel-core/src/store/graph.rs:158:39: replace match guard existing.depth > n.depth with true in <impl GraphStore for Store>::neighbours
 crates/keel-core/src/store/graph.rs:158:39: replace match guard existing.depth > n.depth with false in <impl GraphStore for Store>::neighbours
+crates/keel-core/src/store/graph.rs:158:54: replace > with == in <impl GraphStore for Store>::neighbours

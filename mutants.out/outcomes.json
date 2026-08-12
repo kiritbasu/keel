@@ -6235,12 +6235,140 @@
           ]
         }
       ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:157:52: replace == with != in <impl GraphStore for Store>::neighbours",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "<impl GraphStore for Store>::neighbours",
+            "return_type": "-> Result<Vec<Neighbour>>",
+            "span": {
+              "start": {
+                "line": 139,
+                "column": 5
+              },
+              "end": {
+                "line": 225,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 157,
+              "column": 52
+            },
+            "end": {
+              "line": 157,
+              "column": 54
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_157_col_52.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_157_col_52.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 36.968970625,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 17.262671125,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:158:54: replace > with == in <impl GraphStore for Store>::neighbours",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "<impl GraphStore for Store>::neighbours",
+            "return_type": "-> Result<Vec<Neighbour>>",
+            "span": {
+              "start": {
+                "line": 139,
+                "column": 5
+              },
+              "end": {
+                "line": 225,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 158,
+              "column": 54
+            },
+            "end": {
+              "line": 158,
+              "column": 55
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_158_col_54.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_158_col_54.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 34.655681208,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.024616833,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
     }
   ],
-  "total_mutants": 99,
+  "total_mutants": 101,
   "missed": 12,
-  "caught": 56,
-  "timeout": 15,
+  "caught": 57,
+  "timeout": 16,
   "unviable": 16,
   "success": 0,
   "start_time": "2026-08-12T09:18:17.02329Z",
