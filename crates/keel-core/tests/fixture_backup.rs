@@ -561,3 +561,84 @@ fn a_healthy_store_passes_the_page_integrity_check() {
     );
     assert_eq!(fsck::page_integrity(&store, "quick_check").unwrap(), None);
 }
+
+/// The manifest describes the snapshot, not the store as it was a moment
+/// before the snapshot.
+///
+/// Counting the live store and *then* taking the snapshot left a seam: a write
+/// landing between the two put a row in the backup that the manifest did not
+/// know about, and `verify_restore` then rejected a perfectly good backup — at
+/// restore time, which is the worst moment available to refuse one.
+#[test]
+fn a_write_at_the_seam_cannot_make_the_manifest_disagree_with_the_snapshot() {
+    use keel_core::{Actor, EntityQuery, EntityStore, EntityType, Provenance, Task};
+
+    let (mut store, _d, _) = loaded_store();
+    let project = store
+        .list(
+            &EntityQuery::default()
+                .of_type(EntityType::Project)
+                .limited(1),
+        )
+        .unwrap()
+        .items
+        .first()
+        .expect("the fixture has projects")
+        .id()
+        .clone();
+    let dir = tempfile::tempdir().unwrap();
+    let dest = dir.path().join("backup");
+
+    let manifest = backup::backup(&store, &dest).unwrap();
+
+    // A write immediately after. Under the old ordering the equivalent write
+    // landed *inside* the snapshot while the counts were already taken; the
+    // assertion that matters either way is that the manifest matches the file
+    // it describes.
+    store
+        .create(
+            Task::new(
+                project.clone(),
+                "Written right after the backup",
+                "A summary.",
+            )
+            .into(),
+            &Provenance::anonymous(Actor::Human),
+        )
+        .unwrap();
+
+    let restored_dir = tempfile::tempdir().unwrap();
+    let target = restored_dir.path().join("restored").join("keel.sqlite");
+    let restored_manifest = backup::restore(&dest, &target).unwrap();
+    let restored = Store::open(&target).unwrap();
+
+    backup::verify_restore(&restored, &restored_manifest)
+        .expect("a healthy backup must not fail its own verification");
+    assert_eq!(
+        manifest.counts, restored_manifest.counts,
+        "the manifest written and the manifest read back describe different stores"
+    );
+}
+
+/// A backup that SQLite wrote without erroring is not the same as a backup
+/// that is sound.
+#[test]
+fn a_backup_verifies_the_snapshot_it_just_wrote() {
+    let (store, _d, _) = loaded_store();
+    let dir = tempfile::tempdir().unwrap();
+    let dest = dir.path().join("backup");
+
+    let manifest = backup::backup(&store, &dest).unwrap();
+    assert!(manifest.total_rows() > 0);
+
+    // The counts came from the snapshot, so they have to match what is in it.
+    let snapshot = rusqlite::Connection::open(dest.join("keel.sqlite")).unwrap();
+    let tasks: i64 = snapshot
+        .query_row("SELECT count(*) FROM tasks", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        manifest.counts.get("tasks").copied().unwrap_or(-1),
+        tasks,
+        "the manifest's task count does not match the snapshot it describes"
+    );
+}

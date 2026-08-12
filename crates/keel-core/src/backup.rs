@@ -127,8 +127,14 @@ pub fn backup(store: &Store, dest: impl AsRef<Path>) -> Result<BackupManifest> {
         })?;
     }
 
-    let manifest = read_manifest(store)?;
-
+    // The snapshot first, and the counts from the snapshot itself.
+    //
+    // It used to count the live store and *then* take the snapshot, so a write
+    // landing between the two put a row in the snapshot that the manifest did
+    // not know about. The backup was perfectly good and its own verification
+    // rejected it — at restore time, which is the worst imaginable moment to
+    // refuse a healthy backup. Counting what was actually written removes the
+    // seam rather than narrowing it.
     store
         .connection()
         .execute("VACUUM INTO ?1", [path_str(&snapshot)?])
@@ -136,6 +142,45 @@ pub fn backup(store: &Store, dest: impl AsRef<Path>) -> Result<BackupManifest> {
             "write a consistent snapshot to {}",
             snapshot.display()
         )))?;
+
+    let taken = rusqlite::Connection::open_with_flags(
+        &snapshot,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .map_err(Error::storage(format!(
+        "reopen the snapshot at {} to verify it",
+        snapshot.display()
+    )))?;
+
+    // "Backup succeeded" used to mean only that SQLite did not error. Ask the
+    // snapshot whether it is sound while it is open and cheap to ask — a
+    // corrupt backup discovered now is an inconvenience, and one discovered
+    // during a restore is the reason there was a backup.
+    let problems: Vec<String> = taken
+        .prepare("PRAGMA integrity_check")
+        .and_then(|mut stmt| {
+            stmt.query_map([], |r| r.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()
+        })
+        .map_err(Error::storage(format!(
+            "check the integrity of the snapshot at {}",
+            snapshot.display()
+        )))?
+        .into_iter()
+        .filter(|line| line != "ok")
+        .collect();
+    if !problems.is_empty() {
+        return Err(Error::Invariant {
+            operation: format!("back up to {}", dest.display()),
+            problem: format!(
+                "the snapshot just written is damaged: {}. The backup has not been recorded,                  so the previous one is still the most recent good copy",
+                problems.join("; ")
+            ),
+        });
+    }
+
+    let manifest = read_manifest(&taken)?;
+    drop(taken);
 
     let json = serde_json::to_string_pretty(&manifest).map_err(|source| Error::Json {
         context: "serialise the backup manifest".to_owned(),
@@ -228,7 +273,7 @@ pub fn default_backup_dir(home: &Path, at: chrono::DateTime<chrono::Utc>) -> std
 /// backup round-trip test that diffs, and a restore nobody checked is a backup
 /// nobody has.
 pub fn verify_restore(store: &Store, manifest: &BackupManifest) -> Result<()> {
-    let actual = read_manifest(store)?;
+    let actual = read_manifest(store.connection())?;
     let mut differences: Vec<String> = Vec::new();
 
     for (table, expected) in &manifest.counts {
@@ -257,9 +302,12 @@ pub fn verify_restore(store: &Store, manifest: &BackupManifest) -> Result<()> {
     }
 }
 
-/// Count every table and read the applied migrations.
-fn read_manifest(store: &Store) -> Result<BackupManifest> {
-    let conn = store.connection();
+/// Count every table and read the applied migrations, through any connection.
+///
+/// Takes a `&Connection` rather than a `&Store` so it can be pointed at the
+/// snapshot that was just written rather than at the live store — which is the
+/// whole of the manifest-race fix.
+fn read_manifest(conn: &rusqlite::Connection) -> Result<BackupManifest> {
     let mut counts = std::collections::BTreeMap::new();
 
     for table in COUNTED_TABLES {
