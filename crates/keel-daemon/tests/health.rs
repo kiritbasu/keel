@@ -186,4 +186,3 @@ async fn the_schema_is_reported_without_the_store() {
 
     held.give_back();
 }
-
