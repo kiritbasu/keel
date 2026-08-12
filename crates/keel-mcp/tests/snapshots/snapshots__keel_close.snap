@@ -1,0 +1,55 @@
+---
+source: crates/keel-mcp/tests/snapshots.rs
+expression: result
+---
+{
+  "content": [
+    {
+      "text": "HARB-1 closed as `done` — Dedupe usage events by idempotency key. Evidence: commit:0000000.\n\nIf you found something the next session should know, put it on the row with `keel_note`.",
+      "type": "text"
+    }
+  ],
+  "isError": false,
+  "structuredContent": {
+    "linked": null,
+    "reference": "HARB-1",
+    "task": {
+      "archived": false,
+      "audit": {
+        "archived_at": null,
+        "created_at": "[timestamp]",
+        "created_by": "claude",
+        "session_id": "ses_snapshot",
+        "surface": null,
+        "updated_at": "[timestamp]",
+        "updated_by": "claude",
+        "version": 2
+      },
+      "body": null,
+      "claimed_at": null,
+      "claimed_by": null,
+      "close_message": "Deduped on the idempotency key at write time.",
+      "close_reason": "done",
+      "closed_at": "[timestamp]",
+      "evidence": [
+        "commit:0000000"
+      ],
+      "external_refs": [],
+      "id": "[id]",
+      "idempotency_key": "[hash]",
+      "kind": "task",
+      "labels": [],
+      "milestone_id": null,
+      "number": 1,
+      "parent_id": null,
+      "priority": "p2",
+      "project_id": "[id]",
+      "rank": 1.0,
+      "status": "done",
+      "summary": "A row this test needs in the store.",
+      "title": "Dedupe usage events by idempotency key",
+      "type": "task",
+      "version": 2
+    }
+  }
+}

@@ -20,8 +20,13 @@ use serde_json::{Value, json};
 /// Replace the values that legitimately change each run.
 fn settings() -> insta::Settings {
     let mut s = insta::Settings::clone_current();
+    // Every prefix `keel-core` mints, not only the entity ones. `nte` and `blb`
+    // were missing, which nothing noticed until a tool that returns a note id
+    // got a snapshot — the redaction quietly did not cover a third of the
+    // connective ids, so any snapshot holding one would have churned on every
+    // run until somebody stopped reading it.
     s.add_filter(
-        r"(prj|tsk|spc|dec|que|trm|fbk|dsg|env|mtr|obs|art|lnk|evt|doc)_[0-9A-HJKMNP-TV-Z]{26}",
+        r"(prj|tsk|spc|dec|que|trm|fbk|dsg|env|mtr|obs|art|lnk|evt|doc|nte|blb)_[0-9A-HJKMNP-TV-Z]{26}",
         "[id]",
     );
     s.add_filter(
@@ -35,8 +40,21 @@ fn settings() -> insta::Settings {
     s
 }
 
-/// A store with a small, predictable project.
-fn seeded() -> (Store, tempfile::TempDir) {
+/// A store with a small, predictable project, and the ids of what is in it.
+///
+/// The ids matter because most of the surface is addressed by one: `keel_get`,
+/// `keel_update`, `keel_link`, `keel_note`, `keel_claim` and `keel_close` all
+/// take an id, so a fixture that threw them away is a fixture only a third of
+/// the tools can use. They are redacted out of the snapshots themselves.
+struct Seed {
+    store: Store,
+    /// Held so the directory outlives the store. Never read.
+    _dir: tempfile::TempDir,
+    spec: keel_core::EntityId,
+    task: keel_core::EntityId,
+}
+
+fn seeded() -> Seed {
     let dir = tempfile::tempdir().unwrap();
     let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Claude).with_session("ses_snapshot");
@@ -47,10 +65,13 @@ fn seeded() -> (Store, tempfile::TempDir) {
         .entity
         .id()
         .clone();
-    store
+    let spec = store
         .create(Spec::new(project.clone(), "Usage metering").into(), &prov)
-        .unwrap();
-    store
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+    let task = store
         .create(
             Task::new(
                 project,
@@ -60,8 +81,16 @@ fn seeded() -> (Store, tempfile::TempDir) {
             .into(),
             &prov,
         )
-        .unwrap();
-    (store, dir)
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+    Seed {
+        store,
+        _dir: dir,
+        spec,
+        task,
+    }
 }
 
 fn call(store: &mut Store, name: &str, arguments: Value) -> Value {
@@ -94,8 +123,12 @@ fn server_discovery() {
 
 #[test]
 fn context_digest_shape() {
-    let (mut store, _dir) = seeded();
-    let result = call(&mut store, "keel_context", json!({"project": "harbour"}));
+    let mut seed = seeded();
+    let result = call(
+        &mut seed.store,
+        "keel_context",
+        json!({"project": "harbour"}),
+    );
     settings().bind(|| {
         insta::assert_json_snapshot!("keel_context", result);
     });
@@ -103,8 +136,8 @@ fn context_digest_shape() {
 
 #[test]
 fn context_rollup_shape() {
-    let (mut store, _dir) = seeded();
-    let result = call(&mut store, "keel_context", json!({}));
+    let mut seed = seeded();
+    let result = call(&mut seed.store, "keel_context", json!({}));
     settings().bind(|| {
         insta::assert_json_snapshot!("keel_context_rollup", result);
     });
@@ -112,9 +145,9 @@ fn context_rollup_shape() {
 
 #[test]
 fn create_response_shape() {
-    let (mut store, _dir) = seeded();
+    let mut seed = seeded();
     let result = call(
-        &mut store,
+        &mut seed.store,
         "keel_create",
         json!({
             "type": "decision",
@@ -131,8 +164,12 @@ fn create_response_shape() {
 
 #[test]
 fn search_response_shape() {
-    let (mut store, _dir) = seeded();
-    let result = call(&mut store, "keel_search", json!({"query": "idempotency"}));
+    let mut seed = seeded();
+    let result = call(
+        &mut seed.store,
+        "keel_search",
+        json!({"query": "idempotency"}),
+    );
     settings().bind(|| {
         insta::assert_json_snapshot!("keel_search", result);
     });
@@ -140,8 +177,8 @@ fn search_response_shape() {
 
 #[test]
 fn projects_response_shape() {
-    let (mut store, _dir) = seeded();
-    let result = call(&mut store, "keel_projects", json!({}));
+    let mut seed = seeded();
+    let result = call(&mut seed.store, "keel_projects", json!({}));
     settings().bind(|| {
         insta::assert_json_snapshot!("keel_projects", result);
     });
@@ -151,20 +188,20 @@ fn projects_response_shape() {
 fn error_shapes() {
     // Errors are read by a model that has to work out what to send instead, so
     // their wording is as much a contract as the success path.
-    let (mut store, _dir) = seeded();
+    let mut seed = seeded();
     let cases = json!({
         "unknown_field": call(
-            &mut store, "keel_update",
+            &mut seed.store, "keel_update",
             json!({"id": "tsk_01H8XK4RPVBQ2N7DZM9C3FGTWY", "version": 1,
                    "changes": {"asignee": "kb"}})
         ),
-        "missing_argument": call(&mut store, "keel_search", json!({})),
+        "missing_argument": call(&mut seed.store, "keel_search", json!({})),
         "unknown_project": call(
-            &mut store, "keel_context", json!({"project": "does-not-exist"})
+            &mut seed.store, "keel_context", json!({"project": "does-not-exist"})
         ),
-        "unknown_tool": call(&mut store, "keel_delete", json!({})),
+        "unknown_tool": call(&mut seed.store, "keel_delete", json!({})),
         "bad_timestamp": call(
-            &mut store, "keel_activity", json!({"since": "last tuesday"})
+            &mut seed.store, "keel_activity", json!({"since": "last tuesday"})
         ),
     });
     settings().bind(|| {
@@ -183,11 +220,11 @@ fn every_advertised_tool_is_dispatchable_and_vice_versa() {
     // Dispatching every advertised name with empty arguments is enough to tell
     // the two apart: a *missing* tool answers METHOD_NOT_FOUND, while a present
     // one fails on its arguments, which is a different code.
-    let (mut store, _dir) = seeded();
+    let mut seed = seeded();
 
     for tool in keel_mcp::tools::all() {
         let result = dispatch(
-            &mut store,
+            &mut seed.store,
             ToolCall {
                 name: tool.name,
                 arguments: &json!({}),
@@ -205,7 +242,7 @@ fn every_advertised_tool_is_dispatchable_and_vice_versa() {
     // And the other direction: a name dispatch does not know must not be
     // silently tolerated.
     let unknown = dispatch(
-        &mut store,
+        &mut seed.store,
         ToolCall {
             name: "keel_teleport",
             arguments: &json!({}),
@@ -233,5 +270,167 @@ fn the_tool_count_is_what_the_documentation_claims() {
         13,
         "thirteen is the ceiling and the count — if this changes, every place \
          that states it has to change with it"
+    );
+}
+
+// --- The rest of the surface ---------------------------------------------
+//
+// Four of the thirteen tools had a response snapshot. The other nine are the
+// ones a model spends most of its time in — reading an artifact, moving a task,
+// writing prose — and a renamed key on any of them could ship without anything
+// saying so. The count is asserted below, so a tenth gap cannot open quietly.
+
+#[test]
+fn get_response_shape() {
+    let mut seed = seeded();
+    let task = seed.task.to_string();
+    let result = call(
+        &mut seed.store,
+        "keel_get",
+        json!({"ids": [task], "depth": 1}),
+    );
+    settings().bind(|| insta::assert_json_snapshot!("keel_get", result));
+}
+
+#[test]
+fn update_response_shape() {
+    let mut seed = seeded();
+    let task = seed.task.to_string();
+    let result = call(
+        &mut seed.store,
+        "keel_update",
+        json!({
+            "id": task,
+            "version": 1,
+            "changes": {"priority": "p1"},
+            "session_id": "ses_snapshot"
+        }),
+    );
+    settings().bind(|| insta::assert_json_snapshot!("keel_update", result));
+}
+
+#[test]
+fn write_doc_response_shape() {
+    let mut seed = seeded();
+    let spec = seed.spec.to_string();
+    let result = call(
+        &mut seed.store,
+        "keel_write_doc",
+        json!({
+            "id": spec,
+            "body": "## Metering\n\nUsage is counted hourly.\n",
+            "session_id": "ses_snapshot"
+        }),
+    );
+    settings().bind(|| insta::assert_json_snapshot!("keel_write_doc", result));
+}
+
+#[test]
+fn link_response_shape() {
+    let mut seed = seeded();
+    let (task, spec) = (seed.task.to_string(), seed.spec.to_string());
+    let result = call(
+        &mut seed.store,
+        "keel_link",
+        json!({
+            "from": task,
+            "to": spec,
+            "rel": "implements",
+            "session_id": "ses_snapshot"
+        }),
+    );
+    settings().bind(|| insta::assert_json_snapshot!("keel_link", result));
+}
+
+#[test]
+fn note_response_shape() {
+    let mut seed = seeded();
+    let task = seed.task.to_string();
+    let result = call(
+        &mut seed.store,
+        "keel_note",
+        json!({
+            "id": task,
+            "body": "The duplicate rows all came from one retrying client.",
+            "session_id": "ses_snapshot"
+        }),
+    );
+    settings().bind(|| insta::assert_json_snapshot!("keel_note", result));
+}
+
+#[test]
+fn activity_response_shape() {
+    let mut seed = seeded();
+    let result = call(
+        &mut seed.store,
+        "keel_activity",
+        json!({"project": "harbour"}),
+    );
+    settings().bind(|| insta::assert_json_snapshot!("keel_activity", result));
+}
+
+#[test]
+fn ready_response_shape() {
+    let mut seed = seeded();
+    let result = call(&mut seed.store, "keel_ready", json!({"project": "harbour"}));
+    settings().bind(|| insta::assert_json_snapshot!("keel_ready", result));
+}
+
+#[test]
+fn claim_response_shape() {
+    let mut seed = seeded();
+    let task = seed.task.to_string();
+    let result = call(
+        &mut seed.store,
+        "keel_claim",
+        json!({"id": task, "session_id": "ses_snapshot"}),
+    );
+    settings().bind(|| insta::assert_json_snapshot!("keel_claim", result));
+}
+
+#[test]
+fn close_response_shape() {
+    let mut seed = seeded();
+    let task = seed.task.to_string();
+    let result = call(
+        &mut seed.store,
+        "keel_close",
+        json!({
+            "id": task,
+            "reason": "done",
+            "message": "Deduped on the idempotency key at write time.",
+            "evidence": ["commit:0000000"],
+            "session_id": "ses_snapshot"
+        }),
+    );
+    settings().bind(|| insta::assert_json_snapshot!("keel_close", result));
+}
+
+/// Every advertised tool has a response snapshot.
+///
+/// The gap this closes is not a missing assertion, it is a missing *habit*.
+/// Four tools had snapshots and nine did not, and nothing in the suite could
+/// tell the difference — so the fourteenth tool would have arrived without one
+/// too, and the surface would have kept drifting in the parts nobody had
+/// pinned. This reads the directory rather than a list, because a list is one
+/// more thing to forget to add to.
+#[test]
+fn every_tool_has_a_response_snapshot() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("snapshots");
+
+    let missing: Vec<&str> = keel_mcp::tools::all()
+        .iter()
+        .map(|t| t.name)
+        .filter(|name| !dir.join(format!("snapshots__{name}.snap")).is_file())
+        .collect();
+
+    assert!(
+        missing.is_empty(),
+        "these tools are advertised but have no response snapshot: {missing:?}\n\
+         Add a test that calls the tool against `seeded()` and snapshots the result as \
+         `keel_<name>`. A tool whose response shape nothing has pinned can be renamed in a \
+         way no diff shows."
     );
 }
