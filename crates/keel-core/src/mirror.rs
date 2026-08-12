@@ -202,8 +202,12 @@ pub fn generate_except(
                 header(entity_type.as_str(), entity.id(), version),
                 render_prose(entity, body)
             );
+            // The mirror builds its own paths from a slug, so this cannot
+            // currently escape — which is exactly why it is checked. A slug
+            // rule that grows a case for some future character is a change
+            // nobody would think to re-examine here.
             write_if_changed(
-                &repo_root.join(&relative),
+                &crate::safe_path::confine(repo_root, &relative)?,
                 &content,
                 &relative,
                 mode,
@@ -299,7 +303,7 @@ pub fn generate_except(
         writeln!(open, "*Nothing recorded.*").map_err(fmt_err)?;
     }
     write_if_changed(
-        &repo_root.join(".keel/questions.md"),
+        &crate::safe_path::confine(repo_root, ".keel/questions.md")?,
         &open,
         ".keel/questions.md",
         mode,
@@ -368,7 +372,7 @@ pub fn generate_except(
         }
     }
     write_if_changed(
-        &repo_root.join(".keel/glossary.md"),
+        &crate::safe_path::confine(repo_root, ".keel/glossary.md")?,
         &glossary,
         ".keel/glossary.md",
         mode,
@@ -394,7 +398,12 @@ pub fn generate_except(
         if !stale.starts_with(".keel/") || stale.contains("..") {
             continue;
         }
-        let absolute = repo_root.join(stale);
+        let Ok(absolute) = crate::safe_path::confine(repo_root, stale) else {
+            // A manifest entry that no longer confines is a manifest somebody
+            // has edited. Skipping it is the fail-closed direction: the mirror
+            // declines to delete a file it cannot prove it owns.
+            continue;
+        };
         if !absolute.is_file() {
             continue;
         }

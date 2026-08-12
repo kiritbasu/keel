@@ -304,6 +304,29 @@ fn read_note(row: &Row<'_>) -> Result<Note> {
 /// cannot disagree about what is storable. The two surfaces having their own
 /// opinion of a valid row is how a rule becomes a convention.
 fn validate_entity(entity: &Entity) -> Result<()> {
+    // Every path a caller can set, checked before it reaches storage.
+    //
+    // These four columns are the only place in Keel where a stored value names
+    // a file that Keel will later write. They arrive from a model that can be
+    // prompt-injected, and `POST /api/generate` acts on them unattended — see
+    // `crate::safe_path` for what that buys an attacker, and why the same check
+    // runs again at every join.
+    let entity_type = entity.entity_type();
+    if let Some(path) = entity.mirror_path() {
+        crate::safe_path::validate_repo_relative(entity_type, "mirror_path", path)?;
+    }
+    if let Entity::Project(p) = entity {
+        if let Some(path) = p.status_path.as_deref() {
+            crate::safe_path::validate_repo_relative(entity_type, "status_path", path)?;
+        }
+        if let Some(path) = p.decisions_path.as_deref() {
+            crate::safe_path::validate_repo_relative(entity_type, "decisions_path", path)?;
+        }
+        if let Some(path) = p.root_path.as_deref() {
+            crate::safe_path::validate_root_path(path)?;
+        }
+    }
+
     match entity {
         Entity::Milestone(m) => m.validate(),
         // A project calling milestones "tasks" would make every

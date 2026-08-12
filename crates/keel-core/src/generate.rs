@@ -133,8 +133,12 @@ pub fn all(
                 continue;
             };
             let content = adopted_file(entity, &doc.body);
+            // Second layer. The value was checked on the way into the store,
+            // but a row written before that check existed — or by `keel import`
+            // — reaches this line all the same, and this is where it turns into
+            // a write.
             write_or_check(
-                &repo_root.join(relative),
+                &crate::safe_path::confine(repo_root, relative)?,
                 &content,
                 relative,
                 mode,
@@ -167,7 +171,7 @@ pub fn all(
         } else {
             let markdown = render_status::render(store, project_id)?;
             write_or_check(
-                &repo_root.join(status_path),
+                &crate::safe_path::confine(repo_root, status_path)?,
                 &markdown,
                 status_path,
                 mode,
@@ -192,7 +196,7 @@ pub fn all(
         } else {
             let markdown = render_decisions::render(store, project_id)?;
             write_or_check(
-                &repo_root.join(decisions_path),
+                &crate::safe_path::confine(repo_root, decisions_path)?,
                 &markdown,
                 decisions_path,
                 mode,
