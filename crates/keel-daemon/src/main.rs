@@ -106,14 +106,23 @@ async fn main() -> Result<()> {
         .await
         .with_context(|| format!("bind {}", args.bind))?;
 
+    // The address that was actually bound, not the one that was asked for.
+    //
+    // They differ whenever the port is 0, which is how you ask the operating
+    // system to pick one — and a daemon that answers "I am listening on port 0"
+    // has told you nothing. It falls back to the requested address if the
+    // socket cannot say, because a slightly wrong log line is better than
+    // failing to start over one.
+    let bound = listener.local_addr().unwrap_or(args.bind);
+
     tracing::info!(
         home = %home.display(),
-        bind = %args.bind,
+        bind = %bound,
         protocol = keel_mcp::PROTOCOL_VERSION,
         "keel-daemon listening"
     );
-    tracing::info!("  MCP endpoint  http://{}/mcp", args.bind);
-    tracing::info!("  local API     http://{}/api", args.bind);
+    tracing::info!("  MCP endpoint  http://{bound}/mcp");
+    tracing::info!("  local API     http://{bound}/api");
 
     // Graceful shutdown, but on a deadline.
     //

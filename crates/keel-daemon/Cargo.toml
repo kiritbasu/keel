@@ -39,5 +39,9 @@ chrono.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+# The end-to-end tier drives the real binary over a socket, and a blocking
+# client keeps those tests readable — they are about the process, not about
+# async.
+ureq.workspace = true
 insta.workspace = true
 reqwest.workspace = true
