@@ -8,6 +8,7 @@ resolver = "3"
 exclude = ["apps/desktop/src-tauri"]
 members = [
     "crates/keel-core",
+    "crates/keel-embed",
     "crates/keel-daemon",
     "crates/keel-mcp",
     "crates/keel-cli",
@@ -71,6 +72,7 @@ clap = { version = "4", features = ["derive"] }
 # Internal
 keel-core = { path = "crates/keel-core", version = "0.1.0" }
 keel-mcp = { path = "crates/keel-mcp", version = "0.1.0" }
+keel-embed = { path = "crates/keel-embed", version = "0.1.0" }
 
 # Test-only
 insta = { version = "1", features = ["json", "redactions", "filters"] }

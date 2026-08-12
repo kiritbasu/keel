@@ -59,7 +59,7 @@ pub use document::{
     DocStatus, Document, DocumentDiff, EMBEDDING_DIM, EMBEDDING_MODEL, EMBEDDING_VERSION,
     body_hash, sha256_hex,
 };
-pub use embed::{Embedder, FastEmbedder, HashEmbedder};
+pub use embed::{Embedder, HashEmbedder};
 pub use entity::{Actor, EntityType, ProjectScope, Surface};
 pub use enums::{
     ArtifactKind, CloseReason, DecisionStatus, DesignState, EnvironmentStatus, FeedbackKind,

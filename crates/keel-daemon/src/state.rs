@@ -103,7 +103,7 @@ impl AppState {
             // its own to hang a models cache off.
             let models = home.join("models");
             std::fs::create_dir_all(&models).ok();
-            match keel_core::FastEmbedder::new(&models) {
+            match keel_embed::FastEmbedder::new(&models) {
                 Ok(e) => {
                     tracing::info!(dir = %models.display(), "embedding model loaded");
                     store = store.with_embedder(Arc::new(e));

@@ -20,6 +20,9 @@ workspace = true
 
 [dependencies]
 keel-core.workspace = true
+# The only crate that constructs the real embedder, because it is the only one
+# that decides whether embeddings are on. keel-core deliberately cannot.
+keel-embed.workspace = true
 keel-mcp.workspace = true
 axum.workspace = true
 tokio.workspace = true
