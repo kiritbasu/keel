@@ -140,10 +140,46 @@ fn fts_match(text: &str) -> Option<String> {
 /// does not contain the thing that was searched for tells the reader nothing
 /// about why it matched.
 fn excerpt(body: &str, query: &str) -> String {
-    let lower = body.to_lowercase();
+    // Case-folded on a char-by-char copy that keeps the original byte offsets.
+    //
+    // `to_lowercase` does not: `İ` is two bytes and lowercases to three, `İ`
+    // and `ẞ` both change length, and every byte after one of them in the
+    // lowercased copy sits at a different offset than in the original. The
+    // offset found there was then used to slice `body`, so a document with one
+    // such character upstream of the match produced an excerpt starting in the
+    // wrong place — or, on a character boundary, the loops below silently
+    // walked to a different one.
+    //
+    // ASCII folding is enough for what this does. Finding a match one case
+    // rule short is a slightly worse excerpt; slicing at a shifted offset is a
+    // wrong one.
+    let lower: String = body
+        .chars()
+        .map(|c| {
+            if c.is_ascii() {
+                c.to_ascii_lowercase()
+            } else {
+                c
+            }
+        })
+        .collect();
+    debug_assert_eq!(lower.len(), body.len(), "the fold must preserve offsets");
+
     let start = query
         .split_whitespace()
-        .filter_map(|term| lower.find(&term.to_lowercase()))
+        .filter_map(|term| {
+            let term: String = term
+                .chars()
+                .map(|c| {
+                    if c.is_ascii() {
+                        c.to_ascii_lowercase()
+                    } else {
+                        c
+                    }
+                })
+                .collect();
+            lower.find(&term)
+        })
         .min()
         .unwrap_or(0);
 
@@ -641,6 +677,39 @@ mod tests {
     use crate::store::rows::spec_for;
     use crate::store::rows::{insert_params, insert_stmt};
     use crate::{Actor, Entity, Project, Spec, Task};
+
+    /// The excerpt slices the original string with an offset found in a
+    /// case-folded copy, so the two must have identical byte lengths.
+    ///
+    /// `to_lowercase` does not guarantee that. `İ` is two bytes and lowercases
+    /// to three, which shifts every byte after it — and the shifted offset was
+    /// then used to slice the original. Latin text never noticed; one Turkish
+    /// capital İ in a document, ahead of the match, was enough.
+    #[test]
+    fn an_excerpt_offset_survives_a_character_that_changes_length_when_lowercased() {
+        let body = "İstanbul is where the meeting happened, and the decision was taken there.";
+        let out = excerpt(body, "decision");
+        assert!(
+            out.contains("decision"),
+            "the excerpt should contain the term it was centred on: {out}"
+        );
+
+        // The same document without the awkward character, to show the term is
+        // found either way and it is the offset that was at stake.
+        let plain = "Istanbul is where the meeting happened, and the decision was taken there.";
+        assert!(excerpt(plain, "decision").contains("decision"));
+    }
+
+    /// And the ordinary case still works: the excerpt is centred on the match
+    /// rather than starting at the top of the document.
+    #[test]
+    fn an_excerpt_is_centred_on_the_match() {
+        let body = format!("{}needle{}", "a".repeat(400), "b".repeat(400));
+        let out = excerpt(&body, "needle");
+        assert!(out.contains("needle"), "{out}");
+        assert!(out.starts_with('…'), "a cut front should say so: {out}");
+        assert!(out.ends_with('…'), "a cut tail should say so: {out}");
+    }
 
     /// An embedder that maps text to a topic, not to its words.
     ///

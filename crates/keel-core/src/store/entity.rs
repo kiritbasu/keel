@@ -1383,11 +1383,18 @@ impl EntityStore for Store {
                 params.clone(),
             )?;
 
+            // No per-type OFFSET. The offset is a position in the *merged*
+            // list, and applying it to each table skipped that many rows of
+            // every type — so page two of a cross-type list dropped rows nobody
+            // had seen and showed rows that belonged on page five. Fetching
+            // `offset + limit` per type is enough by construction: a row in the
+            // global window cannot be further than that into its own type's
+            // ordering, because every row ahead of it globally is ahead of it
+            // there too.
             let sql = format!(
-                "{}{where_clause} ORDER BY id DESC LIMIT {} OFFSET {}",
+                "{}{where_clause} ORDER BY id DESC LIMIT {}",
                 select_from(&spec),
-                limit,
-                query.offset
+                query.offset + limit
             );
             all.extend(query_many(self.connection(), entity_type, &sql, params)?);
         }
@@ -1395,8 +1402,8 @@ impl EntityStore for Store {
         // Across types, order by id — which is creation order, since ULIDs sort
         // chronologically (B-9).
         all.sort_by(|a, b| b.id().cmp(a.id()));
-        all.truncate(limit);
-        Ok(Page::new(all, total))
+        let page: Vec<Entity> = all.into_iter().skip(query.offset).take(limit).collect();
+        Ok(Page::new(page, total))
     }
 
     fn link(&mut self, link: NewLink, provenance: &Provenance) -> Result<Link> {
@@ -1919,7 +1926,6 @@ impl EntityStore for Store {
     }
 
     fn retract_note(&mut self, id: &NoteId, provenance: &Provenance) -> Result<Note> {
-        let _ = provenance;
         let now = Utc::now();
         let changed = self
             .connection()
@@ -1937,7 +1943,8 @@ impl EntityStore for Store {
                 id: format!("{id} — no live note with this id"),
             });
         }
-        query_notes(
+
+        let note = query_notes(
             self.connection(),
             &format!("{NOTE_COLUMNS} FROM notes WHERE id = ?"),
             vec![text(id.as_str())],
@@ -1946,7 +1953,27 @@ impl EntityStore for Store {
         .ok_or_else(|| Error::NotFound {
             entity_type: EntityType::Task,
             id: id.to_string(),
-        })
+        })?;
+
+        // `provenance` used to be discarded here — `let _ = provenance;` — in a
+        // store whose entire argument is that every write says who made it. A
+        // retraction is the one note operation that removes something from
+        // view, so it is the one most worth being able to attribute, and it
+        // was the only one that could not be.
+        append_event_inner(
+            self.connection(),
+            NewEvent::new(
+                note.entity_id.clone(),
+                Action::Archived,
+                format!("retracted a note on {}", note.entity_id),
+            )
+            .in_project(note.project_id.clone())
+            .with_meta(serde_json::json!({ "note_id": id.as_str(), "retracted": true })),
+            provenance,
+            now,
+        )?;
+
+        Ok(note)
     }
 }
 

@@ -152,9 +152,31 @@ fn split(supplied: &str, expected_shape: &str) -> Result<(String, String)> {
 /// [`EntityId::parse`]. There is deliberately no `From<String>`: an
 /// unvalidated identifier reaching the links table is the failure this type
 /// exists to prevent.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 #[serde(transparent)]
 pub struct EntityId(String);
+
+/// Deserialising goes through [`EntityId::parse`], the same as every other way
+/// in.
+///
+/// A derived `Deserialize` on a transparent newtype is a `From<String>` in
+/// everything but name — which the doc comment above says deliberately does not
+/// exist, because an unvalidated identifier reaching the links table is the
+/// failure this type is for. Anything arriving as JSON took that door: a link
+/// in a request body, a restored backup manifest, a field on a patch.
+///
+/// The visible symptom was worse than a bad row. `entity_type()` reads the
+/// prefix and falls back to `Artifact` when it does not recognise one, so
+/// `"banana"` deserialised happily and then reported itself as an artifact —
+/// a real type, on a real code path, for a value that is not an id at all.
+impl<'de> Deserialize<'de> for EntityId {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        let raw = String::deserialize(deserializer)?;
+        EntityId::parse(&raw).map_err(serde::de::Error::custom)
+    }
+}
 
 impl EntityId {
     /// Mint a new identifier for `entity_type`.
@@ -205,14 +227,28 @@ impl EntityId {
 
     /// The type this identifier belongs to.
     ///
-    /// Infallible because the prefix was validated at construction. The
-    /// fallback is unreachable but is a `System` panic-free path rather than
-    /// an `unwrap`, per the definition of done.
+    /// Infallible because the prefix was validated at construction — by
+    /// `parse`, by `generate`, and since this comment was written by
+    /// `Deserialize` too, which used to be the hole. The fallback stays because
+    /// the alternative is an `unwrap` in library code, but it now says so: an
+    /// id that reaches it is one that got past every constructor, and reporting
+    /// it silently as an artifact is how that would go unnoticed.
     pub fn entity_type(&self) -> EntityType {
-        self.0
+        match self
+            .0
             .split_once('_')
             .and_then(|(p, _)| EntityType::from_prefix(p))
-            .unwrap_or(EntityType::Artifact)
+        {
+            Some(t) => t,
+            None => {
+                tracing::error!(
+                    id = %self.0,
+                    "an EntityId with no recognisable type prefix exists, which means it was \
+                     built without going through parse or generate. Reporting it as an artifact"
+                );
+                EntityType::Artifact
+            }
+        }
     }
 
     /// The full identifier, prefix included.
@@ -243,9 +279,23 @@ impl AsRef<str> for EntityId {
 macro_rules! simple_id {
     ($name:ident, $prefix:literal, $what:literal) => {
         #[doc = concat!("The identifier of ", $what, ", prefixed `", $prefix, "_`.")]
-        #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
         #[serde(transparent)]
         pub struct $name(String);
+
+        #[doc = concat!("Deserialising goes through `", stringify!($name), "::parse`.")]
+        ///
+        /// Same reasoning as [`EntityId`]: a derived impl on a transparent
+        /// newtype is an unchecked `From<String>`, and these ids arrive from
+        /// JSON on every surface.
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D: serde::Deserializer<'de>>(
+                deserializer: D,
+            ) -> std::result::Result<Self, D::Error> {
+                let raw = String::deserialize(deserializer)?;
+                $name::parse(&raw).map_err(serde::de::Error::custom)
+            }
+        }
 
         impl $name {
             #[doc = concat!("Mint a new ", $what, " identifier.")]

@@ -720,6 +720,18 @@ impl EntityQuery {
         self
     }
 
+    /// Restrict to several types.
+    ///
+    /// [`EntityQuery::of_type`] replaces rather than appends, so chaining it
+    /// twice silently keeps only the second — which is a fair reading of "of
+    /// type", and is also why a cross-type query could not be built with the
+    /// builder at all and the offset bug in cross-type paging went years
+    /// without a caller.
+    pub fn of_types(mut self, types: impl IntoIterator<Item = EntityType>) -> Self {
+        self.entity_types = types.into_iter().collect();
+        self
+    }
+
     /// Restrict to a set of statuses.
     pub fn with_status(mut self, statuses: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.statuses = statuses.into_iter().map(Into::into).collect();

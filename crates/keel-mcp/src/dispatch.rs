@@ -452,6 +452,14 @@ fn project_for_directory(store: &Store, dir: &str) -> Option<EntityId> {
     best.map(|(_, id)| id)
 }
 
+/// Bring a caller's revision number into range without wrapping.
+///
+/// Saturating, so a number outside `i32` becomes one no revision has rather
+/// than some unrelated revision that happens to exist.
+fn narrow_version(v: i64) -> i32 {
+    v.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
+}
+
 fn keel_search(
     store: &Store,
     args: &Value,
@@ -535,8 +543,12 @@ fn keel_get(store: &Store, args: &Value) -> Result<Value, RpcError> {
     let direction = Direction::parse(opt_str(args, "direction").as_deref().unwrap_or("both"))
         .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
     let rels = parse_rels(args.get("rels"))?;
-    let version = opt_i64(args, "version").map(|v| v as i32);
-    let diff_against = opt_i64(args, "diff_against").map(|v| v as i32);
+    // Clamped rather than wrapped. On a read the consequence of a silly number
+    // is only "no such revision", so there is nothing to protect — but `as i32`
+    // would turn 4294967297 into 1 and return revision 1, which is a wrong
+    // answer where "not found" was the right one.
+    let version = opt_i64(args, "version").map(narrow_version);
+    let diff_against = opt_i64(args, "diff_against").map(narrow_version);
 
     let mut found = Vec::new();
     let mut entities = Vec::new();
@@ -1351,9 +1363,6 @@ fn resolve_reference_fields(
 fn resolve_rank_placement(store: &Store, changes: &mut Map<String, Value>) -> Result<(), RpcError> {
     let after = changes.remove("rank_after");
     let before = changes.remove("rank_before");
-    if after.is_none() && before.is_none() {
-        return Ok(());
-    }
 
     // A task's own rank, and the rank of whatever currently sits next to it on
     // the far side — placing "after A" means between A and A's successor.
@@ -1372,7 +1381,12 @@ fn resolve_rank_placement(store: &Store, changes: &mut Map<String, Value>) -> Re
         }
     };
 
+    // The early return is an arm rather than a guard thirty lines above. It
+    // used to be the guard, and the arm it made impossible was an
+    // `unreachable!` — a panic in library code whose safety depended on a
+    // condition far enough away to be edited independently of it.
     let (low, high) = match (&after, &before) {
+        (None, None) => return Ok(()),
         (Some(a), None) => {
             let anchor = neighbour(a, "rank_after")?;
             (Some(anchor), successor_rank(store, anchor)?)
@@ -1385,8 +1399,25 @@ fn resolve_rank_placement(store: &Store, changes: &mut Map<String, Value>) -> Re
             Some(neighbour(a, "rank_after")?),
             Some(neighbour(b, "rank_before")?),
         ),
-        (None, None) => unreachable!("checked above"),
     };
+
+    // "After X and before Y" where X is already below Y describes a place that
+    // does not exist. `rank_between` takes the midpoint of the two, so it would
+    // have answered with a number *outside* the range the caller named and put
+    // the task somewhere neither anchor implies — a move that succeeds and
+    // lands in the wrong place is worse than one that is refused.
+    if let (Some(low), Some(high)) = (low, high)
+        && low >= high
+    {
+        return Err(bad_arg(
+            "rank_after",
+            &format!(
+                "rank_after sits at {low} and rank_before at {high}, so there is no room \
+                 between them in that order"
+            ),
+            "two tasks with rank_after currently ranked below rank_before, or just one of them",
+        ));
+    }
 
     let rank = store
         .rank_between(low, high)
@@ -1440,7 +1471,19 @@ fn keel_update(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
             "missing",
             "the `version` you read, so a concurrent edit can be detected",
         )
-    })? as i32;
+    })?;
+    // Narrowed by checking rather than by `as i32`, which wraps. A caller
+    // sending 4294967297 got 1 — and 1 is a real version, so the stale-write
+    // check the argument exists for would have compared against it and passed.
+    // The one guard against a lost update, defeated by a number too large to
+    // be a version at all.
+    let version = i32::try_from(version).map_err(|_| {
+        bad_arg(
+            "version",
+            &format!("{version} is not a version any artifact could have"),
+            "the `version` field from the artifact you read",
+        )
+    })?;
     let provenance = provenance_from(args)?;
 
     if opt_bool(args, "archive") {
@@ -1998,7 +2041,22 @@ fn keel_close(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
         .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
     let other = match opt_str(args, "other") {
         None => None,
-        Some(raw) => Some(resolve_required(store, "other", &raw)?),
+        Some(raw) => {
+            let resolved = resolve_required(store, "other", &raw)?;
+            // `duplicate` and `superseded` draw an edge to whatever this names,
+            // and nothing downstream checks it is a task. Closing a task as a
+            // duplicate of a *spec* therefore succeeded, leaving a `duplicates`
+            // edge between two things that cannot stand in that relation and a
+            // close message that reads perfectly well.
+            if resolved.entity_type() != keel_core::EntityType::Task {
+                return Err(bad_arg(
+                    "other",
+                    &format!("`{raw}` is a {}, not a task", resolved.entity_type()),
+                    "the task this one duplicates or was superseded by",
+                ));
+            }
+            Some(resolved)
+        }
     };
     let provenance = provenance_from(args)?;
 
