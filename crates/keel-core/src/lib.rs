@@ -22,6 +22,7 @@
 //! inverted traversal returns an empty result that is indistinguishable from a
 //! legitimate "nothing is linked". Everything else fails loudly.
 
+pub mod atomic;
 pub mod audit;
 pub mod backup;
 pub mod changes;

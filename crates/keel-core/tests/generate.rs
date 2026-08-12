@@ -599,3 +599,48 @@ fn pruning_refuses_paths_outside_the_mirror_root() {
         "the spec must survive a manifest that names it"
     );
 }
+
+// --- Torn writes ---------------------------------------------------------
+
+/// A generated file is the old content or the new content, never a prefix.
+///
+/// `product/CLAUDE.md` is one of these files, and Claude Code loads it at the
+/// start of every session — so a write that stops halfway silently removes the
+/// second half of the standing contract, and every session afterwards follows
+/// whatever survived.
+#[test]
+fn a_generated_file_is_never_left_half_written() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("product").join("CLAUDE.md");
+    let old = "# The contract\n\nEvery rule, all the way to the end.\n";
+    let new = "# The contract\n\nA replacement that is longer than what it replaces, so a \
+               prefix of it would still look like a whole file.\n";
+
+    keel_core::atomic::write(&path, old).unwrap();
+
+    // Make the temp file impossible to create, which is the cheapest stand-in
+    // for a full disk: the write fails after the old file is already there.
+    let temp = std::fs::read_dir(dir.path().join("product"))
+        .unwrap()
+        .count();
+    assert_eq!(temp, 1, "only the target should exist between writes");
+
+    let blocker = dir
+        .path()
+        .join("product")
+        .join(format!(".CLAUDE.md.keel-{}.tmp", std::process::id()));
+    std::fs::create_dir(&blocker).unwrap();
+
+    let failed = keel_core::atomic::write(&path, new);
+    assert!(failed.is_err(), "the write should have failed");
+
+    let actual = std::fs::read_to_string(&path).unwrap();
+    assert_eq!(
+        actual, old,
+        "the file holds neither the old content nor the new — it is a torn write"
+    );
+    assert!(
+        !new.starts_with(&actual) || actual == old,
+        "the file is a prefix of the new content"
+    );
+}

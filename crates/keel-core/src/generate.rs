@@ -267,11 +267,10 @@ fn write_or_check(
         return Ok(());
     }
 
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(Error::io(format!("create {}", parent.display())))?;
-    }
-    std::fs::write(path, content).map_err(Error::io(format!("write {}", path.display())))
+    // Atomic, because one of the files this writes is `product/CLAUDE.md` —
+    // loaded at the start of every Claude Code session, so a torn write
+    // silently removes the second half of the standing contract.
+    crate::atomic::write(path, content)
 }
 
 /// Whether a file already declares itself generated.

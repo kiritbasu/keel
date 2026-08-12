@@ -428,8 +428,10 @@ pub fn generate_except(
     // left out of the report, or every `--check` run would claim the tree is
     // dirty because a clock moved.
     if mode == crate::generate::Mode::Write {
-        std::fs::write(repo_root.join(".keel/manifest.json"), format!("{json}\n"))
-            .map_err(Error::io("write the mirror manifest"))?;
+        crate::atomic::write(
+            &crate::safe_path::confine(repo_root, ".keel/manifest.json")?,
+            &format!("{json}\n"),
+        )?;
     }
 
     Ok(report)
@@ -503,11 +505,7 @@ fn write_if_changed(
         return Ok(());
     }
 
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(Error::io(format!("create {}", parent.display())))?;
-    }
-    std::fs::write(path, content).map_err(Error::io(format!("write {}", path.display())))
+    crate::atomic::write(path, content)
 }
 
 /// Drop the generated header comment, for change comparison.

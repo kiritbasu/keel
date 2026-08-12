@@ -807,7 +807,10 @@ fn run_render_status(
         );
     }
 
-    std::fs::write(&path, &markdown).with_context(|| format!("write {}", path.display()))?;
+    // Atomic, like every other generated file: a torn tracker is a file that
+    // opens, reads as plausible and stops mid-table.
+    keel_core::atomic::write(&path, &markdown)
+        .with_context(|| format!("write {}", path.display()))?;
     println!("wrote {} ({} bytes)", path.display(), markdown.len());
     Ok(())
 }
