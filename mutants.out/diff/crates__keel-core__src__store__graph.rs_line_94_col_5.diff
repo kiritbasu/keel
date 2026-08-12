@@ -1,0 +1,62 @@
+--- crates/keel-core/src/store/graph.rs
++++ replace read_neighbour -> Result<Neighbour> with Ok(Default::default())
+@@ -86,58 +86,17 @@
+     match direction {
+         Direction::Outbound => ("from_id", "to_id", "to_type"),
+         Direction::Inbound | Direction::Both => ("to_id", "from_id", "from_type"),
+     }
+ }
+ 
+ /// Rebuild one traversal row.
+ fn read_neighbour(row: &Row<'_>) -> Result<Neighbour> {
+-    let e = |c: &'static str| Error::storage(format!("read column `{c}` of a traversal row"));
+-
+-    let id = EntityId::parse(&row.get::<_, String>("id").map_err(e("id"))?)?;
+-    let entity_type = EntityType::parse(
+-        &row.get::<_, String>("entity_type")
+-            .map_err(e("entity_type"))?,
+-    )?;
+-    let rel = Relation::parse(&row.get::<_, String>("rel").map_err(e("rel"))?)?;
+-    let anchor = row
+-        .get::<_, Option<String>>("anchor")
+-        .map_err(e("anchor"))?
+-        .unwrap_or_default();
+-    let depth: i64 = row.get::<_, i64>("depth").map_err(e("depth"))?;
+-
+-    // The stored path is `|root|a|b|`; the empty fragments either side of the
+-    // outer bars are what the filter drops.
+-    let raw_path = row
+-        .get::<_, Option<String>>("path")
+-        .map_err(e("path"))?
+-        .unwrap_or_default();
+-    let mut path = Vec::new();
+-    for step in raw_path.split(BAR).filter(|s| !s.is_empty()) {
+-        path.push(EntityId::parse(step)?);
+-    }
+-
+-    // A `LEFT JOIN`, so an edge pointing at a row that no longer resolves
+-    // yields an empty label rather than vanishing. Dropping it would hide the
+-    // exact breakage `fsck`'s dangling-link check exists to report.
+-    let label = row
+-        .get::<_, Option<String>>("label")
+-        .map_err(e("label"))?
+-        .unwrap_or_default();
+-
+-    Ok(Neighbour {
+-        id,
+-        entity_type,
+-        label,
+-        rel,
+-        anchor,
+-        depth: u8::try_from(depth).unwrap_or(MAX_DEPTH),
+-        path,
+-    })
++    Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ impl GraphStore for Store {
+     fn neighbours(
+         &self,
+         root: &EntityId,
+         direction: Direction,
+         rels: &[Relation],

@@ -1,0 +1,1219 @@
+
+*** crates/keel-core/src/id.rs:123:5: replace split -> Result<(String, String)> with Ok(("xyzzy".into(), "xyzzy".into()))
+
+*** mutation diff:
+--- crates/keel-core/src/id.rs
++++ replace split -> Result<(String, String)> with Ok(("xyzzy".into(), "xyzzy".into()))
+@@ -115,40 +115,17 @@
+ 
+ /// Generate a fresh prefixed identifier.
+ fn mint(prefix: &str) -> String {
+     format!("{prefix}_{}", next_ulid())
+ }
+ 
+ /// Validate the `<prefix>_<ulid>` shape and return the two halves.
+ fn split(supplied: &str, expected_shape: &str) -> Result<(String, String)> {
+-    let malformed = |problem: String| Error::MalformedId {
+-        supplied: supplied.to_owned(),
+-        problem,
+-        expected: expected_shape.to_owned(),
+-    };
+-
+-    let Some((prefix, body)) = supplied.split_once('_') else {
+-        return Err(malformed(
+-            "no `_` separating the type prefix from the ULID".into(),
+-        ));
+-    };
+-    if prefix.is_empty() {
+-        return Err(malformed("the type prefix is empty".into()));
+-    }
+-    if body.len() != ULID_LEN {
+-        return Err(malformed(format!(
+-            "the part after `_` is {} characters, not {ULID_LEN}",
+-            body.len()
+-        )));
+-    }
+-    if ulid::Ulid::from_string(body).is_err() {
+-        return Err(malformed("the part after `_` is not a valid ULID".into()));
+-    }
+-    Ok((prefix.to_owned(), body.to_owned()))
++    Ok(("xyzzy".into(), "xyzzy".into())) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// The identifier of one of the thirteen artifact types.
+ ///
+ /// Construct with [`EntityId::generate`], or parse an existing one with
+ /// [`EntityId::parse`]. There is deliberately no `From<String>`: an
+ /// unvalidated identifier reaching the links table is the failure this type
+ /// exists to prevent.
+
+
+*** cargo test --no-run --verbose --package=keel-core@0.1.0
+       Fresh unicode-ident v1.0.24
+       Fresh cfg-if v1.0.4
+       Fresh memchr v2.8.3
+       Fresh find-msvc-tools v0.1.10
+       Fresh shlex v2.0.1
+       Fresh libc v0.2.189
+       Fresh cc v1.4.2
+       Fresh version_check v0.9.5
+       Fresh once_cell v1.21.4
+       Fresh proc-macro2 v1.0.107
+       Fresh serde_core v1.0.229
+       Fresh autocfg v1.5.1
+       Fresh bitflags v2.13.1
+       Fresh quote v1.0.47
+       Fresh getrandom v0.3.4
+       Fresh zerocopy v0.8.56
+       Fresh typenum v1.20.1
+       Fresh syn v3.0.3
+       Fresh rand_core v0.9.5
+       Fresh syn v2.0.119
+       Fresh generic-array v0.14.7
+       Fresh ppv-lite86 v0.2.21
+       Fresh errno v0.3.14
+       Fresh ucd-trie v0.1.7
+       Fresh serde_derive v1.0.229
+       Fresh pkg-config v0.3.33
+       Fresh vcpkg v0.2.15
+       Fresh pest v2.8.8
+       Fresh rand_chacha v0.9.0
+       Fresh num-traits v0.2.19
+       Fresh getrandom v0.4.3
+       Fresh rustix v1.1.4
+       Fresh serde v1.0.229
+       Fresh foldhash v0.2.0
+       Fresh regex-syntax v0.8.11
+       Fresh core-foundation-sys v0.8.7
+       Fresh fastrand v2.5.0
+       Fresh pest_meta v2.8.8
+       Fresh zmij v1.0.23
+       Fresh hashbrown v0.17.1
+       Fresh iana-time-zone v0.1.65
+       Fresh tempfile v3.27.0
+       Fresh rand v0.9.5
+       Fresh block-buffer v0.10.4
+       Fresh crypto-common v0.1.7
+       Fresh itoa v1.0.18
+       Fresh chrono v0.4.45
+       Fresh hashlink v0.12.1
+       Fresh digest v0.10.7
+       Fresh libsqlite3-sys v0.38.2
+       Fresh regex-automata v0.4.18
+       Fresh pest_generator v2.8.8
+       Fresh serde_json v1.0.151
+       Fresh tracing-attributes v0.1.31
+       Fresh thiserror-impl v2.0.20
+       Fresh wait-timeout v0.2.1
+       Fresh cpufeatures v0.2.17
+       Fresh tracing-core v0.1.36
+       Fresh vte v0.14.1
+       Fresh quick-error v1.2.3
+       Fresh fnv v1.0.7
+       Fresh smallvec v1.15.2
+       Fresh pin-project-lite v0.2.17
+       Fresh similar v2.7.0
+       Fresh fallible-iterator v0.3.0
+       Fresh bit-vec v0.8.0
+       Fresh fallible-streaming-iterator v0.1.9
+       Fresh sha2 v0.10.9
+       Fresh tracing v0.1.44
+       Fresh rusty-fork v0.3.1
+       Fresh bit-set v0.8.0
+       Fresh rusqlite v0.40.2
+       Fresh strip-ansi-escapes v0.2.1
+       Fresh thiserror v2.0.20
+       Fresh sqlite-vec v0.1.9
+       Fresh pest_derive v2.8.8
+       Fresh regex v1.13.1
+       Fresh ulid v1.2.1
+       Fresh rand_xorshift v0.4.0
+       Fresh console v0.16.4
+       Fresh unarray v0.1.4
+       Fresh insta v1.48.0
+       Fresh proptest v1.11.0
+       Dirty keel-core v0.1.0 (/Users/h8hcn/development/keel/crates/keel-core): the file `crates/keel-core/src/id.rs` has changed (1786527191.518945924s, 16s after last build at 1786527175.070952340s)
+   Compiling keel-core v0.1.0 (/Users/h8hcn/development/keel/crates/keel-core)
+     Running `rustc --crate-name keel_core --edition=2024 crates/keel-core/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=25323da1add37b75 -C extra-filename=-279a147f4e501f75 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name keel_core --edition=2024 crates/keel-core/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=97f787510cb23fe5 -C extra-filename=-cf5205aeb94abfbc --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rmeta --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rmeta --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rmeta --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rmeta --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rmeta --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rmeta --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rmeta --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rmeta --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rmeta --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rmeta -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+warning: unused variable: `supplied`
+   --> crates/keel-core/src/id.rs:122:10
+    |
+122 | fn split(supplied: &str, expected_shape: &str) -> Result<(String, String)> {
+    |          ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_supplied`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `expected_shape`
+   --> crates/keel-core/src/id.rs:122:26
+    |
+122 | fn split(supplied: &str, expected_shape: &str) -> Result<(String, String)> {
+    |                          ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_expected_shape`
+
+warning: constant `ULID_LEN` is never used
+  --> crates/keel-core/src/id.rs:19:7
+   |
+19 | const ULID_LEN: usize = 26;
+   |       ^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `keel-core` (lib) generated 3 warnings
+     Running `rustc --crate-name structure --edition=2024 crates/keel-core/tests/structure.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=769e7bea67cdddab -C extra-filename=-2acefe7d6bbeaee9 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name path_confinement --edition=2024 crates/keel-core/tests/path_confinement.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=36e14ef72441d650 -C extra-filename=-495aa1ef2d9f614d --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name fsck_coverage --edition=2024 crates/keel-core/tests/fsck_coverage.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=b6d6e68bb1d7b329 -C extra-filename=-c476f902137bc502 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name roundtrip --edition=2024 crates/keel-core/tests/roundtrip.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=3edc00e8c2f66c8e -C extra-filename=-4e922665f8b90634 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name fixture_backup --edition=2024 crates/keel-core/tests/fixture_backup.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=db5dccb83a72532d -C extra-filename=-17c2d16d54e653de --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name papercuts --edition=2024 crates/keel-core/tests/papercuts.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=164d7e2d0d51bb80 -C extra-filename=-74fcdcafbbe22357 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name generate --edition=2024 crates/keel-core/tests/generate.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=f78eac6f4b492626 -C extra-filename=-0b39dccadebe22f8 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name wal_growth --edition=2024 crates/keel-core/tests/wal_growth.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=8cb3762cdad294fd -C extra-filename=-1c3c4a515d0eb3df --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+warning: `keel-core` (lib test) generated 3 warnings (3 duplicates)
+     Running `rustc --crate-name notes --edition=2024 crates/keel-core/tests/notes.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=771faea0b7394aa1 -C extra-filename=-b9eb917153ea8634 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name migration --edition=2024 crates/keel-core/tests/migration.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=8170e1e446e7c73f -C extra-filename=-e5a03b9d4e6cda5a --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name changes --edition=2024 crates/keel-core/tests/changes.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=e7912b75ab9b8dd3 -C extra-filename=-d5a882ff611a2960 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name graph_direction --edition=2024 crates/keel-core/tests/graph_direction.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=89347406f8d0b370 -C extra-filename=-d96e8a58f90f4c48 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name concurrency --edition=2024 crates/keel-core/tests/concurrency.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=f61d6804dfd21765 -C extra-filename=-2767e7b46cb37b76 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name vocabulary --edition=2024 crates/keel-core/tests/vocabulary.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=2a3485d0463d3e07 -C extra-filename=-f1ec24dc68a5fbfb --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name near_duplicates --edition=2024 crates/keel-core/tests/near_duplicates.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=1fefb7a2348a1915 -C extra-filename=-7a2d3a0f4487bf19 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name next --edition=2024 crates/keel-core/tests/next.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=ffb90dfab1d05dc1 -C extra-filename=-87f30cf577cd565c --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name documents --edition=2024 crates/keel-core/tests/documents.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=4f9b293bf0b7e089 -C extra-filename=-79cea406155f8198 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name faults_testkit --edition=2024 crates/keel-core/tests/faults_testkit.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=b7cb7feef28a52e2 -C extra-filename=-caf201d363ae6fc9 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name composite --edition=2024 crates/keel-core/tests/composite.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a5391ccea7996c98 -C extra-filename=-7ed0f74559e7e2b6 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name readable_ids --edition=2024 crates/keel-core/tests/readable_ids.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=9d741e8029e82295 -C extra-filename=-f8a6cc54270ce147 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name work --edition=2024 crates/keel-core/tests/work.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=b3f71e476ee7dda2 -C extra-filename=-2cf1610f323faceb --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name atomicity --edition=2024 crates/keel-core/tests/atomicity.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=eff0077e1f84a879 -C extra-filename=-de124bbcd2ce9ce0 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name event_coverage --edition=2024 crates/keel-core/tests/event_coverage.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=10ab126f9971447a -C extra-filename=-a82e94e63070be35 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name one_truth --edition=2024 crates/keel-core/tests/one_truth.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=cf6a1fcd1eb81d86 -C extra-filename=-b5efd97cdc7bfc4f --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name lint --edition=2024 crates/keel-core/tests/lint.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=8f5a001a2371e752 -C extra-filename=-0c6d870b7c208811 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name recent_events --edition=2024 crates/keel-core/tests/recent_events.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=d36c895ba54b4efb -C extra-filename=-c2bf4ec3353ddfb9 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name properties --edition=2024 crates/keel-core/tests/properties.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a94efc1926c2d0ca -C extra-filename=-a25f233df110f180 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name archive --edition=2024 crates/keel-core/tests/archive.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=1f49c0e173398b60 -C extra-filename=-f402bc1ef2646793 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name history --edition=2024 crates/keel-core/tests/history.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=6bfe226dd8e7a2b6 -C extra-filename=-134dda17169db043 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern keel_core=/Users/h8hcn/development/keel/target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.44s
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/keel_core-279a147f4e501f75`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/archive-f402bc1ef2646793`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/atomicity-de124bbcd2ce9ce0`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/changes-d5a882ff611a2960`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/composite-7ed0f74559e7e2b6`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/concurrency-2767e7b46cb37b76`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/documents-79cea406155f8198`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/event_coverage-a82e94e63070be35`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/faults_testkit-caf201d363ae6fc9`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/fixture_backup-17c2d16d54e653de`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/fsck_coverage-c476f902137bc502`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/generate-0b39dccadebe22f8`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/graph_direction-d96e8a58f90f4c48`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/history-134dda17169db043`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/lint-0c6d870b7c208811`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/migration-e5a03b9d4e6cda5a`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/near_duplicates-7a2d3a0f4487bf19`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/next-87f30cf577cd565c`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/notes-b9eb917153ea8634`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/one_truth-b5efd97cdc7bfc4f`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/papercuts-74fcdcafbbe22357`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/path_confinement-495aa1ef2d9f614d`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/properties-a25f233df110f180`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/readable_ids-f8a6cc54270ce147`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/recent_events-c2bf4ec3353ddfb9`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/roundtrip-4e922665f8b90634`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/structure-2acefe7d6bbeaee9`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/vocabulary-f1ec24dc68a5fbfb`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/wal_growth-1c3c4a515d0eb3df`
+  Executable `/Users/h8hcn/development/keel/target/debug/deps/work-2cf1610f323faceb`
+
+*** result: Success
+
+*** cargo test --verbose --package=keel-core@0.1.0
+       Fresh unicode-ident v1.0.24
+       Fresh cfg-if v1.0.4
+       Fresh memchr v2.8.3
+       Fresh find-msvc-tools v0.1.10
+       Fresh libc v0.2.189
+       Fresh shlex v2.0.1
+       Fresh version_check v0.9.5
+       Fresh bitflags v2.13.1
+       Fresh proc-macro2 v1.0.107
+       Fresh cc v1.4.2
+       Fresh getrandom v0.3.4
+       Fresh serde_core v1.0.229
+       Fresh autocfg v1.5.1
+       Fresh once_cell v1.21.4
+       Fresh quote v1.0.47
+       Fresh zerocopy v0.8.56
+       Fresh rand_core v0.9.5
+       Fresh typenum v1.20.1
+       Fresh syn v3.0.3
+       Fresh syn v2.0.119
+       Fresh generic-array v0.14.7
+       Fresh ppv-lite86 v0.2.21
+       Fresh errno v0.3.14
+       Fresh vcpkg v0.2.15
+       Fresh serde_derive v1.0.229
+       Fresh ucd-trie v0.1.7
+       Fresh pkg-config v0.3.33
+       Fresh rustix v1.1.4
+       Fresh getrandom v0.4.3
+       Fresh num-traits v0.2.19
+       Fresh rand_chacha v0.9.0
+       Fresh regex-syntax v0.8.11
+       Fresh serde v1.0.229
+       Fresh pest v2.8.8
+       Fresh fastrand v2.5.0
+       Fresh foldhash v0.2.0
+       Fresh core-foundation-sys v0.8.7
+       Fresh rand v0.9.5
+       Fresh hashbrown v0.17.1
+       Fresh zmij v1.0.23
+       Fresh iana-time-zone v0.1.65
+       Fresh pest_meta v2.8.8
+       Fresh tempfile v3.27.0
+       Fresh crypto-common v0.1.7
+       Fresh block-buffer v0.10.4
+       Fresh itoa v1.0.18
+       Fresh hashlink v0.12.1
+       Fresh chrono v0.4.45
+       Fresh digest v0.10.7
+       Fresh libsqlite3-sys v0.38.2
+       Fresh pest_generator v2.8.8
+       Fresh regex-automata v0.4.18
+       Fresh serde_json v1.0.151
+       Fresh tracing-attributes v0.1.31
+       Fresh thiserror-impl v2.0.20
+       Fresh tracing-core v0.1.36
+       Fresh wait-timeout v0.2.1
+       Fresh cpufeatures v0.2.17
+       Fresh vte v0.14.1
+       Fresh pin-project-lite v0.2.17
+       Fresh quick-error v1.2.3
+       Fresh fallible-streaming-iterator v0.1.9
+       Fresh similar v2.7.0
+       Fresh smallvec v1.15.2
+       Fresh fnv v1.0.7
+       Fresh fallible-iterator v0.3.0
+       Fresh bit-vec v0.8.0
+       Fresh sha2 v0.10.9
+       Fresh rusty-fork v0.3.1
+       Fresh bit-set v0.8.0
+       Fresh tracing v0.1.44
+       Fresh rusqlite v0.40.2
+       Fresh strip-ansi-escapes v0.2.1
+       Fresh sqlite-vec v0.1.9
+       Fresh thiserror v2.0.20
+       Fresh pest_derive v2.8.8
+       Fresh regex v1.13.1
+       Fresh ulid v1.2.1
+       Fresh rand_xorshift v0.4.0
+       Fresh console v0.16.4
+       Fresh unarray v0.1.4
+       Fresh insta v1.48.0
+       Fresh proptest v1.11.0
+warning: unused variable: `supplied`
+   --> crates/keel-core/src/id.rs:122:10
+    |
+122 | fn split(supplied: &str, expected_shape: &str) -> Result<(String, String)> {
+    |          ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_supplied`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `expected_shape`
+   --> crates/keel-core/src/id.rs:122:26
+    |
+122 | fn split(supplied: &str, expected_shape: &str) -> Result<(String, String)> {
+    |                          ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_expected_shape`
+
+warning: constant `ULID_LEN` is never used
+  --> crates/keel-core/src/id.rs:19:7
+   |
+19 | const ULID_LEN: usize = 26;
+   |       ^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `keel-core` (lib) generated 3 warnings
+warning: `keel-core` (lib test) generated 3 warnings (3 duplicates)
+       Fresh keel-core v0.1.0 (/Users/h8hcn/development/keel/crates/keel-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running `/Users/h8hcn/development/keel/target/debug/deps/keel_core-279a147f4e501f75`
+
+running 286 tests
+test audit::tests::touching_does_not_resurrect_an_archived_row ... ok
+test audit::tests::a_write_without_a_session_still_records_the_actor ... ok
+test audit::tests::a_new_audit_block_starts_at_version_one ... ok
+test atomic::tests::the_temporary_path_is_a_sibling_of_the_target ... ok
+test audit::tests::touching_preserves_creation_and_replaces_the_mutable_half ... ok
+test atomic::tests::a_write_that_cannot_finish_leaves_the_old_file_untouched ... ok
+test atomic::tests::the_temporary_file_does_not_survive ... ok
+test atomic::tests::a_file_is_written_and_replaced ... ok
+test atomic::tests::missing_directories_are_created ... ok
+test changes::tests::a_headline_names_notes_last_and_says_nothing_when_there_is_nothing ... ok
+test backup::tests::a_directory_with_no_snapshot_is_refused_with_advice ... ok
+test changes::tests::a_note_is_shortened_to_its_first_line ... ok
+test digest::tests::budgets_increase_with_depth ... ok
+test digest::tests::depth_parses_and_rejects_nonsense ... ok
+test digest::tests::the_standard_budget_is_about_four_thousand_tokens ... ok
+test digest::tests::trimming_records_what_it_dropped ... ok
+test digest::tests::trimming_never_touches_questions_or_terms ... ok
+test document::tests::embedding_dimension_matches_the_model ... ok
+test document::tests::a_first_revision_is_version_one_with_no_parent ... ok
+test document::tests::identical_content_hashes_identically_and_different_content_does_not ... ok
+test document::tests::revisions_increment_from_their_parent ... ok
+test document::tests::searchable_text_includes_the_title ... ok
+test document::tests::the_id_must_match_the_declared_type ... ok
+test document::tests::types_without_prose_cannot_have_documents ... ok
+test embed::tests::an_empty_batch_is_not_an_error ... ok
+test embed::tests::batches_preserve_order ... ok
+test embed::tests::similar_text_embeds_closer_than_unrelated_text ... ok
+test embed::tests::the_test_embedder_is_deterministic_and_correctly_sized ... ok
+test entity::tests::a_canonical_name_reports_no_alias ... ok
+test entity::tests::a_project_can_say_phase_and_mean_milestone ... ok
+test entity::tests::actor_and_surface_reject_nonsense ... ok
+test entity::tests::aliases_are_case_and_whitespace_insensitive ... ok
+test entity::tests::an_unknown_word_still_fails_with_the_valid_names ... ok
+test entity::tests::design_and_feedback_tables_are_not_the_wire_name_plus_s ... ok
+test entity::tests::every_alias_resolves_to_a_type_that_already_exists ... ok
+test entity::tests::exactly_five_types_carry_documents ... ok
+test entity::tests::metrics_are_excluded_from_search ... ok
+test entity::tests::no_alias_is_listed_twice ... ok
+test entity::tests::table_names_are_unique ... ok
+test entity::tests::prefixes_round_trip_and_are_unique ... ok
+test entity::tests::wire_names_round_trip ... ok
+test entity::tests::unknown_type_names_say_what_was_valid ... ok
+test enums::tests::hyphenated_spec_kind_is_preserved ... ok
+test enums::tests::every_closed_set_round_trips_and_explains_itself ... ok
+test enums::tests::only_open_questions_count_as_unresolved ... ok
+test enums::tests::serde_uses_the_stored_string ... ok
+test enums::tests::open_task_statuses_exclude_finished_work ... ok
+test enums::tests::urgent_priorities_are_p0_and_p1_only ... ok
+test environment::tests::a_name_that_merely_contains_one_is_not_one ... ok
+test environment::tests::a_service_is_reported_once_however_many_times_it_appears ... ok
+test environment::tests::an_ordinary_home_is_fine ... ok
+test environment::tests::network_shaped_paths_are_flagged_as_a_guess ... ok
+test environment::tests::the_remedy_says_what_to_do ... ok
+test environment::tests::the_sync_clients_are_recognised ... ok
+test event::tests::action_names_round_trip ... ok
+test event::tests::event_ids_order_by_time ... ok
+test event::tests::there_is_no_delete_action ... ok
+test event::tests::field_change_records_both_sides ... ok
+test fsck::citation_tests::a_citation_is_only_checked_when_the_project_titles_artifacts_that_way ... ok
+test fixture::tests::the_summary_totals_add_up ... ok
+test fsck::citation_tests::a_hyphenated_word_is_not_an_identifier ... ok
+test fsck::citation_tests::it_does_not_invent_citations_out_of_ordinary_prose ... ok
+test fsck::citation_tests::it_finds_the_identifiers_this_project_actually_uses ... ok
+test fsck::tests::a_report_with_an_error_is_not_clean ... ok
+test fsck::tests::a_report_with_only_warnings_is_clean ... ok
+test fsck::tests::errors_sort_before_warnings ... ok
+test generate::tests::a_file_that_has_never_been_generated_needs_writing_once ... ok
+test generate::tests::a_file_with_no_banner_still_compares ... ok
+test generate::tests::a_path_under_dot_keel_belongs_to_the_mirror_not_to_adoption ... ok
+test fsck::tests::the_declared_check_list_matches_what_the_code_emits ... ok
+test generate::tests::the_banner_does_not_count_as_a_change ... ok
+test id::tests::connective_ids_do_not_accept_each_others_prefixes ... FAILED
+test id::tests::generated_ids_carry_their_type ... FAILED
+test id::tests::malformed_ids_are_rejected_with_a_reason ... ok
+test id::tests::ids_sort_chronologically ... ok
+test id::tests::parse_as_rejects_the_wrong_type ... FAILED
+test link::tests::a_missing_anchor_becomes_the_empty_string_not_null ... ok
+test link::tests::depends_on_is_the_only_unstored_relation ... ok
+test link::tests::depends_on_normalises_to_blocks_with_swapped_endpoints ... ok
+test link::tests::depth_bounds_match_the_requirement ... ok
+test link::tests::directions_use_opposite_columns ... ok
+test link::tests::neighbour_of_respects_direction ... ok
+test link::tests::normalising_depends_on_twice_returns_to_the_start ... ok
+test link::tests::normalising_is_idempotent_for_every_other_relation ... ok
+test link::tests::relation_names_round_trip ... ok
+test link::tests::self_links_are_rejected ... ok
+test lint::tests::a_prefix_that_is_not_an_identifier_family_is_ignored ... ok
+test lint::tests::a_sentence_that_only_names_an_identifier_is_reported ... ok
+test lint::tests::a_sentence_that_says_what_the_identifier_is_about_is_not ... ok
+test lint::tests::an_identifier_inside_code_is_left_alone ... ok
+test lint::tests::the_report_counts_each_rule_separately ... ok
+test mirror::tests::slugs_are_filesystem_safe ... ok
+test mirror::tests::the_header_is_ignored_when_comparing_content ... ok
+test note::tests::a_note_with_content_passes ... ok
+test note::tests::an_empty_note_is_rejected_with_an_actionable_message ... ok
+test mirror::tests::this_module_contains_no_way_to_read_a_mirror_file ... ok
+test note::tests::headline_is_the_first_non_empty_line ... ok
+test note::tests::retraction_is_visible_without_hiding_the_note ... ok
+test note::tests::headline_of_a_blank_body_is_empty_rather_than_panicking ... ok
+test render_decisions::tests::a_pipe_in_a_title_cannot_break_the_index_table ... ok
+test render_decisions::tests::a_section_stops_at_the_next_heading ... ok
+test render_decisions::tests::an_empty_section_reads_as_absent ... ok
+test render_decisions::tests::headings_are_demoted_but_code_fences_are_left_alone ... ok
+test safe_path::tests::a_parent_component_is_refused_wherever_it_sits ... ok
+test safe_path::tests::a_root_path_must_be_absolute ... ok
+test safe_path::tests::a_tilde_is_refused_rather_than_expanded ... ok
+test safe_path::tests::an_absolute_path_is_refused ... ok
+test safe_path::tests::a_root_that_is_itself_reached_through_a_symlink_still_works ... ok
+test safe_path::tests::confine_joins_a_good_path_under_the_root ... ok
+test safe_path::tests::confine_refuses_what_the_validator_refuses ... ok
+test safe_path::tests::ordinary_repo_paths_are_accepted ... ok
+test safe_path::tests::the_empty_path_and_a_nul_byte_are_refused ... ok
+test safe_path::tests::confine_refuses_a_symlinked_directory_that_leaves_the_repo ... ok
+test safe_path::tests::the_message_names_the_field_and_says_what_would_be_valid ... ok
+test store::docs::tests::a_blob_and_its_entity_row_are_written_in_one_transaction ... FAILED
+test store::docs::tests::a_diff_against_a_missing_version_says_which_one ... FAILED
+test store::docs::tests::a_diff_shows_the_changed_line ... FAILED
+test store::docs::tests::a_migrated_timestamp_is_accepted_and_a_nonsense_one_names_its_column ... ok
+test store::docs::tests::a_revision_for_an_entity_that_does_not_exist_is_refused ... ok
+test backup::tests::restoring_over_an_existing_store_is_refused ... ok
+test store::docs::tests::an_embedding_is_stored_as_little_endian_floats ... FAILED
+test store::docs::tests::an_entity_with_no_document_has_no_revisions ... ok
+test backup::tests::a_backup_is_one_file_and_a_manifest ... ok
+test backup::tests::search_still_works_after_a_restore ... ok
+test backup::tests::verification_fails_when_a_row_is_missing ... ok
+test store::docs::tests::an_unknown_blob_is_none ... ok
+test store::docs::tests::stored_timestamps_are_fixed_width_and_sort_correctly ... ok
+test backup::tests::a_backup_restores_to_a_store_holding_the_same_rows ... ok
+test store::docs::tests::exactly_one_revision_is_current_after_several_writes ... FAILED
+test store::docs::tests::asking_for_a_version_that_does_not_exist_is_none_not_an_error ... ok
+test store::docs::tests::identical_content_is_not_a_new_revision ... FAILED
+test store::docs::tests::revisions_come_back_oldest_first ... FAILED
+test store::docs::tests::the_header_row_points_at_the_newest_revision ... FAILED
+test store::docs::tests::three_revisions_round_trip_and_only_the_last_is_current ... FAILED
+test store::docs::tests::the_returned_version_is_the_one_the_store_assigned ... FAILED
+test store::entity::tests::a_caller_supplied_key_is_not_second_guessed_on_a_similar_title ... ok
+test store::entity::tests::a_field_the_type_does_not_have_is_refused_with_the_ones_it_does ... FAILED
+test store::entity::tests::a_lists_truncation_is_reported_with_a_total ... FAILED
+test store::entity::tests::a_near_identical_title_with_a_derived_key_returns_the_existing_row ... FAILED
+test store::entity::tests::a_list_excludes_archived_rows_unless_asked ... FAILED
+test store::entity::tests::a_note_against_a_subject_that_does_not_exist_is_refused ... ok
+test store::entity::tests::a_milestone_with_no_explainer_is_refused_before_the_idempotency_lookup ... ok
+test store::entity::tests::a_note_against_an_archived_row_is_refused ... FAILED
+test store::entity::tests::a_note_on_a_global_term_is_accepted_even_with_no_project ... ok
+test store::entity::tests::a_number_is_never_reused_after_a_row_is_archived ... FAILED
+test store::entity::tests::a_page_of_events_reports_that_it_was_cut ... FAILED
+test store::entity::tests::a_project_that_renames_milestones_to_tasks_is_refused ... ok
+test store::entity::tests::a_readable_reference_resolves_and_nonsense_resolves_to_nothing ... FAILED
+test store::entity::tests::a_second_project_with_the_same_letters_gets_a_distinct_key ... FAILED
+test store::entity::tests::a_stale_version_update_is_refused_and_names_the_current_one ... FAILED
+test store::entity::tests::a_status_change_records_a_status_changed_event_per_field ... FAILED
+test store::entity::tests::a_task_cannot_become_its_own_ancestor ... FAILED
+test store::entity::tests::a_second_writer_cannot_lose_the_first_writers_update ... FAILED
+test store::entity::tests::a_task_status_that_is_not_a_status_is_refused_by_name ... FAILED
+test store::entity::tests::a_terminal_status_releases_the_claim_even_by_a_plain_update ... FAILED
+test store::entity::tests::a_task_with_no_summary_cannot_be_created_but_can_still_be_moved ... FAILED
+test backup::tests::blob_bytes_survive_the_round_trip ... ok
+test store::entity::tests::a_terminal_status_with_no_reason_is_refused ... FAILED
+test store::entity::tests::an_archived_row_is_matched_by_its_key_rather_than_duplicated ... FAILED
+test store::entity::tests::an_edge_to_something_that_does_not_exist_is_refused ... FAILED
+test store::entity::tests::archiving_something_already_archived_returns_it_unchanged ... FAILED
+test store::entity::tests::closing_a_task_stamps_closed_at_and_reopening_clears_it ... FAILED
+test store::entity::tests::an_events_summary_and_meta_survive_the_write ... FAILED
+test store::entity::tests::depends_on_is_stored_as_blocks_with_the_endpoints_swapped ... FAILED
+test store::entity::tests::an_update_that_changes_nothing_bumps_no_version_and_writes_no_event ... FAILED
+test store::entity::tests::archiving_a_row_archives_its_links_and_leaves_its_children_alone ... FAILED
+test store::entity::tests::done_with_a_reason_but_no_evidence_is_refused ... FAILED
+test store::entity::tests::archiving_at_a_stale_version_is_refused ... FAILED
+test store::entity::tests::every_entity_type_round_trips_through_create_read_update_and_archive ... FAILED
+test store::entity::tests::ranks_are_fractional_so_a_move_touches_one_row ... ok
+test store::entity::tests::notes_read_back_in_order_and_retracted_ones_are_excluded_by_default ... FAILED
+test store::entity::tests::events_page_from_a_cursor_and_visit_each_event_exactly_once ... FAILED
+test store::entity::tests::retracting_a_note_twice_is_refused ... FAILED
+test store::entity::tests::statuses_are_a_filter_and_types_without_one_are_excluded_rather_than_an_error ... FAILED
+test store::entity::tests::linking_the_same_edge_twice_returns_the_first_one ... FAILED
+test store::entity::tests::the_same_create_twice_returns_the_same_row_and_burns_no_number ... FAILED
+test store::entity::tests::updating_a_row_that_is_not_there_is_not_found ... ok
+test store::entity::tests::unlinking_soft_deletes_and_unlinking_nothing_is_refused ... FAILED
+test store::docs::tests::a_five_megabyte_blob_round_trips_byte_identically ... FAILED
+test store::graph::tests::a_link_row_with_an_unknown_relation_is_an_error ... FAILED
+test store::graph::tests::a_dangling_edge_is_returned_with_an_empty_label ... FAILED
+test store::graph::tests::a_multi_hop_walk_reports_depth_and_the_whole_path ... FAILED
+test store::entity::tests::the_latest_event_id_is_the_largest_one ... FAILED
+test store::graph::tests::a_cycle_terminates ... FAILED
+test store::graph::tests::a_rels_filter_returns_only_what_was_asked_for ... FAILED
+test store::graph::tests::duplicates_runs_task_to_task ... FAILED
+test store::graph::tests::implements_runs_task_to_spec ... FAILED
+test store::graph::tests::an_archived_edge_is_not_walked ... FAILED
+test store::graph::tests::informs_runs_feedback_to_spec ... FAILED
+test store::graph::tests::blocks_runs_blocker_to_blocked ... FAILED
+test store::graph::tests::both_unions_the_two_walks_without_wandering ... FAILED
+test store::patch::tests::a_no_op_change_produces_no_event ... ok
+test store::patch::tests::a_rejected_change_leaves_the_entity_untouched ... ok
+test store::patch::tests::a_valid_change_is_applied_and_reported ... FAILED
+test store::patch::tests::an_invalid_enum_value_names_the_alternatives ... FAILED
+test store::patch::tests::every_entity_type_can_be_patched ... FAILED
+test store::patch::tests::immutable_fields_are_rejected_with_the_reason ... ok
+test store::patch::tests::moving_a_task_between_projects_says_what_to_do_instead ... ok
+test store::patch::tests::several_fields_change_at_once ... FAILED
+test store::patch::tests::status_changes_are_detectable_for_both_naming_conventions ... ok
+test store::patch::tests::unknown_fields_are_rejected_rather_than_ignored ... ok
+test store::graph::tests::derived_from_runs_spec_to_feedback ... FAILED
+test store::graph::tests::references_runs_anything_to_anything ... FAILED
+test store::graph::tests::links_of_reports_the_edges_touching_an_entity ... FAILED
+test store::graph::tests::depth_is_clamped_to_max_depth ... FAILED
+test store::rows::tests::a_timestamp_that_is_not_one_names_its_column ... ok
+test store::graph::tests::depends_on_is_never_stored_and_matches_nothing ... FAILED
+test store::rows::tests::every_table_selects_the_audit_block ... ok
+test store::graph::tests::supersedes_runs_new_decision_to_old ... FAILED
+test store::rows::tests::insert_params_match_the_declared_column_count ... ok
+test store::rows::tests::list_columns_are_selected_bare ... ok
+test store::rows::tests::a_milestone_round_trips ... FAILED
+test store::rows::tests::migrated_timestamps_are_accepted ... ok
+test store::rows::tests::placeholders_are_numbered_from_one_without_gaps ... ok
+test store::rows::tests::statements_name_the_table_the_entity_type_does ... ok
+test store::rows::tests::timestamps_sort_the_same_way_as_strings ... ok
+test store::rows::tests::timestamps_survive_a_round_trip_through_text ... ok
+test store::schema::tests::every_entity_table_is_strict ... ok
+test store::schema::tests::migration_ids_are_unique_and_ascending ... ok
+test store::schema::tests::the_vertex_view_covers_every_entity_type ... ok
+test store::rows::tests::a_null_or_empty_list_column_reads_as_empty ... FAILED
+test store::rows::tests::a_project_round_trips ... FAILED
+test store::rows::tests::a_task_round_trips ... FAILED
+test store::rows::tests::an_unknown_enum_value_is_an_error_that_names_its_column ... FAILED
+test store::rows::tests::every_type_round_trips_against_the_real_schema ... FAILED
+test store::rows::tests::list_columns_round_trip_through_json ... FAILED
+test store::search::tests::a_project_filter_and_a_type_filter_both_bite ... FAILED
+test store::search::tests::a_row_both_halves_found_is_marked_both ... FAILED
+test store::search::tests::an_excerpt_is_centred_on_the_match ... ok
+test store::search::tests::an_excerpt_offset_survives_a_character_that_changes_length_when_lowercased ... ok
+test store::graph::tests::resolves_runs_decision_to_question ... FAILED
+test store::search::tests::a_row_is_findable_immediately_and_stays_in_step ... FAILED
+test store::search::tests::a_store_given_an_embedder_searches_semantically_through_the_trait ... FAILED
+test store::search::tests::a_task_a_project_and_a_spec_are_all_findable_by_keyword ... FAILED
+test store::search::tests::a_store_with_no_embedder_still_returns_keyword_hits ... FAILED
+test store::search::tests::an_empty_query_is_refused_with_an_actionable_message ... ok
+test store::search::tests::an_embedding_of_the_wrong_width_is_skipped_rather_than_failing_the_search ... FAILED
+test store::search::tests::since_and_until_filter_by_when_the_row_was_created ... FAILED
+test store::search::tests::punctuation_in_a_query_is_text_and_not_syntax ... FAILED
+test store::tests::a_page_reports_truncation_honestly ... ok
+test store::tests::a_tiny_outer_limit_still_retrieves_enough_to_filter ... ok
+test store::tests::inner_search_limit_is_four_times_the_outer ... ok
+test store::tests::mapping_a_page_preserves_the_truncation_report ... ok
+test store::search::tests::the_best_match_comes_first ... FAILED
+test store::search::tests::the_semantic_half_finds_a_row_with_no_words_in_common ... FAILED
+test store::search::tests::the_trait_method_reaches_the_same_search ... FAILED
+test store::tests::a_document_is_indexed_once_however_many_revisions_it_has ... ok
+test store::tests::a_new_store_has_every_table ... ok
+test store::tests::the_keyword_index_follows_the_rows_without_a_rebuild ... ok
+test store::vector::tests::registering_twice_is_harmless ... ok
+test style::tests::a_banned_phrase_is_refused_with_a_replacement ... ok
+test style::tests::a_body_that_adds_anything_is_accepted ... ok
+test style::tests::a_body_that_only_restates_its_title_is_refused ... ok
+test style::tests::a_quoted_error_message_is_not_the_authors_voice ... ok
+test style::tests::a_soft_tell_warns_rather_than_refusing ... ok
+test style::tests::fenced_code_is_exempt_too ... ok
+test style::tests::inline_code_is_exempt ... ok
+test style::tests::ordinary_prose_passes_clean ... ok
+test style::tests::stripping_leaves_the_authors_own_sentences_intact ... ok
+test types::tests::a_milestone_keeps_the_explainer_it_was_built_with ... ok
+test types::tests::a_null_explainer_is_refused_too ... ok
+test types::tests::a_paragraph_is_refused_and_the_error_says_how_long_it_was ... ok
+test types::tests::an_empty_explainer_is_refused_with_something_to_send_instead ... ok
+test types::tests::doc_version_is_present_exactly_for_prose_types ... ok
+test types::tests::entity_serialisation_is_tagged_by_type ... FAILED
+test types::tests::every_type_is_constructible_and_self_describing ... ok
+test types::tests::global_and_scoped_terms_of_the_same_name_are_distinct ... ok
+test types::tests::idempotency_keys_are_scoped_by_project_and_type ... ok
+test types::tests::idempotency_keys_ignore_case_and_whitespace ... ok
+test types::tests::observations_of_one_metric_at_different_times_are_distinct ... ok
+test types::tests::project_scope_distinguishes_the_two_kinds_of_none ... ok
+test types::tests::setting_a_doc_version_on_a_task_is_an_error_not_a_no_op ... ok
+test store::vector::tests::vec0_is_available_after_registering ... ok
+test types::tests::the_ceiling_counts_characters_rather_than_bytes ... ok
+test types::tests::status_is_absent_for_the_types_that_have_no_lifecycle ... ok
+test types::tests::the_shipped_phases_all_satisfy_the_rule_they_predate ... ok
+test vocabulary::tests::a_noun_that_is_another_type_name_is_refused ... ok
+test vocabulary::tests::every_source_can_say_why_in_a_sentence ... ok
+test vocabulary::tests::milestone_itself_is_allowed_because_it_shadows_nothing ... ok
+test vocabulary::tests::the_seeded_term_declares_a_milestone_and_keeps_the_capitalisation ... ok
+test store::tests::a_file_store_uses_write_ahead_logging ... ok
+test store::search::tests::truncation_is_reported_with_a_total ... FAILED
+test store::tests::text_in_an_integer_column_is_refused ... ok
+test store::tests::opening_an_existing_store_is_idempotent ... ok
+test store::tests::the_schema_has_every_column_the_row_specs_declare ... ok
+test store::tests::the_store_reports_where_it_lives ... ok
+
+failures:
+
+---- id::tests::connective_ids_do_not_accept_each_others_prefixes stdout ----
+
+thread 'id::tests::connective_ids_do_not_accept_each_others_prefixes' (32407658) panicked at crates/keel-core/src/id.rs:398:9:
+assertion failed: LinkId::parse(link.as_str()).is_ok()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- id::tests::generated_ids_carry_their_type stdout ----
+
+thread 'id::tests::generated_ids_carry_their_type' (32407659) panicked at crates/keel-core/src/id.rs:341:53:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "prj_01KZTN3JGR3314R7NEDVMNVWVF", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- id::tests::parse_as_rejects_the_wrong_type stdout ----
+
+thread 'id::tests::parse_as_rejects_the_wrong_type' (32407662) panicked at crates/keel-core/src/id.rs:366:9:
+malformed id `spc_01KZTN3JGSY5BVXT7QGH566G3A`: `xyzzy` is not a known type prefix. Expected: one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)
+
+---- store::docs::tests::a_blob_and_its_entity_row_are_written_in_one_transaction stdout ----
+
+thread 'store::docs::tests::a_blob_and_its_entity_row_are_written_in_one_transaction' (32407701) panicked at crates/keel-core/src/store/docs.rs:875:42:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "blb_01KZTN3JMAPHD7ZDH4B629Y456", problem: "prefix `xyzzy` is not `blb`, so this is not a stored blob", expected: "an id beginning `blb_`" }
+
+---- store::docs::tests::a_diff_against_a_missing_version_says_which_one stdout ----
+
+thread 'store::docs::tests::a_diff_against_a_missing_version_says_which_one' (32407702) panicked at crates/keel-core/src/store/docs.rs:1018:9:
+unhelpful error: malformed id `doc_01KZTN3JM5K13A8P39C9B7C8K1`: prefix `xyzzy` is not `doc`, so this is not a document revision. Expected: an id beginning `doc_`
+
+---- store::docs::tests::a_diff_shows_the_changed_line stdout ----
+
+thread 'store::docs::tests::a_diff_shows_the_changed_line' (32407703) panicked at crates/keel-core/src/store/docs.rs:791:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "doc_01KZTN3JNE0EJNMPFJH403B3HG", problem: "prefix `xyzzy` is not `doc`, so this is not a document revision", expected: "an id beginning `doc_`" }
+
+---- store::docs::tests::an_embedding_is_stored_as_little_endian_floats stdout ----
+
+thread 'store::docs::tests::an_embedding_is_stored_as_little_endian_floats' (32407707) panicked at crates/keel-core/src/store/docs.rs:946:18:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "doc_01KZTN3JRAG7PQ1G1G9HNFVH48", problem: "prefix `xyzzy` is not `doc`, so this is not a document revision", expected: "an id beginning `doc_`" }
+
+---- store::docs::tests::exactly_one_revision_is_current_after_several_writes stdout ----
+
+thread 'store::docs::tests::exactly_one_revision_is_current_after_several_writes' (32407712) panicked at crates/keel-core/src/store/docs.rs:739:52:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "doc_01KZTN3JTZQ8NS6S0CCKPYA59Y", problem: "prefix `xyzzy` is not `doc`, so this is not a document revision", expected: "an id beginning `doc_`" }
+
+---- store::docs::tests::identical_content_is_not_a_new_revision stdout ----
+
+thread 'store::docs::tests::identical_content_is_not_a_new_revision' (32407713) panicked at crates/keel-core/src/store/docs.rs:721:67:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "doc_01KZTN3JWAGRQVPRC3Q3WNSRYZ", problem: "prefix `xyzzy` is not `doc`, so this is not a document revision", expected: "an id beginning `doc_`" }
+
+---- store::docs::tests::revisions_come_back_oldest_first stdout ----
+
+thread 'store::docs::tests::revisions_come_back_oldest_first' (32407714) panicked at crates/keel-core/src/store/docs.rs:752:52:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "doc_01KZTN3JWAGRQVPRC3Q3WNSRYY", problem: "prefix `xyzzy` is not `doc`, so this is not a document revision", expected: "an id beginning `doc_`" }
+
+---- store::docs::tests::the_header_row_points_at_the_newest_revision stdout ----
+
+thread 'store::docs::tests::the_header_row_points_at_the_newest_revision' (32407716) panicked at crates/keel-core/src/store/docs.rs:770:49:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "doc_01KZTN3JWZH5D42YYS9RTBQ2D4", problem: "prefix `xyzzy` is not `doc`, so this is not a document revision", expected: "an id beginning `doc_`" }
+
+---- store::docs::tests::three_revisions_round_trip_and_only_the_last_is_current stdout ----
+
+thread 'store::docs::tests::three_revisions_round_trip_and_only_the_last_is_current' (32407724) panicked at crates/keel-core/src/store/docs.rs:671:52:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "doc_01KZTN3JX6YXNWB9E58QQJAE4Y", problem: "prefix `xyzzy` is not `doc`, so this is not a document revision", expected: "an id beginning `doc_`" }
+
+---- store::docs::tests::the_returned_version_is_the_one_the_store_assigned stdout ----
+
+thread 'store::docs::tests::the_returned_version_is_the_one_the_store_assigned' (32407717) panicked at crates/keel-core/src/store/docs.rs:710:53:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "doc_01KZTN3JX7FKAWB6X3FDX1AA23", problem: "prefix `xyzzy` is not `doc`, so this is not a document revision", expected: "an id beginning `doc_`" }
+
+---- store::entity::tests::a_field_the_type_does_not_have_is_refused_with_the_ones_it_does stdout ----
+
+thread 'store::entity::tests::a_field_the_type_does_not_have_is_refused_with_the_ones_it_does' (32407726) panicked at crates/keel-core/src/store/entity.rs:2233:9:
+malformed id `prj_01KZTN3JZ108CXB1R4MXYZSY2V`: `xyzzy` is not a known type prefix. Expected: one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)
+
+---- store::entity::tests::a_lists_truncation_is_reported_with_a_total stdout ----
+
+thread 'store::entity::tests::a_lists_truncation_is_reported_with_a_total' (32407728) panicked at crates/keel-core/src/store/entity.rs:2462:10:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3JZ77RH9G2800SZNT7KK", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_near_identical_title_with_a_derived_key_returns_the_existing_row stdout ----
+
+thread 'store::entity::tests::a_near_identical_title_with_a_derived_key_returns_the_existing_row' (32407730) panicked at crates/keel-core/src/store/entity.rs:2358:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3JZEFC0FZWXT12CM3MEM", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_list_excludes_archived_rows_unless_asked stdout ----
+
+thread 'store::entity::tests::a_list_excludes_archived_rows_unless_asked' (32407727) panicked at crates/keel-core/src/store/entity.rs:2915:43:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3JZEFC0FZWXT12CM3MEK", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_note_against_an_archived_row_is_refused stdout ----
+
+thread 'store::entity::tests::a_note_against_an_archived_row_is_refused' (32407732) panicked at crates/keel-core/src/store/entity.rs:2953:43:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3K1KA3KM661XGDNYFA66", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_number_is_never_reused_after_a_row_is_archived stdout ----
+
+thread 'store::entity::tests::a_number_is_never_reused_after_a_row_is_archived' (32407734) panicked at crates/keel-core/src/store/entity.rs:2611:41:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3K2AW2N91PGCZGSEK4SP", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_page_of_events_reports_that_it_was_cut stdout ----
+
+thread 'store::entity::tests::a_page_of_events_reports_that_it_was_cut' (32407735) panicked at crates/keel-core/src/store/entity.rs:2462:10:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3K2ESN1AMSCGXJSAACYA", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_readable_reference_resolves_and_nonsense_resolves_to_nothing stdout ----
+
+thread 'store::entity::tests::a_readable_reference_resolves_and_nonsense_resolves_to_nothing' (32407737) panicked at crates/keel-core/src/store/entity.rs:2629:44:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3K43FEA44CXRWH45Q0WB", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_second_project_with_the_same_letters_gets_a_distinct_key stdout ----
+
+thread 'store::entity::tests::a_second_project_with_the_same_letters_gets_a_distinct_key' (32407738) panicked at crates/keel-core/src/store/entity.rs:2646:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "prj_01KZTN3K4HK2TEY7EDW7YPBHPW", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_stale_version_update_is_refused_and_names_the_current_one stdout ----
+
+thread 'store::entity::tests::a_stale_version_update_is_refused_and_names_the_current_one' (32407740) panicked at crates/keel-core/src/store/entity.rs:2377:55:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "prj_01KZTN3K5JPM5VE48GZY5BW8YQ", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_status_change_records_a_status_changed_event_per_field stdout ----
+
+thread 'store::entity::tests::a_status_change_records_a_status_changed_event_per_field' (32407741) panicked at crates/keel-core/src/store/entity.rs:2561:52:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3K5Q614E9140KKYXMGRR", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_task_cannot_become_its_own_ancestor stdout ----
+
+thread 'store::entity::tests::a_task_cannot_become_its_own_ancestor' (32407742) panicked at crates/keel-core/src/store/entity.rs:2462:10:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3K614ZD4EK8EFDCW8617", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_second_writer_cannot_lose_the_first_writers_update stdout ----
+
+thread 'store::entity::tests::a_second_writer_cannot_lose_the_first_writers_update' (32407739) panicked at crates/keel-core/src/store/entity.rs:2403:51:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "prj_01KZTN3K665C37BHT2H9EMRF5G", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_task_status_that_is_not_a_status_is_refused_by_name stdout ----
+
+thread 'store::entity::tests::a_task_status_that_is_not_a_status_is_refused_by_name' (32407743) panicked at crates/keel-core/src/store/entity.rs:3068:9:
+malformed id `tsk_01KZTN3K74EKVV5G3PDX02EBHB`: `xyzzy` is not a known type prefix. Expected: one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)
+
+---- store::entity::tests::a_terminal_status_releases_the_claim_even_by_a_plain_update stdout ----
+
+thread 'store::entity::tests::a_terminal_status_releases_the_claim_even_by_a_plain_update' (32407745) panicked at crates/keel-core/src/store/entity.rs:2507:50:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3K7TX0GPBNJR03065WFW", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_task_with_no_summary_cannot_be_created_but_can_still_be_moved stdout ----
+
+thread 'store::entity::tests::a_task_with_no_summary_cannot_be_created_but_can_still_be_moved' (32407744) panicked at crates/keel-core/src/store/entity.rs:3094:62:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3K7J6PRFMBJBVR6V5M0B", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::a_terminal_status_with_no_reason_is_refused stdout ----
+
+thread 'store::entity::tests::a_terminal_status_with_no_reason_is_refused' (32407746) panicked at crates/keel-core/src/store/entity.rs:2530:9:
+malformed id `tsk_01KZTN3K8GQ3RA6RWP01VNRBQ7`: `xyzzy` is not a known type prefix. Expected: one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)
+
+---- store::entity::tests::an_archived_row_is_matched_by_its_key_rather_than_duplicated stdout ----
+
+thread 'store::entity::tests::an_archived_row_is_matched_by_its_key_rather_than_duplicated' (32407747) panicked at crates/keel-core/src/store/entity.rs:2293:54:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3K8Z6T9HWG86344B92YE", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::an_edge_to_something_that_does_not_exist_is_refused stdout ----
+
+thread 'store::entity::tests::an_edge_to_something_that_does_not_exist_is_refused' (32407748) panicked at crates/keel-core/src/store/entity.rs:2756:9:
+malformed id `tsk_01KZTN3K9KZBGD06ASA9JRT5MH`: `xyzzy` is not a known type prefix. Expected: one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)
+
+---- store::entity::tests::archiving_something_already_archived_returns_it_unchanged stdout ----
+
+thread 'store::entity::tests::archiving_something_already_archived_returns_it_unchanged' (32407753) panicked at crates/keel-core/src/store/entity.rs:2438:57:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "prj_01KZTN3KAXR571AW9S8R19C64G", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::closing_a_task_stamps_closed_at_and_reopening_clears_it stdout ----
+
+thread 'store::entity::tests::closing_a_task_stamps_closed_at_and_reopening_clears_it' (32407754) panicked at crates/keel-core/src/store/entity.rs:2476:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KBC5N7TFP3Y457H0GGW", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::an_events_summary_and_meta_survive_the_write stdout ----
+
+thread 'store::entity::tests::an_events_summary_and_meta_survive_the_write' (32407749) panicked at crates/keel-core/src/store/entity.rs:1981:53:
+read the events: MalformedId { supplied: "evt_01KZTN3KB90DYKMMPJCK3X7QZ2", problem: "prefix `xyzzy` is not `evt`, so this is not an event", expected: "an id beginning `evt_`" }
+
+---- store::entity::tests::depends_on_is_stored_as_blocks_with_the_endpoints_swapped stdout ----
+
+thread 'store::entity::tests::depends_on_is_stored_as_blocks_with_the_endpoints_swapped' (32407755) panicked at crates/keel-core/src/store/entity.rs:2462:10:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KBRR902PEYPYE81NC5G", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::an_update_that_changes_nothing_bumps_no_version_and_writes_no_event stdout ----
+
+thread 'store::entity::tests::an_update_that_changes_nothing_bumps_no_version_and_writes_no_event' (32407750) panicked at crates/keel-core/src/store/entity.rs:2201:53:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "evt_01KZTN3KBTZQP11GHGVTCCK4NA", problem: "prefix `xyzzy` is not `evt`, so this is not an event", expected: "an id beginning `evt_`" }
+
+---- store::entity::tests::archiving_a_row_archives_its_links_and_leaves_its_children_alone stdout ----
+
+thread 'store::entity::tests::archiving_a_row_archives_its_links_and_leaves_its_children_alone' (32407751) panicked at crates/keel-core/src/store/entity.rs:2462:10:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KBS6DN08R6TFVVW5ZFJ", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::done_with_a_reason_but_no_evidence_is_refused stdout ----
+
+thread 'store::entity::tests::done_with_a_reason_but_no_evidence_is_refused' (32407757) panicked at crates/keel-core/src/store/entity.rs:2549:9:
+malformed id `tsk_01KZTN3KDNXMMVSB1BC6FYMZ9Y`: `xyzzy` is not a known type prefix. Expected: one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)
+
+---- store::entity::tests::archiving_at_a_stale_version_is_refused stdout ----
+
+thread 'store::entity::tests::archiving_at_a_stale_version_is_refused' (32407752) panicked at crates/keel-core/src/store/entity.rs:2428:9:
+assertion failed: matches!(s.archive(&project_id, 7, &claude()),
+    Err(Error::StaleVersion { supplied: 7, .. }))
+
+---- store::entity::tests::every_entity_type_round_trips_through_create_read_update_and_archive stdout ----
+
+thread 'store::entity::tests::every_entity_type_round_trips_through_create_read_update_and_archive' (32407759) panicked at crates/keel-core/src/store/entity.rs:2146:18:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "prj_01KZTN3KEM3DYVSFTWZ5B574EK", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::notes_read_back_in_order_and_retracted_ones_are_excluded_by_default stdout ----
+
+thread 'store::entity::tests::notes_read_back_in_order_and_retracted_ones_are_excluded_by_default' (32407761) panicked at crates/keel-core/src/store/entity.rs:2975:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "prj_01KZTN3KEVVXJ961B3VEBNFR41", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::events_page_from_a_cursor_and_visit_each_event_exactly_once stdout ----
+
+thread 'store::entity::tests::events_page_from_a_cursor_and_visit_each_event_exactly_once' (32407758) panicked at crates/keel-core/src/store/entity.rs:2462:10:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KEREKK15Q8PQBCWWZ3W", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::retracting_a_note_twice_is_refused stdout ----
+
+thread 'store::entity::tests::retracting_a_note_twice_is_refused' (32407763) panicked at crates/keel-core/src/store/entity.rs:3008:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "prj_01KZTN3KFP2ZXQ76SA5NRB2F7B", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::statuses_are_a_filter_and_types_without_one_are_excluded_rather_than_an_error stdout ----
+
+thread 'store::entity::tests::statuses_are_a_filter_and_types_without_one_are_excluded_rather_than_an_error' (32407764) panicked at crates/keel-core/src/store/entity.rs:3117:14:
+a cross-type status filter is a reasonable thing to ask: MalformedId { supplied: "tsk_01KZTN3KFXXN0S4FYD3J0DVAEW", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::linking_the_same_edge_twice_returns_the_first_one stdout ----
+
+thread 'store::entity::tests::linking_the_same_edge_twice_returns_the_first_one' (32407760) panicked at crates/keel-core/src/store/entity.rs:2462:10:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KFANZ69V0JWGBZWPCHH", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::the_same_create_twice_returns_the_same_row_and_burns_no_number stdout ----
+
+thread 'store::entity::tests::the_same_create_twice_returns_the_same_row_and_burns_no_number' (32407766) panicked at crates/keel-core/src/store/entity.rs:2260:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KHZDPVPZWC6TPYMP510", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::unlinking_soft_deletes_and_unlinking_nothing_is_refused stdout ----
+
+thread 'store::entity::tests::unlinking_soft_deletes_and_unlinking_nothing_is_refused' (32407767) panicked at crates/keel-core/src/store/entity.rs:2462:10:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KJQ3K1GJNQM7SDS1JM0", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::docs::tests::a_five_megabyte_blob_round_trips_byte_identically stdout ----
+
+thread 'store::docs::tests::a_five_megabyte_blob_round_trips_byte_identically' (32407704) panicked at crates/keel-core/src/store/docs.rs:835:40:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "blb_01KZTN3KEREKK15Q8PQBCWWZ3X", problem: "prefix `xyzzy` is not `blb`, so this is not a stored blob", expected: "an id beginning `blb_`" }
+
+---- store::graph::tests::a_link_row_with_an_unknown_relation_is_an_error stdout ----
+
+thread 'store::graph::tests::a_link_row_with_an_unknown_relation_is_an_error' (32407771) panicked at crates/keel-core/src/store/graph.rs:798:9:
+the error should name the value it could not read, got: malformed id `lnk_01KZTN3KKNW28H84ESKJNV0DY4`: prefix `xyzzy` is not `lnk`, so this is not a link. Expected: an id beginning `lnk_`
+
+---- store::graph::tests::a_dangling_edge_is_returned_with_an_empty_label stdout ----
+
+thread 'store::graph::tests::a_dangling_edge_is_returned_with_an_empty_label' (32407770) panicked at crates/keel-core/src/store/graph.rs:705:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "spc_01KZTN3KKDMKNJBT1Z3G376C98", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::graph::tests::a_multi_hop_walk_reports_depth_and_the_whole_path stdout ----
+
+thread 'store::graph::tests::a_multi_hop_walk_reports_depth_and_the_whole_path' (32407772) panicked at crates/keel-core/src/store/graph.rs:548:71:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KKNW28H84ESKJNV0DY5", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::entity::tests::the_latest_event_id_is_the_largest_one stdout ----
+
+thread 'store::entity::tests::the_latest_event_id_is_the_largest_one' (32407765) panicked at crates/keel-core/src/store/entity.rs:2886:61:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "evt_01KZTN3KJZSZK6ZRE13BHHJBZ1", problem: "prefix `xyzzy` is not `evt`, so this is not an event", expected: "an id beginning `evt_`" }
+
+---- store::graph::tests::a_cycle_terminates stdout ----
+
+thread 'store::graph::tests::a_cycle_terminates' (32407769) panicked at crates/keel-core/src/store/graph.rs:614:72:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KKB98W4CQ7WPB3TK95K", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::graph::tests::a_rels_filter_returns_only_what_was_asked_for stdout ----
+
+thread 'store::graph::tests::a_rels_filter_returns_only_what_was_asked_for' (32407773) panicked at crates/keel-core/src/store/graph.rs:669:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "spc_01KZTN3KMXPX4ZHC4QA75EVTB2", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::graph::tests::duplicates_runs_task_to_task stdout ----
+
+thread 'store::graph::tests::duplicates_runs_task_to_task' (32407780) panicked at crates/keel-core/src/store/graph.rs:392:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KPTSSZE1NHC5RP5SQZW", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::graph::tests::implements_runs_task_to_spec stdout ----
+
+thread 'store::graph::tests::implements_runs_task_to_spec' (32407781) panicked at crates/keel-core/src/store/graph.rs:392:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "spc_01KZTN3KQ3MKHE26PH8VG98P33", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::graph::tests::an_archived_edge_is_not_walked stdout ----
+
+thread 'store::graph::tests::an_archived_edge_is_not_walked' (32407774) panicked at crates/keel-core/src/store/graph.rs:643:71:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KPJJBHXZXY297849DEN", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::graph::tests::informs_runs_feedback_to_spec stdout ----
+
+thread 'store::graph::tests::informs_runs_feedback_to_spec' (32407782) panicked at crates/keel-core/src/store/graph.rs:392:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "spc_01KZTN3KRE5SATDB5H2KM33CVE", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::graph::tests::blocks_runs_blocker_to_blocked stdout ----
+
+thread 'store::graph::tests::blocks_runs_blocker_to_blocked' (32407775) panicked at crates/keel-core/src/store/graph.rs:392:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KR3HQW98F3DX388Q0JA", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::graph::tests::both_unions_the_two_walks_without_wandering stdout ----
+
+thread 'store::graph::tests::both_unions_the_two_walks_without_wandering' (32407776) panicked at crates/keel-core/src/store/graph.rs:734:70:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KR2DH0Y8SVMM4YDMR6E", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::patch::tests::a_valid_change_is_applied_and_reported stdout ----
+
+thread 'store::patch::tests::a_valid_change_is_applied_and_reported' (32407789) panicked at crates/keel-core/src/store/patch.rs:191:89:
+called `Result::unwrap()` on an `Err` value: Invalid { entity_type: Task, field: "status", problem: "malformed id `tsk_01KZTN3KRRM658M9V71N82JD0V`: `xyzzy` is not a known type prefix. Expected: one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)", expected: "a value matching the field's declared type; enum fields list their permitted values in the message above" }
+
+---- store::patch::tests::an_invalid_enum_value_names_the_alternatives stdout ----
+
+thread 'store::patch::tests::an_invalid_enum_value_names_the_alternatives' (32407790) panicked at crates/keel-core/src/store/patch.rs:236:9:
+should list what would have been valid: invalid task field `status`: malformed id `tsk_01KZTN3KRRM658M9V71N82JD0X`: `xyzzy` is not a known type prefix. Expected: one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact). Expected: a value matching the field's declared type; enum fields list their permitted values in the message above
+
+---- store::patch::tests::every_entity_type_can_be_patched stdout ----
+
+thread 'store::patch::tests::every_entity_type_can_be_patched' (32407791) panicked at crates/keel-core/src/store/patch.rs:376:37:
+project.name should be settable: invalid project field `name`: malformed id `prj_01KZTN3KRSNGR7WF3XVMYKA8A0`: `xyzzy` is not a known type prefix. Expected: one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact). Expected: a value matching the field's declared type; enum fields list their permitted values in the message above
+
+---- store::patch::tests::several_fields_change_at_once stdout ----
+
+thread 'store::patch::tests::several_fields_change_at_once' (32407794) panicked at crates/keel-core/src/store/patch.rs:211:10:
+called `Result::unwrap()` on an `Err` value: Invalid { entity_type: Task, field: "labels, priority, status", problem: "malformed id `tsk_01KZTN3KRSNGR7WF3XVMYKA8AT`: `xyzzy` is not a known type prefix. Expected: one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)", expected: "a value matching the field's declared type; enum fields list their permitted values in the message above" }
+
+---- store::graph::tests::derived_from_runs_spec_to_feedback stdout ----
+
+thread 'store::graph::tests::derived_from_runs_spec_to_feedback' (32407779) panicked at crates/keel-core/src/store/graph.rs:392:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "fbk_01KZTN3KRCFXKJ880QEVQG89G6", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::graph::tests::references_runs_anything_to_anything stdout ----
+
+thread 'store::graph::tests::references_runs_anything_to_anything' (32407784) panicked at crates/keel-core/src/store/graph.rs:392:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KS4HHWZ7HPV115216C6", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::graph::tests::links_of_reports_the_edges_touching_an_entity stdout ----
+
+thread 'store::graph::tests::links_of_reports_the_edges_touching_an_entity' (32407783) panicked at crates/keel-core/src/store/graph.rs:756:62:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "lnk_01KZTN3KS86KVYQCCFJTYDF9JY", problem: "prefix `xyzzy` is not `lnk`, so this is not a link", expected: "an id beginning `lnk_`" }
+
+---- store::graph::tests::depth_is_clamped_to_max_depth stdout ----
+
+thread 'store::graph::tests::depth_is_clamped_to_max_depth' (32407778) panicked at crates/keel-core/src/store/graph.rs:584:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KR77CSGBSAC8SQW5NTF", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::graph::tests::depends_on_is_never_stored_and_matches_nothing stdout ----
+
+thread 'store::graph::tests::depends_on_is_never_stored_and_matches_nothing' (32407777) panicked at crates/keel-core/src/store/graph.rs:480:18:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KRCFXKJ880QEVQG89G5", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::graph::tests::supersedes_runs_new_decision_to_old stdout ----
+
+thread 'store::graph::tests::supersedes_runs_new_decision_to_old' (32407786) panicked at crates/keel-core/src/store/graph.rs:392:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "dec_01KZTN3KVAJWZYFA9R7BK5HVRA", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::rows::tests::a_milestone_round_trips stdout ----
+
+thread 'store::rows::tests::a_milestone_round_trips' (32407797) panicked at crates/keel-core/src/store/rows.rs:1309:47:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "mst_01KZTN3KVJQB06SYNATP3C1Y1H", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::rows::tests::a_null_or_empty_list_column_reads_as_empty stdout ----
+
+thread 'store::rows::tests::a_null_or_empty_list_column_reads_as_empty' (32407798) panicked at crates/keel-core/src/store/rows.rs:1245:36:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "prj_01KZTN3KVNGAPGN25CWX2SDK73", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::rows::tests::a_project_round_trips stdout ----
+
+thread 'store::rows::tests::a_project_round_trips' (32407799) panicked at crates/keel-core/src/store/rows.rs:1274:47:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "prj_01KZTN3KW2X1VSYDPEBCN290NV", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::rows::tests::a_task_round_trips stdout ----
+
+thread 'store::rows::tests::a_task_round_trips' (32407800) panicked at crates/keel-core/src/store/rows.rs:1296:47:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KWEVNZJC0GFRAEJCVGY", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::rows::tests::an_unknown_enum_value_is_an_error_that_names_its_column stdout ----
+
+thread 'store::rows::tests::an_unknown_enum_value_is_an_error_that_names_its_column' (32407802) panicked at crates/keel-core/src/store/rows.rs:1322:41:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "tsk_01KZTN3KX0C1CRYSN2M5WM17QF", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::rows::tests::every_type_round_trips_against_the_real_schema stdout ----
+
+thread 'store::rows::tests::every_type_round_trips_against_the_real_schema' (32407804) panicked at crates/keel-core/src/store/rows.rs:1384:44:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "prj_01KZTN3KX9AMM38JGKVYRAZ1FR", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::rows::tests::list_columns_round_trip_through_json stdout ----
+
+thread 'store::rows::tests::list_columns_round_trip_through_json' (32407807) panicked at crates/keel-core/src/store/rows.rs:1228:63:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "prj_01KZTN3KZ10T130K36HXRN729Z", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::search::tests::a_project_filter_and_a_type_filter_both_bite stdout ----
+
+thread 'store::search::tests::a_project_filter_and_a_type_filter_both_bite' (32407816) panicked at crates/keel-core/src/store/search.rs:1024:9:
+assertion `left == right` failed: the other project's name matches too
+  left: 0
+ right: 3
+
+---- store::search::tests::a_row_both_halves_found_is_marked_both stdout ----
+
+thread 'store::search::tests::a_row_both_halves_found_is_marked_both' (32407817) panicked at crates/keel-core/src/store/search.rs:1259:9:
+assertion `left == right` failed
+  left: []
+ right: ["spc_01KZTN3KYZJP71XGNHNCXM03GB"]
+
+---- store::graph::tests::resolves_runs_decision_to_question stdout ----
+
+thread 'store::graph::tests::resolves_runs_decision_to_question' (32407785) panicked at crates/keel-core/src/store/graph.rs:392:14:
+called `Result::unwrap()` on an `Err` value: MalformedId { supplied: "que_01KZTN3KZ40YJKZKSDZRSGS40V", problem: "`xyzzy` is not a known type prefix", expected: "one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)" }
+
+---- store::search::tests::a_row_is_findable_immediately_and_stays_in_step stdout ----
+
+thread 'store::search::tests::a_row_is_findable_immediately_and_stays_in_step' (32407818) panicked at crates/keel-core/src/store/search.rs:1094:9:
+assertion `left == right` failed: a row written should be searchable at once, with no rebuild
+  left: []
+ right: ["tsk_01KZTN3KZMC3PG33726T13Z8BQ"]
+
+---- store::search::tests::a_store_given_an_embedder_searches_semantically_through_the_trait stdout ----
+
+thread 'store::search::tests::a_store_given_an_embedder_searches_semantically_through_the_trait' (32407819) panicked at crates/keel-core/src/store/search.rs:1235:9:
+assertion `left == right` failed: the store's attached embedder was not used by `search`
+  left: []
+ right: ["spc_01KZTN3M08N2V1QG9JR0MXQ9QA"]
+
+---- store::search::tests::a_task_a_project_and_a_spec_are_all_findable_by_keyword stdout ----
+
+thread 'store::search::tests::a_task_a_project_and_a_spec_are_all_findable_by_keyword' (32407821) panicked at crates/keel-core/src/store/search.rs:897:9:
+assertion `left == right` failed
+  left: []
+ right: ["tsk_01KZTN3M124B5Y88Z67GXYZZK3"]
+
+---- store::search::tests::a_store_with_no_embedder_still_returns_keyword_hits stdout ----
+
+thread 'store::search::tests::a_store_with_no_embedder_still_returns_keyword_hits' (32407820) panicked at crates/keel-core/src/store/search.rs:1072:9:
+assertion `left == right` failed
+  left: 0
+ right: 1
+
+---- store::search::tests::an_embedding_of_the_wrong_width_is_skipped_rather_than_failing_the_search stdout ----
+
+thread 'store::search::tests::an_embedding_of_the_wrong_width_is_skipped_rather_than_failing_the_search' (32407822) panicked at crates/keel-core/src/store/search.rs:1299:9:
+assertion `left == right` failed: the well-formed row should still be found
+  left: []
+ right: ["spc_01KZTN3M2VC7J9GCGAB4YQSKSE"]
+
+---- store::search::tests::since_and_until_filter_by_when_the_row_was_created stdout ----
+
+thread 'store::search::tests::since_and_until_filter_by_when_the_row_was_created' (32407827) panicked at crates/keel-core/src/store/search.rs:1327:9:
+assertion failed: ids(&since).contains(&recent.as_str().to_owned())
+
+---- store::search::tests::punctuation_in_a_query_is_text_and_not_syntax stdout ----
+
+thread 'store::search::tests::punctuation_in_a_query_is_text_and_not_syntax' (32407826) panicked at crates/keel-core/src/store/search.rs:950:9:
+assertion `left == right` failed
+  left: []
+ right: ["prj_01KZTN3M2TGNC8Q3DYJC5BNW1D"]
+
+---- store::search::tests::the_best_match_comes_first stdout ----
+
+thread 'store::search::tests::the_best_match_comes_first' (32407828) panicked at crates/keel-core/src/store/search.rs:1005:9:
+assertion `left == right` failed: the row matching both terms should rank first, got []
+  left: None
+ right: Some("tsk_01KZTN3M3DNDNZV8YKXEHQABJN")
+
+---- store::search::tests::the_semantic_half_finds_a_row_with_no_words_in_common stdout ----
+
+thread 'store::search::tests::the_semantic_half_finds_a_row_with_no_words_in_common' (32407829) panicked at crates/keel-core/src/store/search.rs:1199:9:
+assertion `left == right` failed
+  left: []
+ right: ["spc_01KZTN3M42SSWXFRH1PV35A7TW"]
+
+---- store::search::tests::the_trait_method_reaches_the_same_search stdout ----
+
+thread 'store::search::tests::the_trait_method_reaches_the_same_search' (32407830) panicked at crates/keel-core/src/store/search.rs:1347:9:
+assertion `left == right` failed
+  left: []
+ right: ["tsk_01KZTN3M5JHK48X198ZEZ3014F"]
+
+---- types::tests::entity_serialisation_is_tagged_by_type stdout ----
+
+thread 'types::tests::entity_serialisation_is_tagged_by_type' (32407861) panicked at crates/keel-core/src/types.rs:1748:57:
+called `Result::unwrap()` on an `Err` value: Error("malformed id `tsk_01KZTN3M6XQA6V59X8MB3GARVN`: `xyzzy` is not a known type prefix. Expected: one of: prj_ (project), mst_ (milestone), tsk_ (task), spc_ (spec), dec_ (decision), que_ (question), trm_ (term), fbk_ (feedback), dsg_ (design), env_ (environment), mtr_ (metric), obs_ (metric_observation), art_ (artifact)", line: 0, column: 0)
+
+---- store::search::tests::truncation_is_reported_with_a_total stdout ----
+
+thread 'store::search::tests::truncation_is_reported_with_a_total' (32407831) panicked at crates/keel-core/src/store/search.rs:1157:9:
+assertion `left == right` failed
+  left: 0
+ right: 2
+
+
+failures:
+    id::tests::connective_ids_do_not_accept_each_others_prefixes
+    id::tests::generated_ids_carry_their_type
+    id::tests::parse_as_rejects_the_wrong_type
+    store::docs::tests::a_blob_and_its_entity_row_are_written_in_one_transaction
+    store::docs::tests::a_diff_against_a_missing_version_says_which_one
+    store::docs::tests::a_diff_shows_the_changed_line
+    store::docs::tests::a_five_megabyte_blob_round_trips_byte_identically
+    store::docs::tests::an_embedding_is_stored_as_little_endian_floats
+    store::docs::tests::exactly_one_revision_is_current_after_several_writes
+    store::docs::tests::identical_content_is_not_a_new_revision
+    store::docs::tests::revisions_come_back_oldest_first
+    store::docs::tests::the_header_row_points_at_the_newest_revision
+    store::docs::tests::the_returned_version_is_the_one_the_store_assigned
+    store::docs::tests::three_revisions_round_trip_and_only_the_last_is_current
+    store::entity::tests::a_field_the_type_does_not_have_is_refused_with_the_ones_it_does
+    store::entity::tests::a_list_excludes_archived_rows_unless_asked
+    store::entity::tests::a_lists_truncation_is_reported_with_a_total
+    store::entity::tests::a_near_identical_title_with_a_derived_key_returns_the_existing_row
+    store::entity::tests::a_note_against_an_archived_row_is_refused
+    store::entity::tests::a_number_is_never_reused_after_a_row_is_archived
+    store::entity::tests::a_page_of_events_reports_that_it_was_cut
+    store::entity::tests::a_readable_reference_resolves_and_nonsense_resolves_to_nothing
+    store::entity::tests::a_second_project_with_the_same_letters_gets_a_distinct_key
+    store::entity::tests::a_second_writer_cannot_lose_the_first_writers_update
+    store::entity::tests::a_stale_version_update_is_refused_and_names_the_current_one
+    store::entity::tests::a_status_change_records_a_status_changed_event_per_field
+    store::entity::tests::a_task_cannot_become_its_own_ancestor
+    store::entity::tests::a_task_status_that_is_not_a_status_is_refused_by_name
+    store::entity::tests::a_task_with_no_summary_cannot_be_created_but_can_still_be_moved
+    store::entity::tests::a_terminal_status_releases_the_claim_even_by_a_plain_update
+    store::entity::tests::a_terminal_status_with_no_reason_is_refused
+    store::entity::tests::an_archived_row_is_matched_by_its_key_rather_than_duplicated
+    store::entity::tests::an_edge_to_something_that_does_not_exist_is_refused
+    store::entity::tests::an_events_summary_and_meta_survive_the_write
+    store::entity::tests::an_update_that_changes_nothing_bumps_no_version_and_writes_no_event
+    store::entity::tests::archiving_a_row_archives_its_links_and_leaves_its_children_alone
+    store::entity::tests::archiving_at_a_stale_version_is_refused
+    store::entity::tests::archiving_something_already_archived_returns_it_unchanged
+    store::entity::tests::closing_a_task_stamps_closed_at_and_reopening_clears_it
+    store::entity::tests::depends_on_is_stored_as_blocks_with_the_endpoints_swapped
+    store::entity::tests::done_with_a_reason_but_no_evidence_is_refused
+    store::entity::tests::events_page_from_a_cursor_and_visit_each_event_exactly_once
+    store::entity::tests::every_entity_type_round_trips_through_create_read_update_and_archive
+    store::entity::tests::linking_the_same_edge_twice_returns_the_first_one
+    store::entity::tests::notes_read_back_in_order_and_retracted_ones_are_excluded_by_default
+    store::entity::tests::retracting_a_note_twice_is_refused
+    store::entity::tests::statuses_are_a_filter_and_types_without_one_are_excluded_rather_than_an_error
+    store::entity::tests::the_latest_event_id_is_the_largest_one
+    store::entity::tests::the_same_create_twice_returns_the_same_row_and_burns_no_number
+    store::entity::tests::unlinking_soft_deletes_and_unlinking_nothing_is_refused
+    store::graph::tests::a_cycle_terminates
+    store::graph::tests::a_dangling_edge_is_returned_with_an_empty_label
+    store::graph::tests::a_link_row_with_an_unknown_relation_is_an_error
+    store::graph::tests::a_multi_hop_walk_reports_depth_and_the_whole_path
+    store::graph::tests::a_rels_filter_returns_only_what_was_asked_for
+    store::graph::tests::an_archived_edge_is_not_walked
+    store::graph::tests::blocks_runs_blocker_to_blocked
+    store::graph::tests::both_unions_the_two_walks_without_wandering
+    store::graph::tests::depends_on_is_never_stored_and_matches_nothing
+    store::graph::tests::depth_is_clamped_to_max_depth
+    store::graph::tests::derived_from_runs_spec_to_feedback
+    store::graph::tests::duplicates_runs_task_to_task
+    store::graph::tests::implements_runs_task_to_spec
+    store::graph::tests::informs_runs_feedback_to_spec
+    store::graph::tests::links_of_reports_the_edges_touching_an_entity
+    store::graph::tests::references_runs_anything_to_anything
+    store::graph::tests::resolves_runs_decision_to_question
+    store::graph::tests::supersedes_runs_new_decision_to_old
+    store::patch::tests::a_valid_change_is_applied_and_reported
+    store::patch::tests::an_invalid_enum_value_names_the_alternatives
+    store::patch::tests::every_entity_type_can_be_patched
+    store::patch::tests::several_fields_change_at_once
+    store::rows::tests::a_milestone_round_trips
+    store::rows::tests::a_null_or_empty_list_column_reads_as_empty
+    store::rows::tests::a_project_round_trips
+    store::rows::tests::a_task_round_trips
+    store::rows::tests::an_unknown_enum_value_is_an_error_that_names_its_column
+    store::rows::tests::every_type_round_trips_against_the_real_schema
+    store::rows::tests::list_columns_round_trip_through_json
+    store::search::tests::a_project_filter_and_a_type_filter_both_bite
+    store::search::tests::a_row_both_halves_found_is_marked_both
+    store::search::tests::a_row_is_findable_immediately_and_stays_in_step
+    store::search::tests::a_store_given_an_embedder_searches_semantically_through_the_trait
+    store::search::tests::a_store_with_no_embedder_still_returns_keyword_hits
+    store::search::tests::a_task_a_project_and_a_spec_are_all_findable_by_keyword
+    store::search::tests::an_embedding_of_the_wrong_width_is_skipped_rather_than_failing_the_search
+    store::search::tests::punctuation_in_a_query_is_text_and_not_syntax
+    store::search::tests::since_and_until_filter_by_when_the_row_was_created
+    store::search::tests::the_best_match_comes_first
+    store::search::tests::the_semantic_half_finds_a_row_with_no_words_in_common
+    store::search::tests::the_trait_method_reaches_the_same_search
+    store::search::tests::truncation_is_reported_with_a_total
+    types::tests::entity_serialisation_is_tagged_by_type
+
+test result: FAILED. 193 passed; 93 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.80s
+
+error: test failed, to rerun pass `-p keel-core --lib`
+
+*** result: Failure(101)

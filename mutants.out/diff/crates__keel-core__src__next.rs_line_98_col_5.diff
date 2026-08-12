@@ -1,0 +1,106 @@
+--- crates/keel-core/src/next.rs
++++ replace blocked_tasks -> Result<std::collections::HashSet<EntityId>> with Ok(HashSet::new())
+@@ -90,102 +90,17 @@
+ /// and the generated tracker cannot report different numbers.
+ ///
+ /// Only *live* blockers count. A blocker that is finished is not a blocker, and
+ /// leaving it in would freeze work forever behind something already done.
+ pub fn blocked_tasks(
+     store: &(impl EntityStore + GraphStore),
+     project_id: &EntityId,
+ ) -> Result<std::collections::HashSet<EntityId>> {
+-    let page = store.list(
+-        &EntityQuery::in_project(project_id.clone())
+-            .of_type(EntityType::Task)
+-            .limited(5_000),
+-    )?;
+-
+-    // One query for every `blocks` edge in the project, rather than one per
+-    // open task. The old shape walked the graph from each task in turn, and the
+-    // digest asks this question three times in a single call — thirty tasks
+-    // meant ninety traversals plus a `get` per blocker, all under the daemon's
+-    // one lock. The answer is identical; only the number of round trips
+-    // changed.
+-    let edges = store.links_in_project(project_id, Relation::Blocks)?;
+-    let mut blockers_of: std::collections::HashMap<&EntityId, Vec<&EntityId>> = Default::default();
+-    for link in &edges {
+-        blockers_of
+-            .entry(&link.to_id)
+-            .or_default()
+-            .push(&link.from_id);
+-    }
+-
+-    // Liveness for the blockers, resolved from what is already loaded wherever
+-    // possible. Most blockers are tasks in the same project, which this page
+-    // already holds.
+-    let known: std::collections::HashMap<&EntityId, &Entity> =
+-        page.items.iter().map(|e| (e.id(), e)).collect();
+-
+-    let mut blocked = std::collections::HashSet::new();
+-    let mut liveness: std::collections::HashMap<EntityId, bool> = Default::default();
+-    for entity in &page.items {
+-        let Entity::Task(task) = entity else { continue };
+-        if is_closed(task.status) {
+-            continue;
+-        }
+-
+-        // Fail closed. `matches!(store.get(…), Ok(Some(e)) if is_live(&e))`
+-        // read almost identically and treated a storage error as "no live
+-        // blocker" — so one unreadable link row promoted a genuinely blocked
+-        // task to ready, in `keel_ready` and in the module the docs call the
+-        // definition of blocked. That is the silent false-negative this
+-        // codebase is most afraid of: an answer that looks like work you can
+-        // start.
+-        //
+-        // Unreadable still means blocked. It is the conservative direction: the
+-        // worst case is a task that stays off the ready list until `fsck`
+-        // explains why, rather than one an agent picks up and cannot finish.
+-        let mut has_live_blocker = false;
+-        for blocker in blockers_of.get(&task.id).map(Vec::as_slice).unwrap_or(&[]) {
+-            let live = match known.get(*blocker) {
+-                Some(entity) => is_live(entity),
+-                None => match liveness.get(*blocker) {
+-                    Some(cached) => *cached,
+-                    // A blocker outside this project's task list — a question,
+-                    // a spec, a task somewhere else. Fetched one at a time,
+-                    // which is fine because it is the uncommon case and each
+-                    // answer is remembered for the rest of this pass.
+-                    None => {
+-                        let live = match store.get(blocker) {
+-                            Ok(Some(e)) => is_live(&e),
+-                            Ok(None) => false,
+-                            Err(e) => {
+-                                tracing::warn!(
+-                                    task = %task.id,
+-                                    blocker = %blocker,
+-                                    error = %e,
+-                                    "could not read a blocker; treating the task as blocked \
+-                                     rather than reporting it ready. Run `keel fsck`."
+-                                );
+-                                true
+-                            }
+-                        };
+-                        liveness.insert((*blocker).clone(), live);
+-                        live
+-                    }
+-                },
+-            };
+-            if live {
+-                has_live_blocker = true;
+-                break;
+-            }
+-        }
+-        if has_live_blocker {
+-            blocked.insert(task.id.clone());
+-        }
+-    }
+-    Ok(blocked)
++    Ok(HashSet::new()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Rank a project's open work.
+ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> Result<NextUp> {
+     // Fetched once for the whole ranking rather than per candidate: the key is
+     // the only part of a readable identifier that does not live on the task.
+     let key = match store.get(project_id)? {
+         Some(Entity::Project(p)) => p.key,

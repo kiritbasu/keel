@@ -1,0 +1,21 @@
+--- crates/keel-core/src/next.rs
++++ replace match guard !is_closed(t.status) with false in rank
+@@ -199,17 +199,17 @@
+     )?;
+ 
+     // Open means "still wants doing". `review` counts: it is waiting on a
+     // person to confirm, not finished.
+     let open: Vec<_> = page
+         .items
+         .iter()
+         .filter_map(|e| match e {
+-            Entity::Task(t) if !is_closed(t.status) => Some(t),
++            Entity::Task(t) if false /* ~ changed by cargo-mutants ~ */ => Some(t),
+             _ => None,
+         })
+         .collect();
+     let open_ids: std::collections::HashSet<&EntityId> = open.iter().map(|t| &t.id).collect();
+ 
+     // Every `blocks` edge in the project, once, rather than two traversals per
+     // open task. Same reasoning as `blocked_tasks`, and the same answer.
+     let edges = store.links_in_project(project_id, Relation::Blocks)?;

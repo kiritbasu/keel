@@ -1,0 +1,21 @@
+--- crates/keel-core/src/id.rs
++++ replace mint -> String with String::new()
+@@ -110,17 +110,17 @@
+         Ok(g) => g,
+         Err(poisoned) => poisoned.into_inner(),
+     };
+     guard.generate().unwrap_or_else(|_| ulid::Ulid::new())
+ }
+ 
+ /// Generate a fresh prefixed identifier.
+ fn mint(prefix: &str) -> String {
+-    format!("{prefix}_{}", next_ulid())
++    String::new() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Validate the `<prefix>_<ulid>` shape and return the two halves.
+ fn split(supplied: &str, expected_shape: &str) -> Result<(String, String)> {
+     let malformed = |problem: String| Error::MalformedId {
+         supplied: supplied.to_owned(),
+         problem,
+         expected: expected_shape.to_owned(),

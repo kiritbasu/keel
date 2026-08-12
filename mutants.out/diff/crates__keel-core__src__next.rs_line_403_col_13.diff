@@ -1,0 +1,21 @@
+--- crates/keel-core/src/next.rs
++++ delete match arm Entity::Task(t) in ready
+@@ -395,17 +395,17 @@
+         &EntityQuery::in_project(project_id.clone())
+             .of_type(EntityType::Task)
+             .limited(5_000),
+     )?;
+     let parents: std::collections::HashSet<EntityId> = page
+         .items
+         .iter()
+         .filter_map(|e| match e {
+-            Entity::Task(t) => t.parent_id.clone(),
++             /* ~ changed by cargo-mutants ~ */
+             _ => None,
+         })
+         .collect();
+     let by_id: std::collections::HashMap<&EntityId, &crate::Task> = page
+         .items
+         .iter()
+         .filter_map(|e| match e {
+             Entity::Task(t) => Some((&t.id, t)),

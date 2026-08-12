@@ -1,0 +1,30 @@
+--- crates/keel-core/src/id.rs
++++ replace EntityId::parse_as -> Result<Self> with Ok(Default::default())
+@@ -208,26 +208,17 @@
+     }
+ 
+     /// Parse an identifier and require it to be of a particular type.
+     ///
+     /// Used wherever an argument is typed by position rather than by name — a
+     /// `milestone_id` field that receives `spc_…` is a caller bug worth
+     /// rejecting immediately rather than storing and puzzling over later.
+     pub fn parse_as(supplied: &str, expected: EntityType) -> Result<Self> {
+-        let id = Self::parse(supplied)?;
+-        let actual = id.entity_type();
+-        if actual != expected {
+-            return Err(Error::MalformedId {
+-                supplied: supplied.to_owned(),
+-                problem: format!("this is a {actual} id, but a {expected} id is required here"),
+-                expected: format!("an id beginning `{}_`", expected.prefix()),
+-            });
+-        }
+-        Ok(id)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// The type this identifier belongs to.
+     ///
+     /// Infallible because the prefix was validated at construction — by
+     /// `parse`, by `generate`, and since this comment was written by
+     /// `Deserialize` too, which used to be the hole. The fallback stays because
+     /// the alternative is an `unwrap` in library code, but it now says so: an

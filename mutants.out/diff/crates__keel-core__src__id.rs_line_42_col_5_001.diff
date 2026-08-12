@@ -1,0 +1,43 @@
+--- crates/keel-core/src/id.rs
++++ replace ensure_above -> bool with false
+@@ -34,39 +34,17 @@
+ /// the app goes quiet for every write until the clock catches up; the activity
+ /// cursor moves past those events and never comes back for them. Both are the
+ /// silent-and-plausible failure this codebase exists to refuse.
+ ///
+ /// Priming is one throwaway id at `highest + 1ms`, which leaves the generator's
+ /// `previous` above everything stored. Subsequent calls increment from there
+ /// until the clock genuinely passes it, at which point normal minting resumes.
+ pub fn ensure_above(highest: &str) -> bool {
+-    let body = highest.split_once('_').map_or(highest, |(_, rest)| rest);
+-    let Ok(stored) = ulid::Ulid::from_string(body) else {
+-        return false;
+-    };
+-
+-    let now_ms = std::time::SystemTime::now()
+-        .duration_since(std::time::UNIX_EPOCH)
+-        .map(|d| d.as_millis())
+-        .unwrap_or(0);
+-    if u128::from(stored.timestamp_ms()) < now_ms {
+-        return false;
+-    }
+-
+-    let ahead = std::time::UNIX_EPOCH + std::time::Duration::from_millis(stored.timestamp_ms() + 1);
+-    match GENERATOR.lock() {
+-        Ok(mut guard) => {
+-            let _ = guard.generate_from_datetime(ahead);
+-        }
+-        Err(poisoned) => {
+-            let _ = poisoned.into_inner().generate_from_datetime(ahead);
+-        }
+-    }
+-    true
++    false /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// When a prefixed id says it was minted.
+ ///
+ /// A ULID's first 48 bits are a millisecond timestamp, so an id carries its own
+ /// creation time and nothing has to store one alongside it. `None` means the
+ /// string is not a prefixed ULID at all.
+ ///

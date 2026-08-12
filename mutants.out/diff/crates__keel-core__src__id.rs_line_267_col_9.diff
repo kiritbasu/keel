@@ -1,0 +1,21 @@
+--- crates/keel-core/src/id.rs
++++ replace <impl fmt::Display for EntityId>::fmt -> fmt::Result with Ok(Default::default())
+@@ -259,17 +259,17 @@
+     /// Consume into the underlying string, for binding to SQL.
+     pub fn into_string(self) -> String {
+         self.0
+     }
+ }
+ 
+ impl fmt::Display for EntityId {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        f.write_str(&self.0)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl AsRef<str> for EntityId {
+     fn as_ref(&self) -> &str {
+         &self.0
+     }
+ }

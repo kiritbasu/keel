@@ -1,0 +1,16 @@
+crates/keel-core/src/id.rs:55:39: replace + with * in ensure_above
+crates/keel-core/src/id.rs:79:5: replace minted_at -> Option<chrono::DateTime<chrono::Utc>> with Some(DateTime::new())
+crates/keel-core/src/id.rs:79:5: replace minted_at -> Option<chrono::DateTime<chrono::Utc>> with Some(DateTime::from_iter([Default::default()]))
+crates/keel-core/src/id.rs:79:5: replace minted_at -> Option<chrono::DateTime<chrono::Utc>> with Some(DateTime::new(Default::default()))
+crates/keel-core/src/id.rs:79:5: replace minted_at -> Option<chrono::DateTime<chrono::Utc>> with Some(DateTime::from(Default::default()))
+crates/keel-core/src/id.rs:176:9: replace <impl Deserialize<'de> for EntityId>::deserialize -> std::result::Result<Self, D::Error> with Ok(Default::default())
+crates/keel-core/src/id.rs:184:9: replace EntityId::generate -> Self with Default::default()
+crates/keel-core/src/id.rs:189:9: replace EntityId::parse -> Result<Self> with Ok(Default::default())
+crates/keel-core/src/id.rs:216:9: replace EntityId::parse_as -> Result<Self> with Ok(Default::default())
+crates/keel-core/src/id.rs:237:9: replace EntityId::entity_type -> EntityType with Default::default()
+crates/keel-core/src/next.rs:98:5: replace blocked_tasks -> Result<std::collections::HashSet<EntityId>> with Ok(HashSet::new())
+crates/keel-core/src/next.rs:98:5: replace blocked_tasks -> Result<std::collections::HashSet<EntityId>> with Ok(HashSet::from_iter([Default::default()]))
+crates/keel-core/src/next.rs:270:17: replace && with || in rank
+crates/keel-core/src/next.rs:443:13: replace && with || in ready
+crates/keel-core/src/store/graph.rs:94:5: replace read_neighbour -> Result<Neighbour> with Ok(Default::default())
+crates/keel-core/src/store/graph.rs:146:9: replace <impl GraphStore for Store>::neighbours -> Result<Vec<Neighbour>> with Ok(vec![Default::default()])

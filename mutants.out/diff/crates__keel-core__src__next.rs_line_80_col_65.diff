@@ -1,0 +1,21 @@
+--- crates/keel-core/src/next.rs
++++ replace && with || in NextUp::is_empty
+@@ -72,17 +72,17 @@
+     pub waiting_on_you: Vec<Candidate>,
+     /// Stuck, with the blocker named.
+     pub blocked: Vec<Candidate>,
+ }
+ 
+ impl NextUp {
+     /// Whether there is anything at all to report.
+     pub fn is_empty(&self) -> bool {
+-        self.ready.is_empty() && self.waiting_on_you.is_empty() && self.blocked.is_empty()
++        self.ready.is_empty() && self.waiting_on_you.is_empty() || /* ~ changed by cargo-mutants ~ */ self.blocked.is_empty()
+     }
+ }
+ 
+ /// The open tasks in a project that something live is linked to as a blocker.
+ ///
+ /// **The** definition of blocked, and the only one. It used to be two — this,
+ /// and a `blocked` value in the status column — which could and did disagree:
+ /// two tasks were marked blocked with nothing linked to them at all. The status

@@ -26,7 +26,6 @@ import { CommandPalette } from "./components/CommandPalette";
 import { ThemeControl } from "./components/ThemeControl";
 import { HomeScreen } from "./screens/Home";
 import { ProjectScreen } from "./screens/Project";
-import { MetricsScreen } from "./screens/Metrics";
 import { RoadmapScreen } from "./screens/Roadmap";
 import { BoardScreen } from "./screens/Board";
 import { ReadyScreen } from "./screens/Ready";
@@ -56,7 +55,6 @@ const PROJECT_SCREENS: NavItem[] = [
   { id: "board", label: "Board", key: "3" },
   { id: "roadmap", label: "Roadmap", key: "4" },
   { id: "documents", label: "Library", key: "5" },
-  { id: "metrics", label: "Metrics", key: "6" },
 ];
 
 /**
@@ -68,9 +66,9 @@ const PROJECT_SCREENS: NavItem[] = [
  * have, and the screen already carried one header claiming a job it did not do.
  */
 const GLOBAL_SCREENS: NavItem[] = [
-  { id: "home", label: "All projects", key: "7" },
-  { id: "search", label: "Search", key: "8" },
-  { id: "changed", label: "What changed", key: "9" },
+  { id: "home", label: "All projects", key: "6" },
+  { id: "search", label: "Search", key: "7" },
+  { id: "changed", label: "What changed", key: "8" },
 ];
 
 const SCREENS: NavItem[] = [...PROJECT_SCREENS, ...GLOBAL_SCREENS];
@@ -304,8 +302,6 @@ export function App() {
         return <ProjectScreen {...shared} />;
       case "roadmap":
         return <RoadmapScreen {...shared} />;
-      case "metrics":
-        return <MetricsScreen {...shared} />;
       case "board":
         return <BoardScreen {...shared} />;
       case "ready":

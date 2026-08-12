@@ -1,0 +1,21 @@
+--- crates/keel-core/src/next.rs
++++ replace == with != in ready
+@@ -430,17 +430,17 @@
+             .iter()
+             .all(|want| task.labels.iter().any(|l| l == want))
+         {
+             continue;
+         }
+         if filter
+             .without_labels
+             .iter()
+-            .any(|skip| task.labels.iter().any(|l| l == skip))
++            .any(|skip| task.labels.iter().any(|l| l != /* ~ changed by cargo-mutants ~ */ skip))
+         {
+             continue;
+         }
+         if let Some(milestone) = &filter.milestone
+             && task.milestone_id.as_ref() != Some(milestone)
+         {
+             continue;
+         }

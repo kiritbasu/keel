@@ -1,0 +1,21 @@
+--- crates/keel-core/src/id.rs
++++ replace != with == in split
+@@ -129,17 +129,17 @@
+     let Some((prefix, body)) = supplied.split_once('_') else {
+         return Err(malformed(
+             "no `_` separating the type prefix from the ULID".into(),
+         ));
+     };
+     if prefix.is_empty() {
+         return Err(malformed("the type prefix is empty".into()));
+     }
+-    if body.len() != ULID_LEN {
++    if body.len() == /* ~ changed by cargo-mutants ~ */ ULID_LEN {
+         return Err(malformed(format!(
+             "the part after `_` is {} characters, not {ULID_LEN}",
+             body.len()
+         )));
+     }
+     if ulid::Ulid::from_string(body).is_err() {
+         return Err(malformed("the part after `_` is not a valid ULID".into()));
+     }

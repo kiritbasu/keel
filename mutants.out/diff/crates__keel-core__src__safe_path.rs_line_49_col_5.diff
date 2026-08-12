@@ -1,0 +1,70 @@
+--- crates/keel-core/src/safe_path.rs
++++ replace validate_repo_relative -> Result<()> with Ok(())
+@@ -41,66 +41,17 @@
+ use crate::{EntityType, Error, Result};
+ use std::path::{Component, Path, PathBuf};
+ 
+ /// Check a repo-relative path a caller supplied, on the way into the store.
+ ///
+ /// `field` names the column, so the message says which of four paths was wrong
+ /// rather than making the reader guess.
+ pub fn validate_repo_relative(entity_type: EntityType, field: &str, value: &str) -> Result<()> {
+-    let refuse = |problem: String| {
+-        Err(Error::Invalid {
+-            entity_type,
+-            field: field.to_owned(),
+-            problem,
+-            expected: "a path relative to the project's checkout, with no leading slash and no \
+-                       `..` — for example `product/SPEC.md` or `docs/adr/0001.md`. Keel writes \
+-                       this file, so it must stay inside the repository"
+-                .to_owned(),
+-        })
+-    };
+-
+-    if value.is_empty() {
+-        return refuse("the path is empty".to_owned());
+-    }
+-    if value.contains('\0') {
+-        return refuse("the path contains a NUL byte".to_owned());
+-    }
+-    if value.starts_with('~') {
+-        // Nothing in Keel expands `~`, so this would create a directory
+-        // literally named `~` in the repository. Refusing says what the caller
+-        // meant is not supported, rather than doing something surprising.
+-        return refuse(format!(
+-            "`{value}` starts with `~`, which Keel does not expand"
+-        ));
+-    }
+-
+-    let path = Path::new(value);
+-    if path.is_absolute() {
+-        return refuse(format!(
+-            "`{value}` is an absolute path, so it names a file outside the project"
+-        ));
+-    }
+-
+-    for component in path.components() {
+-        match component {
+-            Component::ParentDir => {
+-                return refuse(format!(
+-                    "`{value}` contains `..`, which would let the generated file land outside \
+-                     the project"
+-                ));
+-            }
+-            Component::RootDir | Component::Prefix(_) => {
+-                return refuse(format!("`{value}` is rooted outside the project"));
+-            }
+-            Component::CurDir | Component::Normal(_) => {}
+-        }
+-    }
+-
+-    Ok(())
++    Ok(()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Check a project's `root_path`, which is the checkout itself rather than
+ /// something inside it.
+ ///
+ /// The opposite rule to [`validate_repo_relative`]: this one *must* be
+ /// absolute. A relative root resolves against whatever directory the daemon
+ /// happened to start in, which is a different repository depending on how it

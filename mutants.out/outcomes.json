@@ -1,0 +1,6249 @@
+{
+  "outcomes": [
+    {
+      "scenario": "Baseline",
+      "summary": "Success",
+      "log_path": "log/baseline.log",
+      "diff_path": null,
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 10.395307333,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 42.169927833,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:42:5: replace ensure_above -> bool with true",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "ensure_above",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 21,
+                "column": 1
+              },
+              "end": {
+                "line": 65,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 42,
+              "column": 5
+            },
+            "end": {
+              "line": 64,
+              "column": 9
+            }
+          },
+          "replacement": "true",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_42_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_42_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 9.369141542,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 32.862429834,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:42:5: replace ensure_above -> bool with false",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "ensure_above",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 21,
+                "column": 1
+              },
+              "end": {
+                "line": 65,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 42,
+              "column": 5
+            },
+            "end": {
+              "line": 64,
+              "column": 9
+            }
+          },
+          "replacement": "false",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_42_col_5_001.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_42_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 8.289440458,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 117.962902417,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:51:42: replace < with == in ensure_above",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "ensure_above",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 21,
+                "column": 1
+              },
+              "end": {
+                "line": 65,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 51,
+              "column": 42
+            },
+            "end": {
+              "line": 51,
+              "column": 43
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_51_col_42.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_51_col_42.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 13.5079795,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 47.944731459,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:51:42: replace < with > in ensure_above",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "ensure_above",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 21,
+                "column": 1
+              },
+              "end": {
+                "line": 65,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 51,
+              "column": 42
+            },
+            "end": {
+              "line": 51,
+              "column": 43
+            }
+          },
+          "replacement": ">",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_51_col_42_001.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_51_col_42_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 11.105618917,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 36.399356917,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:51:42: replace < with <= in ensure_above",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "ensure_above",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 21,
+                "column": 1
+              },
+              "end": {
+                "line": 65,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 51,
+              "column": 42
+            },
+            "end": {
+              "line": 51,
+              "column": 43
+            }
+          },
+          "replacement": "<=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_51_col_42_002.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_51_col_42_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 10.383549792,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 55.875433625,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:55:39: replace + with - in ensure_above",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "ensure_above",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 21,
+                "column": 1
+              },
+              "end": {
+                "line": 65,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 55,
+              "column": 39
+            },
+            "end": {
+              "line": 55,
+              "column": 40
+            }
+          },
+          "replacement": "-",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_55_col_39.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_55_col_39.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 13.429201584,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 43.016553791,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:55:39: replace + with * in ensure_above",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "ensure_above",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 21,
+                "column": 1
+              },
+              "end": {
+                "line": 65,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 55,
+              "column": 39
+            },
+            "end": {
+              "line": 55,
+              "column": 40
+            }
+          },
+          "replacement": "*",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__id.rs_line_55_col_39_001.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_55_col_39_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.871741375,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:55:96: replace + with - in ensure_above",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "ensure_above",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 21,
+                "column": 1
+              },
+              "end": {
+                "line": 65,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 55,
+              "column": 96
+            },
+            "end": {
+              "line": 55,
+              "column": 97
+            }
+          },
+          "replacement": "-",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_55_col_96.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_55_col_96.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 13.141241791,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 42.09504375,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:55:96: replace + with * in ensure_above",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "ensure_above",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 21,
+                "column": 1
+              },
+              "end": {
+                "line": 65,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 55,
+              "column": 96
+            },
+            "end": {
+              "line": 55,
+              "column": 97
+            }
+          },
+          "replacement": "*",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_55_col_96_001.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_55_col_96_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 14.63833275,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 66.934291041,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:79:5: replace minted_at -> Option<chrono::DateTime<chrono::Utc>> with None",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "minted_at",
+            "return_type": "-> Option<chrono::DateTime<chrono::Utc>>",
+            "span": {
+              "start": {
+                "line": 67,
+                "column": 1
+              },
+              "end": {
+                "line": 82,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 79,
+              "column": 5
+            },
+            "end": {
+              "line": 81,
+              "column": 86
+            }
+          },
+          "replacement": "None",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_79_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_79_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 120.754851458,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 63.600524083,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:79:5: replace minted_at -> Option<chrono::DateTime<chrono::Utc>> with Some(DateTime::new())",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "minted_at",
+            "return_type": "-> Option<chrono::DateTime<chrono::Utc>>",
+            "span": {
+              "start": {
+                "line": 67,
+                "column": 1
+              },
+              "end": {
+                "line": 82,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 79,
+              "column": 5
+            },
+            "end": {
+              "line": 81,
+              "column": 86
+            }
+          },
+          "replacement": "Some(DateTime::new())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__id.rs_line_79_col_5_001.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_79_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.010010583,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:79:5: replace minted_at -> Option<chrono::DateTime<chrono::Utc>> with Some(DateTime::from_iter([Default::default()]))",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "minted_at",
+            "return_type": "-> Option<chrono::DateTime<chrono::Utc>>",
+            "span": {
+              "start": {
+                "line": 67,
+                "column": 1
+              },
+              "end": {
+                "line": 82,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 79,
+              "column": 5
+            },
+            "end": {
+              "line": 81,
+              "column": 86
+            }
+          },
+          "replacement": "Some(DateTime::from_iter([Default::default()]))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__id.rs_line_79_col_5_002.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_79_col_5_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 5.397586958,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:79:5: replace minted_at -> Option<chrono::DateTime<chrono::Utc>> with Some(DateTime::new(Default::default()))",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "minted_at",
+            "return_type": "-> Option<chrono::DateTime<chrono::Utc>>",
+            "span": {
+              "start": {
+                "line": 67,
+                "column": 1
+              },
+              "end": {
+                "line": 82,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 79,
+              "column": 5
+            },
+            "end": {
+              "line": 81,
+              "column": 86
+            }
+          },
+          "replacement": "Some(DateTime::new(Default::default()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__id.rs_line_79_col_5_003.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_79_col_5_003.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 4.67138925,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:79:5: replace minted_at -> Option<chrono::DateTime<chrono::Utc>> with Some(DateTime::from(Default::default()))",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "minted_at",
+            "return_type": "-> Option<chrono::DateTime<chrono::Utc>>",
+            "span": {
+              "start": {
+                "line": 67,
+                "column": 1
+              },
+              "end": {
+                "line": 82,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 79,
+              "column": 5
+            },
+            "end": {
+              "line": 81,
+              "column": 86
+            }
+          },
+          "replacement": "Some(DateTime::from(Default::default()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__id.rs_line_79_col_5_004.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_79_col_5_004.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 4.7094495,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:109:5: replace next_ulid -> ulid::Ulid with Default::default()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "next_ulid",
+            "return_type": "-> ulid::Ulid",
+            "span": {
+              "start": {
+                "line": 101,
+                "column": 1
+              },
+              "end": {
+                "line": 114,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 109,
+              "column": 5
+            },
+            "end": {
+              "line": 113,
+              "column": 59
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_109_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_109_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 12.590795208,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.669599208,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:118:5: replace mint -> String with String::new()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "mint",
+            "return_type": "-> String",
+            "span": {
+              "start": {
+                "line": 116,
+                "column": 1
+              },
+              "end": {
+                "line": 119,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 118,
+              "column": 5
+            },
+            "end": {
+              "line": 118,
+              "column": 40
+            }
+          },
+          "replacement": "String::new()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_118_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_118_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 12.81426625,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.684574916,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:118:5: replace mint -> String with \"xyzzy\".into()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "mint",
+            "return_type": "-> String",
+            "span": {
+              "start": {
+                "line": 116,
+                "column": 1
+              },
+              "end": {
+                "line": 119,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 118,
+              "column": 5
+            },
+            "end": {
+              "line": 118,
+              "column": 40
+            }
+          },
+          "replacement": "\"xyzzy\".into()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_118_col_5_001.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_118_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 12.062966666,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.280138209,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:123:5: replace split -> Result<(String, String)> with Ok((String::new(), String::new()))",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "split",
+            "return_type": "-> Result<(String, String)>",
+            "span": {
+              "start": {
+                "line": 121,
+                "column": 1
+              },
+              "end": {
+                "line": 147,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 123,
+              "column": 5
+            },
+            "end": {
+              "line": 146,
+              "column": 45
+            }
+          },
+          "replacement": "Ok((String::new(), String::new()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_123_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_123_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 12.921253875,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.087435792,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:123:5: replace split -> Result<(String, String)> with Ok((String::new(), \"xyzzy\".into()))",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "split",
+            "return_type": "-> Result<(String, String)>",
+            "span": {
+              "start": {
+                "line": 121,
+                "column": 1
+              },
+              "end": {
+                "line": 147,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 123,
+              "column": 5
+            },
+            "end": {
+              "line": 146,
+              "column": 45
+            }
+          },
+          "replacement": "Ok((String::new(), \"xyzzy\".into()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_123_col_5_001.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_123_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 12.468727916,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.73547925,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:123:5: replace split -> Result<(String, String)> with Ok((\"xyzzy\".into(), String::new()))",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "split",
+            "return_type": "-> Result<(String, String)>",
+            "span": {
+              "start": {
+                "line": 121,
+                "column": 1
+              },
+              "end": {
+                "line": 147,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 123,
+              "column": 5
+            },
+            "end": {
+              "line": 146,
+              "column": 45
+            }
+          },
+          "replacement": "Ok((\"xyzzy\".into(), String::new()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_123_col_5_002.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_123_col_5_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 12.9189295,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.6626645829999998,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:123:5: replace split -> Result<(String, String)> with Ok((\"xyzzy\".into(), \"xyzzy\".into()))",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "split",
+            "return_type": "-> Result<(String, String)>",
+            "span": {
+              "start": {
+                "line": 121,
+                "column": 1
+              },
+              "end": {
+                "line": 147,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 123,
+              "column": 5
+            },
+            "end": {
+              "line": 146,
+              "column": 45
+            }
+          },
+          "replacement": "Ok((\"xyzzy\".into(), \"xyzzy\".into()))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_123_col_5_003.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_123_col_5_003.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 12.506641416,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.696758709,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:137:19: replace != with == in split",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "split",
+            "return_type": "-> Result<(String, String)>",
+            "span": {
+              "start": {
+                "line": 121,
+                "column": 1
+              },
+              "end": {
+                "line": 147,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 137,
+              "column": 19
+            },
+            "end": {
+              "line": 137,
+              "column": 21
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_137_col_19.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_137_col_19.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 13.608945375,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.8067527500000002,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:176:9: replace <impl Deserialize<'de> for EntityId>::deserialize -> std::result::Result<Self, D::Error> with Ok(Default::default())",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "<impl Deserialize<'de> for EntityId>::deserialize",
+            "return_type": "-> std::result::Result<Self, D::Error>",
+            "span": {
+              "start": {
+                "line": 173,
+                "column": 5
+              },
+              "end": {
+                "line": 178,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 176,
+              "column": 9
+            },
+            "end": {
+              "line": 177,
+              "column": 64
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__id.rs_line_176_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_176_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.332417708,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:184:9: replace EntityId::generate -> Self with Default::default()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "EntityId::generate",
+            "return_type": "-> Self",
+            "span": {
+              "start": {
+                "line": 182,
+                "column": 5
+              },
+              "end": {
+                "line": 185,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 184,
+              "column": 9
+            },
+            "end": {
+              "line": 184,
+              "column": 45
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__id.rs_line_184_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_184_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.9017324169999998,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:189:9: replace EntityId::parse -> Result<Self> with Ok(Default::default())",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "EntityId::parse",
+            "return_type": "-> Result<Self>",
+            "span": {
+              "start": {
+                "line": 187,
+                "column": 5
+              },
+              "end": {
+                "line": 208,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 189,
+              "column": 9
+            },
+            "end": {
+              "line": 207,
+              "column": 42
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__id.rs_line_189_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_189_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.339103416,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:216:9: replace EntityId::parse_as -> Result<Self> with Ok(Default::default())",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "EntityId::parse_as",
+            "return_type": "-> Result<Self>",
+            "span": {
+              "start": {
+                "line": 210,
+                "column": 5
+              },
+              "end": {
+                "line": 226,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 216,
+              "column": 9
+            },
+            "end": {
+              "line": 225,
+              "column": 15
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__id.rs_line_216_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_216_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.020533125,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:218:19: replace != with == in EntityId::parse_as",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "EntityId::parse_as",
+            "return_type": "-> Result<Self>",
+            "span": {
+              "start": {
+                "line": 210,
+                "column": 5
+              },
+              "end": {
+                "line": 226,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 218,
+              "column": 19
+            },
+            "end": {
+              "line": 218,
+              "column": 21
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_218_col_19.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_218_col_19.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 11.63024675,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.605156125,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:237:9: replace EntityId::entity_type -> EntityType with Default::default()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "EntityId::entity_type",
+            "return_type": "-> EntityType",
+            "span": {
+              "start": {
+                "line": 228,
+                "column": 5
+              },
+              "end": {
+                "line": 252,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 237,
+              "column": 9
+            },
+            "end": {
+              "line": 251,
+              "column": 10
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__id.rs_line_237_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_237_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.646093958,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:256:9: replace EntityId::as_str -> &str with \"\"",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "EntityId::as_str",
+            "return_type": "-> &str",
+            "span": {
+              "start": {
+                "line": 254,
+                "column": 5
+              },
+              "end": {
+                "line": 257,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 256,
+              "column": 9
+            },
+            "end": {
+              "line": 256,
+              "column": 16
+            }
+          },
+          "replacement": "\"\"",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_256_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_256_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 13.002420958,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.920026125,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:256:9: replace EntityId::as_str -> &str with \"xyzzy\"",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "EntityId::as_str",
+            "return_type": "-> &str",
+            "span": {
+              "start": {
+                "line": 254,
+                "column": 5
+              },
+              "end": {
+                "line": 257,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 256,
+              "column": 9
+            },
+            "end": {
+              "line": 256,
+              "column": 16
+            }
+          },
+          "replacement": "\"xyzzy\"",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_256_col_9_001.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_256_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 12.8463965,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.450589625,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:261:9: replace EntityId::into_string -> String with String::new()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "EntityId::into_string",
+            "return_type": "-> String",
+            "span": {
+              "start": {
+                "line": 259,
+                "column": 5
+              },
+              "end": {
+                "line": 262,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 261,
+              "column": 9
+            },
+            "end": {
+              "line": 261,
+              "column": 15
+            }
+          },
+          "replacement": "String::new()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_261_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_261_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 13.818833417,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 66.517698833,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:261:9: replace EntityId::into_string -> String with \"xyzzy\".into()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "EntityId::into_string",
+            "return_type": "-> String",
+            "span": {
+              "start": {
+                "line": 259,
+                "column": 5
+              },
+              "end": {
+                "line": 262,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 261,
+              "column": 9
+            },
+            "end": {
+              "line": 261,
+              "column": 15
+            }
+          },
+          "replacement": "\"xyzzy\".into()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_261_col_9_001.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_261_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 12.507117458,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 70.449990083,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:267:9: replace <impl fmt::Display for EntityId>::fmt -> fmt::Result with Ok(Default::default())",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "<impl fmt::Display for EntityId>::fmt",
+            "return_type": "-> fmt::Result",
+            "span": {
+              "start": {
+                "line": 266,
+                "column": 5
+              },
+              "end": {
+                "line": 268,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 267,
+              "column": 9
+            },
+            "end": {
+              "line": 267,
+              "column": 29
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_267_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_267_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 12.260922167,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.362597584,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:273:9: replace <impl AsRef<str> for EntityId>::as_ref -> &str with \"\"",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "<impl AsRef<str> for EntityId>::as_ref",
+            "return_type": "-> &str",
+            "span": {
+              "start": {
+                "line": 272,
+                "column": 5
+              },
+              "end": {
+                "line": 274,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 273,
+              "column": 9
+            },
+            "end": {
+              "line": 273,
+              "column": 16
+            }
+          },
+          "replacement": "\"\"",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_273_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_273_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 13.635410583,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 67.940736166,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/id.rs:273:9: replace <impl AsRef<str> for EntityId>::as_ref -> &str with \"xyzzy\"",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/id.rs",
+          "function": {
+            "function_name": "<impl AsRef<str> for EntityId>::as_ref",
+            "return_type": "-> &str",
+            "span": {
+              "start": {
+                "line": 272,
+                "column": 5
+              },
+              "end": {
+                "line": 274,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 273,
+              "column": 9
+            },
+            "end": {
+              "line": 273,
+              "column": 16
+            }
+          },
+          "replacement": "\"xyzzy\"",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__keel-core__src__id.rs_line_273_col_9_001.log",
+      "diff_path": "diff/crates__keel-core__src__id.rs_line_273_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 12.87260075,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 70.087163833,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:80:9: replace NextUp::is_empty -> bool with true",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "NextUp::is_empty",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 78,
+                "column": 5
+              },
+              "end": {
+                "line": 81,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 80,
+              "column": 9
+            },
+            "end": {
+              "line": 80,
+              "column": 91
+            }
+          },
+          "replacement": "true",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_80_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_80_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 13.141573417,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 68.841657917,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:80:9: replace NextUp::is_empty -> bool with false",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "NextUp::is_empty",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 78,
+                "column": 5
+              },
+              "end": {
+                "line": 81,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 80,
+              "column": 9
+            },
+            "end": {
+              "line": 80,
+              "column": 91
+            }
+          },
+          "replacement": "false",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_80_col_9_001.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_80_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 15.118959833,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 33.740728041,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:80:65: replace && with || in NextUp::is_empty",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "NextUp::is_empty",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 78,
+                "column": 5
+              },
+              "end": {
+                "line": 81,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 80,
+              "column": 65
+            },
+            "end": {
+              "line": 80,
+              "column": 67
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_80_col_65.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_80_col_65.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 14.005584708,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 70.303552083,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:80:31: replace && with || in NextUp::is_empty",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "NextUp::is_empty",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 78,
+                "column": 5
+              },
+              "end": {
+                "line": 81,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 80,
+              "column": 31
+            },
+            "end": {
+              "line": 80,
+              "column": 33
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_80_col_31.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_80_col_31.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 14.949676083,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 77.796506209,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:98:5: replace blocked_tasks -> Result<std::collections::HashSet<EntityId>> with Ok(HashSet::new())",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "blocked_tasks",
+            "return_type": "-> Result<std::collections::HashSet<EntityId>>",
+            "span": {
+              "start": {
+                "line": 84,
+                "column": 1
+              },
+              "end": {
+                "line": 184,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 98,
+              "column": 5
+            },
+            "end": {
+              "line": 183,
+              "column": 16
+            }
+          },
+          "replacement": "Ok(HashSet::new())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__next.rs_line_98_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_98_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 4.884533583,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:98:5: replace blocked_tasks -> Result<std::collections::HashSet<EntityId>> with Ok(HashSet::from_iter([Default::default()]))",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "blocked_tasks",
+            "return_type": "-> Result<std::collections::HashSet<EntityId>>",
+            "span": {
+              "start": {
+                "line": 84,
+                "column": 1
+              },
+              "end": {
+                "line": 184,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 98,
+              "column": 5
+            },
+            "end": {
+              "line": 183,
+              "column": 16
+            }
+          },
+          "replacement": "Ok(HashSet::from_iter([Default::default()]))",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__next.rs_line_98_col_5_001.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_98_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 4.887155166,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:190:5: replace rank -> Result<NextUp> with Ok(Default::default())",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "rank",
+            "return_type": "-> Result<NextUp>",
+            "span": {
+              "start": {
+                "line": 186,
+                "column": 1
+              },
+              "end": {
+                "line": 337,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 190,
+              "column": 5
+            },
+            "end": {
+              "line": 336,
+              "column": 12
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_190_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_190_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 21.879317917,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 40.790455209,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:191:9: delete match arm Some(Entity::Project(p)) in rank",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "rank",
+            "return_type": "-> Result<NextUp>",
+            "span": {
+              "start": {
+                "line": 186,
+                "column": 1
+              },
+              "end": {
+                "line": 337,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 191,
+              "column": 9
+            },
+            "end": {
+              "line": 191,
+              "column": 43
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_191_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_191_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 18.214430708,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 61.723287,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:207:32: replace match guard !is_closed(t.status) with true in rank",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "rank",
+            "return_type": "-> Result<NextUp>",
+            "span": {
+              "start": {
+                "line": 186,
+                "column": 1
+              },
+              "end": {
+                "line": 337,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 207,
+              "column": 32
+            },
+            "end": {
+              "line": 207,
+              "column": 52
+            }
+          },
+          "replacement": "true",
+          "genre": "MatchArmGuard"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_207_col_32.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_207_col_32.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 18.955236166,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 39.135910333,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:207:32: replace match guard !is_closed(t.status) with false in rank",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "rank",
+            "return_type": "-> Result<NextUp>",
+            "span": {
+              "start": {
+                "line": 186,
+                "column": 1
+              },
+              "end": {
+                "line": 337,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 207,
+              "column": 32
+            },
+            "end": {
+              "line": 207,
+              "column": 52
+            }
+          },
+          "replacement": "false",
+          "genre": "MatchArmGuard"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_207_col_32_001.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_207_col_32_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 20.34307275,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 35.948092333,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:207:32: delete ! in rank",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "rank",
+            "return_type": "-> Result<NextUp>",
+            "span": {
+              "start": {
+                "line": 186,
+                "column": 1
+              },
+              "end": {
+                "line": 337,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 207,
+              "column": 32
+            },
+            "end": {
+              "line": 207,
+              "column": 33
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_207_col_32_002.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_207_col_32_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 22.390790292,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 43.535836334,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:253:16: delete ! in rank",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "rank",
+            "return_type": "-> Result<NextUp>",
+            "span": {
+              "start": {
+                "line": 186,
+                "column": 1
+              },
+              "end": {
+                "line": 337,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 253,
+              "column": 16
+            },
+            "end": {
+              "line": 253,
+              "column": 17
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_253_col_16.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_253_col_16.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 20.920754416,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 41.811978667,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:270:17: replace && with || in rank",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "rank",
+            "return_type": "-> Result<NextUp>",
+            "span": {
+              "start": {
+                "line": 186,
+                "column": 1
+              },
+              "end": {
+                "line": 337,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 270,
+              "column": 17
+            },
+            "end": {
+              "line": 270,
+              "column": 19
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__next.rs_line_270_col_17.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_270_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.165264041,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:287:52: replace == with != in rank",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "rank",
+            "return_type": "-> Result<NextUp>",
+            "span": {
+              "start": {
+                "line": 186,
+                "column": 1
+              },
+              "end": {
+                "line": 337,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 287,
+              "column": 52
+            },
+            "end": {
+              "line": 287,
+              "column": 54
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_287_col_52.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_287_col_52.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 22.020746292,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 50.042914,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:289:12: delete ! in rank",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "rank",
+            "return_type": "-> Result<NextUp>",
+            "span": {
+              "start": {
+                "line": 186,
+                "column": 1
+              },
+              "end": {
+                "line": 337,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 289,
+              "column": 12
+            },
+            "end": {
+              "line": 289,
+              "column": 13
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_289_col_12.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_289_col_12.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 23.142906334,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 56.520444667,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:389:5: replace ready -> Result<Ready> with Ok(Default::default())",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 389,
+              "column": 5
+            },
+            "end": {
+              "line": 463,
+              "column": 7
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_389_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_389_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 22.066042833,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 50.7168665,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:403:13: delete match arm Entity::Task(t) in ready",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 403,
+              "column": 13
+            },
+            "end": {
+              "line": 403,
+              "column": 52
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_403_col_13.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_403_col_13.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 21.753149292,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 52.542268834,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:411:13: delete match arm Entity::Task(t) in ready",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 411,
+              "column": 13
+            },
+            "end": {
+              "line": 411,
+              "column": 49
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_411_col_13.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_411_col_13.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 22.066127458,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 42.356333291,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:425:29: replace && with || in ready",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 425,
+              "column": 29
+            },
+            "end": {
+              "line": 425,
+              "column": 31
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_425_col_29.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_425_col_29.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 22.924905833,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 48.140278,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:428:12: delete ! in ready",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 428,
+              "column": 12
+            },
+            "end": {
+              "line": 428,
+              "column": 13
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_428_col_12.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_428_col_12.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 23.534217334,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 48.67423575,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:431:54: replace == with != in ready",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 431,
+              "column": 54
+            },
+            "end": {
+              "line": 431,
+              "column": 56
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_431_col_54.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_431_col_54.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 23.109514416,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 69.342791167,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:438:54: replace == with != in ready",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 438,
+              "column": 54
+            },
+            "end": {
+              "line": 438,
+              "column": 56
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_438_col_54.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_438_col_54.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 35.477783292,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 62.860177666,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:443:13: replace && with || in ready",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 443,
+              "column": 13
+            },
+            "end": {
+              "line": 443,
+              "column": 15
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__next.rs_line_443_col_13.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_443_col_13.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.113697541,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:443:43: replace != with == in ready",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 443,
+              "column": 43
+            },
+            "end": {
+              "line": 443,
+              "column": 45
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__next.rs_line_443_col_43.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_443_col_43.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 28.519262416,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.04707025,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:452:24: replace match guard total > limit with true in ready",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 452,
+              "column": 24
+            },
+            "end": {
+              "line": 452,
+              "column": 37
+            }
+          },
+          "replacement": "true",
+          "genre": "MatchArmGuard"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_452_col_24.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_452_col_24.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 27.181135667,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 97.625352208,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:452:24: replace match guard total > limit with false in ready",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 452,
+              "column": 24
+            },
+            "end": {
+              "line": 452,
+              "column": 37
+            }
+          },
+          "replacement": "false",
+          "genre": "MatchArmGuard"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_452_col_24_001.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_452_col_24_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 22.249774834,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 61.572058291,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:452:30: replace > with == in ready",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 452,
+              "column": 30
+            },
+            "end": {
+              "line": 452,
+              "column": 31
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_452_col_30.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_452_col_30.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 20.699863375,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 68.204161834,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:452:30: replace > with < in ready",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 452,
+              "column": 30
+            },
+            "end": {
+              "line": 452,
+              "column": 31
+            }
+          },
+          "replacement": "<",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__next.rs_line_452_col_30_001.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_452_col_30_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 22.511885,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 81.362704,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:452:30: replace > with >= in ready",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "ready",
+            "return_type": "-> Result<Ready>",
+            "span": {
+              "start": {
+                "line": 374,
+                "column": 1
+              },
+              "end": {
+                "line": 464,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 452,
+              "column": 30
+            },
+            "end": {
+              "line": 452,
+              "column": 31
+            }
+          },
+          "replacement": ">=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__next.rs_line_452_col_30_002.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_452_col_30_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 21.838304833,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.012199791,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:468:5: replace reason -> String with String::new()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "reason",
+            "return_type": "-> String",
+            "span": {
+              "start": {
+                "line": 466,
+                "column": 1
+              },
+              "end": {
+                "line": 473,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 468,
+              "column": 5
+            },
+            "end": {
+              "line": 472,
+              "column": 6
+            }
+          },
+          "replacement": "String::new()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__next.rs_line_468_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_468_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 23.996271708,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.032427709,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:468:5: replace reason -> String with \"xyzzy\".into()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "reason",
+            "return_type": "-> String",
+            "span": {
+              "start": {
+                "line": 466,
+                "column": 1
+              },
+              "end": {
+                "line": 473,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 468,
+              "column": 5
+            },
+            "end": {
+              "line": 472,
+              "column": 6
+            }
+          },
+          "replacement": "\"xyzzy\".into()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__next.rs_line_468_col_5_001.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_468_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 30.156810833,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.052352792,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:477:5: replace join_names -> String with String::new()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "join_names",
+            "return_type": "-> String",
+            "span": {
+              "start": {
+                "line": 475,
+                "column": 1
+              },
+              "end": {
+                "line": 483,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 477,
+              "column": 5
+            },
+            "end": {
+              "line": 482,
+              "column": 6
+            }
+          },
+          "replacement": "String::new()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__next.rs_line_477_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_477_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 29.387859625,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.04454925,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:477:5: replace join_names -> String with \"xyzzy\".into()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "join_names",
+            "return_type": "-> String",
+            "span": {
+              "start": {
+                "line": 475,
+                "column": 1
+              },
+              "end": {
+                "line": 483,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 477,
+              "column": 5
+            },
+            "end": {
+              "line": 482,
+              "column": 6
+            }
+          },
+          "replacement": "\"xyzzy\".into()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__next.rs_line_477_col_5_001.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_477_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 27.326471667,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.048181084,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:487:5: replace is_closed -> bool with true",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "is_closed",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 485,
+                "column": 1
+              },
+              "end": {
+                "line": 488,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 487,
+              "column": 5
+            },
+            "end": {
+              "line": 487,
+              "column": 60
+            }
+          },
+          "replacement": "true",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__next.rs_line_487_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_487_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 34.444238916,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.00398375,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:487:5: replace is_closed -> bool with false",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "is_closed",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 485,
+                "column": 1
+              },
+              "end": {
+                "line": 488,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 487,
+              "column": 5
+            },
+            "end": {
+              "line": 487,
+              "column": 60
+            }
+          },
+          "replacement": "false",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__next.rs_line_487_col_5_001.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_487_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 25.651880625,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.013717166,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:497:5: replace is_live -> bool with true",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "is_live",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 490,
+                "column": 1
+              },
+              "end": {
+                "line": 505,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 497,
+              "column": 5
+            },
+            "end": {
+              "line": 504,
+              "column": 6
+            }
+          },
+          "replacement": "true",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__next.rs_line_497_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_497_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 31.888261542,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.036134584,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:497:5: replace is_live -> bool with false",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "is_live",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 490,
+                "column": 1
+              },
+              "end": {
+                "line": 505,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 497,
+              "column": 5
+            },
+            "end": {
+              "line": 504,
+              "column": 6
+            }
+          },
+          "replacement": "false",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__next.rs_line_497_col_5_001.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_497_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 33.155148125,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.013097792,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:501:9: delete match arm Entity::Task(t) in is_live",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "is_live",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 490,
+                "column": 1
+              },
+              "end": {
+                "line": 505,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 501,
+              "column": 9
+            },
+            "end": {
+              "line": 501,
+              "column": 49
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__next.rs_line_501_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_501_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 37.529743417,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.05157275,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:502:9: delete match arm Entity::Question(q) in is_live",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "is_live",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 490,
+                "column": 1
+              },
+              "end": {
+                "line": 505,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 502,
+              "column": 9
+            },
+            "end": {
+              "line": 502,
+              "column": 57
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__next.rs_line_502_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_502_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 36.012375208,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.007900166,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/next.rs:501:28: delete ! in is_live",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/next.rs",
+          "function": {
+            "function_name": "is_live",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 490,
+                "column": 1
+              },
+              "end": {
+                "line": 505,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 501,
+              "column": 28
+            },
+            "end": {
+              "line": 501,
+              "column": 29
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__next.rs_line_501_col_28.log",
+      "diff_path": "diff/crates__keel-core__src__next.rs_line_501_col_28.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 33.496227041,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.034784167,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/safe_path.rs:49:5: replace validate_repo_relative -> Result<()> with Ok(())",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/safe_path.rs",
+          "function": {
+            "function_name": "validate_repo_relative",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 44,
+                "column": 1
+              },
+              "end": {
+                "line": 99,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 49,
+              "column": 5
+            },
+            "end": {
+              "line": 98,
+              "column": 11
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__safe_path.rs_line_49_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__safe_path.rs_line_49_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 35.689791458,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 14.348327833,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/safe_path.rs:116:5: replace validate_root_path -> Result<()> with Ok(())",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/safe_path.rs",
+          "function": {
+            "function_name": "validate_root_path",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 101,
+                "column": 1
+              },
+              "end": {
+                "line": 143,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 116,
+              "column": 5
+            },
+            "end": {
+              "line": 142,
+              "column": 11
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__safe_path.rs_line_116_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__safe_path.rs_line_116_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 30.738476375,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 15.051609875,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/safe_path.rs:136:8: delete ! in validate_root_path",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/safe_path.rs",
+          "function": {
+            "function_name": "validate_root_path",
+            "return_type": "-> Result<()>",
+            "span": {
+              "start": {
+                "line": 101,
+                "column": 1
+              },
+              "end": {
+                "line": 143,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 136,
+              "column": 8
+            },
+            "end": {
+              "line": 136,
+              "column": 9
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__safe_path.rs_line_136_col_8.log",
+      "diff_path": "diff/crates__keel-core__src__safe_path.rs_line_136_col_8.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 41.013348125,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 11.666777958,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/safe_path.rs:155:5: replace confine -> Result<PathBuf> with Ok(Default::default())",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/safe_path.rs",
+          "function": {
+            "function_name": "confine",
+            "return_type": "-> Result<PathBuf>",
+            "span": {
+              "start": {
+                "line": 145,
+                "column": 1
+              },
+              "end": {
+                "line": 185,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 155,
+              "column": 5
+            },
+            "end": {
+              "line": 184,
+              "column": 15
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__safe_path.rs_line_155_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__safe_path.rs_line_155_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 34.162391333,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 20.2987255,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/safe_path.rs:175:8: delete ! in confine",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/safe_path.rs",
+          "function": {
+            "function_name": "confine",
+            "return_type": "-> Result<PathBuf>",
+            "span": {
+              "start": {
+                "line": 145,
+                "column": 1
+              },
+              "end": {
+                "line": 185,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 175,
+              "column": 8
+            },
+            "end": {
+              "line": 175,
+              "column": 9
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__safe_path.rs_line_175_col_8.log",
+      "diff_path": "diff/crates__keel-core__src__safe_path.rs_line_175_col_8.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 31.719210042,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 13.389537042,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/safe_path.rs:194:5: replace resolve_existing -> PathBuf with Default::default()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/safe_path.rs",
+          "function": {
+            "function_name": "resolve_existing",
+            "return_type": "-> PathBuf",
+            "span": {
+              "start": {
+                "line": 187,
+                "column": 1
+              },
+              "end": {
+                "line": 216,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 194,
+              "column": 5
+            },
+            "end": {
+              "line": 215,
+              "column": 6
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__safe_path.rs_line_194_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__safe_path.rs_line_194_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 28.996576166,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 12.599324791,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/safe_path.rs:206:13: delete match arm (Some(name), Some(parent)) in resolve_existing",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/safe_path.rs",
+          "function": {
+            "function_name": "resolve_existing",
+            "return_type": "-> PathBuf",
+            "span": {
+              "start": {
+                "line": 187,
+                "column": 1
+              },
+              "end": {
+                "line": 216,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 206,
+              "column": 13
+            },
+            "end": {
+              "line": 209,
+              "column": 14
+            }
+          },
+          "replacement": "",
+          "genre": "MatchArm"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__safe_path.rs_line_206_col_13.log",
+      "diff_path": "diff/crates__keel-core__src__safe_path.rs_line_206_col_13.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 27.249558125,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 16.651993833,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:64:5: replace rel_filter -> String with String::new()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "rel_filter",
+            "return_type": "-> String",
+            "span": {
+              "start": {
+                "line": 53,
+                "column": 1
+              },
+              "end": {
+                "line": 78,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 64,
+              "column": 5
+            },
+            "end": {
+              "line": 77,
+              "column": 33
+            }
+          },
+          "replacement": "String::new()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_64_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_64_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 27.450566292,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 18.720528875,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:64:5: replace rel_filter -> String with \"xyzzy\".into()",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "rel_filter",
+            "return_type": "-> String",
+            "span": {
+              "start": {
+                "line": 53,
+                "column": 1
+              },
+              "end": {
+                "line": 78,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 64,
+              "column": 5
+            },
+            "end": {
+              "line": 77,
+              "column": 33
+            }
+          },
+          "replacement": "\"xyzzy\".into()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_64_col_5_001.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_64_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 35.209396791,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 17.465243959,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:86:5: replace columns -> (&'static str, &'static str, &'static str) with (\"\", \"\", \"\")",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "columns",
+            "return_type": "-> (&'static str, &'static str, &'static str)",
+            "span": {
+              "start": {
+                "line": 80,
+                "column": 1
+              },
+              "end": {
+                "line": 90,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 86,
+              "column": 5
+            },
+            "end": {
+              "line": 89,
+              "column": 6
+            }
+          },
+          "replacement": "(\"\", \"\", \"\")",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_86_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_86_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 40.332262958,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 12.713178291,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:86:5: replace columns -> (&'static str, &'static str, &'static str) with (\"\", \"\", \"xyzzy\")",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "columns",
+            "return_type": "-> (&'static str, &'static str, &'static str)",
+            "span": {
+              "start": {
+                "line": 80,
+                "column": 1
+              },
+              "end": {
+                "line": 90,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 86,
+              "column": 5
+            },
+            "end": {
+              "line": 89,
+              "column": 6
+            }
+          },
+          "replacement": "(\"\", \"\", \"xyzzy\")",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_86_col_5_001.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_86_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 30.366900208,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 15.193317208,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:86:5: replace columns -> (&'static str, &'static str, &'static str) with (\"\", \"xyzzy\", \"\")",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "columns",
+            "return_type": "-> (&'static str, &'static str, &'static str)",
+            "span": {
+              "start": {
+                "line": 80,
+                "column": 1
+              },
+              "end": {
+                "line": 90,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 86,
+              "column": 5
+            },
+            "end": {
+              "line": 89,
+              "column": 6
+            }
+          },
+          "replacement": "(\"\", \"xyzzy\", \"\")",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_86_col_5_002.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_86_col_5_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 43.71688175,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 11.952767459,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:86:5: replace columns -> (&'static str, &'static str, &'static str) with (\"\", \"xyzzy\", \"xyzzy\")",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "columns",
+            "return_type": "-> (&'static str, &'static str, &'static str)",
+            "span": {
+              "start": {
+                "line": 80,
+                "column": 1
+              },
+              "end": {
+                "line": 90,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 86,
+              "column": 5
+            },
+            "end": {
+              "line": 89,
+              "column": 6
+            }
+          },
+          "replacement": "(\"\", \"xyzzy\", \"xyzzy\")",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_86_col_5_003.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_86_col_5_003.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 28.81933875,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 16.435078333,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:86:5: replace columns -> (&'static str, &'static str, &'static str) with (\"xyzzy\", \"\", \"\")",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "columns",
+            "return_type": "-> (&'static str, &'static str, &'static str)",
+            "span": {
+              "start": {
+                "line": 80,
+                "column": 1
+              },
+              "end": {
+                "line": 90,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 86,
+              "column": 5
+            },
+            "end": {
+              "line": 89,
+              "column": 6
+            }
+          },
+          "replacement": "(\"xyzzy\", \"\", \"\")",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_86_col_5_004.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_86_col_5_004.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 30.926049334,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 12.741234666,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:86:5: replace columns -> (&'static str, &'static str, &'static str) with (\"xyzzy\", \"\", \"xyzzy\")",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "columns",
+            "return_type": "-> (&'static str, &'static str, &'static str)",
+            "span": {
+              "start": {
+                "line": 80,
+                "column": 1
+              },
+              "end": {
+                "line": 90,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 86,
+              "column": 5
+            },
+            "end": {
+              "line": 89,
+              "column": 6
+            }
+          },
+          "replacement": "(\"xyzzy\", \"\", \"xyzzy\")",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_86_col_5_005.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_86_col_5_005.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 27.638938417,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 16.084298375,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:86:5: replace columns -> (&'static str, &'static str, &'static str) with (\"xyzzy\", \"xyzzy\", \"\")",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "columns",
+            "return_type": "-> (&'static str, &'static str, &'static str)",
+            "span": {
+              "start": {
+                "line": 80,
+                "column": 1
+              },
+              "end": {
+                "line": 90,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 86,
+              "column": 5
+            },
+            "end": {
+              "line": 89,
+              "column": 6
+            }
+          },
+          "replacement": "(\"xyzzy\", \"xyzzy\", \"\")",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_86_col_5_006.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_86_col_5_006.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 35.289291458,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 12.036517833,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:86:5: replace columns -> (&'static str, &'static str, &'static str) with (\"xyzzy\", \"xyzzy\", \"xyzzy\")",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "columns",
+            "return_type": "-> (&'static str, &'static str, &'static str)",
+            "span": {
+              "start": {
+                "line": 80,
+                "column": 1
+              },
+              "end": {
+                "line": 90,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 86,
+              "column": 5
+            },
+            "end": {
+              "line": 89,
+              "column": 6
+            }
+          },
+          "replacement": "(\"xyzzy\", \"xyzzy\", \"xyzzy\")",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_86_col_5_007.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_86_col_5_007.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 35.07026375,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 14.031756916,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:94:5: replace read_neighbour -> Result<Neighbour> with Ok(Default::default())",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "read_neighbour",
+            "return_type": "-> Result<Neighbour>",
+            "span": {
+              "start": {
+                "line": 92,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 94,
+              "column": 5
+            },
+            "end": {
+              "line": 135,
+              "column": 7
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_94_col_5.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_94_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 6.173711042,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:115:48: delete ! in read_neighbour",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "read_neighbour",
+            "return_type": "-> Result<Neighbour>",
+            "span": {
+              "start": {
+                "line": 92,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 115,
+              "column": 48
+            },
+            "end": {
+              "line": 115,
+              "column": 49
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_115_col_48.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_115_col_48.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 34.293961417,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 11.628328083,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:146:9: replace <impl GraphStore for Store>::neighbours -> Result<Vec<Neighbour>> with Ok(vec![])",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "<impl GraphStore for Store>::neighbours",
+            "return_type": "-> Result<Vec<Neighbour>>",
+            "span": {
+              "start": {
+                "line": 139,
+                "column": 5
+              },
+              "end": {
+                "line": 225,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 146,
+              "column": 9
+            },
+            "end": {
+              "line": 224,
+              "column": 16
+            }
+          },
+          "replacement": "Ok(vec![])",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_146_col_9.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_146_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 32.797568584,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 14.806765083,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:146:9: replace <impl GraphStore for Store>::neighbours -> Result<Vec<Neighbour>> with Ok(vec![Default::default()])",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "<impl GraphStore for Store>::neighbours",
+            "return_type": "-> Result<Vec<Neighbour>>",
+            "span": {
+              "start": {
+                "line": 139,
+                "column": 5
+              },
+              "end": {
+                "line": 225,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 146,
+              "column": 9
+            },
+            "end": {
+              "line": 224,
+              "column": 16
+            }
+          },
+          "replacement": "Ok(vec![Default::default()])",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_146_col_9_001.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_146_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 4.537629625,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:148:22: replace == with != in <impl GraphStore for Store>::neighbours",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "<impl GraphStore for Store>::neighbours",
+            "return_type": "-> Result<Vec<Neighbour>>",
+            "span": {
+              "start": {
+                "line": 139,
+                "column": 5
+              },
+              "end": {
+                "line": 225,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 148,
+              "column": 22
+            },
+            "end": {
+              "line": 148,
+              "column": 24
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_148_col_22.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_148_col_22.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 27.986407375,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 20.54930575,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:158:39: replace match guard existing.depth > n.depth with true in <impl GraphStore for Store>::neighbours",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "<impl GraphStore for Store>::neighbours",
+            "return_type": "-> Result<Vec<Neighbour>>",
+            "span": {
+              "start": {
+                "line": 139,
+                "column": 5
+              },
+              "end": {
+                "line": 225,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 158,
+              "column": 39
+            },
+            "end": {
+              "line": 158,
+              "column": 63
+            }
+          },
+          "replacement": "true",
+          "genre": "MatchArmGuard"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_158_col_39.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_158_col_39.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 33.595220708,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.021177416,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/keel-core/src/store/graph.rs:158:39: replace match guard existing.depth > n.depth with false in <impl GraphStore for Store>::neighbours",
+          "package": "keel-core",
+          "file": "crates/keel-core/src/store/graph.rs",
+          "function": {
+            "function_name": "<impl GraphStore for Store>::neighbours",
+            "return_type": "-> Result<Vec<Neighbour>>",
+            "span": {
+              "start": {
+                "line": 139,
+                "column": 5
+              },
+              "end": {
+                "line": 225,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 158,
+              "column": 39
+            },
+            "end": {
+              "line": 158,
+              "column": 63
+            }
+          },
+          "replacement": "false",
+          "genre": "MatchArmGuard"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/crates__keel-core__src__store__graph.rs_line_158_col_39_001.log",
+      "diff_path": "diff/crates__keel-core__src__store__graph.rs_line_158_col_39_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 37.246586125,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 120.051784958,
+          "process_status": "Timeout",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=keel-core@0.1.0"
+          ]
+        }
+      ]
+    }
+  ],
+  "total_mutants": 99,
+  "missed": 12,
+  "caught": 56,
+  "timeout": 15,
+  "unviable": 16,
+  "success": 0,
+  "start_time": "2026-08-12T09:18:17.02329Z",
+  "end_time": null,
+  "cargo_mutants_version": "27.1.0"
+}

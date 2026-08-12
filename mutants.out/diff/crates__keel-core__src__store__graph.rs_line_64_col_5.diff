@@ -1,0 +1,34 @@
+--- crates/keel-core/src/store/graph.rs
++++ replace rel_filter -> String with String::new()
+@@ -56,30 +56,17 @@
+ /// there is no caller-supplied string anywhere in the output — and a bound `IN`
+ /// list would need a placeholder count that varies with the argument.
+ ///
+ /// An empty request means every stored relation. A request naming only
+ /// `depends_on` collapses to `FALSE`: it is never written, so the truthful
+ /// answer is "no edges match" and not "all of them", which is what dropping an
+ /// empty filter would have said.
+ fn rel_filter(rels: &[Relation]) -> String {
+-    let effective: Vec<Relation> = if rels.is_empty() {
+-        Relation::STORED.to_vec()
+-    } else {
+-        rels.iter().copied().filter(|r| r.is_stored()).collect()
+-    };
+-    if effective.is_empty() {
+-        return "0".to_owned();
+-    }
+-    let list = effective
+-        .iter()
+-        .map(|r| format!("'{}'", r.as_str()))
+-        .collect::<Vec<_>>()
+-        .join(", ");
+-    format!("l.rel IN ({list})")
++    String::new() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// The columns a traversal matches on and yields, for one direction.
+ ///
+ /// `Both` is expanded into two walks before reaching SQL, so it never arrives
+ /// here; it borrows `Inbound`'s columns to keep the match exhaustive without a
+ /// panic.
+ fn columns(direction: Direction) -> (&'static str, &'static str, &'static str) {

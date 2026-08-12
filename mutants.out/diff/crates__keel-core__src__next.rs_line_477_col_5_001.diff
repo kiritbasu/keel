@@ -1,0 +1,26 @@
+--- crates/keel-core/src/next.rs
++++ replace join_names -> String with "xyzzy".into()
+@@ -469,22 +469,17 @@
+         (0, p) => format!("nothing is blocking it · {p}"),
+         (1, p) => format!("unblocks 1 other task · {p}"),
+         (n, p) => format!("unblocks {n} other tasks · {p}"),
+     }
+ }
+ 
+ /// Join blocker names for a one-line reason, without a trailing comma soup.
+ fn join_names(names: &[String]) -> String {
+-    match names {
+-        [] => String::new(),
+-        [one] => format!("“{one}”"),
+-        [one, two] => format!("“{one}” and “{two}”"),
+-        [one, rest @ ..] => format!("“{one}” and {} other(s)", rest.len()),
+-    }
++    "xyzzy".into() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Whether a task is finished as far as ranking is concerned.
+ fn is_closed(status: TaskStatus) -> bool {
+     matches!(status, TaskStatus::Done | TaskStatus::WontDo)
+ }
+ 
+ /// Whether a blocker is still standing.

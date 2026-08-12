@@ -1,0 +1,47 @@
+--- crates/keel-core/src/safe_path.rs
++++ replace validate_root_path -> Result<()> with Ok(())
+@@ -108,43 +108,17 @@
+ /// rather than an error.
+ ///
+ /// `~` is accepted here and only here, because a human types this one into
+ /// `keel adopt` and `~/development/keel` is what they mean. Nothing in Keel
+ /// expands it, so the path is stored as written and resolved by whatever runs
+ /// the generate — this is a check on the shape, not a promise about the
+ /// filesystem.
+ pub fn validate_root_path(value: &str) -> Result<()> {
+-    let refuse = |problem: String| {
+-        Err(Error::Invalid {
+-            entity_type: EntityType::Project,
+-            field: "root_path".to_owned(),
+-            problem,
+-            expected: "an absolute path to the project's checkout, for example \
+-                       `/Users/you/development/keel` or `~/development/keel`"
+-                .to_owned(),
+-        })
+-    };
+-
+-    if value.is_empty() {
+-        return refuse("the path is empty".to_owned());
+-    }
+-    if value.contains('\0') {
+-        return refuse("the path contains a NUL byte".to_owned());
+-    }
+-    if value.starts_with('~') {
+-        return Ok(());
+-    }
+-    if !Path::new(value).is_absolute() {
+-        return refuse(format!(
+-            "`{value}` is relative, so which repository it names depends on where the daemon \
+-             was started"
+-        ));
+-    }
+-    Ok(())
++    Ok(()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Join a repo-relative path onto a root, refusing anything that escapes it.
+ ///
+ /// The second layer, run immediately before every write. It repeats
+ /// [`validate_repo_relative`]'s lexical checks — cheap — and adds the one they
+ /// cannot do: resolving both sides and asserting the target is still underneath
+ /// the root, which is what catches a symlinked directory inside the repository.

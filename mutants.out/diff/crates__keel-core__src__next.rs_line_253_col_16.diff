@@ -1,0 +1,21 @@
+--- crates/keel-core/src/next.rs
++++ delete ! in rank
+@@ -245,17 +245,17 @@
+         let mut blockers: Vec<String> = Vec::new();
+         for blocker in blockers_of.get(&task.id).map(Vec::as_slice).unwrap_or(&[]) {
+             if let Some(entity) = known.get(*blocker) {
+                 if is_live(entity) {
+                     blockers.push(entity.label().to_owned());
+                 }
+                 continue;
+             }
+-            if !fetched.contains_key(*blocker) {
++            if  /* ~ changed by cargo-mutants ~ */fetched.contains_key(*blocker) {
+                 let resolved = match store.get(blocker) {
+                     Ok(found) => found,
+                     Err(e) => {
+                         tracing::warn!(
+                             task = %task.id,
+                             blocker = %blocker,
+                             error = %e,
+                             "could not read a blocker while ranking"

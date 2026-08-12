@@ -1,0 +1,21 @@
+--- crates/keel-core/src/next.rs
++++ delete match arm Entity::Task(t) in ready
+@@ -403,17 +403,17 @@
+             Entity::Task(t) => t.parent_id.clone(),
+             _ => None,
+         })
+         .collect();
+     let by_id: std::collections::HashMap<&EntityId, &crate::Task> = page
+         .items
+         .iter()
+         .filter_map(|e| match e {
+-            Entity::Task(t) => Some((&t.id, t)),
++             /* ~ changed by cargo-mutants ~ */
+             _ => None,
+         })
+         .collect();
+ 
+     let now = chrono::Utc::now();
+     let mut items: Vec<Candidate> = Vec::new();
+     for candidate in ranked.ready {
+         let Some(task) = by_id.get(&candidate.id) else {

@@ -1,0 +1,23 @@
+--- crates/keel-core/src/id.rs
++++ replace minted_at -> Option<chrono::DateTime<chrono::Utc>> with Some(DateTime::new(Default::default()))
+@@ -71,19 +71,17 @@
+ /// string is not a prefixed ULID at all.
+ ///
+ /// This is a *claim*, not a fact: it is whatever the clock said on the machine
+ /// that minted it. That is exactly what makes it worth reading — an id whose
+ /// stamp is in the future is how a clock step announces itself, and comparing
+ /// the newest id against the wall clock is the cheapest sanity check available
+ /// for the ordering everything else assumes.
+ pub fn minted_at(id: &str) -> Option<chrono::DateTime<chrono::Utc>> {
+-    let body = id.split_once('_').map_or(id, |(_, rest)| rest);
+-    let ulid = ulid::Ulid::from_string(body).ok()?;
+-    chrono::DateTime::from_timestamp_millis(i64::try_from(ulid.timestamp_ms()).ok()?)
++    Some(DateTime::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// The process-wide monotonic ULID source.
+ ///
+ /// **This must not be replaced with `Ulid::new()`.** A plain ULID re-randomises
+ /// its 80 low bits on every call, so two ids minted in the same millisecond
+ /// sort arbitrarily with respect to each other. SPEC §3.4 relies on ULID order
+ /// *being* chronological order so that "everything that changed since T" is a

@@ -325,27 +325,6 @@ export const api = {
     limit?: number;
   }) => get<Page<Entity>>("/api/entities", { ...params, limit: params.limit ?? 500 }),
 
-  /**
-   * Metrics and their observations, for one project.
-   *
-   * Two reads rather than one endpoint: observations are their own artifact
-   * type, and a metric with a thousand points should not be forced through the
-   * same response as one with three.
-   */
-  metrics: (project: string) =>
-    get<{ items: Entity[]; total: number }>("/api/entities", {
-      project,
-      type: "metric",
-      limit: 200,
-    }),
-
-  observations: (project: string) =>
-    get<{ items: Entity[]; total: number }>("/api/entities", {
-      project,
-      type: "metric_observation",
-      limit: 5000,
-    }),
-
   entity: (id: string, depth = 0) =>
     get<{ artifacts: Array<{ entity: Entity; document?: DocumentBody; neighbours?: Neighbour[] }> }>(
       `/api/entity/${id}`,

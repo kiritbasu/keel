@@ -118,7 +118,11 @@ describe("navigation keys", () => {
   it("moves to a global screen and puts it in the address", async () => {
     render(<App />);
     await settle();
-    fireEvent.keyDown(window, { key: "8" });
+    // 7, not 8. Removing the Metrics screen closed the gap it left rather than
+    // leaving a number bound to nothing, so the global screens each moved down
+    // one. This test failing is what a shortcut change is supposed to look
+    // like — the numbers are a contract with whoever has learnt them.
+    fireEvent.keyDown(window, { key: "7" });
     await waitFor(() => expect(window.location.hash).toBe("#/search"));
   });
 

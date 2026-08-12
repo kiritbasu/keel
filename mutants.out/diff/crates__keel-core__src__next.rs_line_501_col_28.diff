@@ -1,0 +1,17 @@
+--- crates/keel-core/src/next.rs
++++ delete ! in is_live
+@@ -493,13 +493,13 @@
+ /// a decision, an open question — still counts, because there is no general
+ /// notion of a "finished" spec and assuming one would quietly release work
+ /// that is genuinely waiting.
+ fn is_live(entity: &Entity) -> bool {
+     if entity.audit().archived_at.is_some() {
+         return false;
+     }
+     match entity {
+-        Entity::Task(t) => !is_closed(t.status),
++        Entity::Task(t) =>  /* ~ changed by cargo-mutants ~ */is_closed(t.status),
+         Entity::Question(q) => q.status.is_unresolved(),
+         _ => true,
+     }
+ }

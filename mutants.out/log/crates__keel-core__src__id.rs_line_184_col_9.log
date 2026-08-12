@@ -1,0 +1,151 @@
+
+*** crates/keel-core/src/id.rs:184:9: replace EntityId::generate -> Self with Default::default()
+
+*** mutation diff:
+--- crates/keel-core/src/id.rs
++++ replace EntityId::generate -> Self with Default::default()
+@@ -176,17 +176,17 @@
+         let raw = String::deserialize(deserializer)?;
+         EntityId::parse(&raw).map_err(serde::de::Error::custom)
+     }
+ }
+ 
+ impl EntityId {
+     /// Mint a new identifier for `entity_type`.
+     pub fn generate(entity_type: EntityType) -> Self {
+-        EntityId(mint(entity_type.prefix()))
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Parse and validate an identifier, recovering its type from the prefix.
+     pub fn parse(supplied: &str) -> Result<Self> {
+         let (prefix, _) = split(
+             supplied,
+             "a prefixed ULID such as `tsk_01H8XK4RPVBQ2N7DZM9C3FGTWY`",
+         )?;
+
+
+*** cargo test --no-run --verbose --package=keel-core@0.1.0
+       Fresh unicode-ident v1.0.24
+       Fresh cfg-if v1.0.4
+       Fresh memchr v2.8.3
+       Fresh shlex v2.0.1
+       Fresh find-msvc-tools v0.1.10
+       Fresh libc v0.2.189
+       Fresh cc v1.4.2
+       Fresh version_check v0.9.5
+       Fresh once_cell v1.21.4
+       Fresh proc-macro2 v1.0.107
+       Fresh serde_core v1.0.229
+       Fresh autocfg v1.5.1
+       Fresh bitflags v2.13.1
+       Fresh quote v1.0.47
+       Fresh getrandom v0.3.4
+       Fresh zerocopy v0.8.56
+       Fresh typenum v1.20.1
+       Fresh syn v3.0.3
+       Fresh syn v2.0.119
+       Fresh rand_core v0.9.5
+       Fresh generic-array v0.14.7
+       Fresh ppv-lite86 v0.2.21
+       Fresh errno v0.3.14
+       Fresh pkg-config v0.3.33
+       Fresh serde_derive v1.0.229
+       Fresh vcpkg v0.2.15
+       Fresh ucd-trie v0.1.7
+       Fresh num-traits v0.2.19
+       Fresh getrandom v0.4.3
+       Fresh rand_chacha v0.9.0
+       Fresh rustix v1.1.4
+       Fresh core-foundation-sys v0.8.7
+       Fresh serde v1.0.229
+       Fresh pest v2.8.8
+       Fresh fastrand v2.5.0
+       Fresh regex-syntax v0.8.11
+       Fresh foldhash v0.2.0
+       Fresh rand v0.9.5
+       Fresh tempfile v3.27.0
+       Fresh pest_meta v2.8.8
+       Fresh zmij v1.0.23
+       Fresh hashbrown v0.17.1
+       Fresh iana-time-zone v0.1.65
+       Fresh block-buffer v0.10.4
+       Fresh crypto-common v0.1.7
+       Fresh itoa v1.0.18
+       Fresh libsqlite3-sys v0.38.2
+       Fresh pest_generator v2.8.8
+       Fresh digest v0.10.7
+       Fresh chrono v0.4.45
+       Fresh hashlink v0.12.1
+       Fresh regex-automata v0.4.18
+       Fresh serde_json v1.0.151
+       Fresh thiserror-impl v2.0.20
+       Fresh tracing-attributes v0.1.31
+       Fresh cpufeatures v0.2.17
+       Fresh tracing-core v0.1.36
+       Fresh wait-timeout v0.2.1
+       Fresh vte v0.14.1
+       Fresh bit-vec v0.8.0
+       Fresh pin-project-lite v0.2.17
+       Fresh fnv v1.0.7
+       Fresh fallible-iterator v0.3.0
+       Fresh quick-error v1.2.3
+       Fresh similar v2.7.0
+       Fresh fallible-streaming-iterator v0.1.9
+       Fresh smallvec v1.15.2
+       Fresh strip-ansi-escapes v0.2.1
+       Fresh tracing v0.1.44
+       Fresh rusty-fork v0.3.1
+       Fresh bit-set v0.8.0
+       Fresh rusqlite v0.40.2
+       Fresh sha2 v0.10.9
+       Fresh thiserror v2.0.20
+       Fresh sqlite-vec v0.1.9
+       Fresh regex v1.13.1
+       Fresh pest_derive v2.8.8
+       Fresh ulid v1.2.1
+       Fresh rand_xorshift v0.4.0
+       Fresh console v0.16.4
+       Fresh unarray v0.1.4
+       Fresh proptest v1.11.0
+       Fresh insta v1.48.0
+       Dirty keel-core v0.1.0 (/Users/h8hcn/development/keel/crates/keel-core): couldn't read metadata for file `target/debug/deps/libkeel_core-cf5205aeb94abfbc.rlib`
+   Compiling keel-core v0.1.0 (/Users/h8hcn/development/keel/crates/keel-core)
+     Running `rustc --crate-name keel_core --edition=2024 crates/keel-core/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=97f787510cb23fe5 -C extra-filename=-cf5205aeb94abfbc --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rmeta --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rmeta --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rmeta --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rmeta --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rmeta --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rmeta --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rmeta --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rmeta --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rmeta --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rmeta -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+     Running `rustc --crate-name keel_core --edition=2024 crates/keel-core/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=25323da1add37b75 -C extra-filename=-279a147f4e501f75 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out`
+error[E0277]: the trait bound `EntityId: Default` is not satisfied
+   --> crates/keel-core/src/id.rs:184:9
+    |
+184 |         Default::default() /* ~ changed by cargo-mutants ~ */
+    |         ^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `EntityId`
+    |
+help: consider annotating `EntityId` with `#[derive(Default)]`
+    |
+157 + #[derive(Default)]
+158 | pub struct EntityId(String);
+    |
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `keel-core` (lib) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `rustc --crate-name keel_core --edition=2024 crates/keel-core/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=97f787510cb23fe5 -C extra-filename=-cf5205aeb94abfbc --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rmeta --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rmeta --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rmeta --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rmeta --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rmeta --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rmeta --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rmeta --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rmeta --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rmeta --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rmeta -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out` (exit status: 1)
+warning: build failed, waiting for other jobs to finish...
+error[E0277]: the trait bound `id::EntityId: Default` is not satisfied
+   --> crates/keel-core/src/id.rs:184:9
+    |
+184 |         Default::default() /* ~ changed by cargo-mutants ~ */
+    |         ^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `id::EntityId`
+    |
+help: consider annotating `id::EntityId` with `#[derive(Default)]`
+    |
+157 + #[derive(Default)]
+158 | pub struct EntityId(String);
+    |
+
+error: could not compile `keel-core` (lib test) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `rustc --crate-name keel_core --edition=2024 crates/keel-core/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked '--warn=clippy::unwrap_used' --deny=unsafe_code '--warn=clippy::unimplemented' '--warn=clippy::todo' '--warn=clippy::panic' --warn=missing_docs '--warn=clippy::expect_used' '--deny=clippy::await_holding_lock' --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=25323da1add37b75 -C extra-filename=-279a147f4e501f75 --out-dir /Users/h8hcn/development/keel/target/debug/deps -C incremental=/Users/h8hcn/development/keel/target/debug/incremental -L dependency=/Users/h8hcn/development/keel/target/debug/deps --extern chrono=/Users/h8hcn/development/keel/target/debug/deps/libchrono-68521a76136205ca.rlib --extern insta=/Users/h8hcn/development/keel/target/debug/deps/libinsta-736cd5717a7d1fc5.rlib --extern proptest=/Users/h8hcn/development/keel/target/debug/deps/libproptest-178bbb40e9c5b143.rlib --extern rusqlite=/Users/h8hcn/development/keel/target/debug/deps/librusqlite-e8255126c43062e5.rlib --extern serde=/Users/h8hcn/development/keel/target/debug/deps/libserde-6ab94e42765b5bbd.rlib --extern serde_json=/Users/h8hcn/development/keel/target/debug/deps/libserde_json-298f76e30eb3635b.rlib --extern sha2=/Users/h8hcn/development/keel/target/debug/deps/libsha2-4b5a55b6a37f44c7.rlib --extern similar=/Users/h8hcn/development/keel/target/debug/deps/libsimilar-900cffa59de07a92.rlib --extern sqlite_vec=/Users/h8hcn/development/keel/target/debug/deps/libsqlite_vec-03bec744becf6299.rlib --extern tempfile=/Users/h8hcn/development/keel/target/debug/deps/libtempfile-3ec5f1edb82139fd.rlib --extern thiserror=/Users/h8hcn/development/keel/target/debug/deps/libthiserror-2266d8120b76df9b.rlib --extern tracing=/Users/h8hcn/development/keel/target/debug/deps/libtracing-9b62bc26da30b13e.rlib --extern ulid=/Users/h8hcn/development/keel/target/debug/deps/libulid-bb2b758ed477ae76.rlib -L native=/Users/h8hcn/development/keel/target/debug/build/libsqlite3-sys-9c673c7e23c0e18a/out -L native=/Users/h8hcn/development/keel/target/debug/build/sqlite-vec-1ba507c9f20a1e37/out` (exit status: 1)
+
+*** result: Failure(101)

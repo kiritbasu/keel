@@ -1,0 +1,21 @@
+--- crates/keel-core/src/id.rs
++++ replace + with * in ensure_above
+@@ -47,17 +47,17 @@
+     let now_ms = std::time::SystemTime::now()
+         .duration_since(std::time::UNIX_EPOCH)
+         .map(|d| d.as_millis())
+         .unwrap_or(0);
+     if u128::from(stored.timestamp_ms()) < now_ms {
+         return false;
+     }
+ 
+-    let ahead = std::time::UNIX_EPOCH + std::time::Duration::from_millis(stored.timestamp_ms() + 1);
++    let ahead = std::time::UNIX_EPOCH + std::time::Duration::from_millis(stored.timestamp_ms() * /* ~ changed by cargo-mutants ~ */ 1);
+     match GENERATOR.lock() {
+         Ok(mut guard) => {
+             let _ = guard.generate_from_datetime(ahead);
+         }
+         Err(poisoned) => {
+             let _ = poisoned.into_inner().generate_from_datetime(ahead);
+         }
+     }

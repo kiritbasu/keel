@@ -1,0 +1,95 @@
+--- crates/keel-core/src/next.rs
++++ replace ready -> Result<Ready> with Ok(Default::default())
+@@ -381,91 +381,17 @@
+ /// This adds the front door and the filters, and it is the one computation the
+ /// CLI, the MCP tool and the app all read — which is what stops the app showing
+ /// a different answer from the one a session was given.
+ pub fn ready(
+     store: &(impl EntityStore + GraphStore),
+     project_id: &EntityId,
+     filter: &ReadyFilter,
+ ) -> Result<Ready> {
+-    let ranked = rank(store, project_id)?;
+-
+-    // Parents are excluded by id, which needs the whole task list rather than
+-    // only the ranked one: a parent whose children are all done is still a
+-    // parent, and its child may be closed and therefore absent from `ranked`.
+-    let page = store.list(
+-        &EntityQuery::in_project(project_id.clone())
+-            .of_type(EntityType::Task)
+-            .limited(5_000),
+-    )?;
+-    let parents: std::collections::HashSet<EntityId> = page
+-        .items
+-        .iter()
+-        .filter_map(|e| match e {
+-            Entity::Task(t) => t.parent_id.clone(),
+-            _ => None,
+-        })
+-        .collect();
+-    let by_id: std::collections::HashMap<&EntityId, &crate::Task> = page
+-        .items
+-        .iter()
+-        .filter_map(|e| match e {
+-            Entity::Task(t) => Some((&t.id, t)),
+-            _ => None,
+-        })
+-        .collect();
+-
+-    let now = chrono::Utc::now();
+-    let mut items: Vec<Candidate> = Vec::new();
+-    for candidate in ranked.ready {
+-        let Some(task) = by_id.get(&candidate.id) else {
+-            continue;
+-        };
+-        if parents.contains(&candidate.id) {
+-            continue;
+-        }
+-        if filter.unclaimed && task.claim_is_live(now) {
+-            continue;
+-        }
+-        if !filter
+-            .labels
+-            .iter()
+-            .all(|want| task.labels.iter().any(|l| l == want))
+-        {
+-            continue;
+-        }
+-        if filter
+-            .without_labels
+-            .iter()
+-            .any(|skip| task.labels.iter().any(|l| l == skip))
+-        {
+-            continue;
+-        }
+-        if let Some(milestone) = &filter.milestone
+-            && task.milestone_id.as_ref() != Some(milestone)
+-        {
+-            continue;
+-        }
+-        items.push(candidate);
+-    }
+-
+-    let total = items.len();
+-    let truncated = match filter.limit {
+-        Some(limit) if total > limit => {
+-            items.truncate(limit);
+-            true
+-        }
+-        _ => false,
+-    };
+-
+-    Ok(Ready {
+-        items,
+-        total,
+-        truncated,
+-    })
++    Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Why a ready task sits where it does.
+ fn reason(unblocks: usize, priority: &str) -> String {
+     match (unblocks, priority) {
+         (0, p) => format!("nothing is blocking it · {p}"),
+         (1, p) => format!("unblocks 1 other task · {p}"),
+         (n, p) => format!("unblocks {n} other tasks · {p}"),
