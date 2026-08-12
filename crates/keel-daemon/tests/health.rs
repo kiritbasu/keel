@@ -6,11 +6,26 @@
 //! thirty seconds made health hang for thirty seconds — the CLI concluded the
 //! daemon was unreachable and opened the store itself. The probe produced the
 //! second writer it existed to prevent.
+//!
+//! # Why these tests have no sleeps in them
+//!
+//! A first draft held the lock for a fixed 600 ms and asserted health returned
+//! inside 400 ms. It passed alone and failed once under a full `cargo test
+//! --workspace`, where the machine is loaded and 400 ms of wall clock means
+//! nothing. A timing assertion that cries wolf is worse than none: it teaches
+//! whoever sees it to re-run rather than look.
+//!
+//! So the lock is held until the test says otherwise, and the assertion is a
+//! generous timeout. Without the fix health waits for a lock nothing will
+//! release, so the timeout fires every time; with it, health answers at once
+//! and the number is never close to the boundary.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use keel_daemon::{AppState, http::router};
 use serde_json::Value;
+use std::sync::mpsc;
+use std::time::Duration;
 
 /// Start a daemon and keep a handle on its state, so a test can hold the lock
 /// the way a slow request would.
@@ -37,6 +52,39 @@ async fn health(base: &str) -> Value {
         .unwrap()
 }
 
+/// Holds the store lock on another thread until told to let go.
+///
+/// The guard cannot be held across an await here — a `std::sync::MutexGuard`
+/// across an await is what deadlocks a single-threaded runtime, and clippy
+/// refuses it even in a test — so it lives on a thread, and the channels make
+/// the handover deterministic rather than timed.
+struct HeldLock {
+    release: mpsc::Sender<()>,
+    thread: std::thread::JoinHandle<()>,
+}
+
+impl HeldLock {
+    fn take(state: AppState) -> Self {
+        let (acquired, wait_for_acquired) = mpsc::channel();
+        let (release, wait_for_release) = mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            let guard = state.store();
+            acquired.send(()).expect("report that the lock is held");
+            let _ = wait_for_release.recv();
+            drop(guard);
+        });
+        wait_for_acquired
+            .recv()
+            .expect("the lock was taken before the test continued");
+        HeldLock { release, thread }
+    }
+
+    fn give_back(self) {
+        let _ = self.release.send(());
+        self.thread.join().unwrap();
+    }
+}
+
 #[tokio::test]
 async fn health_answers_while_another_request_holds_the_store() {
     let (base, state, _dir) = daemon().await;
@@ -46,54 +94,37 @@ async fn health_answers_while_another_request_holds_the_store() {
     assert_eq!(first["status"], "ok");
     assert_eq!(first["store_busy"], false);
 
-    // Now hold the lock, as a slow generate or an embed would.
-    let held = std::thread::spawn(move || {
-        let guard = state.store();
-        std::thread::sleep(std::time::Duration::from_millis(600));
-        drop(guard);
-    });
+    let held = HeldLock::take(state);
 
-    // The whole point: this returns rather than waiting for the lock.
-    let started = std::time::Instant::now();
-    let busy = tokio::time::timeout(std::time::Duration::from_millis(400), health(&base))
+    let busy = tokio::time::timeout(Duration::from_secs(2), health(&base))
         .await
-        .expect("health blocked on the store lock — the probe is the bug again");
-    let elapsed = started.elapsed();
+        .expect("health waited for the store lock — the probe is the bug again");
 
     assert_eq!(busy["status"], "ok");
     assert_eq!(
         busy["store_busy"], true,
         "a health answer given without the store must say the numbers may be stale"
     );
-    assert!(
-        elapsed < std::time::Duration::from_millis(400),
-        "health took {elapsed:?}, which means it waited for the lock"
+    assert_eq!(
+        busy["projects"], 0,
+        "it should report the last count it saw rather than inventing one"
     );
 
-    held.join().unwrap();
+    held.give_back();
 
     // And once the lock is free it reads the store again.
     let after = health(&base).await;
     assert_eq!(after["store_busy"], false);
 }
 
-/// A busy daemon reports the last count it knew rather than inventing one, and
-/// never claims to be down.
+/// A busy daemon still says what it is, so a version check against health does
+/// not turn into an outage the moment a write runs long.
 #[tokio::test]
 async fn a_busy_daemon_still_reports_its_version_and_protocol() {
     let (base, state, _dir) = daemon().await;
+    let held = HeldLock::take(state);
 
-    // The guard is held on another thread rather than across the await here.
-    // Holding a std Mutex across an await is the thing that deadlocks a
-    // single-threaded runtime, and clippy is right to refuse it even in a test.
-    let (release, wait) = std::sync::mpsc::channel::<()>();
-    let held = std::thread::spawn(move || {
-        let guard = state.store();
-        let _ = wait.recv();
-        drop(guard);
-    });
-
-    let busy = tokio::time::timeout(std::time::Duration::from_millis(400), health(&base))
+    let busy = tokio::time::timeout(Duration::from_secs(2), health(&base))
         .await
         .expect("health must not wait for the store lock");
 
@@ -101,6 +132,5 @@ async fn a_busy_daemon_still_reports_its_version_and_protocol() {
     assert!(busy["version"].is_string());
     assert!(busy["protocol"].is_string());
 
-    let _ = release.send(());
-    held.join().unwrap();
+    held.give_back();
 }
