@@ -62,6 +62,8 @@ Every decision made while building, with the reasoning and what was rejected. In
 | B-49 | [Reading an image off the disk is a field, not a fourteenth tool](#b-49) | `accepted` |
 | B-50 | [A glossary term can declare which type it is a spelling of](#b-50) | `accepted` |
 | B-51 | [Phase 9 runs before Phase 10, and DuckDB and Lance come out of the tree entirely](#b-51) | `accepted` |
+| B-52 | [Taking the payload out of a tool result is one named function, not two lines](#b-52) | `accepted` |
+| B-53 | [The write-path atomicity fix: &Connection primitives, transaction-of-one, one typed composite on Store](#b-53) | `proposed` |
 
 ## Reversals
 
@@ -1206,4 +1208,33 @@ The work happens on a branch, not on master. Master keeps a working store until 
 
 A third thing joins the phase that the spec does not name: a measurement of what the app and the daemon actually cost to load, taken before the swap and repeated after. Without a before, "SQLite made it faster" is a thing nobody can check, and the intermittent board stall KB reports has never been measured at all.
 
+
+### B-52 — Taking the payload out of a tool result is one named function, not two lines
+
+`accepted` · `dec_01KZSKKGWMG73H09G4Q20XMDSZ`
+
+#### Context
+
+`dispatch` returns the MCP `tools/call` envelope — `{content, structuredContent, isError}`. Three surfaces are not speaking MCP and need what is inside it: the CLI's daemon call, the CLI's fall-back-to-the-store, and the daemon's own `/api` responses. Each had its own copy of the same two lines, and the CLI's fallback did not have them at all.
+
+The result was KEEL-133. `keel ready` printed "nothing ready" whenever no daemon was listening, for as long as that path has existed.
+
+#### Decision
+
+`keel_mcp::structured` and `keel_mcp::summary_text`, used by all three.
+
+#### Reasoning
+
+Forgetting the unwrap is invisible. The envelope is a perfectly good JSON object, so `.get("ready")` on it returns `None` rather than failing, and every renderer here reads a missing field as an absent value — which for a list means an empty list, and an empty list has a sentence of its own that sounds like an answer. The failure mode is the one the standing instructions single out for graph direction: a plausible, calm, empty result.
+
+Two lines copied three times is not worth naming for its own sake. Two lines whose absence is undetectable is.
+
+The CLI now has one `run_tool` rather than a copy per command, and the unwrap sits inside `directly` — so it is not something a new caller has to remember, which is the part that failed.
+
+
+### B-53 — The write-path atomicity fix: &Connection primitives, transaction-of-one, one typed composite on Store
+
+`proposed` · `dec_01KZSQJ05N4TSXDETPAZKD685F`
+
+*No reasoning recorded.*
 
