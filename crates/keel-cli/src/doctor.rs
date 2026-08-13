@@ -665,6 +665,7 @@ mod tests {
     /// in a hook.
     #[test]
     fn a_store_in_a_synced_folder_is_reported_without_failing_the_run() {
+        let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         let home = dir.path().join("Dropbox").join(".keel");
         std::fs::create_dir_all(&home).unwrap();
@@ -689,6 +690,7 @@ mod tests {
     /// silently if the matcher were too eager.
     #[test]
     fn an_ordinary_home_reports_its_location_as_fine() {
+        let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         let _ = crate::open(dir.path()).unwrap();
 
@@ -704,6 +706,7 @@ mod tests {
     /// with "could not open the store" would be true and useless.
     #[test]
     fn migrations_pending_are_a_problem_and_not_a_crash() {
+        let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         let path = keel_core::store_path(dir.path());
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -727,6 +730,19 @@ mod tests {
     /// so a test that opens a store containing a future id primes it for every
     /// test running alongside. Without this they interleave and the failure
     /// lands on whichever innocent test ran next.
+    /// Serialises every test that calls [`examine`].
+    ///
+    /// The id generator is process-global and monotonic, which is right in
+    /// production and leaks between tests: `an_event_id_from_the_future_is_a_problem`
+    /// writes a ULID an hour ahead, and opening that store primes the generator
+    /// to match. It resets afterwards — but a test running *inside* that window
+    /// mints future ids into its own store, and the next open of that store
+    /// primes the generator again, after the reset. So the reset is not enough
+    /// on its own and every one of these has to hold the lock, not just the
+    /// ones that look clock-related.
+    ///
+    /// Three of the nine held it before, which is why KEEL-179 failed roughly
+    /// one run in three and passed whenever it ran alone.
     static CLOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     /// A store with nothing wrong with it reports nothing wrong with it.
@@ -804,6 +820,7 @@ mod tests {
     /// nothing.
     #[test]
     fn a_coherent_passage_index_reports_itself_coherent() {
+        let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         let mut store = crate::open(dir.path()).unwrap();
         store.set_embedder(std::sync::Arc::new(keel_core::HashEmbedder::new()));
@@ -820,6 +837,7 @@ mod tests {
     /// did not follow has to be reported, not absorbed.
     #[test]
     fn a_passage_left_behind_by_an_edit_is_reported() {
+        let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         let mut store = crate::open(dir.path()).unwrap();
         store.set_embedder(std::sync::Arc::new(keel_core::HashEmbedder::new()));
@@ -890,6 +908,7 @@ mod tests {
     /// would report nothing to do while `doctor` went on asking for it.
     #[test]
     fn an_archived_document_is_not_counted_as_missing_a_vector() {
+        let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         use keel_core::{Actor, EntityStore, Project, Provenance, Spec};
 
         let dir = tempfile::tempdir().unwrap();
