@@ -577,6 +577,21 @@ mod tests {
     /// `NotRunning` without waiting.
     const NO_DAEMON: &str = "http://127.0.0.1:1";
 
+    /// Every check that made the report unhealthy, with what it said.
+    ///
+    /// `is_healthy()` is a bool, so asserting on it bare reports "expected true,
+    /// got false" and leaves whoever reads the failure to reconstruct which of
+    /// forty checks went. That cost real time on an intermittent failure here,
+    /// which is exactly when the information is hardest to get back.
+    fn problems(report: &Report) -> Vec<(&str, &str)> {
+        report
+            .checks
+            .iter()
+            .filter(|c| c.level == Level::Problem)
+            .map(|c| (c.name.as_str(), c.detail.as_str()))
+            .collect()
+    }
+
     fn find<'a>(report: &'a Report, name: &str) -> &'a Check {
         report
             .checks
@@ -725,7 +740,11 @@ mod tests {
             "it has to say what the user is actually losing: {}",
             check.detail
         );
-        assert!(report.is_healthy(), "degraded search is not a broken store");
+        assert!(
+            report.is_healthy(),
+            "degraded search is not a broken store; problems were {:?}",
+            problems(&report)
+        );
     }
 
     /// An archived document must not hold the check red for ever.
