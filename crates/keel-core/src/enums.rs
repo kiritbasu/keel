@@ -653,3 +653,190 @@ mod tests {
         assert_eq!(back, TaskStatus::InProgress);
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod milestone_state_tests {
+    use super::*;
+
+    /// `total`, `closed`, `started` — in that order, which is the order the
+    /// struct declares them and the reason it is a struct.
+    fn tally(total: usize, closed: usize, started: usize) -> TaskTally {
+        TaskTally {
+            total,
+            closed,
+            started,
+        }
+    }
+
+    fn derive(declared: MilestoneStatus, t: TaskTally) -> MilestoneState {
+        MilestoneState::derive(declared, t, false)
+    }
+
+    /// A declaration is the last word. No count of tasks can overrule it,
+    /// because no count can tell you what a person decided.
+    ///
+    /// Phase 8 is the case that matters: shipped, with one task still open.
+    /// A rule of "shipped must have no open tasks" would call that a mistake,
+    /// and it is not one.
+    #[test]
+    fn a_declaration_beats_whatever_the_tasks_say() {
+        for declared in [
+            MilestoneStatus::Shipped,
+            MilestoneStatus::Cut,
+            MilestoneStatus::Paused,
+        ] {
+            for t in [
+                tally(0, 0, 0),
+                tally(5, 0, 0),
+                tally(5, 4, 1),
+                tally(5, 5, 0),
+            ] {
+                let state = derive(declared, t);
+                assert_eq!(
+                    state.as_str(),
+                    declared.as_str(),
+                    "{declared:?} with {t:?} should stay {declared:?}"
+                );
+            }
+        }
+    }
+
+    /// And a declaration outranks being blocked, for the same reason: a phase
+    /// somebody has cut is cut, whatever is still linked to it.
+    #[test]
+    fn a_declaration_beats_being_blocked_too() {
+        assert_eq!(
+            MilestoneState::derive(MilestoneStatus::Cut, tally(3, 0, 1), true),
+            MilestoneState::Cut
+        );
+    }
+
+    #[test]
+    fn nothing_started_is_planned() {
+        assert_eq!(
+            derive(MilestoneStatus::Open, tally(4, 0, 0)),
+            MilestoneState::Planned
+        );
+    }
+
+    /// A phase named and never scoped. Not an error — it is where a phase sits
+    /// between being decided on and being broken into work.
+    #[test]
+    fn no_tasks_at_all_is_planned() {
+        assert_eq!(
+            derive(MilestoneStatus::Open, tally(0, 0, 0)),
+            MilestoneState::Planned
+        );
+    }
+
+    /// Started counts whether the movement was into progress or into done.
+    /// Either way somebody has touched it.
+    #[test]
+    fn work_begun_with_work_left_is_active() {
+        assert_eq!(
+            derive(MilestoneStatus::Open, tally(4, 0, 1)),
+            MilestoneState::Active,
+            "a task in progress is work begun"
+        );
+        assert_eq!(
+            derive(MilestoneStatus::Open, tally(4, 2, 0)),
+            MilestoneState::Active,
+            "so is a task already closed, even with nothing in progress now"
+        );
+    }
+
+    /// The state the model could not hold, and the reason `complete` exists:
+    /// `product/GATE.md` says two of this project's phase gates cannot be
+    /// verified without a human, so "the work is finished" and "it shipped"
+    /// are different facts. Phases 7 and 9 sat here unnoticed.
+    #[test]
+    fn every_task_closed_and_undeclared_is_complete() {
+        assert_eq!(
+            derive(MilestoneStatus::Open, tally(8, 8, 0)),
+            MilestoneState::Complete
+        );
+    }
+
+    /// Complete is reached by *any* closure, including abandonment — which is
+    /// exactly why it is not `shipped`. A phase whose every task was closed
+    /// `wont_do` has finished and delivered nothing, and only a person can say
+    /// which of shipped or cut that is.
+    #[test]
+    fn complete_says_nothing_about_whether_anything_was_delivered() {
+        // The tally cannot tell `done` from `wont_do`, and deliberately so:
+        // if it could, something would eventually be tempted to guess.
+        assert_eq!(
+            derive(MilestoneStatus::Open, tally(1, 1, 0)),
+            MilestoneState::Complete,
+            "one abandoned task is still a phase with no work left in it"
+        );
+    }
+
+    /// Blocked outranks active: a phase nothing can proceed on is not in
+    /// flight, however many of its tasks are open.
+    #[test]
+    fn blocked_outranks_active_but_not_complete() {
+        assert_eq!(
+            MilestoneState::derive(MilestoneStatus::Open, tally(4, 1, 1), true),
+            MilestoneState::Blocked
+        );
+        assert_eq!(
+            MilestoneState::derive(MilestoneStatus::Open, tally(4, 0, 0), true),
+            MilestoneState::Blocked,
+            "a phase blocked before it starts is blocked, not planned"
+        );
+    }
+
+    /// What still wants doing. `complete` is not open work — the tasks are
+    /// finished and what is left is a decision.
+    #[test]
+    fn only_unfinished_states_want_work() {
+        for (state, wants) in [
+            (MilestoneState::Planned, true),
+            (MilestoneState::Active, true),
+            (MilestoneState::Blocked, true),
+            (MilestoneState::Complete, false),
+            (MilestoneState::Paused, false),
+            (MilestoneState::Shipped, false),
+            (MilestoneState::Cut, false),
+        ] {
+            assert_eq!(state.wants_work(), wants, "{state:?}");
+        }
+    }
+
+    /// Every state renders as the word the roadmap prints. A missing arm here
+    /// is a phase that displays as something nobody chose.
+    #[test]
+    fn every_state_has_a_word() {
+        for (state, word) in [
+            (MilestoneState::Planned, "planned"),
+            (MilestoneState::Active, "active"),
+            (MilestoneState::Blocked, "blocked"),
+            (MilestoneState::Complete, "complete"),
+            (MilestoneState::Paused, "paused"),
+            (MilestoneState::Shipped, "shipped"),
+            (MilestoneState::Cut, "cut"),
+        ] {
+            assert_eq!(state.as_str(), word);
+        }
+    }
+
+    /// The four words that are no longer storable. If one of these ever parses
+    /// again, migration 3 and the write guard have both been undone.
+    #[test]
+    fn the_derived_words_cannot_be_parsed_as_a_declaration() {
+        for word in ["planned", "active", "blocked", "complete"] {
+            assert!(
+                MilestoneStatus::parse(word).is_err(),
+                "`{word}` is derived and must not be storable"
+            );
+        }
+        for word in ["open", "paused", "shipped", "cut"] {
+            assert!(
+                MilestoneStatus::parse(word).is_ok(),
+                "`{word}` is a declaration"
+            );
+        }
+    }
+}

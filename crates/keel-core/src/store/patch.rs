@@ -358,7 +358,9 @@ mod tests {
             (
                 Milestone::new(p.clone(), "P0", "The first phase, for a store test.").into(),
                 "status",
-                json!("active"),
+                // A declaration, not `active` — that one is derived and the
+                // guard below refuses it (B-57).
+                json!("paused"),
             ),
             (
                 Task::new(p.clone(), "t", "A row this test needs in the store.").into(),

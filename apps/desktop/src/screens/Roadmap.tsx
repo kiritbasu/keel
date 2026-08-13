@@ -69,7 +69,12 @@ export function RoadmapScreen({ route, generation, milestoneNoun }: ScreenProps)
       ) : (
         <ol className="relative space-y-3 border-l border-border-subtle pl-6">
           {milestones.map((m) => {
-            const status = String(m.status);
+            // `state`, not `status`. The column only holds what was declared —
+            // shipped, cut, paused, or nothing at all — and what the phase is
+            // actually doing is worked out from its tasks by the daemon (B-57).
+            // Reading `status` here is what showed a finished phase as active
+            // for a week. Falling back keeps an older daemon readable.
+            const status = String(m.state ?? m.status);
             const date = m.target_date as string | null;
             const shipped = m.shipped_at as string | null;
             return (

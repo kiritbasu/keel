@@ -98,6 +98,30 @@ pub fn minted_at(id: &str) -> Option<chrono::DateTime<chrono::Utc>> {
 static GENERATOR: std::sync::LazyLock<std::sync::Mutex<ulid::Generator>> =
     std::sync::LazyLock::new(|| std::sync::Mutex::new(ulid::Generator::new()));
 
+/// Put the generator back to the wall clock. **Tests only.**
+///
+/// [`ensure_above`] moves the process-wide generator forward and there is
+/// deliberately no way to move it back: monotonicity is the property SPEC §3.4
+/// relies on, and a generator that can go backwards is not monotonic. In a
+/// daemon that is exactly right — one process, one store, primed once.
+///
+/// In a test binary it is cross-contamination. Every test in a binary shares
+/// the process, so a single test that opens a store containing a future id
+/// primes the generator for all of them, and the ones that run afterwards mint
+/// ids from the future in their own unrelated stores. That failure looks like a
+/// clock problem in whichever test happens to run next, which is nowhere near
+/// the test that caused it — it cost an afternoon once.
+///
+/// Public because integration tests live in other crates and `#[cfg(test)]`
+/// does not reach them. Calling this anywhere but a test undoes the guard that
+/// stops the live feed going silent after a clock step.
+pub fn reset_for_tests() {
+    match GENERATOR.lock() {
+        Ok(mut guard) => *guard = ulid::Generator::new(),
+        Err(poisoned) => *poisoned.into_inner() = ulid::Generator::new(),
+    }
+}
+
 /// Mint the next monotonically increasing ULID.
 ///
 /// Both fallbacks are unreachable in practice and neither justifies failing a

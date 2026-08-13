@@ -652,12 +652,22 @@ mod tests {
         assert!(!report.is_healthy());
     }
 
+    /// Held by the tests that either poison the process-wide id generator or
+    /// assert that nothing is wrong with it.
+    ///
+    /// `keel_core::id`'s generator is one per process and moves only forward,
+    /// so a test that opens a store containing a future id primes it for every
+    /// test running alongside. Without this they interleave and the failure
+    /// lands on whichever innocent test ran next.
+    static CLOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     /// A store with nothing wrong with it reports nothing wrong with it.
     ///
     /// The check that matters most: a doctor that finds problems in a healthy
     /// store is one nobody runs twice.
     #[test]
     fn a_fresh_store_has_no_problems() {
+        let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         let _ = crate::open(dir.path()).unwrap();
 
@@ -685,6 +695,7 @@ mod tests {
     /// returned half its results and never said so.
     #[test]
     fn documents_with_no_vectors_are_reported_without_failing() {
+        let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         use keel_core::{Actor, EntityStore, Project, Provenance, Spec};
 
         let dir = tempfile::tempdir().unwrap();
@@ -764,6 +775,10 @@ mod tests {
     /// catches up, and nothing else would ever mention it.
     #[test]
     fn an_event_id_from_the_future_is_a_problem() {
+        // Held for the whole test: opening this store primes the process-wide
+        // id generator an hour ahead, and anything minting an id meanwhile
+        // gets a future one in its own store.
+        let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         let store = crate::open(dir.path()).unwrap();
 
@@ -784,6 +799,10 @@ mod tests {
         drop(store);
 
         let report = examine(dir.path(), NO_DAEMON).unwrap();
+        // Put the generator back before anything else runs. `examine` opened a
+        // store whose newest id is an hour ahead, which primed it forward for
+        // the rest of this process.
+        keel_core::id::reset_for_tests();
         let check = find(&report, "clock");
         assert_eq!(check.level, Level::Problem);
         assert!(

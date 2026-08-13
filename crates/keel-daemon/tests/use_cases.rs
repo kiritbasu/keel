@@ -359,7 +359,8 @@ async fn uc2_conversational_capture() {
                 "project": project_id,
                 "title": "Metering v1",
                 "summary": "Charge customers for what they actually use, and show them the bill.",
-                "fields": { "status": "active" }
+                // No status. `active` is derived from the tasks now, and
+                // asking for it is refused — which is the point of B-57.
             })),
         )
         .await;
@@ -1195,7 +1196,8 @@ async fn seed(d: &Daemon) -> String {
             args(json!({
                 "type": "milestone", "project": project_id, "title": "Metering v1",
                 "summary": "Charge customers for what they actually use, and show them the bill.",
-                "fields": { "status": "active" }
+                // No status. `active` is derived from the tasks now, and
+                // asking for it is refused — which is the point of B-57.
             })),
         )
         .await["entity"]["id"]

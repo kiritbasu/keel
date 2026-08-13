@@ -1305,19 +1305,43 @@ async fn api_entities(
     query.limit = params.get("limit").and_then(|l| l.parse().ok());
 
     match store.list(&query) {
-        Ok(page) => (
-            StatusCode::OK,
-            Json(json!({
-                "data": {
-                    // The same shaping every other surface uses, so `version`
-                    // is where a caller expects it regardless of endpoint.
-                    "items": page.items.iter().map(keel_mcp::entity_json).collect::<Vec<_>>(),
-                    "total": page.total,
-                    "truncated": page.truncated
-                }
-            })),
-        )
-            .into_response(),
+        Ok(page) => {
+            // A milestone's `status` is only what was *declared*; what the
+            // phase is doing is derived (B-57). The app has no task counts to
+            // work it out from, so it is computed here and sent alongside.
+            // Without it the roadmap shows `open` for everything.
+            let states = query
+                .project_id
+                .as_ref()
+                .and_then(|p| store.milestone_states(p).ok())
+                .unwrap_or_default();
+
+            let items: Vec<Value> = page
+                .items
+                .iter()
+                .map(|e| {
+                    let mut json = keel_mcp::entity_json(e);
+                    if let (Some(state), Some(map)) = (states.get(e.id()), json.as_object_mut()) {
+                        map.insert("state".to_owned(), Value::String(state.as_str().to_owned()));
+                    }
+                    json
+                })
+                .collect();
+
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "data": {
+                        // The same shaping every other surface uses, so `version`
+                        // is where a caller expects it regardless of endpoint.
+                        "items": items,
+                        "total": page.total,
+                        "truncated": page.truncated
+                    }
+                })),
+            )
+                .into_response()
+        }
         Err(e) => api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             codes::INTERNAL_ERROR,
