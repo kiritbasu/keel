@@ -83,10 +83,6 @@ My recommendation is 3 then 2. By style.rs's own argument 3 is where the effect 
 
 `que_01KZSQHK2C0CTKN36WJ9G4ZHQC` · question · open
 
-### Enforce the single-writer rule with an advisory lock file, or rely on the health probe alone?
-
-`que_01KZSQHFQ454B2S53T3SCYN4TC` · question · open
-
 ### TQ-37 — Six rows of SPEC §13 argue from DuckDB and Lance. Reword, annotate, or leave?
 
 `que_01KZSKBNXFZCB84AV1V0MDM8RA` · question · open · severity low
@@ -117,38 +113,6 @@ Every one of those decisions still reaches the right conclusion. D-4 is the shar
 ## Recommendation
 
 The second. D-1 already demonstrates the pattern and it is the only option that leaves the table honest without erasing what it used to argue. It is a small edit either way, which is why it is worth asking rather than assuming: the value is in matching however KB wants the decision log to age.
-
-### TQ-36 — The single write path is now a convention. Enforce it, or accept that?
-
-`que_01KZSF88553AJM4WDBMVGP9ZSC` · question · open · severity medium
-
-**Needs KB.** Raised 2026-08-11, from Phase 9's switchover.
-
-## What changed
-
-Hard constraint 1 says the daemon owns the single write path and no other process writes to the store. Under DuckDB that was enforced by the engine: DuckDB takes an exclusive write lock, so a second process trying to open the store read-write was refused. The constraint was a rule *and* a mechanism.
-
-SQLite in WAL mode does not work that way. A second process can open the store and write to it while the daemon holds it, and it simply works — `keel note add` does exactly this and was watched doing it. Nothing is broken. Nothing was lost. But the guard rail is gone, and the constraint is now a convention that people and agents are asked to honour.
-
-## Why this is not obviously bad
-
-The reason for the single write path was never the lock. Six of the seven steps in a Keel write have nothing to do with locking — validation, provenance, the event, the revision, the embedding, the index — and all six still need one place that knows how to do them. That argument is untouched, and it is the argument recorded in D-5.
-
-SQLite handles the concurrency correctly on its own: WAL gives readers a consistent snapshot and serialises writers. The failure mode is not corruption. It is a second writer skipping the five steps that are not the write.
-
-## The three options
-
-**Accept it, and say so.** Change the constraint from "no other process writes" to "everything that writes goes through `keel-core`'s write path", which is the thing that was actually being protected. Cheapest, honest, and it stops the contract claiming an enforcement that does not exist.
-
-**Enforce it in the daemon.** A lock file, or a table row the daemon claims on start, checked by anything else opening the store read-write. Restores the mechanism, costs a failure mode of its own — a stale lock after a crash is a store nobody can open, which is worse than the problem.
-
-**Enforce it in the type system.** Opening a store for writing outside the daemon requires something only the daemon can construct. Compile-time rather than runtime, no stale state, but it is a real refactor and the CLI legitimately writes when no daemon is running.
-
-## Recommendation
-
-The first. The constraint's *value* is the seven-step write path, not the exclusivity, and a contract that describes a guarantee the engine no longer provides is worse than one that describes what is true. The CLI writing directly when no daemon is running is a legitimate case that the DuckDB lock made awkward rather than safe.
-
-But it is a hard constraint and hard constraints are KB's, so it is recorded rather than decided.
 
 ### TQ-1 — Are requirement anchors (REQ-4) parsed from markdown by convention, or declared in…
 
@@ -231,6 +195,42 @@ Options:
 3. **No chunk table at all** — keep one vector per document and accept 512-token truncation. This is the status quo and it is what raised the question.
 
 Recommending 1. The distinction it rests on is one the codebase already makes and already relies on; making it explicit is cheaper than either living with 2 or pretending the tension is not there. It touches storage format, so it is KB's call.
+
+### Enforce the single-writer rule with an advisory lock file, or rely on the health probe alone?
+
+`que_01KZSQHFQ454B2S53T3SCYN4TC` · question · answered
+
+### TQ-36 — The single write path is now a convention. Enforce it, or accept that?
+
+`que_01KZSF88553AJM4WDBMVGP9ZSC` · question · answered · severity medium
+
+**Needs KB.** Raised 2026-08-11, from Phase 9's switchover.
+
+## What changed
+
+Hard constraint 1 says the daemon owns the single write path and no other process writes to the store. Under DuckDB that was enforced by the engine: DuckDB takes an exclusive write lock, so a second process trying to open the store read-write was refused. The constraint was a rule *and* a mechanism.
+
+SQLite in WAL mode does not work that way. A second process can open the store and write to it while the daemon holds it, and it simply works — `keel note add` does exactly this and was watched doing it. Nothing is broken. Nothing was lost. But the guard rail is gone, and the constraint is now a convention that people and agents are asked to honour.
+
+## Why this is not obviously bad
+
+The reason for the single write path was never the lock. Six of the seven steps in a Keel write have nothing to do with locking — validation, provenance, the event, the revision, the embedding, the index — and all six still need one place that knows how to do them. That argument is untouched, and it is the argument recorded in D-5.
+
+SQLite handles the concurrency correctly on its own: WAL gives readers a consistent snapshot and serialises writers. The failure mode is not corruption. It is a second writer skipping the five steps that are not the write.
+
+## The three options
+
+**Accept it, and say so.** Change the constraint from "no other process writes" to "everything that writes goes through `keel-core`'s write path", which is the thing that was actually being protected. Cheapest, honest, and it stops the contract claiming an enforcement that does not exist.
+
+**Enforce it in the daemon.** A lock file, or a table row the daemon claims on start, checked by anything else opening the store read-write. Restores the mechanism, costs a failure mode of its own — a stale lock after a crash is a store nobody can open, which is worse than the problem.
+
+**Enforce it in the type system.** Opening a store for writing outside the daemon requires something only the daemon can construct. Compile-time rather than runtime, no stale state, but it is a real refactor and the CLI legitimately writes when no daemon is running.
+
+## Recommendation
+
+The first. The constraint's *value* is the seven-step write path, not the exclusivity, and a contract that describes a guarantee the engine no longer provides is worse than one that describes what is true. The CLI writing directly when no daemon is running is a legitimate case that the DuckDB lock made awkward rather than safe.
+
+But it is a hard constraint and hard constraints are KB's, so it is recorded rather than decided.
 
 ### TQ-35 — Activity is rebuilt as "What changed", grouped by session
 
