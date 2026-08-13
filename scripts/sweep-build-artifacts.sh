@@ -104,23 +104,39 @@ done
 
 # ---- 4. Test stores leaked into TMPDIR --------------------------------
 #
-# KEEL-119. `tempfile::TempDir` deletes on Drop, so every killed or timed-out
-# test run leaves a store behind. 135 of them had accumulated when this was
-# written.
+# KEEL-119. `tempfile::TempDir` deletes on Drop, so a run that finishes leaves
+# nothing behind — measured on 2026-08-13, a completed test binary leaks zero.
+# A run that is *killed* leaks every store it had open, because Drop never
+# runs. One Ctrl-C partway through `cargo test --workspace` left 27.
+#
+# That is why the accumulation is bursty rather than steady. The 2,318 stores
+# found on 2026-08-13 came from a single `cargo mutants` run the day before:
+# 24 of its 113 mutants timed out, and each timeout kills a test binary that
+# had already opened ninety-odd stores.
+#
+# The glob below used to be `"$TMP".tmp*`, which is only correct when TMPDIR
+# ends in a slash. macOS sets one, so it worked here and nowhere else: with
+# TMPDIR=/tmp it expanded to `/tmp.tmp*`, matched nothing, and reported
+# nothing — a sweeper that silently swept zero. Stripping the slash and using
+# an explicit `/` makes it independent of how TMPDIR is spelled.
 #
 # Only directories that actually contain a Keel store, and only those untouched
 # for an hour, so nothing a running test owns is taken out from under it.
+# `keel.duckdb` is here for the stores left by runs that predate Phase 9; a
+# DuckDB store was 4.8 MB against SQLite's 388 KB, so the few that remain are
+# worth more than their number suggests.
 TMP="${TMPDIR:-/tmp}"
+TMP="${TMP%/}"
 leaked=0
 cd "$TMP" 2>/dev/null || true
-for d in "$TMP".tmp*; do
+for d in "$TMP"/.tmp*; do
   [ -d "$d" ] || continue
-  [ -f "$d/keel.sqlite" ] || continue
+  [ -f "$d/keel.sqlite" ] || [ -f "$d/keel.duckdb" ] || continue
   [ -n "$(find "$d" -maxdepth 0 -mmin +60 2>/dev/null)" ] || continue
   run "$d"
   leaked=$((leaked + 1))
 done
-[ "$leaked" -gt 0 ] && say "leaked test stores older than an hour: $leaked"
+say "leaked test stores older than an hour: $leaked"
 
 after=$(avail_kb)
 say ""
