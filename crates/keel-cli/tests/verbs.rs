@@ -368,3 +368,71 @@ fn every_daemon_flag_points_at_the_same_daemon() {
         "the CLI has more than one idea of where the daemon lives: {defaults:?}"
     );
 }
+
+/// The quiet half of the daemonless bug, which nothing here caught.
+///
+/// `ready` broke loudly — it printed "nothing ready" with work in the store —
+/// and two tests above fail if the envelope leaks back into that path. `claim`
+/// and `close` broke quietly: their renderers fall back to the argument when
+/// `reference` is missing, so the line still read like a success while naming
+/// the ULID that was typed rather than the task that was claimed.
+///
+/// Removing the payload unwrap from the *write* path left all nine tests here
+/// green, which is what these two are for. The ULID is passed deliberately:
+/// a readable `HARB-n` in the output can only have been read off the response,
+/// so neither half of the line can be the argument echoed back.
+#[test]
+fn claim_without_a_daemon_names_the_reference_and_not_the_ulid() {
+    let (home, task) = seeded();
+
+    let out = keel(
+        home.path(),
+        &["--force", "claim", &task, "--daemon", NO_DAEMON],
+    )
+    .expect_ok("keel claim on the daemonless path");
+
+    assert!(
+        out.contains("HARB-"),
+        "the reference has to come from the response: {out}"
+    );
+    assert!(
+        out.contains("Wire up the thing"),
+        "and so does the title: {out}"
+    );
+    assert!(
+        !out.contains(&task),
+        "the raw id being echoed means the renderer fell back to its argument: {out}"
+    );
+}
+
+#[test]
+fn close_without_a_daemon_reports_the_reference_it_closed() {
+    let (home, task) = seeded();
+
+    let out = keel(
+        home.path(),
+        &[
+            "--force",
+            "close",
+            &task,
+            "--reason",
+            "done",
+            "--message",
+            "Closed by a test, to check what the daemonless path prints.",
+            "--evidence",
+            "test:cargo test -p keel-cli --test verbs",
+            "--daemon",
+            NO_DAEMON,
+        ],
+    )
+    .expect_ok("keel close on the daemonless path");
+
+    assert!(
+        out.contains("HARB-"),
+        "the reference has to come from the response: {out}"
+    );
+    assert!(
+        !out.contains(&task),
+        "the raw id being echoed means the renderer fell back to its argument: {out}"
+    );
+}
