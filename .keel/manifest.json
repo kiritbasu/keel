@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-13T09:57:43.345571+00:00",
+  "generated_at": "2026-08-13T10:22:25.904213+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,28 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/leaked-test-stores-get-a-working-sweeper-not-a-redirected-tmpdir.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZXA7K5NXDGTVTEG9G26JPBB",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "0c89c9d17037ab028515cba809389d27b146f602f7297f868b65504d7a3bd68c"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/a-phase-s-state-is-derived-only-shipped-cut-and-paused-are-declared.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZX9ZJWEGGFSPXK1MH750G94",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "942dc4ba3065784a3cf21a0f561bd26eff945a38ff98483e994a9873ebc0c007"
         }
       ]
     },
