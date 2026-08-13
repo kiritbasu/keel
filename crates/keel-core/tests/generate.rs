@@ -15,10 +15,17 @@ use keel_core::{
 
 /// A store with one project whose checkout is `repo`, plus a spec that has
 /// adopted `product/SPEC.md`.
-fn fixture(repo: &std::path::Path, body: &str) -> (Store, EntityId, EntityId) {
+///
+/// The `TempDir` comes back to the caller rather than staying here, and it is
+/// the first element so that binding it is hard to forget. It used to be
+/// `Box::leak`ed — "the process is a test binary", which is true and still cost
+/// something: nineteen tests call this, so a passing run of this one file left
+/// nineteen stores in `TMPDIR` for the sweeper to find later (KEEL-189).
+///
+/// Bind it as `_home`, not `_`. A bare `_` drops immediately, which would take
+/// the directory out from under the store the rest of the test is using.
+fn fixture(repo: &std::path::Path, body: &str) -> (tempfile::TempDir, Store, EntityId, EntityId) {
     let dir = tempfile::tempdir().unwrap();
-    // Leaked so the store outlives the helper; the process is a test binary.
-    let dir = Box::leak(Box::new(dir));
     let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Human);
 
@@ -53,7 +60,7 @@ fn fixture(repo: &std::path::Path, body: &str) -> (Store, EntityId, EntityId) {
     .unwrap();
     store.write_revision(doc).unwrap();
 
-    (store, project_id, spec_id)
+    (dir, store, project_id, spec_id)
 }
 
 /// Point a project's decision log at `path`.
@@ -69,10 +76,38 @@ const BODY: &str = "# Demo — Technical Specification\n\n\
                     ## 1. Storage\n\n\
                     DuckDB and Lance, attached as one namespace.\n";
 
+/// The fixture has to take its store with it when the caller lets go.
+///
+/// The guard on KEEL-189. `fixture` used to `Box::leak` its `TempDir`, so each
+/// of the nineteen tests below left a store behind in `TMPDIR` — and nothing
+/// failed, which is exactly why it lasted: a leak has no assertion to trip. The
+/// only symptom was a directory count going up, noticed while measuring
+/// something else.
+#[test]
+fn the_fixture_takes_its_store_with_it_when_dropped() {
+    let repo = tempfile::tempdir().unwrap();
+
+    let home = {
+        let (home, _store, _project_id, _spec_id) = fixture(repo.path(), BODY);
+        let path = home.path().to_path_buf();
+        assert!(
+            path.join("keel.sqlite").exists(),
+            "the fixture should have built a store to begin with"
+        );
+        path
+    };
+
+    assert!(
+        !home.exists(),
+        "the fixture's directory must be gone once the caller drops it, not left \
+         for the sweeper to find later"
+    );
+}
+
 #[test]
 fn an_adopted_document_is_written_to_the_file_it_claims() {
     let repo = tempfile::tempdir().unwrap();
-    let (store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, store, project_id, _) = fixture(repo.path(), BODY);
 
     let report = generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
     assert!(
@@ -105,7 +140,7 @@ fn an_adopted_document_is_written_to_the_file_it_claims() {
 #[test]
 fn an_adopted_document_does_not_also_appear_in_the_mirror() {
     let repo = tempfile::tempdir().unwrap();
-    let (store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, store, project_id, _) = fixture(repo.path(), BODY);
 
     generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
 
@@ -123,7 +158,7 @@ fn an_adopted_document_does_not_also_appear_in_the_mirror() {
 #[test]
 fn the_tracker_is_generated_at_the_projects_status_path() {
     let repo = tempfile::tempdir().unwrap();
-    let (store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, store, project_id, _) = fixture(repo.path(), BODY);
 
     generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
 
@@ -135,7 +170,7 @@ fn the_tracker_is_generated_at_the_projects_status_path() {
 #[test]
 fn a_second_run_that_changes_nothing_writes_nothing() {
     let repo = tempfile::tempdir().unwrap();
-    let (store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, store, project_id, _) = fixture(repo.path(), BODY);
 
     generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
     let again = generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
@@ -151,7 +186,7 @@ fn a_second_run_that_changes_nothing_writes_nothing() {
 #[test]
 fn check_mode_reports_a_hand_edit_and_does_not_overwrite_it() {
     let repo = tempfile::tempdir().unwrap();
-    let (store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, store, project_id, _) = fixture(repo.path(), BODY);
     generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
 
     let path = repo.path().join("product/SPEC.md");
@@ -173,7 +208,7 @@ fn check_mode_reports_a_hand_edit_and_does_not_overwrite_it() {
 #[test]
 fn a_new_revision_in_keel_reaches_the_file() {
     let repo = tempfile::tempdir().unwrap();
-    let (mut store, project_id, spec_id) = fixture(repo.path(), BODY);
+    let (_home, mut store, project_id, spec_id) = fixture(repo.path(), BODY);
     generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
 
     let revised = format!("{BODY}\n## 2. Search\n\nBM25 in DuckDB, vectors in Lance.\n");
@@ -202,7 +237,7 @@ fn a_new_revision_in_keel_reaches_the_file() {
 #[test]
 fn an_artifact_that_claims_a_path_but_has_no_prose_yet_is_skipped_not_emptied() {
     let repo = tempfile::tempdir().unwrap();
-    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, mut store, project_id, _) = fixture(repo.path(), BODY);
 
     // Something the repo already has, that Keel has not been given yet.
     std::fs::create_dir_all(repo.path().join("product")).unwrap();
@@ -234,7 +269,7 @@ fn an_artifact_that_claims_a_path_but_has_no_prose_yet_is_skipped_not_emptied() 
 #[test]
 fn the_tracker_never_overwrites_a_document_that_claimed_the_same_file() {
     let repo = tempfile::tempdir().unwrap();
-    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, mut store, project_id, _) = fixture(repo.path(), BODY);
 
     // Point the tracker at a file a prose document already owns — the exact
     // situation Keel's own project is in, because `product/STATUS.md` was
@@ -289,7 +324,7 @@ fn the_questions_file_carries_settled_questions_as_well_as_open_ones() {
     use keel_core::{Question, QuestionStatus};
 
     let repo = tempfile::tempdir().unwrap();
-    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, mut store, project_id, _) = fixture(repo.path(), BODY);
     let prov = Provenance::anonymous(Actor::Human);
 
     let mut still_open = Question::new(project_id.clone(), "Where does the store live?");
@@ -347,7 +382,7 @@ fn the_decision_log_is_generated_at_the_projects_decisions_path() {
     use keel_core::{Decision, DecisionStatus};
 
     let repo = tempfile::tempdir().unwrap();
-    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, mut store, project_id, _) = fixture(repo.path(), BODY);
     let prov = Provenance::anonymous(Actor::Human);
 
     set_decisions_path(&mut store, &project_id, "docs/DECISIONS.md", &prov);
@@ -422,7 +457,7 @@ fn the_decision_log_is_generated_at_the_projects_decisions_path() {
 #[test]
 fn the_decision_log_never_overwrites_a_document_that_claimed_the_same_file() {
     let repo = tempfile::tempdir().unwrap();
-    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, mut store, project_id, _) = fixture(repo.path(), BODY);
     let prov = Provenance::anonymous(Actor::Human);
 
     set_decisions_path(&mut store, &project_id, "product/SPEC.md", &prov);
@@ -453,7 +488,7 @@ fn the_decision_log_never_overwrites_a_document_that_claimed_the_same_file() {
 #[test]
 fn renaming_an_artifact_removes_the_file_its_old_name_produced() {
     let repo = tempfile::tempdir().unwrap();
-    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, mut store, project_id, _) = fixture(repo.path(), BODY);
     let prov = Provenance::anonymous(Actor::Human);
 
     let created = store
@@ -498,7 +533,7 @@ fn renaming_an_artifact_removes_the_file_its_old_name_produced() {
 #[test]
 fn check_mode_reports_an_orphan_without_removing_it() {
     let repo = tempfile::tempdir().unwrap();
-    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, mut store, project_id, _) = fixture(repo.path(), BODY);
     let prov = Provenance::anonymous(Actor::Human);
 
     let created = store
@@ -541,7 +576,7 @@ fn check_mode_reports_an_orphan_without_removing_it() {
 #[test]
 fn a_missing_or_unreadable_manifest_removes_nothing() {
     let repo = tempfile::tempdir().unwrap();
-    let (mut store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, mut store, project_id, _) = fixture(repo.path(), BODY);
     let prov = Provenance::anonymous(Actor::Human);
 
     store
@@ -573,7 +608,7 @@ fn a_missing_or_unreadable_manifest_removes_nothing() {
 #[test]
 fn pruning_refuses_paths_outside_the_mirror_root() {
     let repo = tempfile::tempdir().unwrap();
-    let (store, project_id, _) = fixture(repo.path(), BODY);
+    let (_home, store, project_id, _) = fixture(repo.path(), BODY);
     generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
 
     let manifest = repo.path().join(".keel/manifest.json");
@@ -659,7 +694,7 @@ fn a_generated_file_is_never_left_half_written() {
 #[test]
 fn a_plan_can_be_applied_after_the_store_is_gone() {
     let repo = tempfile::tempdir().unwrap();
-    let (store, project_id, _spec) = fixture(repo.path(), "# Spec\n\nBody.\n");
+    let (_home, store, project_id, _spec) = fixture(repo.path(), "# Spec\n\nBody.\n");
 
     let plan = generate::plan(&store, &project_id, repo.path()).unwrap();
 
@@ -691,11 +726,11 @@ fn a_plan_can_be_applied_after_the_store_is_gone() {
 #[test]
 fn planning_then_applying_matches_generating_directly() {
     let one = tempfile::tempdir().unwrap();
-    let (store_a, project_a, _) = fixture(one.path(), "# Spec\n\nBody.\n");
+    let (_home_a, store_a, project_a, _) = fixture(one.path(), "# Spec\n\nBody.\n");
     let direct = generate::all(&store_a, &project_a, one.path(), Mode::Write).unwrap();
 
     let two = tempfile::tempdir().unwrap();
-    let (store_b, project_b, _) = fixture(two.path(), "# Spec\n\nBody.\n");
+    let (_home_b, store_b, project_b, _) = fixture(two.path(), "# Spec\n\nBody.\n");
     let split = generate::plan(&store_b, &project_b, two.path())
         .unwrap()
         .apply(Mode::Write)
@@ -722,7 +757,7 @@ fn planning_then_applying_matches_generating_directly() {
 #[test]
 fn a_checked_plan_reports_without_writing() {
     let repo = tempfile::tempdir().unwrap();
-    let (store, project_id, _) = fixture(repo.path(), "# Spec\n\nBody.\n");
+    let (_home, store, project_id, _) = fixture(repo.path(), "# Spec\n\nBody.\n");
 
     let report = generate::plan(&store, &project_id, repo.path())
         .unwrap()
