@@ -158,6 +158,14 @@ enum Command {
         /// Override the title, which otherwise comes from the first heading.
         #[arg(long)]
         title: Option<String>,
+        /// Say what would land and write nothing.
+        ///
+        /// Worth using first on a repository you have not imported before.
+        /// Soft delete is the only delete there is, so an artifact created by
+        /// a wrong guess is archived rather than removed — it stays on disk,
+        /// out of every view, for good.
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Seed Keel's own project — the dogfooding switch.
@@ -571,6 +579,7 @@ fn main() -> Result<()> {
             r#as,
             kind,
             title,
+            dry_run,
         } => run_import(
             &home,
             files,
@@ -578,9 +587,85 @@ fn main() -> Result<()> {
             r#as,
             kind.clone(),
             title.clone(),
+            *dry_run,
+            cli.force,
             cli.json,
         ),
     }
+}
+
+/// Print what an import would do, and do none of it.
+///
+/// The columns are chosen for the question an adopter is actually asking:
+/// *have I pointed this at the right files, and will it land where I think*.
+/// So the outcome comes first, the title second — because a wrong title is a
+/// wrong artifact — and the adopted path is called out only when importing
+/// would change it, which is the surprise that costs someone a file the next
+/// time `keel generate` runs.
+fn preview_import(
+    store: &Store,
+    files: &[PathBuf],
+    project_id: &keel_core::EntityId,
+    entity_type: keel_core::EntityType,
+    title: Option<String>,
+    json: bool,
+) -> Result<()> {
+    let mut rows = Vec::new();
+    for path in files {
+        let p = import::preview(store, path, project_id, entity_type, title.clone())?;
+        rows.push((path.clone(), p));
+    }
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!(
+                rows.iter()
+                    .map(|(path, p)| serde_json::json!({
+                        "file": path.display().to_string(),
+                        "outcome": p.outcome.word(),
+                        "id": p.entity_id.as_ref().map(|i| i.as_str()),
+                        "title": p.title,
+                        "bytes": p.bytes,
+                        "mirror_path": p.mirror_path,
+                        "mirror_path_now": p.mirror_path_now,
+                    }))
+                    .collect::<Vec<_>>()
+            ))?
+        );
+        return Ok(());
+    }
+
+    for (path, p) in &rows {
+        println!(
+            "  {:<9}  {}  →  {}",
+            p.outcome.word(),
+            path.display(),
+            p.title
+        );
+        if let Some(from) = &p.mirror_path_now {
+            println!(
+                "             adopted path changes: {from} → {}",
+                p.mirror_path.as_deref().unwrap_or("(none)")
+            );
+        }
+    }
+
+    let creates = rows
+        .iter()
+        .filter(|(_, p)| p.outcome == import::Outcome::Create)
+        .count();
+    let unchanged = rows
+        .iter()
+        .filter(|(_, p)| matches!(p.outcome, import::Outcome::Unchanged { .. }))
+        .count();
+    let revises = rows.len() - creates - unchanged;
+    println!(
+        "\n{} file(s): {creates} would create, {revises} would revise, {unchanged} unchanged",
+        rows.len()
+    );
+    println!("nothing was written — drop --dry-run to import");
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -591,6 +676,8 @@ fn run_import(
     as_type: &str,
     kind: Option<String>,
     title: Option<String>,
+    dry_run: bool,
+    force: bool,
     json: bool,
 ) -> Result<()> {
     use keel_core::{EntityType, SpecKind};
@@ -611,9 +698,26 @@ fn run_import(
         None => None,
     };
 
-    let mut store = open(home)?;
+    // A dry run opens read-only: no advisory lock, no daemon probe, nothing to
+    // refuse. Previewing an import is a read, and the machine it matters on is
+    // one with a daemon already running.
+    //
+    // The real import goes through `open_for_write` like every other command
+    // that writes. It did not before this — it called `open` directly, so it
+    // was the one writer that went round both the probe and the lock, which is
+    // exactly what hard constraint 1 is about. `--force` is the same escape it
+    // is everywhere else.
+    let mut store = if dry_run {
+        open(home)?
+    } else {
+        writes::open_for_write(home, &writes::daemon_url(), force, "import files")?
+    };
     let found = resolve_project(&store, project)?;
     let project_id = found.id().clone();
+
+    if dry_run {
+        return preview_import(&store, files, &project_id, entity_type, title, json);
+    }
 
     let mut rows = Vec::new();
     for path in files {

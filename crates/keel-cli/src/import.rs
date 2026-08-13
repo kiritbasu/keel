@@ -42,15 +42,30 @@ pub struct Imported {
     pub mirror_path: Option<String>,
 }
 
-/// Import one markdown file.
-pub fn file(
-    store: &mut Store,
+/// What an import would land on, worked out without writing anything.
+///
+/// Shared by [`file`] and [`preview`] so the two cannot disagree about which
+/// artifact a path belongs to. A preview that resolved differently from the
+/// import it is previewing would be worse than no preview: it would be
+/// confidently wrong, and only about the cases where it mattered.
+struct Resolved {
+    /// The repository-relative path the artifact would claim.
+    mirror_path: Option<String>,
+    /// The body, banner stripped.
+    raw: String,
+    /// The title, from `--title`, the first heading, or the filename.
+    title: String,
+    /// The artifact this lands on, when one already answers to that title.
+    existing: Option<EntityId>,
+}
+
+fn resolve(
+    store: &Store,
     path: &Path,
     project_id: &EntityId,
     entity_type: EntityType,
-    kind: Option<SpecKind>,
     title_override: Option<String>,
-) -> Result<Imported> {
+) -> Result<Resolved> {
     let mirror_path = repo_relative(store, project_id, path)?;
     let on_disk =
         std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
@@ -68,17 +83,41 @@ pub fn file(
                 .unwrap_or_else(|| "Untitled".to_owned())
         });
 
-    let prov = Provenance {
-        actor: Actor::Human,
-        session_id: Some("ses_import".to_owned()),
-        surface: Some(Surface::Cli),
-    };
-
     // Find an existing artifact with this title before creating one. The
     // create is idempotent anyway, but resolving first means a re-import lands
     // on the same artifact even if its title was edited in Keel afterwards —
     // which is the common case once the store is the source of truth.
     let existing = find_by_title(store, project_id, entity_type, &title)?;
+
+    Ok(Resolved {
+        mirror_path,
+        raw,
+        title,
+        existing,
+    })
+}
+
+/// Import one markdown file.
+pub fn file(
+    store: &mut Store,
+    path: &Path,
+    project_id: &EntityId,
+    entity_type: EntityType,
+    kind: Option<SpecKind>,
+    title_override: Option<String>,
+) -> Result<Imported> {
+    let Resolved {
+        mirror_path,
+        raw,
+        title,
+        existing,
+    } = resolve(store, path, project_id, entity_type, title_override)?;
+
+    let prov = Provenance {
+        actor: Actor::Human,
+        session_id: Some("ses_import".to_owned()),
+        surface: Some(Surface::Cli),
+    };
 
     let (entity_id, created) = match existing {
         Some(id) => (id, false),
@@ -381,5 +420,248 @@ mod tests {
 
         let stored = store.revision(&imported.entity_id, None).unwrap().unwrap();
         assert_eq!(stored.body, body, "the file must be stored whole");
+    }
+}
+
+/// What importing a file would do, worked out without doing it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Outcome {
+    /// No artifact answers to this title yet.
+    Create,
+    /// One does, and the file's content differs from its current revision.
+    Revise { from_version: i32 },
+    /// One does, and the content is identical. Importing would write nothing.
+    Unchanged { version: i32 },
+}
+
+impl Outcome {
+    /// One word for a column.
+    pub fn word(&self) -> &'static str {
+        match self {
+            Outcome::Create => "create",
+            Outcome::Revise { .. } => "revise",
+            Outcome::Unchanged { .. } => "unchanged",
+        }
+    }
+}
+
+/// What an import of one file would do.
+pub struct Preview {
+    /// The artifact it would land on, when one already exists.
+    pub entity_id: Option<EntityId>,
+    /// The title it would use.
+    pub title: String,
+    /// Create, revise, or nothing at all.
+    pub outcome: Outcome,
+    /// The repository path the artifact would claim after the import.
+    pub mirror_path: Option<String>,
+    /// The path it claims today, when that differs from the one above.
+    ///
+    /// Separate from `mirror_path` because a *changed* adopted path is the
+    /// surprise worth flagging: it is what `keel generate` writes back over,
+    /// and it is invisible afterwards.
+    pub mirror_path_now: Option<String>,
+    /// Bytes of body that would be stored.
+    pub bytes: usize,
+}
+
+/// Work out what [`file`] would do, without writing anything.
+///
+/// Takes `&Store` rather than `&mut Store`, which is the part that matters:
+/// a preview cannot write even by accident, it needs no advisory lock (B-60),
+/// and it runs against a store a daemon is already serving — which is the
+/// state an adopter's machine is in when they are deciding what to import.
+///
+/// The "would this change anything" answer comes from building the same
+/// `Document` the import would build and comparing its `body_hash`, rather
+/// than from a second opinion about what counts as a change. The title is part
+/// of that hash, so renaming a file's heading correctly reads as a revision.
+pub fn preview(
+    store: &Store,
+    path: &Path,
+    project_id: &EntityId,
+    entity_type: EntityType,
+    title_override: Option<String>,
+) -> Result<Preview> {
+    let Resolved {
+        mirror_path,
+        raw,
+        title,
+        existing,
+    } = resolve(store, path, project_id, entity_type, title_override)?;
+
+    let (outcome, mirror_path_now) = match &existing {
+        None => (Outcome::Create, None),
+        Some(id) => {
+            let current = store.revision(id, None)?;
+            let outcome = match current {
+                None => Outcome::Create,
+                Some(doc) => {
+                    let candidate = Document::first(
+                        entity_type,
+                        id.clone(),
+                        Some(project_id.clone()),
+                        &title,
+                        &raw,
+                        Actor::Human,
+                        chrono::Utc::now(),
+                    )?;
+                    if candidate.body_hash == doc.body_hash {
+                        Outcome::Unchanged {
+                            version: doc.version,
+                        }
+                    } else {
+                        Outcome::Revise {
+                            from_version: doc.version,
+                        }
+                    }
+                }
+            };
+            let now = store
+                .get(id)?
+                .and_then(|e| e.mirror_path().map(str::to_owned));
+            let changed = if now.as_deref() == mirror_path.as_deref() {
+                None
+            } else {
+                now
+            };
+            (outcome, changed)
+        }
+    };
+
+    Ok(Preview {
+        entity_id: existing,
+        title,
+        outcome,
+        mirror_path,
+        mirror_path_now,
+        bytes: raw.len(),
+    })
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod preview_tests {
+    use super::*;
+    use keel_core::{EntityStore, Project};
+
+    /// A store with one project, and a directory to put files in.
+    fn fixture() -> (Store, EntityId, tempfile::TempDir) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let project = store
+            .create(
+                Project::new("demo", "Demo").into(),
+                &Provenance::anonymous(Actor::Human),
+            )
+            .unwrap()
+            .entity
+            .id()
+            .clone();
+        (store, project, dir)
+    }
+
+    fn write(dir: &tempfile::TempDir, name: &str, body: &str) -> PathBuf {
+        let p = dir.path().join(name);
+        std::fs::write(&p, body).unwrap();
+        p
+    }
+
+    #[test]
+    fn an_unseen_file_would_be_created() {
+        let (store, project, dir) = fixture();
+        let f = write(&dir, "spec.md", "# Storage\n\nOne file.\n");
+
+        let p = preview(&store, &f, &project, EntityType::Spec, None).unwrap();
+        assert_eq!(p.outcome, Outcome::Create);
+        assert_eq!(p.title, "Storage");
+        assert!(p.entity_id.is_none());
+    }
+
+    /// The distinction the task was written for: re-running a preview during a
+    /// migration has to tell you whether anything would actually change.
+    #[test]
+    fn an_imported_file_reads_as_unchanged_and_an_edited_one_as_a_revision() {
+        let (mut store, project, dir) = fixture();
+        let f = write(&dir, "spec.md", "# Storage\n\nOne file.\n");
+        file(&mut store, &f, &project, EntityType::Spec, None, None).unwrap();
+
+        let same = preview(&store, &f, &project, EntityType::Spec, None).unwrap();
+        assert!(
+            matches!(same.outcome, Outcome::Unchanged { version: 1 }),
+            "{:?}",
+            same.outcome
+        );
+        assert!(
+            same.entity_id.is_some(),
+            "it should have found the artifact"
+        );
+
+        std::fs::write(&f, "# Storage\n\nOne file, and a second sentence.\n").unwrap();
+        let edited = preview(&store, &f, &project, EntityType::Spec, None).unwrap();
+        assert!(
+            matches!(edited.outcome, Outcome::Revise { from_version: 1 }),
+            "{:?}",
+            edited.outcome
+        );
+    }
+
+    /// The title is part of the body hash, so a renamed heading is a revision.
+    /// It is also a *different artifact* if nothing answers to the new title,
+    /// which is the sharper surprise and the reason to look before importing.
+    #[test]
+    fn renaming_the_heading_lands_somewhere_else_entirely() {
+        let (mut store, project, dir) = fixture();
+        let f = write(&dir, "spec.md", "# Storage\n\nOne file.\n");
+        file(&mut store, &f, &project, EntityType::Spec, None, None).unwrap();
+
+        std::fs::write(&f, "# Storage and retrieval\n\nOne file.\n").unwrap();
+        let p = preview(&store, &f, &project, EntityType::Spec, None).unwrap();
+        assert_eq!(
+            p.outcome,
+            Outcome::Create,
+            "a new title matches no artifact, so this would make a second one"
+        );
+        assert_eq!(p.title, "Storage and retrieval");
+    }
+
+    /// The whole point: previewing must not write.
+    #[test]
+    fn a_preview_leaves_the_store_exactly_as_it_found_it() {
+        let (store, project, dir) = fixture();
+        let f = write(&dir, "spec.md", "# Storage\n\nOne file.\n");
+
+        let before = store.list(&Default::default()).unwrap().total;
+        for _ in 0..3 {
+            preview(&store, &f, &project, EntityType::Spec, None).unwrap();
+        }
+        let after = store.list(&Default::default()).unwrap().total;
+        assert_eq!(before, after, "a preview created something");
+    }
+
+    /// It takes `&Store`, so it can run against a store something else holds
+    /// open for writing — which is the state an adopter's machine is in.
+    #[test]
+    fn a_preview_runs_while_another_process_holds_the_write_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("keel.sqlite");
+        let mut writer = Store::open_exclusive(&path).unwrap();
+        let project = writer
+            .create(
+                Project::new("demo", "Demo").into(),
+                &Provenance::anonymous(Actor::Human),
+            )
+            .unwrap()
+            .entity
+            .id()
+            .clone();
+
+        let f = dir.path().join("spec.md");
+        std::fs::write(&f, "# Storage\n\nOne file.\n").unwrap();
+
+        let reader = Store::open(&path).expect("a preview must not need the lock");
+        let p = preview(&reader, &f, &project, EntityType::Spec, None).unwrap();
+        assert_eq!(p.outcome, Outcome::Create);
+        drop(writer);
     }
 }
