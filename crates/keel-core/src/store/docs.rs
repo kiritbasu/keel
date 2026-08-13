@@ -1084,6 +1084,12 @@ impl Store {
     ///
     /// A batch the model refuses is logged and skipped rather than aborting the
     /// pass: one unembeddable document should not stop the other two hundred.
+    ///
+    /// Archived entities are skipped, and this is the one place the exclusion
+    /// has to be written out rather than inherited. Archiving clears the vector
+    /// through a trigger, which leaves the row looking exactly like a document
+    /// that was never embedded — so without the predicate this pass would put
+    /// back, every time it ran, precisely what archiving had just taken away.
     pub fn reembed_missing(
         &mut self,
         embedder: &dyn crate::Embedder,
@@ -1095,8 +1101,11 @@ impl Store {
             let mut stmt = self
                 .conn
                 .prepare(
-                    "SELECT doc_id, title, body FROM documents \
-                     WHERE status = 'current' AND embedding IS NULL ORDER BY doc_id",
+                    "SELECT d.doc_id, d.title, d.body FROM documents d \
+                     WHERE d.status = 'current' AND d.embedding IS NULL AND NOT EXISTS (\
+                        SELECT 1 FROM v_entities v \
+                         WHERE v.id = d.entity_id AND v.archived_at IS NOT NULL) \
+                     ORDER BY d.doc_id",
                 )
                 .map_err(Error::storage("list the revisions with no embedding"))?;
             let rows = stmt

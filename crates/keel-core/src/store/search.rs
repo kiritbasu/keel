@@ -1135,6 +1135,127 @@ mod tests {
         );
     }
 
+    /// The same assertion as above, on a type that actually exercises it.
+    ///
+    /// The test above archives a **task**, and a task has no row in `documents`
+    /// and therefore no vector — so it proves the keyword half and cannot reach
+    /// the semantic one. For two years that was the only coverage archiving had,
+    /// and underneath it the five prose types had no archive trigger at all:
+    /// archiving a spec removed it from nothing. On the live store ten archived
+    /// specs, two decisions and a question were still being returned.
+    ///
+    /// So this one archives a spec, and asserts against both halves separately —
+    /// a single `search` assertion would pass if either half went quiet for the
+    /// wrong reason.
+    #[test]
+    fn an_archived_spec_leaves_both_halves_of_the_index() {
+        let (mut store, project) = store_with_a_project();
+        let spec = add_spec(
+            &mut store,
+            &project,
+            "Penguins",
+            "the emperor penguin broods in the antarctic winter",
+            Some(&TopicEmbedder),
+        );
+
+        // "flightless" is nowhere in the text, so a hit for it can only have
+        // come from the vector half. Establishing that first is what makes the
+        // disappearance below mean something.
+        let before = store
+            .search_prepared(&SearchQuery::new("flightless"), Some(&TopicEmbedder), None)
+            .unwrap();
+        assert_eq!(ids(&before), vec![spec.as_str()]);
+        assert_eq!(
+            before.items[0].source,
+            SearchSource::Semantic,
+            "the setup is wrong if BM25 could have found this"
+        );
+
+        store
+            .conn
+            .execute(
+                "UPDATE specs SET archived_at = '2026-08-13T01:00:00.000000Z' WHERE id = ?1",
+                [spec.as_str()],
+            )
+            .unwrap();
+
+        assert!(
+            store
+                .search(&SearchQuery::new("penguin"))
+                .unwrap()
+                .items
+                .is_empty(),
+            "an archived spec must leave the keyword index"
+        );
+        assert!(
+            store
+                .search_prepared(&SearchQuery::new("flightless"), Some(&TopicEmbedder), None)
+                .unwrap()
+                .items
+                .is_empty(),
+            "an archived spec must leave the semantic index too"
+        );
+
+        // And the mechanism, not just the outcome: the vector is gone rather
+        // than merely filtered out of one query somewhere.
+        let vectors: i64 = store
+            .conn
+            .query_row(
+                "SELECT count(*) FROM documents WHERE entity_id = ?1 AND embedding IS NOT NULL",
+                [spec.as_str()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(vectors, 0, "archiving must clear the vector, not hide it");
+    }
+
+    /// Writing to an archived entity must not quietly un-archive it.
+    ///
+    /// Nothing in `docs.rs` refuses a revision on an archived entity, and the
+    /// indexing triggers fire on the write — so without the guard in
+    /// [`super::super::schema`] the next edit puts the row back in front of
+    /// people with no event, no error and nothing to notice. Archiving is
+    /// one-way, so there is no legitimate reading of this as a restore.
+    #[test]
+    fn a_revision_on_an_archived_spec_does_not_put_it_back() {
+        let (mut store, project) = store_with_a_project();
+        let spec = add_spec(
+            &mut store,
+            &project,
+            "Penguins",
+            "the emperor penguin broods in the antarctic winter",
+            Some(&TopicEmbedder),
+        );
+        store
+            .conn
+            .execute(
+                "UPDATE specs SET archived_at = '2026-08-13T01:00:00.000000Z' WHERE id = ?1",
+                [spec.as_str()],
+            )
+            .unwrap();
+
+        let next = Document::first(
+            EntityType::Spec,
+            spec.clone(),
+            Some(project.clone()),
+            "Penguins",
+            "the adelie penguin nests on bare rock",
+            Actor::Claude,
+            stored_now(),
+        )
+        .unwrap();
+        store.write_revision(next).unwrap();
+
+        assert!(
+            store
+                .search(&SearchQuery::new("adelie"))
+                .unwrap()
+                .items
+                .is_empty(),
+            "a revision written to an archived spec must not resurrect it"
+        );
+    }
+
     /// Hard constraint 4: a cut list says it was cut, and by how much.
     #[test]
     fn truncation_is_reported_with_a_total() {

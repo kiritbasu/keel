@@ -256,11 +256,21 @@ impl Store {
     /// The number that made semantic search a fiction for months: every
     /// document in the live store had a null embedding and nothing anywhere
     /// said so, because the keyword half kept answering.
+    ///
+    /// Archived entities are excluded from both halves of the ratio, and that
+    /// matters more than it looks. Their vectors are cleared on archive, so
+    /// counting them would report a permanent shortfall that no amount of
+    /// re-embedding could close — `doctor` would say "13 of 135 have no vector"
+    /// forever, and the honest reading of a check that can never go green is
+    /// that people stop reading it.
     pub fn documents_missing_embeddings(&self) -> Result<(i64, i64)> {
         let current: i64 = self
             .conn
             .query_row(
-                "SELECT count(*) FROM documents WHERE status = 'current'",
+                "SELECT count(*) FROM documents d \
+                 WHERE d.status = 'current' AND NOT EXISTS (\
+                    SELECT 1 FROM v_entities v \
+                     WHERE v.id = d.entity_id AND v.archived_at IS NOT NULL)",
                 [],
                 |r| r.get(0),
             )
@@ -268,7 +278,10 @@ impl Store {
         let missing: i64 = self
             .conn
             .query_row(
-                "SELECT count(*) FROM documents WHERE status = 'current' AND embedding IS NULL",
+                "SELECT count(*) FROM documents d \
+                 WHERE d.status = 'current' AND d.embedding IS NULL AND NOT EXISTS (\
+                    SELECT 1 FROM v_entities v \
+                     WHERE v.id = d.entity_id AND v.archived_at IS NOT NULL)",
                 [],
                 |r| r.get(0),
             )

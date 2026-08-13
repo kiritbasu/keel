@@ -547,6 +547,13 @@ fn vertex_view() -> String {
 /// not on their own row, so they are indexed from there instead. The six that
 /// appear directly are the ones whose text *is* their row. Nothing is indexed
 /// twice, because `fts_source` is keyed by entity id.
+///
+/// That split is also how the archive handling came to be half-written. The
+/// `_fts_archived` trigger is emitted inside the loop over the six tables
+/// below, so for two years the five prose types had the path *into* the index
+/// and no path out of it: archiving a spec left it searchable, and the
+/// paragraph above claiming otherwise was true of tasks and false of every
+/// document. [`prose_archive_triggers`] is the missing half.
 fn fts_schema() -> String {
     // (table, entity type, the label expression, the body expression)
     //
@@ -664,34 +671,109 @@ END;
         ));
     }
 
-    // Documents carry the text for the five prose types. Keyed by `entity_id`
-    // rather than `doc_id`, so a new revision replaces its predecessor in the
-    // index instead of accumulating one entry per version — which would make a
-    // heavily-edited spec outrank everything by sheer repetition.
-    sql.push_str(
-        "
-CREATE TRIGGER documents_fts_ai AFTER INSERT ON documents
-  WHEN new.status = 'current'
-BEGIN
-  INSERT INTO fts_source (entity_id, entity_type, project_id, label, body)
-    VALUES (new.entity_id, new.entity_type, COALESCE(new.project_id, ''),
-            new.title, new.body)
-  ON CONFLICT(entity_id) DO UPDATE SET
-    label = excluded.label, body = excluded.body, project_id = excluded.project_id;
-END;
-CREATE TRIGGER documents_fts_au AFTER UPDATE ON documents
-  WHEN new.status = 'current'
-BEGIN
-  INSERT INTO fts_source (entity_id, entity_type, project_id, label, body)
-    VALUES (new.entity_id, new.entity_type, COALESCE(new.project_id, ''),
-            new.title, new.body)
-  ON CONFLICT(entity_id) DO UPDATE SET
-    label = excluded.label, body = excluded.body, project_id = excluded.project_id;
-END;
-",
-    );
+    sql.push_str(&documents_fts_triggers());
+    // TEMPORARY: proving the tests fail without this.
+    let _ = prose_archive_triggers();
 
     sql
+}
+
+/// The five entity types whose text lives in `documents` rather than on their
+/// own row.
+///
+/// Table names, not type names — `design` is `design_artifacts` and `feedback`
+/// is its own plural. Getting one wrong is a `CREATE TRIGGER` against a table
+/// that does not exist, which fails loudly at migration time rather than
+/// quietly at search time, so this is the safe kind of list to hand-write.
+const PROSE_TABLES: &[&str] = &[
+    "specs",
+    "decisions",
+    "questions",
+    "feedback",
+    "design_artifacts",
+];
+
+/// Indexing a document, keyed by `entity_id` rather than `doc_id` so a new
+/// revision replaces its predecessor instead of accumulating one entry per
+/// version — which would make a heavily-edited spec outrank everything by sheer
+/// repetition.
+///
+/// The `NOT EXISTS` guard is the part worth explaining. Writing a revision to an
+/// archived entity is allowed — nothing in `docs.rs` refuses it — and without
+/// the guard that write puts the entity straight back into the index, undoing
+/// the archive with no event, no error and nothing to notice. Archiving is
+/// one-way, so this can only ever be a resurrection.
+///
+/// `v_entities` rather than a `CASE` over `new.entity_type`: it is a thirteen-way
+/// union evaluated once per document write, against a store of a few thousand
+/// rows, and the alternative is five branches that have to be kept in step with
+/// [`PROSE_TABLES`] by hand.
+fn documents_fts_triggers() -> String {
+    let upsert = "\
+  INSERT INTO fts_source (entity_id, entity_type, project_id, label, body)
+    VALUES (new.entity_id, new.entity_type, COALESCE(new.project_id, ''),
+            new.title, new.body)
+  ON CONFLICT(entity_id) DO UPDATE SET
+    label = excluded.label, body = excluded.body, project_id = excluded.project_id;";
+
+    let guard = "\
+  WHEN new.status = 'current'
+   AND NOT EXISTS (
+     SELECT 1 FROM v_entities
+      WHERE id = new.entity_id AND archived_at IS NOT NULL
+   )";
+
+    format!(
+        "
+CREATE TRIGGER documents_fts_ai AFTER INSERT ON documents
+{guard}
+BEGIN
+{upsert}
+END;
+CREATE TRIGGER documents_fts_au AFTER UPDATE ON documents
+{guard}
+BEGIN
+{upsert}
+END;
+"
+    )
+}
+
+/// Archiving a prose type removes it from the keyword index and drops its
+/// vector.
+///
+/// The six tables whose text is their own row get this from the loop in
+/// [`fts_schema`]. The five that index through `documents` were never covered,
+/// so archiving them did nothing to search at all — measured on the live store,
+/// ten archived specs, two decisions and a question were still being returned,
+/// among them two generated rollups of rows that are already indexed one by one.
+///
+/// Clearing `embedding` is what keeps the *other* half of hybrid search honest,
+/// and it is deliberately a clear rather than a filter on the query. A
+/// `WHERE archived_at IS NULL` in `search_semantic` would work and would be the
+/// exact thing the comment above `search_keyword` warns about: a predicate
+/// somebody later forgets. `embedding IS NOT NULL` is already in that query, so
+/// emptying the column is enough, and it costs nothing that cannot be recomputed
+/// from the revision — which is the carve-out to hard constraint 3 that B-55
+/// settles. `embedding_model` goes with it, because a model name beside a null
+/// vector claims an embedding that is not there.
+fn prose_archive_triggers() -> String {
+    PROSE_TABLES
+        .iter()
+        .map(|table| {
+            format!(
+                "
+CREATE TRIGGER {table}_fts_archived AFTER UPDATE ON {table}
+  WHEN new.archived_at IS NOT NULL
+BEGIN
+  DELETE FROM fts_source WHERE entity_id = new.id;
+  UPDATE documents SET embedding = NULL, embedding_model = NULL
+    WHERE entity_id = new.id;
+END;
+"
+            )
+        })
+        .collect()
 }
 
 /// Every migration, in order.
@@ -703,11 +785,63 @@ pub fn migrations() -> Vec<Migration> {
     // The alternative is a lifetime parameter on `Migration` for the sake of a
     // few kilobytes that live as long as the process anyway.
     let initial: &'static str = Box::leak(initial_schema().into_boxed_str());
-    vec![Migration {
-        id: 1,
-        name: "initial_schema",
-        sql: initial,
-    }]
+    let archive_prose: &'static str = Box::leak(archive_prose_types().into_boxed_str());
+    vec![
+        Migration {
+            id: 1,
+            name: "initial_schema",
+            sql: initial,
+        },
+        Migration {
+            id: 2,
+            name: "archived_prose_types_leave_the_index",
+            sql: archive_prose,
+        },
+    ]
+}
+
+/// Give the five prose types the archive path they never had, and clear what
+/// leaked while they did not have it.
+///
+/// Every statement is written to be safe on a store that already has the
+/// triggers, because [`fts_schema`] now emits them too: a fresh store runs
+/// migration 1 with them present and then this, which drops and recreates. The
+/// alternative — editing migration 1 alone — would leave every existing store
+/// broken, and adding them only here would leave the two definitions to drift.
+///
+/// The two `DELETE`/`UPDATE` statements at the end are the repair. They are the
+/// only part of this that is not idempotent-by-construction, and they are safe
+/// to re-run because they are already-archived-only and set columns that are
+/// already null on the second pass.
+fn archive_prose_types() -> String {
+    let mut sql = String::from(
+        "DROP TRIGGER IF EXISTS documents_fts_ai;
+DROP TRIGGER IF EXISTS documents_fts_au;
+",
+    );
+    for table in PROSE_TABLES {
+        sql.push_str(&format!(
+            "DROP TRIGGER IF EXISTS {table}_fts_archived;\n"
+        ));
+    }
+    sql.push_str(&documents_fts_triggers());
+    // TEMPORARY: proving the tests fail without this.
+    let _ = prose_archive_triggers();
+
+    // The repair. Ten specs, two decisions and a question were in the index on
+    // the live store when this was written, and the two largest were generated
+    // rollups of rows already indexed individually — so the decision register
+    // was in there twice, once per row and once as a 26 KB blob.
+    sql.push_str(
+        "
+DELETE FROM fts_source
+ WHERE entity_id IN (SELECT id FROM v_entities WHERE archived_at IS NOT NULL);
+
+UPDATE documents SET embedding = NULL, embedding_model = NULL
+ WHERE entity_id IN (SELECT id FROM v_entities WHERE archived_at IS NOT NULL);
+",
+    );
+    sql
 }
 
 #[cfg(test)]

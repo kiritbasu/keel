@@ -198,6 +198,50 @@ It grows forever. Keep everything, which is probably fine for a decade at this w
 
 *Decided, with the reasoning. Do not re-litigate these.*
 
+### Should superseded decisions still be findable by search, and how should they rank?
+
+`que_01KZX7RE59YMKJ31DTM4YHWAYV` · question · answered · severity low
+
+Two different things are called superseded and the design has to keep them apart.
+
+**A superseded revision** is `documents.status = 'superseded'` — an older version of the same prose. That one is settled: search only reads current revisions, old ones stay readable by version through `keel_get`, and chunking changes nothing about it.
+
+**A superseded decision** is a live entity whose thinking has been replaced — `decisions.status = 'superseded'`, or an inbound `supersedes` edge. There is one such decision in the store today and no `supersedes` edges yet, but `keel_close` with reason `superseded` draws the edge itself, so this arrives on its own.
+
+The case for keeping them findable is the reason Keel exists. "Why did we stop passing `--all-features`" is answered by the old decision *and* the new one; returning only the new one answers a different question. Dropping superseded rows from the index makes the store good at describing the present and useless at explaining it.
+
+The case against is that a model asking "what do we do about X" and getting the replaced answer at rank one will act on it.
+
+Options:
+
+1. **Return them, labelled** — `SearchHit` gains `superseded_by`, and the hit says so. Ranking untouched. *(Recommended.)*
+2. **Return them, demoted** — a multiplier on the RRF contribution. Cheap, but it is a silent adjustment of the kind this codebase keeps regretting, and the number would be arbitrary.
+3. **Exclude them** — matches what archiving does. Loses the history that is the point.
+
+Recommending 1. It tells the caller what is true and lets them decide, which is what the digest and the close reasons already do everywhere else; a labelled hit at rank two is more useful to a model than a missing one. It also composes with 2 later if labelling turns out not to be enough — the reverse is not true.
+
+Worth deciding before chunking lands, because the label has to be carried from the query all the way out through the hit, and retrofitting it means touching the same three layers again.
+
+### May the chunk index be hard-deleted, or does soft-delete-only reach derived data?
+
+`que_01KZX7R285SQED3YM7650R6150` · question · answered · severity medium
+
+Chunking means a table of passages, each with a vector, derived from a document revision. When a new revision lands, when an entity is archived, or when the model changes, the old passages have to stop existing. The question is whether they may be `DELETE`d.
+
+Hard constraint 3 says soft delete only, links included. Read literally it covers this table, and the consequence is a `document_chunks` table that grows without bound: every revision of every document keeps its passages forever, each carrying 1.5 KB of vector, and every query has to filter them out. On the Technical Specification alone — 67,594 characters and however many revisions it accumulates — that is the largest table in the store within a year, holding nothing anyone can read.
+
+The argument for `DELETE`: **a chunk is an index, not a record.** `fts_source` is already in exactly this position and the triggers already delete from it, with no one calling that a violation of constraint 3 — because the record is the revision in `documents`, which is immutable and append-only and stays. A chunk is a derived artefact of a revision the same way a BM25 posting is: throw it away and nothing is lost that cannot be recomputed from the row it came from.
+
+The argument against: constraint 3 is stated without exceptions, and the reason it is stated without exceptions is that every deletion looks recoverable until it isn't.
+
+Options:
+
+1. **Hard delete, with the rule written down** — chunks are an index, deletable, and constraint 3 gains an explicit carve-out naming derived indexes and the test that proves a chunk can always be recomputed from its revision. *(Recommended.)*
+2. **Soft delete** — an `archived_at` on the chunk row, every query filters it, the table grows forever. Consistent with the constraint as written, and the cost is real.
+3. **No chunk table at all** — keep one vector per document and accept 512-token truncation. This is the status quo and it is what raised the question.
+
+Recommending 1. The distinction it rests on is one the codebase already makes and already relies on; making it explicit is cheaper than either living with 2 or pretending the tension is not there. It touches storage format, so it is KB's call.
+
 ### TQ-35 — Activity is rebuilt as "What changed", grouped by session
 
 `que_01KZR4EZ97WRY0QFGAQ7DPPSZH` · question · answered

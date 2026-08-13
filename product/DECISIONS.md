@@ -65,6 +65,8 @@ Every decision made while building, with the reasoning and what was rejected. In
 | B-52 | [Taking the payload out of a tool result is one named function, not two lines](#b-52) | `accepted` |
 | B-53 | [The write-path atomicity fix: &Connection primitives, transaction-of-one, one typed composite on Store](#b-53) | `proposed` |
 | B-54 | [The fixture corpus stays compiled in, ungated](#b-54) | `accepted` |
+| B-55 | [Documents are embedded as passages, and the passage table is an index rather than a record](#b-55) | `accepted` |
+| B-56 | [Superseded decisions stay in search results and carry a label saying what replaced them](#b-56) | `accepted` |
 
 ## Reversals
 
@@ -1262,5 +1264,45 @@ KEEL-162 asked for it to be gated. Working through what that costs against what 
 #### What would change this
 
 A measurement. If the daemon binary size or its compile time ever becomes a real complaint, the corpus is the obvious first thing to move — and the cleaner move is out of the binary entirely, into a data file `keel fixture` reads, rather than behind a feature flag.
+
+
+### B-55 — Documents are embedded as passages, and the passage table is an index rather than a record
+
+`accepted` · `dec_01KZX83HF50F7T90B2CD1P7EZ7`
+
+KB decided, 2026-08-13, after the truncation measurement in KEEL-174.
+
+`bge-small-en-v1.5` reads 512 tokens and a document goes to it whole, so 41% of current documents were never going to be embedded past their opening. Documents get split into passages instead: headings first, then a hard wrap around 1,400 characters with roughly 15% overlap, and the heading path prepended to each passage's text so a passage from §5 of the spec still carries what it is a section of.
+
+A new `document_chunks` table holds them, keyed to `doc_id`, carrying `ordinal`, `heading_path`, the character span, the text, the vector and the source revision's `body_hash`. Query side groups by entity and takes the **best** matching passage per document — mean would punish a long document for having sections about other things, which is backwards. The passage doubles as the excerpt, which is better than the fixed window around the first matching term that it replaces.
+
+**`documents.embedding` stops being written and is dropped in a later migration.** One place for vectors. The argument against a `vec0` table already in `store::search` — a second copy of every vector, and something has to keep it in step — applies just as well to a whole-document vector sitting beside per-passage ones. Nothing in Keel asks "what is this document broadly about", so the second copy would exist to drift.
+
+**Passages are hard-deleted when the revision they came from is replaced, when the entity is archived, or when the model changes.** This is an explicit exception to hard constraint 3, and the distinction it rests on is one the codebase already relies on: `fts_source` is a derived index whose triggers already delete, and nobody has ever called that a violation, because the record is the revision in `documents` — immutable, append-only, and untouched. A passage is a derived artefact of a revision in the same way a BM25 posting is. Constraint 3 gains a carve-out naming derived indexes, and a test proves a passage can always be recomputed from its revision.
+
+The alternative was an `archived_at` on every passage and a filter on every query, which is consistent with the constraint as written and means the passage table outgrows everything else in the store within a year while holding nothing a person can read.
+
+The model stays full-precision `bge-small-en-v1.5` — 134 MB rather than the 67 MB compressed variant. It downloads once, in the background, while keyword search already answers, so nothing blocks on it, and the quality cost of the compressed one is not predictable on a corpus this shape. Reversible either way: same 384 dimensions, so switching is a re-embed pass and not a schema change, which is what `embedding_model` on the row is for.
+
+Resolves QUE "May the chunk index be hard-deleted". Related: TQ-3, which asks the re-embedding question this makes cheaper — a model change is now a delete-and-recompute over a derived table rather than a rewrite of the document rows.
+
+
+### B-56 — Superseded decisions stay in search results and carry a label saying what replaced them
+
+`accepted` · `dec_01KZX83RKRDV71XF3ZWMBYY50N`
+
+KB decided, 2026-08-13.
+
+A decision whose thinking has been replaced — `decisions.status = 'superseded'`, or an inbound `supersedes` edge — stays in the index and stays returnable. `SearchHit` gains `superseded_by`, and the hit says which decision replaced it. Ranking is untouched.
+
+The reason is the reason Keel exists. "Why did we stop passing `--all-features`" is answered by the old decision and the new one together; returning only the new one answers a different question. Hiding superseded rows would make the store good at describing the present and useless at explaining it.
+
+Ranking them down was the obvious middle path and was rejected: the multiplier would be arbitrary, and the adjustment would be invisible to whoever read the results — the silent-correction shape this codebase keeps having to undo. Telling the caller what is true and letting them decide is what the close reasons and the digest already do everywhere else. It also composes: demotion can be added later on top of a label, and a label cannot be recovered from a demotion.
+
+Not to be confused with a superseded *revision*, which is `documents.status = 'superseded'` and is already settled — search reads current revisions only, older ones stay readable by version through `keel_get`, and passages are never built for them.
+
+Decided before chunking lands because the label has to be carried from the query through to the hit, and retrofitting means touching the same three layers twice.
+
+Resolves QUE "Should superseded decisions still be findable by search".
 
 
