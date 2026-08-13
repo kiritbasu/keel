@@ -151,6 +151,16 @@ fn os(v: Option<impl Into<String>>) -> Value {
     v.map(|x| Value::Text(x.into())).unwrap_or(Value::Null)
 }
 
+/// Now, in the one format this store sorts correctly.
+///
+/// Exists so that a field written by hand — `shipped_at`, set alongside a
+/// status — is spelled the same way as one written by the binding helpers. A
+/// timestamp in a different shape sorts wrongly against its neighbours, which
+/// is the whole argument in [`TIMESTAMP_FORMAT`].
+pub(crate) fn now_rfc3339() -> String {
+    Utc::now().format(TIMESTAMP_FORMAT).to_string()
+}
+
 /// Bind a timestamp in the one format this store sorts correctly.
 pub(super) fn ts(v: DateTime<Utc>) -> Value {
     Value::Text(v.format(TIMESTAMP_FORMAT).to_string())

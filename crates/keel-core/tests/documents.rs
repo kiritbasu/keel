@@ -764,3 +764,72 @@ fn a_second_reembed_pass_has_nothing_to_do() {
     assert_eq!(again.missing, 0);
     assert_eq!(again.embedded, 0);
 }
+
+/// The backfill must not undo an archive.
+///
+/// Archiving clears the vector, which leaves the row indistinguishable from a
+/// document that was never embedded at all — so a pass that looked only for
+/// `embedding IS NULL` would put back, every single time it ran, exactly what
+/// archiving had just taken away. The two mechanisms would have fought each
+/// other quietly and the archive would have lost.
+#[test]
+fn reembed_leaves_archived_documents_alone() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let project = store
+        .create(Project::new("demo", "Demo").into(), &prov())
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+
+    let live = store
+        .create_with_document(
+            Spec::new(project.clone(), "A live spec").into(),
+            Some("Prose that should be findable.".to_owned()),
+            None,
+            &prov(),
+        )
+        .unwrap();
+    let put_away = store
+        .create_with_document(
+            Spec::new(project, "A spec someone put away").into(),
+            Some("Prose that should not be.".to_owned()),
+            None,
+            &prov(),
+        )
+        .unwrap();
+
+    let doomed = put_away.entity.id().clone();
+    store
+        .archive(&doomed, put_away.entity.audit().version, &prov())
+        .unwrap();
+
+    // Both counts see one document, not two: an archived row that can never be
+    // embedded must not sit in the denominator making the check permanently red.
+    let (current, missing) = store.documents_missing_embeddings().unwrap();
+    assert_eq!(current, 1, "the archived spec must not be counted");
+    assert_eq!(missing, 1);
+
+    let embedder = HashEmbedder::new();
+    let report = store.reembed_missing(&embedder, |_, _| {}).unwrap();
+    assert_eq!(report.missing, 1, "only the live spec was pending");
+    assert_eq!(report.embedded, 1);
+
+    let vectors = |id: &EntityId| -> i64 {
+        store
+            .connection()
+            .query_row(
+                "SELECT count(*) FROM documents WHERE entity_id = ?1 AND embedding IS NOT NULL",
+                [id.as_str()],
+                |r| r.get(0),
+            )
+            .unwrap()
+    };
+    assert_eq!(
+        vectors(&doomed),
+        0,
+        "the backfill must not give an archived document a vector back"
+    );
+    assert_eq!(vectors(live.entity.id()), 1, "the live spec still gets one");
+}

@@ -110,6 +110,29 @@ pub fn apply_changes(
             continue;
         }
 
+        // A phase's state is derived; only three values are a person's to set
+        // (B-57). Deserialising below would reject these anyway, with the
+        // enum's own list of valid values — but that message says what is
+        // allowed and not why `active` is missing from it, which is the part a
+        // caller needs to stop trying.
+        if entity_type == crate::EntityType::Milestone
+            && field == "status"
+            && let Some(word) = new_value.as_str()
+            && matches!(word, "active" | "planned" | "blocked" | "complete")
+        {
+            return Err(Error::invalid(
+                entity_type,
+                field,
+                format!(
+                    "`{word}` is worked out from the phase's tasks and edges, so it cannot \
+                         be set. Move the tasks and it follows"
+                ),
+                "open, paused, shipped or cut — the three declarations plus `open` for no \
+                     declaration at all"
+                    .to_owned(),
+            ));
+        }
+
         applied.push(FieldChange {
             field: field.clone(),
             before: old_value.clone(),
@@ -120,6 +143,23 @@ pub fn apply_changes(
 
     if applied.is_empty() {
         return Ok(applied);
+    }
+
+    // A phase that ships gets its date in the same write. They are two fields
+    // saying one thing, and maintained separately they drift: two phases were
+    // marked shipped with the date left empty, by a caller that set the field
+    // it was given and nothing else.
+    if entity_type == crate::EntityType::Milestone
+        && current.get("status").and_then(Value::as_str) == Some("shipped")
+        && current.get("shipped_at").is_none_or(Value::is_null)
+    {
+        let now = crate::store::rows::now_rfc3339();
+        applied.push(FieldChange {
+            field: "shipped_at".to_owned(),
+            before: Value::Null,
+            after: Value::String(now.clone()),
+        });
+        current.insert("shipped_at".to_owned(), Value::String(now));
     }
 
     // Deserialising is where type and enum validation actually happens. The

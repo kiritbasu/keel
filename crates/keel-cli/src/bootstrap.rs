@@ -116,7 +116,7 @@ pub fn run(store: &mut Store, repo_path: Option<String>) -> Result<Summary> {
             "Phase 2 — Plugin",
             "Skill, session-ID threading, project confirmation, mirror hooks. Built, but the \
              exit gate needs ten unprompted sessions and has not been run.",
-            MilestoneStatus::Active,
+            MilestoneStatus::Open,
             NaiveDate::from_ymd_opt(2026, 8, 9),
             2,
         ),
@@ -130,14 +130,14 @@ pub fn run(store: &mut Store, repo_path: Option<String>) -> Result<Summary> {
         (
             "Phase 4 — Integrations",
             "GitHub App, design artifacts, metrics charts. Needs KB's GitHub account.",
-            MilestoneStatus::Planned,
+            MilestoneStatus::Open,
             None,
             4,
         ),
         (
             "Phase 5 — Remote",
             "Deployable daemon, auth, mobile client.",
-            MilestoneStatus::Planned,
+            MilestoneStatus::Open,
             None,
             5,
         ),

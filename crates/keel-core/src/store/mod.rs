@@ -391,6 +391,121 @@ impl Store {
             .map_err(Error::storage(format!("count the tasks in {project_id}")))
     }
 
+    /// Every milestone in a project, with the state derived from its tasks.
+    ///
+    /// Two queries for the whole project rather than three per phase. The
+    /// alternative is what the digest used to do for blocked tasks — walk once
+    /// per row — and this is the same question one level up.
+    ///
+    /// Returned as a map because every caller has the milestones already and
+    /// wants the state beside them: the digest, the tracker, and the API that
+    /// hands them to the desktop app.
+    pub fn milestone_states(
+        &self,
+        project_id: &EntityId,
+    ) -> Result<std::collections::HashMap<EntityId, crate::MilestoneState>> {
+        use crate::{MilestoneState, MilestoneStatus, TaskTally};
+
+        // The task distribution per phase. `closed` and `started` are built
+        // from the enum predicates rather than spelled in SQL, for the reason
+        // `task_counts` gives: a status added to the enum and forgotten in a
+        // hand-written query is a count that is quietly wrong.
+        let closed: Vec<&str> = crate::TaskStatus::ALL
+            .iter()
+            .filter(|s| !s.is_open())
+            .map(|s| s.as_str())
+            .collect();
+        let quoted = |v: &[&str]| {
+            v.iter()
+                .map(|x| format!("'{x}'"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let closed_list = quoted(&closed);
+
+        let sql = format!(
+            "SELECT milestone_id,
+                    count(*),
+                    sum(CASE WHEN status IN ({closed_list}) THEN 1 ELSE 0 END),
+                    sum(CASE WHEN status NOT IN ({closed_list}) AND status <> 'todo'
+                             THEN 1 ELSE 0 END)
+             FROM tasks
+             WHERE project_id = ?1 AND archived_at IS NULL AND milestone_id IS NOT NULL
+             GROUP BY milestone_id"
+        );
+        let mut stmt = self
+            .conn
+            .prepare(&sql)
+            .map_err(Error::storage("prepare the per-phase task tally"))?;
+        let mut tallies: std::collections::HashMap<String, TaskTally> = Default::default();
+        let mut rows = stmt
+            .query([project_id.as_str()])
+            .map_err(Error::storage("run the per-phase task tally"))?;
+        while let Some(row) = rows
+            .next()
+            .map_err(Error::storage("read a per-phase task tally"))?
+        {
+            let id: String = row.get(0).map_err(Error::storage("read a milestone id"))?;
+            tallies.insert(
+                id,
+                TaskTally {
+                    total: row.get::<_, i64>(1).unwrap_or(0) as usize,
+                    closed: row.get::<_, i64>(2).unwrap_or(0) as usize,
+                    started: row.get::<_, i64>(3).unwrap_or(0) as usize,
+                },
+            );
+        }
+        drop(rows);
+        drop(stmt);
+
+        // What is blocked. Live `blocks` edges pointing at a milestone, with a
+        // live source — a finished blocker is not a blocker, the same rule
+        // `next::blocked_tasks` applies one level down.
+        let mut blocked: std::collections::HashSet<String> = Default::default();
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT l.to_id FROM links l
+                 JOIN v_entities v ON v.id = l.from_id
+                 WHERE l.rel = 'blocks' AND l.archived_at IS NULL
+                   AND l.to_type = 'milestone' AND v.archived_at IS NULL",
+            )
+            .map_err(Error::storage("prepare the blocked-phase query"))?;
+        let mut rows = stmt
+            .query([])
+            .map_err(Error::storage("run the blocked-phase query"))?;
+        while let Some(row) = rows
+            .next()
+            .map_err(Error::storage("read a blocked phase"))?
+        {
+            blocked.insert(row.get(0).map_err(Error::storage("read a milestone id"))?);
+        }
+        drop(rows);
+        drop(stmt);
+
+        let page = self.list(
+            &EntityQuery::in_project(project_id.clone())
+                .of_type(EntityType::Milestone)
+                .limited(1_000),
+        )?;
+
+        let mut out = std::collections::HashMap::new();
+        for entity in page.items {
+            let Entity::Milestone(m) = entity else {
+                continue;
+            };
+            let key = m.id.as_str().to_owned();
+            let declared: MilestoneStatus = m.status;
+            let state = MilestoneState::derive(
+                declared,
+                tallies.get(&key).copied().unwrap_or_default(),
+                blocked.contains(&key),
+            );
+            out.insert(m.id, state);
+        }
+        Ok(out)
+    }
+
     /// How many pages the write-ahead log currently holds.
     ///
     /// The number that says whether checkpointing is keeping up. It should

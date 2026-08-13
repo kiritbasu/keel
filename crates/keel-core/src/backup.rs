@@ -429,7 +429,14 @@ mod tests {
         );
         assert_eq!(manifest.counts["tasks"], 1);
         assert_eq!(manifest.counts["blobs"], 1);
-        assert_eq!(manifest.migrations, vec![1]);
+        // Every migration the schema defines, not a literal list — a manifest
+        // that has to be edited each time one is added is a manifest that gets
+        // edited to whatever makes the test pass.
+        let expected: Vec<i32> = crate::store::schema::migrations()
+            .iter()
+            .map(|m| m.id)
+            .collect();
+        assert_eq!(manifest.migrations, expected);
     }
 
     /// The keyword index has to survive the round trip, and nothing about row

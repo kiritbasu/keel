@@ -273,7 +273,7 @@ pub fn page_integrity(store: &Store, which: &str) -> Result<Option<String>> {
 /// here has a corruption test that trips it, and the test at the bottom of this
 /// file asserts the list matches what the code actually emits — so a new check
 /// cannot be added silently in either direction.
-pub const CHECKS: [&str; 20] = [
+pub const CHECKS: [&str; 22] = [
     "dangling_link_source",
     "dangling_link_target",
     "depends_on_stored",
@@ -282,6 +282,8 @@ pub const CHECKS: [&str; 20] = [
     "multiple_current_revisions",
     "orphan_task",
     "stale_in_progress",
+    "milestone_stores_a_derived_state",
+    "shipped_without_a_date",
     "duplicate_task_number",
     "task_without_number",
     "project_without_key",
@@ -527,6 +529,66 @@ pub fn check(store: &Store) -> Result<FsckReport> {
             ),
             remedy: "finish them, or move them back to todo. A stale claim is worse than \
                      an empty column: it is confidently wrong rather than merely silent"
+                .to_owned(),
+            count: n,
+        });
+    }
+
+    // --- No phase stores a state that is derived ------------------------
+    //
+    // `planned`, `active` and `blocked` stopped being storable in B-57: they
+    // are worked out from the tasks and the edges, because the column drifted
+    // and five of twelve phases ended up contradicting their own work. The
+    // digest names the phase in flight, so for a week every session was told
+    // the active phase was Phase 9 — which had finished.
+    //
+    // Migration 3 rewrites them, and `apply_changes` refuses to write one. This
+    // is the audit for the path neither covers: a hand-edited row, a restore
+    // from a store that predates the change, or a binary older than the
+    // migration writing through the file.
+    checks_run += 1;
+    let n = count(
+        "SELECT count(*) FROM milestones
+          WHERE archived_at IS NULL
+            AND status IN ('planned', 'active', 'blocked', 'complete')",
+        "milestone_stores_a_derived_state",
+    )?;
+    if n > 0 {
+        findings.push(Finding {
+            severity: Severity::Warning,
+            check: "milestone_stores_a_derived_state".to_owned(),
+            detail: format!(
+                "{n} phase(s) store a state that is supposed to be derived. Whatever they say, \
+                 the roadmap shows what their tasks say — so the two now disagree in the \
+                 database rather than on the screen"
+            ),
+            remedy: "run `keel migrate`, which rewrites them to `open`. If they came back after \
+                     that, something is writing to the store without going through the daemon"
+                .to_owned(),
+            count: n,
+        });
+    }
+
+    // --- A shipped phase has a date ---------------------------------------
+    //
+    // `status` and `shipped_at` are two fields saying one thing. Maintained
+    // separately they drift: two phases were marked shipped with the date left
+    // empty, by a caller that set the field it was given and nothing else.
+    // `apply_changes` writes both together now; this catches what came before.
+    checks_run += 1;
+    let n = count(
+        "SELECT count(*) FROM milestones
+          WHERE archived_at IS NULL AND status = 'shipped' AND shipped_at IS NULL",
+        "shipped_without_a_date",
+    )?;
+    if n > 0 {
+        findings.push(Finding {
+            severity: Severity::Warning,
+            check: "shipped_without_a_date".to_owned(),
+            detail: format!("{n} phase(s) are marked shipped with no date on them"),
+            remedy: "set `shipped_at`. Migration 3 fills it from the last task to close in the \
+                     phase, which is the honest answer — a phase did not ship before its final \
+                     task did"
                 .to_owned(),
             count: n,
         });

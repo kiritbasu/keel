@@ -43,7 +43,7 @@ fn one_of_each(project_id: &EntityId, metric_id: &EntityId) -> Vec<Entity> {
     );
     milestone.kind = MilestoneKind::Release;
     milestone.summary = Some("The storage spine".into());
-    milestone.status = MilestoneStatus::Active;
+    milestone.status = MilestoneStatus::Paused;
     milestone.target_date = NaiveDate::from_ymd_opt(2026, 9, 30);
     milestone.version_string = Some("0.1.0".into());
     milestone.sort_order = Some(1);

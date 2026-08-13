@@ -98,18 +98,138 @@ string_enum! {
 }
 
 string_enum! {
-    /// Where a milestone stands.
-    MilestoneStatus for EntityType::Milestone, field "status", default Planned {
-        /// Not started.
-        Planned = "planned",
-        /// In flight.
-        Active = "active",
-        /// Held up by something else.
-        Blocked = "blocked",
-        /// Delivered.
+    /// What has been *decided* about a milestone, which is the only part of its
+    /// state a person types.
+    ///
+    /// Everything else — planned, active, complete, blocked — is worked out
+    /// from the tasks and the edges by [`crate::MilestoneState`], and is
+    /// deliberately not storable. B-57 has the argument; the short version is
+    /// that five of twelve phases contradicted their own tasks and the digest
+    /// spent a week naming a finished phase as the active one.
+    ///
+    /// This is TQ-25 applied to milestones. `blocked` was a *task* status that
+    /// could disagree with the `blocks` edges, and the fix was to stop storing
+    /// it rather than to check it harder.
+    MilestoneStatus for EntityType::Milestone, field "status", default Open {
+        /// Nothing has been declared. What the phase is doing is derived.
+        Open = "open",
+        /// Started, stopped, not abandoned. The one state that is real, common
+        /// and impossible to derive: nobody is on it, and it is coming back.
+        Paused = "paused",
+        /// Delivered. Written together with `shipped_at`, never separately.
         Shipped = "shipped",
-        /// Dropped from the plan. Never deleted (D-9).
+        /// Dropped from the plan. Never deleted (D-9). Replaced rather than
+        /// abandoned is this plus a `supersedes` edge, the way tasks do it.
         Cut = "cut",
+    }
+}
+
+/// What a phase is actually doing, worked out rather than typed.
+///
+/// Never stored and never accepted as input. Three of these come from counting
+/// the phase's tasks, one from its edges, and the last three are whatever was
+/// declared — see [`MilestoneStatus`] and B-57.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MilestoneState {
+    /// No task has moved off `todo`.
+    Planned,
+    /// A task has started and something is still open.
+    Active,
+    /// Something live blocks this phase. Outranks `active`, because a phase
+    /// nobody can proceed on is not in flight however many tasks are open.
+    Blocked,
+    /// Every task closed and nobody has said what that means yet.
+    ///
+    /// The state `product/GATE.md` describes and the model could not hold: two
+    /// of this project's phase gates cannot be verified without a human, so
+    /// "the work is done" and "it shipped" are different facts.
+    Complete,
+    /// Set aside deliberately.
+    Paused,
+    /// Declared delivered.
+    Shipped,
+    /// Declared dropped.
+    Cut,
+}
+
+impl MilestoneState {
+    /// The stored string, for display and for the API.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            MilestoneState::Planned => "planned",
+            MilestoneState::Active => "active",
+            MilestoneState::Blocked => "blocked",
+            MilestoneState::Complete => "complete",
+            MilestoneState::Paused => "paused",
+            MilestoneState::Shipped => "shipped",
+            MilestoneState::Cut => "cut",
+        }
+    }
+
+    /// Whether this phase still wants work doing.
+    ///
+    /// `complete` is not open: the tasks are finished and what is left is a
+    /// decision rather than work. That distinction is the whole reason
+    /// `complete` exists.
+    pub const fn wants_work(self) -> bool {
+        matches!(
+            self,
+            MilestoneState::Planned | MilestoneState::Active | MilestoneState::Blocked
+        )
+    }
+}
+
+/// How a phase's live tasks are distributed, which is three of the four inputs
+/// to [`MilestoneState::derive`].
+///
+/// A struct rather than three `usize` parameters because
+/// `derive(declared, 4, 0, 2, false)` at a call site says nothing about which
+/// number is which, and getting two of them the wrong way round produces a
+/// plausible state rather than an error.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct TaskTally {
+    /// Every live task in the phase.
+    pub total: usize,
+    /// Closed, by either reason. `done` and `wont_do` both land here, which is
+    /// exactly why neither can imply `shipped` — see B-57.
+    pub closed: usize,
+    /// Open and picked up: anything not `todo` and not closed.
+    pub started: usize,
+}
+
+impl MilestoneState {
+    /// Work out a phase's state from what was declared and what its tasks say.
+    ///
+    /// A declaration always wins, because it is the part a person actually
+    /// decided and no amount of counting tasks can second-guess it. A phase
+    /// that shipped with a straggler is still shipped — Phase 8 is exactly
+    /// that, which is why "shipped must have no open tasks" would be wrong.
+    pub fn derive(declared: MilestoneStatus, tally: TaskTally, blocked: bool) -> Self {
+        match declared {
+            MilestoneStatus::Shipped => return MilestoneState::Shipped,
+            MilestoneStatus::Cut => return MilestoneState::Cut,
+            MilestoneStatus::Paused => return MilestoneState::Paused,
+            MilestoneStatus::Open => {}
+        }
+        // Blocked outranks active: a phase nothing can proceed on is not in
+        // flight, however many of its tasks are open.
+        if blocked {
+            return MilestoneState::Blocked;
+        }
+        // Named but never scoped. Phase 10 is this, except that it has no
+        // milestone at all — a workflow gap B-57 leaves open.
+        if tally.total == 0 {
+            return MilestoneState::Planned;
+        }
+        if tally.closed == tally.total {
+            return MilestoneState::Complete;
+        }
+        if tally.started > 0 || tally.closed > 0 {
+            MilestoneState::Active
+        } else {
+            MilestoneState::Planned
+        }
     }
 }
 

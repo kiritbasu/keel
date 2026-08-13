@@ -34,6 +34,8 @@ const COVERED: &[&str] = &[
     "multiple_current_revisions",
     "orphan_task",
     "stale_in_progress",
+    "milestone_stores_a_derived_state",
+    "shipped_without_a_date",
     "duplicate_task_number",
     "task_without_number",
     "project_without_key",
@@ -514,4 +516,68 @@ fn orphan_blob() {
                  x'000102', '2026-01-01T00:00:00Z')",
     );
     c.trips("orphan_blob");
+}
+
+/// A phase storing a state that is supposed to be derived.
+///
+/// `planned`, `active` and `blocked` stopped being storable in B-57 because the
+/// column drifted from the work — five of twelve phases contradicted their own
+/// tasks, and the digest spent a week naming a finished phase as the live one.
+/// Migration 3 rewrites them and `apply_changes` refuses to write one; this is
+/// the audit for a hand-edited row or a restore from an older store.
+#[test]
+fn milestone_stores_a_derived_state() {
+    let c = Corrupt::new();
+    c.sql(&format!(
+        "INSERT INTO milestones (id, project_id, kind, name, status, idempotency_key,
+             created_at, updated_at, version, created_by, updated_by)
+         VALUES ('mst_01H8XK4RPVBQ2N7DZM9C3FGTWY', '{p}', 'milestone', 'Phase X', 'open',
+                 'phase-x', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1,
+                 'claude', 'claude');",
+        p = c.project
+    ));
+    c.quiet("milestone_stores_a_derived_state");
+
+    for derived in ["planned", "active", "blocked", "complete"] {
+        c.sql(&format!(
+            "UPDATE milestones SET status = '{derived}' WHERE id = 'mst_01H8XK4RPVBQ2N7DZM9C3FGTWY'"
+        ));
+        c.trips("milestone_stores_a_derived_state");
+    }
+
+    // The three that are a person's to declare are never flagged.
+    for declared in ["open", "paused", "shipped", "cut"] {
+        c.sql(&format!(
+            "UPDATE milestones SET status = '{declared}', shipped_at = '2026-01-02T00:00:00Z'
+              WHERE id = 'mst_01H8XK4RPVBQ2N7DZM9C3FGTWY'"
+        ));
+        c.quiet("milestone_stores_a_derived_state");
+    }
+}
+
+/// A shipped phase with no date on it.
+///
+/// `status` and `shipped_at` are two fields saying one thing, and this is the
+/// state they drift into — reached by a caller that set the field it was given
+/// and nothing else, which is exactly how Phases 7 and 9 got here.
+#[test]
+fn shipped_without_a_date() {
+    let c = Corrupt::new();
+    c.sql(&format!(
+        "INSERT INTO milestones (id, project_id, kind, name, status, shipped_at,
+             idempotency_key, created_at, updated_at, version, created_by, updated_by)
+         VALUES ('mst_01H8XK4RPVBQ2N7DZM9C3FGTWY', '{p}', 'milestone', 'Phase X', 'shipped',
+                 '2026-01-02T00:00:00Z', 'phase-x', '2026-01-01T00:00:00Z',
+                 '2026-01-01T00:00:00Z', 1, 'claude', 'claude');",
+        p = c.project
+    ));
+    c.quiet("shipped_without_a_date");
+
+    c.sql("UPDATE milestones SET shipped_at = NULL WHERE id = 'mst_01H8XK4RPVBQ2N7DZM9C3FGTWY'");
+    c.trips("shipped_without_a_date");
+
+    // An undeclared phase with no date is not a finding — there is nothing to
+    // date until somebody says it shipped.
+    c.sql("UPDATE milestones SET status = 'open' WHERE id = 'mst_01H8XK4RPVBQ2N7DZM9C3FGTWY'");
+    c.quiet("shipped_without_a_date");
 }

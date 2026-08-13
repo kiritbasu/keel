@@ -16,8 +16,7 @@
 //! read back.
 
 use crate::{
-    Entity, EntityId, EntityQuery, EntityStore, EntityType, Error, MilestoneStatus, Note, Result,
-    Store, TaskStatus,
+    Entity, EntityId, EntityQuery, EntityStore, EntityType, Error, Note, Result, Store, TaskStatus,
 };
 use std::fmt::Write as _;
 
@@ -69,9 +68,19 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
         .iter()
         .filter(|t| matches!(t, Entity::Task(t) if t.priority.is_urgent()))
         .count();
-    let active_milestone = milestones
+    // Derived, not read off the column. The column said Phase 9 for a week
+    // after Phase 9 finished, and this line is what put that at the top of the
+    // tracker and of every session's digest (B-57).
+    let states = store.milestone_states(project_id)?;
+    let in_flight: Vec<&Entity> = milestones
         .iter()
-        .find(|m| matches!(m, Entity::Milestone(m) if m.status == MilestoneStatus::Active));
+        .filter(|m| {
+            matches!(
+                states.get(m.id()),
+                Some(crate::MilestoneState::Active | crate::MilestoneState::Blocked)
+            )
+        })
+        .collect();
     let unresolved = questions
         .iter()
         .filter(|q| matches!(q, Entity::Question(q) if q.status.is_unresolved()))
@@ -90,7 +99,17 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
         out,
         "| **Active {}** | {} |",
         noun.to_lowercase(),
-        active_milestone.map_or("none".to_owned(), |m| m.label().to_owned())
+        // All of them. Two phases in flight at once is normal and a singular
+        // field picks one arbitrarily — which is how this line named a finished
+        // phase while the live one sat underneath it.
+        match in_flight.as_slice() {
+            [] => "none".to_owned(),
+            many => many
+                .iter()
+                .map(|m| m.label().to_owned())
+                .collect::<Vec<_>>()
+                .join(", "),
+        }
     )?;
     writeln!(
         out,
@@ -137,7 +156,11 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
                 out,
                 "| {} | `{}` | {} | {done} / {} |",
                 milestone.name,
-                milestone.status,
+                states
+                    .get(&milestone.id)
+                    .copied()
+                    .unwrap_or(crate::MilestoneState::Planned)
+                    .as_str(),
                 milestone
                     .target_date
                     .map_or("—".to_owned(), |d| d.to_string()),

@@ -369,23 +369,18 @@ pub fn examine(home: &Path, daemon: &str) -> Result<Report> {
 
 /// How many current revisions there are, and how many lack an embedding.
 fn embedding_coverage(store: &Store) -> Result<(i64, i64)> {
-    let current: i64 = store
-        .connection()
-        .query_row(
-            "SELECT count(*) FROM documents WHERE status = 'current'",
-            [],
-            |r| r.get(0),
-        )
-        .context("count the current revisions")?;
-    let without: i64 = store
-        .connection()
-        .query_row(
-            "SELECT count(*) FROM documents WHERE status = 'current' AND embedding IS NULL",
-            [],
-            |r| r.get(0),
-        )
-        .context("count the revisions with no embedding")?;
-    Ok((current, without))
+    // Delegated rather than asked directly, and that is the whole point of the
+    // function still existing. This used to be its own pair of `SELECT count(*)`
+    // statements over `documents`, which was the same question the store already
+    // answered — until the store's version learned to exclude archived entities
+    // and this one did not. Two copies of a query drift in exactly one
+    // direction: the one nobody is looking at. Here it would have reported
+    // thirteen documents permanently missing vectors they can never be given,
+    // which is a check that can only ever be red and therefore a check nobody
+    // reads.
+    store
+        .documents_missing_embeddings()
+        .context("count how many current revisions have no vector")
 }
 
 /// Whether each project's committed markdown still matches the store.
@@ -720,6 +715,49 @@ mod tests {
             check.detail
         );
         assert!(report.is_healthy(), "degraded search is not a broken store");
+    }
+
+    /// An archived document must not hold the check red for ever.
+    ///
+    /// Archiving clears the vector and nothing will ever give it another, so
+    /// counting archived rows as "missing an embedding" produces a check that
+    /// cannot go green no matter what anyone runs. `keel reembed --missing`
+    /// would report nothing to do while `doctor` went on asking for it.
+    #[test]
+    fn an_archived_document_is_not_counted_as_missing_a_vector() {
+        use keel_core::{Actor, EntityStore, Project, Provenance, Spec};
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = crate::open(dir.path()).unwrap();
+        let prov = Provenance::anonymous(Actor::Claude);
+        let project = store
+            .create(Project::new("demo", "Demo").into(), &prov)
+            .unwrap()
+            .entity
+            .id()
+            .clone();
+        let spec = store
+            .create_with_document(
+                Spec::new(project, "A spec someone put away").into(),
+                Some("Prose nobody should be offered any more.".to_owned()),
+                None,
+                &prov,
+            )
+            .unwrap();
+        let id = spec.entity.id().clone();
+        store
+            .archive(&id, spec.entity.audit().version, &prov)
+            .unwrap();
+        drop(store);
+
+        let report = examine(dir.path(), NO_DAEMON).unwrap();
+        let check = find(&report, "embeddings");
+        assert_eq!(
+            check.level,
+            Level::Ok,
+            "the only document is archived, so there is nothing to embed: {}",
+            check.detail
+        );
     }
 
     /// A clock that stepped backwards makes every event read wrong until it

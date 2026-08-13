@@ -2030,7 +2030,7 @@ mod tests {
             "Collapse DuckDB and Lance into one SQLite file.",
         );
         milestone.kind = MilestoneKind::Release;
-        milestone.status = MilestoneStatus::Active;
+        milestone.status = MilestoneStatus::Paused;
         milestone.target_date = NaiveDate::from_ymd_opt(2026, 9, 30);
         milestone.version_string = Some("0.9.0".into());
         milestone.sort_order = Some(1);

@@ -22,8 +22,8 @@
 
 use crate::store::EventScope;
 use crate::{
-    Cursor, Entity, EntityId, EntityQuery, EntityStore, EntityType, MilestoneStatus,
-    QuestionStatus, Result, Store, TaskStatus,
+    Cursor, Entity, EntityId, EntityQuery, EntityStore, EntityType, QuestionStatus, Result, Store,
+    TaskStatus,
 };
 use serde::Serialize;
 
@@ -540,12 +540,26 @@ fn project_line(store: &Store, p: &crate::Project) -> Result<ProjectLine> {
             .limited(2000),
     )?;
 
+    // Which phases are in flight is derived, not filtered on a column. The
+    // column used to say, and for a week it said Phase 9 — a phase that had
+    // finished — to every session that opened this project (B-57).
+    let states = store.milestone_states(&p.id)?;
     let milestones = store.list(
         &EntityQuery::in_project(p.id.clone())
             .of_type(EntityType::Milestone)
-            .with_status([MilestoneStatus::Active.as_str()])
-            .limited(10),
+            .limited(200),
     )?;
+    let mut in_flight: Vec<&Entity> = milestones
+        .items
+        .iter()
+        .filter(|m| {
+            matches!(
+                states.get(m.id()),
+                Some(crate::MilestoneState::Active | crate::MilestoneState::Blocked)
+            )
+        })
+        .collect();
+    in_flight.sort_by_key(|m| m.label().to_owned());
 
     Ok(ProjectLine {
         id: p.id.clone(),
@@ -557,24 +571,40 @@ fn project_line(store: &Store, p: &crate::Project) -> Result<ProjectLine> {
         urgent_tasks: urgent,
         blocked_tasks: blocked,
         open_questions: questions.total,
-        active_milestone: milestones.items.first().map(|m| m.label().to_owned()),
+        // Every phase in flight, not the first one found. Two are normal —
+        // Phase 11 and 12 are both live as this is written — and a singular
+        // field over plural data picks one arbitrarily and hides the rest.
+        active_milestone: match in_flight.as_slice() {
+            [] => None,
+            [one] => Some(one.label().to_owned()),
+            many => Some(
+                many.iter()
+                    .map(|m| m.label().to_owned())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ),
+        },
         milestone_noun: p.milestone_noun.clone(),
     })
 }
 
 fn active_milestones(store: &Store, project: &EntityId, limit: usize) -> Result<Vec<Item>> {
+    let states = store.milestone_states(project)?;
     let page = store.list(
         &EntityQuery::in_project(project.clone())
             .of_type(EntityType::Milestone)
-            .with_status([
-                MilestoneStatus::Active.as_str(),
-                MilestoneStatus::Blocked.as_str(),
-            ])
-            .limited(limit),
+            .limited(200),
     )?;
     Ok(page
         .items
         .iter()
+        .filter(|m| {
+            matches!(
+                states.get(m.id()),
+                Some(crate::MilestoneState::Active | crate::MilestoneState::Blocked)
+            )
+        })
+        .take(limit)
         .map(|e| {
             let detail = match e {
                 Entity::Milestone(m) => m.target_date.map(|d| format!("target {d}")),

@@ -672,8 +672,7 @@ END;
     }
 
     sql.push_str(&documents_fts_triggers());
-    // TEMPORARY: proving the tests fail without this.
-    let _ = prose_archive_triggers();
+    sql.push_str(&prose_archive_triggers());
 
     sql
 }
@@ -797,8 +796,42 @@ pub fn migrations() -> Vec<Migration> {
             name: "archived_prose_types_leave_the_index",
             sql: archive_prose,
         },
+        Migration {
+            id: 3,
+            name: "milestone_state_is_derived",
+            sql: DERIVE_MILESTONE_STATE,
+        },
     ]
 }
+
+/// Stop storing the three milestone states that can be worked out (B-57).
+///
+/// `planned`, `active` and `blocked` become `open`, which means "nothing has
+/// been declared" — what the phase is actually doing is derived from its tasks
+/// and its edges by `MilestoneState`. Only `shipped`, `cut` and `paused`
+/// survive as stored values, because no amount of counting tasks can tell you
+/// which of those a person meant.
+///
+/// The second statement repairs `shipped_at`, which is a separate field saying
+/// the same thing as `status` and drifted from it: two phases were marked
+/// shipped with the date left empty. It is set from the last task to close in
+/// that phase rather than from the clock, because that is a fact the store
+/// already holds — a phase did not ship before its final task did.
+const DERIVE_MILESTONE_STATE: &str = "
+UPDATE milestones SET status = 'open'
+ WHERE status IN ('planned', 'active', 'blocked');
+
+UPDATE milestones SET shipped_at = (
+    SELECT max(t.closed_at) FROM tasks t
+     WHERE t.milestone_id = milestones.id AND t.closed_at IS NOT NULL
+  )
+ WHERE status = 'shipped'
+   AND shipped_at IS NULL
+   AND EXISTS (
+    SELECT 1 FROM tasks t
+     WHERE t.milestone_id = milestones.id AND t.closed_at IS NOT NULL
+  );
+";
 
 /// Give the five prose types the archive path they never had, and clear what
 /// leaked while they did not have it.
@@ -820,13 +853,10 @@ DROP TRIGGER IF EXISTS documents_fts_au;
 ",
     );
     for table in PROSE_TABLES {
-        sql.push_str(&format!(
-            "DROP TRIGGER IF EXISTS {table}_fts_archived;\n"
-        ));
+        sql.push_str(&format!("DROP TRIGGER IF EXISTS {table}_fts_archived;\n"));
     }
     sql.push_str(&documents_fts_triggers());
-    // TEMPORARY: proving the tests fail without this.
-    let _ = prose_archive_triggers();
+    sql.push_str(&prose_archive_triggers());
 
     // The repair. Ten specs, two decisions and a question were in the index on
     // the live store when this was written, and the two largest were generated
