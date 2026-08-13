@@ -136,12 +136,6 @@ Row `Q-1` of the open-questions log.
 
 **Watch for:** SPEC D-8, §9; PRD REQ-12
 
-### Q-6 — Should Keel ingest anything automatically, or only explicit writes?
-
-`que_01KZKMPVXPKW1KXV9KMG36C6F8` · question · open
-
-Working assumption: explicit writes only, except the GitHub webhooks in SPEC §9. Governs push and deployment_status behaviour, and the write-amplification risk.
-
 ### Q-5 — What is the retention policy on the event log?
 
 `que_01KZKMPVX3SNJ82BQ4GA3DF9S5` · question · open
@@ -943,6 +937,12 @@ Three details worth keeping:
 - **The blob names its owner.** Stored after the entity exists and then linked, rather than in one write, because a blob with a null `entity_id` is invisible to `fsck`'s referential checks — and an image nothing can trace back to an artifact is how a store fills with bytes nobody dares delete.
 
 The bytes are served raw at `GET /api/blob/{id}`, with `immutable` caching since a blob id names one sequence of bytes forever. That is what the app's `<img src>` points at; base64 in JSON would have paid the encoding tax twice.
+
+### Q-6 — Should Keel ingest anything automatically, or only explicit writes?
+
+`que_01KZKMPVXPKW1KXV9KMG36C6F8` · question · answered
+
+Working assumption: explicit writes only, except the GitHub webhooks in SPEC §9. Governs push and deployment_status behaviour, and the write-amplification risk.
 
 ### Q-2 — Where does the store live, and does ~/.keel get a git remote?
 
