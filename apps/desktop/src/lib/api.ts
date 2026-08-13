@@ -389,6 +389,9 @@ export const api = {
     }>("/api/changes", params),
 };
 
+/** Whether the live feed is currently attached. */
+export type FeedStatus = "connecting" | "live" | "down";
+
 /**
  * Subscribe to change notifications.
  *
@@ -396,9 +399,29 @@ export const api = {
  * lost messages. That is surfaced rather than swallowed: a UI that missed
  * changes should refetch, and quietly continuing would leave it showing stale
  * state indefinitely.
+ *
+ * **`open` refetches too, and that is the whole point of it.** `EventSource`
+ * reconnects on its own, but a reconnect announces nothing about what happened
+ * while it was away — so before this, a daemon restart left the app showing
+ * whatever it had before the drop, indefinitely, until some unrelated write
+ * arrived and everything appeared at once. That is exactly the shape this
+ * project keeps trying to eliminate: a screen that is wrong and looks settled.
+ * It cost a real half hour, hunting a task that existed everywhere except on
+ * the board.
+ *
+ * The first `open` duplicates the initial load, which costs one wasted read on
+ * startup. That is the correct direction to be wrong in.
+ *
+ * `onStatus` exists so the shell can say when the feed is down. Without it,
+ * "nothing has changed" and "nothing can reach me" render identically.
  */
-export function subscribe(onChange: (change: ChangeEvent) => void): () => void {
+export function subscribe(
+  onChange: (change: ChangeEvent) => void,
+  onStatus: (status: FeedStatus) => void = () => {},
+): () => void {
   const source = new EventSource(`${BASE}/api/events`);
+  onStatus("connecting");
+
   const forward = (raw: MessageEvent | Event) => {
     const data = "data" in raw && typeof raw.data === "string" ? raw.data : null;
     let change: ChangeEvent = { kind: "entity", summary: "" };
@@ -413,8 +436,19 @@ export function subscribe(onChange: (change: ChangeEvent) => void): () => void {
     }
     onChange(change);
   };
+
   source.addEventListener("change", forward);
   source.addEventListener("lagged", forward);
+  source.addEventListener("open", () => {
+    onStatus("live");
+    // Catch up on whatever was written while this was not listening. On the
+    // first connect there is nothing to catch up on and this is redundant.
+    forward(new Event("open"));
+  });
+  // `EventSource` reports a dropped connection as an error and then retries by
+  // itself, so this is a status change rather than a failure to handle.
+  source.addEventListener("error", () => onStatus("down"));
+
   return () => source.close();
 }
 

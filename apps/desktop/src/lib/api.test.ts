@@ -81,3 +81,47 @@ describe("subscribe", () => {
     expect(FakeEventSource.last!.closed).toBe(true);
   });
 });
+
+describe("subscribe, on reconnect", () => {
+  it("refetches when the stream opens, because a reconnect announces nothing", () => {
+    const seen: ChangeEvent[] = [];
+    subscribe((c) => seen.push(c));
+
+    // The first connect. Redundant with the initial load and harmless.
+    FakeEventSource.last!.emit("open");
+    expect(seen).toHaveLength(1);
+
+    // A drop and a reconnect, with writes having happened in between that
+    // nobody will ever announce. Without this the app sits on stale data until
+    // some unrelated write arrives — which is how a task can exist in the
+    // store, in the API and in the ranking, and not be on the board.
+    FakeEventSource.last!.emit("error");
+    FakeEventSource.last!.emit("open");
+    expect(seen).toHaveLength(2);
+  });
+
+  it("says when the feed is down, and when it comes back", () => {
+    const status: string[] = [];
+    subscribe(
+      () => {},
+      (s) => status.push(s),
+    );
+    expect(status).toEqual(["connecting"]);
+
+    FakeEventSource.last!.emit("open");
+    FakeEventSource.last!.emit("error");
+    FakeEventSource.last!.emit("open");
+
+    expect(status).toEqual(["connecting", "live", "down", "live"]);
+  });
+
+  it("does not require a status callback", () => {
+    const seen: ChangeEvent[] = [];
+    expect(() => {
+      subscribe((c) => seen.push(c));
+      FakeEventSource.last!.emit("error");
+      FakeEventSource.last!.emit("open");
+    }).not.toThrow();
+    expect(seen).toHaveLength(1);
+  });
+});

@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, subscribe, type Entity } from "./lib/api";
+import { api, subscribe, type Entity, type FeedStatus } from "./lib/api";
 import {
   href,
   navigate,
@@ -175,7 +175,11 @@ export function App() {
       .finally(() => setProjectsLoaded(true));
   }, [generation]);
 
-  useEffect(() => subscribe(refresh), [refresh]);
+  // `refresh` on every connect as well as every change, so a daemon restart
+  // does not leave the page showing what it had before the drop. See
+  // `subscribe` — the reconnect itself announces nothing about what it missed.
+  const [feed, setFeed] = useState<FeedStatus>("connecting");
+  useEffect(() => subscribe(refresh, setFeed), [refresh]);
 
   const slugs = useMemo(
     () => projects.map((p) => String(p.slug ?? "")).filter(Boolean),
@@ -364,6 +368,15 @@ export function App() {
           <Button size="sm" variant="ghost" onClick={refresh}>
             Refresh
           </Button>
+          {feed === "down" && (
+            <p
+              role="status"
+              className="mt-cosy px-2.5 text-micro text-ink-faint"
+              title="The daemon is not reachable, so this page stops updating on its own. It will catch up by itself when the connection returns."
+            >
+              Live updates disconnected — this page may be out of date.
+            </p>
+          )}
           <div className="mt-cosy">
             <ThemeControl />
           </div>

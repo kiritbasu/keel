@@ -10,11 +10,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
+/** Handles onto the live feed, so a test can drop and restore it. */
+const feedHooks: {
+  onChange?: (c: unknown) => void;
+  onStatus?: (s: string) => void;
+} = {};
+
 vi.mock("./lib/api", () => {
   const empty = { items: [], total: 0, truncated: false };
   return {
     ApiError: class ApiError extends Error {},
-    subscribe: () => () => {},
+    subscribe: (
+      onChange: (c: unknown) => void,
+      onStatus?: (s: string) => void,
+    ) => {
+      feedHooks.onChange = onChange;
+      feedHooks.onStatus = onStatus;
+      return () => {};
+    },
     api: {
       projects: async () => ({
         projects: [{ id: "prj_1", type: "project", name: "Keel", slug: "keel", audit: {} }],
@@ -234,5 +247,29 @@ describe("the rail, with the project first", () => {
     expect(screen.getByRole("link", { name: /Roadmap/ }).getAttribute("href")).toBe(
       "#/projects/keel/roadmap",
     );
+  });
+});
+
+describe("the live feed's state is visible", () => {
+  it("says nothing while the feed is healthy", async () => {
+    render(<App />);
+    await screen.findByText("Keel");
+    act(() => feedHooks.onStatus?.("live"));
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  /// A stale page must not look identical to a current one. Before this the
+  /// only difference between "nothing has changed" and "nothing can reach me"
+  /// was that the second one was wrong.
+  it("says so when the feed drops, and stops saying so when it returns", async () => {
+    render(<App />);
+    await screen.findByText("Keel");
+
+    act(() => feedHooks.onStatus?.("down"));
+    const notice = await screen.findByRole("status");
+    expect(notice.textContent).toContain("out of date");
+
+    act(() => feedHooks.onStatus?.("live"));
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
   });
 });
