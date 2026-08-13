@@ -1169,8 +1169,17 @@ fn run_migrate(home: &Path, daemon: &str, dry_run: bool, force: bool, json: bool
     // for the same reason and more sharply: a schema change under a live reader
     // is worse than a poorly-attributed row.
     writes::refuse_if_daemon_is_running(daemon, force, "migrate the store")?;
-    keel_core::Store::open_and_migrate(&path)
-        .with_context(|| format!("migrate the store at {}", path.display()))?;
+    // Exclusive unless forced, for the same reason as every other write and one
+    // more: this is the operation that changes the shape of the tables, so a
+    // second process inside it is the worst version of the problem. `--force`
+    // opts out, because a wedged daemon holding the lock is exactly when
+    // somebody needs to migrate by hand.
+    let migrated = if force {
+        keel_core::Store::open_and_migrate(&path)
+    } else {
+        keel_core::Store::open_and_migrate_exclusive(&path)
+    };
+    migrated.with_context(|| format!("migrate the store at {}", path.display()))?;
     let applied = pending;
 
     if json {

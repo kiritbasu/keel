@@ -64,6 +64,14 @@ pub fn store_path(home: impl AsRef<Path>) -> PathBuf {
 pub struct Store {
     conn: Connection,
     path: PathBuf,
+    /// The exclusive claim, when this handle was opened for writing.
+    ///
+    /// Held rather than read: dropping it releases the store, so its lifetime is
+    /// deliberately the handle's. `None` for a read-only opener — `doctor`,
+    /// `fsck` and the desktop app all read alongside a live daemon, and taking
+    /// the lock to do that would make looking at the store an act that
+    /// interferes with it.
+    _lock: Option<crate::lock::StoreLock>,
     embedder: Option<std::sync::Arc<dyn crate::Embedder>>,
     /// Whether `sqlite-vec`'s functions are actually callable on this
     /// connection. Decided once at open, because the alternative is finding out
@@ -128,6 +136,37 @@ impl Store {
     }
 
     fn open_inner(path: impl AsRef<Path>, pending: Pending) -> Result<Self> {
+        Self::open_locked(path, pending, Exclusive::No)
+    }
+
+    /// Open the store and hold it against every other writer (B-60).
+    ///
+    /// For the two processes that write: the daemon, which holds this for its
+    /// lifetime, and a CLI command writing directly because no daemon is
+    /// running. A second caller is refused at once with a message saying what
+    /// has it, rather than succeeding and being noticed later — or never.
+    pub fn open_exclusive(path: impl AsRef<Path>) -> Result<Self> {
+        let existed = path.as_ref().exists();
+        Self::open_locked(
+            path,
+            if existed {
+                Pending::Refuse
+            } else {
+                Pending::Apply
+            },
+            Exclusive::Yes,
+        )
+    }
+
+    /// [`Store::open_and_migrate`], holding the store while it happens.
+    ///
+    /// This is the one that would have caught 2026-08-13: a second daemon
+    /// migrating a store the first was already serving.
+    pub fn open_and_migrate_exclusive(path: impl AsRef<Path>) -> Result<Self> {
+        Self::open_locked(path, Pending::Apply, Exclusive::Yes)
+    }
+
+    fn open_locked(path: impl AsRef<Path>, pending: Pending, exclusive: Exclusive) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         if let Some(parent) = path.parent()
             && !parent.exists()
@@ -138,6 +177,14 @@ impl Store {
             })?;
         }
 
+        // Claimed before the connection is opened, not after. A window between
+        // opening and locking is a window two processes can both be inside, and
+        // this exists precisely to close that kind of gap.
+        let lock = match exclusive {
+            Exclusive::Yes => Some(crate::lock::StoreLock::acquire(&path)?),
+            Exclusive::No => None,
+        };
+
         vector::register();
 
         let conn = Connection::open(&path).map_err(Error::storage(format!(
@@ -147,6 +194,7 @@ impl Store {
 
         let mut store = Store {
             conn,
+            _lock: lock,
             path,
             embedder: None,
             vector_search: false,
@@ -169,6 +217,9 @@ impl Store {
             Connection::open_in_memory().map_err(Error::storage("open an in-memory store"))?;
         let mut store = Store {
             conn,
+            // Nothing to contend for: an in-memory store is reachable only from
+            // the process that made it.
+            _lock: None,
             path: PathBuf::from(":memory:"),
             embedder: None,
             vector_search: false,
@@ -844,6 +895,19 @@ enum Pending {
     Apply,
     /// Refuse the open and say to run `keel migrate`.
     Refuse,
+}
+
+/// Whether an open claims the store against other writers.
+///
+/// A separate type rather than a `bool`, because `open_locked(path, pending,
+/// true)` at a call site says nothing about what is true, and this is the
+/// argument that decides whether two daemons can run at once.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Exclusive {
+    /// Take the lock and hold it for the life of the handle.
+    Yes,
+    /// Read alongside whoever is writing.
+    No,
 }
 
 /// The outcome of a create.

@@ -71,7 +71,12 @@ impl AppState {
         // to run `keel migrate` — see the doc comment there for why applying a
         // schema change from whatever command opened the store next is the
         // failure worth this asymmetry.
-        let store = Store::open_and_migrate(&path)
+        // Exclusive, and held for as long as the daemon runs (B-60). A second
+        // daemon against the same store is refused here rather than discovered
+        // later — which is how 2026-08-13 went: one started with `--home`
+        // forgotten, migrated the store under the daemon already serving it,
+        // and nothing objected.
+        let store = Store::open_and_migrate_exclusive(&path)
             .with_context(|| format!("open the store at {}", path.display()))?;
 
         // Ask SQLite whether the file is intact, once, at startup.

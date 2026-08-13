@@ -104,7 +104,19 @@ fn socket_addr(base: &str) -> Option<SocketAddr> {
 pub fn open_for_write(home: &Path, daemon: &str, force: bool, what: &str) -> Result<Store> {
     refuse_if_daemon_is_running(daemon, force, what)?;
     let path = keel_core::store_path(home);
-    Store::open(&path).with_context(|| format!("open the store at {}", path.display()))
+
+    // `--force` skips the lock as well as the probe, and that is the point of
+    // it. The flag exists for a wedged daemon and a store being repaired — the
+    // situations where something else is holding the store and the person at
+    // the keyboard has decided to write anyway. A `--force` that the lock could
+    // veto would be a `--force` that does not work when it is needed.
+    //
+    // Everything else takes the lock, so two CLI commands cannot write at once
+    // either. The probe above only knows about daemons.
+    if force {
+        return Store::open(&path).with_context(|| format!("open the store at {}", path.display()));
+    }
+    Store::open_exclusive(&path).with_context(|| format!("open the store at {}", path.display()))
 }
 
 /// The probe half of [`open_for_write`], for the one caller that cannot open a

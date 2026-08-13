@@ -18,7 +18,7 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.89"
 authors = ["KB"]
 # No licence chosen — personal, unpublished software (HANDOFF "Assumptions").
 # Deliberately absent rather than "UNLICENSED", which is not valid SPDX and

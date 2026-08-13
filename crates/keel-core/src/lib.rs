@@ -41,6 +41,7 @@ pub mod generate;
 pub mod id;
 pub mod link;
 pub mod lint;
+pub mod lock;
 pub mod mirror;
 pub mod next;
 pub mod note;
