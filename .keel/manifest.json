@@ -1,7 +1,18 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-13T20:55:49.494557+00:00",
+  "generated_at": "2026-08-13T21:19:00.377337+00:00",
   "files": [
+    {
+      "path": ".keel/specs/keel-what-needs-to-happen.md",
+      "contributors": [
+        {
+          "entity_id": "spc_01KZYFPFNZEZT5VEZMDRTZV83N",
+          "entity_type": "spec",
+          "version": 1,
+          "hash": "a267058c546dee0ccb0042be20681b5a3d9fdc22964ff84c1cb17b68fc30edc3"
+        }
+      ]
+    },
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
       "contributors": [
@@ -10,6 +21,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/the-keel-github-stub-comes-out-of-the-tree-spec-1-1-stays-as-the-intended-layout.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZYFS0PJY5RPXCMN15GC2AS7",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "880b9850398f2420b66b28ff9c2267a97c7e2eac60193af1734cb68ce03e9bda"
         }
       ]
     },
