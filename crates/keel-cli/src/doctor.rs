@@ -550,15 +550,31 @@ fn backup_age(home: &Path) -> Check {
 /// up — the live feed goes silent, and the activity cursor skips whatever was
 /// written in between.
 fn clock_sanity(store: &Store) -> Result<Check> {
-    let newest: Option<String> = store
-        .connection()
-        .query_row("SELECT max(id) FROM events", [], |r| r.get(0))
-        .context("read the newest event id")?;
-
-    let Some(newest) = newest else {
-        return Ok(Check::ok("clock", "no events yet, so nothing to compare"));
+    // `latest_event_id`, not a `SELECT max(id)` of our own. It is the same one
+    // indexed row and it already carries the reasoning for why that is enough,
+    // but the point is the boundary: this crate does not write SQL. The rule is
+    // not compiler-enforced — `Store::connection()` is public so that `fsck` and
+    // `backup` can ask the engine questions inside `keel-core` — and a call site
+    // out here duplicating a trait method is how that exception widens.
+    let newest = match store.latest_event_id() {
+        Ok(None) => return Ok(Check::ok("clock", "no events yet, so nothing to compare")),
+        Ok(Some(id)) => id,
+        // Doctor reports; it does not fail. An unreadable id is a real finding
+        // and has to arrive as one, or the run stops here and the checks after
+        // it never get to speak — which is the failure this whole command
+        // exists to avoid.
+        Err(e) => {
+            return Ok(Check::problem(
+                "clock",
+                format!("the newest event id could not be read: {e}"),
+                "something wrote an event id outside keel-core; run `keel fsck`",
+            ));
+        }
     };
-    let Some(minted) = keel_core::id::minted_at(&newest) else {
+
+    // Still checked separately: `EventId::parse` validates the prefix, not that
+    // the body is a ULID, so `evt_nonsense` gets this far.
+    let Some(minted) = keel_core::id::minted_at(newest.as_str()) else {
         return Ok(Check::problem(
             "clock",
             format!("the newest event id `{newest}` is not a ULID"),

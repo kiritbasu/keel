@@ -234,7 +234,7 @@ fn audit_params(a: &Audit) -> Vec<Value> {
 /// A bare `rusqlite::Error` says "invalid column type" and nothing about which
 /// column or which table, which is unactionable in a store with thirteen of
 /// them.
-fn col_err(table: &str, column: &str) -> impl FnOnce(rusqlite::Error) -> Error {
+pub(super) fn col_err(table: &str, column: &str) -> impl FnOnce(rusqlite::Error) -> Error {
     let context = format!("read column `{column}` of `{table}`");
     move |source| Error::Storage { context, source }
 }
@@ -291,12 +291,12 @@ pub(super) fn parse_ts(table: &str, col: &str, raw: &str) -> Result<DateTime<Utc
 }
 
 /// Read a required timestamp column.
-fn get_ts(row: &Row<'_>, table: &str, col: &str) -> Result<DateTime<Utc>> {
+pub(super) fn get_ts(row: &Row<'_>, table: &str, col: &str) -> Result<DateTime<Utc>> {
     parse_ts(table, col, &get_s(row, table, col)?)
 }
 
 /// Read an optional timestamp column.
-fn get_ots(row: &Row<'_>, table: &str, col: &str) -> Result<Option<DateTime<Utc>>> {
+pub(super) fn get_ots(row: &Row<'_>, table: &str, col: &str) -> Result<Option<DateTime<Utc>>> {
     match get_os(row, table, col)? {
         Some(raw) => Ok(Some(parse_ts(table, col, &raw)?)),
         None => Ok(None),

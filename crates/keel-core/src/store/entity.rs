@@ -44,7 +44,8 @@
 
 use super::Store;
 use super::rows::{
-    LINK_COLUMNS, from_row, insert_params, insert_stmt, ots, parse_ts, read_link, select_from, ts,
+    LINK_COLUMNS, col_err, from_row, get_ots, get_ts, insert_params, insert_stmt, ots, read_link,
+    select_from, ts,
 };
 use crate::store::patch::{apply_changes, is_status_change};
 use crate::store::rows::{Col, spec_for};
@@ -103,34 +104,25 @@ fn json_param(v: Option<&serde_json::Value>) -> Value {
 // --- Reading helpers -----------------------------------------------------
 
 /// Wrap a read failure with the column and table that caused it.
-fn col_err(table: &'static str, column: &'static str) -> impl FnOnce(rusqlite::Error) -> Error {
-    Error::storage(format!("read column `{column}` of `{table}`"))
-}
-
-/// Read a required timestamp column.
-fn get_ts(row: &Row<'_>, table: &'static str, col: &'static str) -> Result<DateTime<Utc>> {
-    let raw: String = row.get(col).map_err(col_err(table, col))?;
-    parse_ts(table, col, &raw)
-}
-
-/// Read an optional timestamp column.
-fn get_ots(row: &Row<'_>, table: &'static str, col: &'static str) -> Result<Option<DateTime<Utc>>> {
-    match row
-        .get::<_, Option<String>>(col)
-        .map_err(col_err(table, col))?
-    {
-        Some(raw) => Ok(Some(parse_ts(table, col, &raw)?)),
-        None => Ok(None),
-    }
-}
-
-/// Read an optional id column.
+/// Read an optional id column, treating an empty string as absent.
 ///
-/// An empty string reads as absent. `v_entities` spells "no project" as `''`
-/// for a global term, because the index that makes a global and a project term
-/// coexist coalesces the same way (Q-4) — and `EntityId::parse("")` would be an
-/// error rather than the "no project" it means.
-fn get_oid(row: &Row<'_>, table: &'static str, col: &'static str) -> Result<Option<EntityId>> {
+/// Deliberately *not* `rows::get_oid`, which is the strict one and is right for
+/// the thirteen tables: there an id column either holds an id or holds NULL.
+/// This is for `v_entities`, which spells "no project" as `''` for a global
+/// term, because the index that lets a global and a project term coexist
+/// coalesces the same way (Q-4). `EntityId::parse("")` is an error rather than
+/// the "no project" it means, so the strict reader would reject a row that is
+/// correct.
+///
+/// The name says `_or_empty` because the two used to both be called `get_oid`,
+/// in sibling modules, differing only in whether they accepted `''` — which is
+/// the kind of pair that gets "tidied" into one by someone who sees the
+/// duplication and not the reason for it.
+fn get_oid_or_empty(
+    row: &Row<'_>,
+    table: &'static str,
+    col: &'static str,
+) -> Result<Option<EntityId>> {
     match row
         .get::<_, Option<String>>(col)
         .map_err(col_err(table, col))?
@@ -175,7 +167,7 @@ fn read_event(row: &Row<'_>) -> Result<Event> {
             &row.get::<_, String>("id")
                 .map_err(col_err("events", "id"))?,
         )?,
-        project_id: get_oid(row, "events", "project_id")?,
+        project_id: get_oid_or_empty(row, "events", "project_id")?,
         entity_type: EntityType::parse(
             &row.get::<_, String>("entity_type")
                 .map_err(col_err("events", "entity_type"))?,
@@ -228,7 +220,7 @@ fn read_event(row: &Row<'_>) -> Result<Event> {
 fn read_note(row: &Row<'_>) -> Result<Note> {
     Ok(Note {
         id: NoteId::parse(&row.get::<_, String>("id").map_err(col_err("notes", "id"))?)?,
-        project_id: get_oid(row, "notes", "project_id")?,
+        project_id: get_oid_or_empty(row, "notes", "project_id")?,
         entity_type: EntityType::parse(
             &row.get::<_, String>("entity_type")
                 .map_err(col_err("notes", "entity_type"))?,
@@ -817,7 +809,7 @@ fn resolve_vertex(
         &row.get::<_, String>("entity_type")
             .map_err(col_err("v_entities", "entity_type"))?,
     )?;
-    let project_id = get_oid(row, "v_entities", "project_id")?;
+    let project_id = get_oid_or_empty(row, "v_entities", "project_id")?;
     let archived = get_ots(row, "v_entities", "archived_at")?.is_some();
     Ok(Some((entity_type, project_id, archived)))
 }
