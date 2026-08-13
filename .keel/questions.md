@@ -150,16 +150,6 @@ The first. The constraint's *value* is the seven-step write path, not the exclus
 
 But it is a hard constraint and hard constraints are KB's, so it is recorded rather than decided.
 
-### TQ-3 — Re-embedding strategy when the model changes: background full pass, or lazy on access?
-
-`que_01KZKWMSFKG5316C06B4HNXXBR` · question · open
-
-Row `TQ-3` of the open-questions log.
-
-**Question:** Re-embedding strategy when the model changes: background full pass, or lazy on access?
-
-**Status:** `open`
-
 ### TQ-1 — Are requirement anchors (REQ-4) parsed from markdown by convention, or declared in…
 
 `que_01KZKWMSCD3NRC7WJT5WMARCFW` · question · open
@@ -787,6 +777,16 @@ That distinction turned out to be load-bearing rather than tidy. It is why `prod
 It resolves an id to a row without the caller knowing the type, which turned out to be needed in more places than the graph: `keel_get` takes a bare id, the fixture loader resolves links by label, and `fsck`'s `unresolved_id_reference` check resolves citations against *every* live entity rather than only documents.
 
 That last one is the concrete argument for having built it early. The first version of the check resolved against documents alone and reported 227 dangling references in a store of roughly 250 artifacts — an artifact created without a body has no document row, so nearly every real target was invisible. `v_entities` was the fix.
+
+### TQ-3 — Re-embedding strategy when the model changes: background full pass, or lazy on access?
+
+`que_01KZKWMSFKG5316C06B4HNXXBR` · question · answered
+
+Row `TQ-3` of the open-questions log.
+
+**Question:** Re-embedding strategy when the model changes: background full pass, or lazy on access?
+
+**Status:** `open`
 
 ### TQ-2 — Is keel_context cached and invalidated by event, or computed per call?
 
