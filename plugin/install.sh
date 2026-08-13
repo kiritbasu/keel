@@ -30,6 +30,11 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 bin_dir="${KEEL_BIN_DIR:-$HOME/.local/bin}"
 keel_home="${KEEL_HOME:-$HOME/.keel}"
 skill_dir="${KEEL_SKILL_DIR:-$HOME/.claude/skills/keel}"
+# Adoption is its own skill because it is used once per project and the everyday
+# one is loaded in every project conversation. Folding eighty lines about
+# backfilling a repository into that would tax every session for a workflow
+# nobody runs twice.
+adopt_dir="${KEEL_ADOPT_SKILL_DIR:-$HOME/.claude/skills/keel-adopt}"
 
 skill_only=false
 case "${1:-}" in
@@ -61,6 +66,8 @@ install_skill() {
   say "Installing the skill and hooks to $skill_dir"
   mkdir -p "$skill_dir"
   install_file "$repo_root/plugin/skills/keel/SKILL.md" "$skill_dir/SKILL.md" 644
+  mkdir -p "$adopt_dir"
+  install_file "$repo_root/plugin/skills/keel-adopt/SKILL.md" "$adopt_dir/SKILL.md" 644
   install_file "$repo_root/plugin/hooks/session-start.sh" "$skill_dir/session-start.sh" 755
   install_file "$repo_root/plugin/hooks/stop.sh" "$skill_dir/stop.sh" 755
 
