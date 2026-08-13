@@ -351,6 +351,21 @@ pub fn examine(home: &Path, daemon: &str) -> Result<Report> {
         )
     });
 
+    // --- Is the passage index still describing the store? -----------------
+    //
+    // The check above answers "is anything missing". This one answers the
+    // harder question: does what *is* there still describe what the documents
+    // now say. A passage left behind by an edit ranks for ever and search gives
+    // no sign of it — the semantic half has no status predicate, deliberately,
+    // because the triggers are supposed to have deleted it.
+    //
+    // Read out of the `fsck` report rather than queried again here. `doctor`
+    // already had its own copy of the embedding-coverage query, which stayed
+    // behind when the store's version learned to exclude archived entities —
+    // two copies of a question drift in exactly one direction, towards the one
+    // nobody is looking at.
+    checks.push(passage_index(&fsck_report));
+
     // --- The repository beside the store ---------------------------------
     checks.extend(mirror_drift(&store)?);
 
@@ -368,6 +383,44 @@ pub fn examine(home: &Path, daemon: &str) -> Result<Report> {
 }
 
 /// How many current revisions there are, and how many lack an embedding.
+/// Whether the passage index still matches the documents it was built from.
+///
+/// Two findings feed this, and they mean different things. `stale_passage` is a
+/// problem: a trigger that should have deleted a passage did not, and search is
+/// returning text the store has moved on from as though it were current.
+/// `passages_from_mixed_models` is not a fault at all — it is the ordinary
+/// state during a model change, and it is reported because vectors of a
+/// different width are *skipped* by search rather than failing it, so the rows
+/// stop being findable without anything going wrong out loud.
+fn passage_index(report: &fsck::FsckReport) -> Check {
+    let find = |name: &str| report.findings.iter().find(|f| f.check == name);
+
+    match (find("stale_passage"), find("passages_from_mixed_models")) {
+        (Some(stale), _) => Check::problem(
+            "passage_index",
+            format!(
+                "{} passage(s) describe a revision that has been superseded, archived or \
+                 edited since. Semantic search returns them as current",
+                stale.count
+            ),
+            &stale.remedy,
+        ),
+        (None, Some(mixed)) => Check::degraded(
+            "passage_index",
+            format!(
+                "{} passage(s) were written by a different model from the rest. Vectors of \
+                 another width are skipped by search, so those rows are not findable",
+                mixed.count
+            ),
+            &mixed.remedy,
+        ),
+        (None, None) => Check::ok(
+            "passage_index",
+            "every passage matches the revision it was built from",
+        ),
+    }
+}
+
 fn embedding_coverage(store: &Store) -> Result<(i64, i64)> {
     // Delegated rather than asked directly, and that is the whole point of the
     // function still existing. This used to be its own pair of `SELECT count(*)`
@@ -745,6 +798,88 @@ mod tests {
             "degraded search is not a broken store; problems were {:?}",
             problems(&report)
         );
+    }
+
+    /// A clean store has to say the index is clean, or a green check means
+    /// nothing.
+    #[test]
+    fn a_coherent_passage_index_reports_itself_coherent() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = crate::open(dir.path()).unwrap();
+        store.set_embedder(std::sync::Arc::new(keel_core::HashEmbedder::new()));
+        let id = seed_spec(&mut store, "Coherent", "Prose that gets passages.\n");
+        assert!(id.as_str().starts_with("spc_"));
+        drop(store);
+
+        let report = examine(dir.path(), NO_DAEMON).unwrap();
+        assert_eq!(find(&report, "passage_index").level, Level::Ok);
+        assert!(report.is_healthy(), "problems were {:?}", problems(&report));
+    }
+
+    /// The failure case, which is the whole point: an edit that the passages
+    /// did not follow has to be reported, not absorbed.
+    #[test]
+    fn a_passage_left_behind_by_an_edit_is_reported() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = crate::open(dir.path()).unwrap();
+        store.set_embedder(std::sync::Arc::new(keel_core::HashEmbedder::new()));
+        let id = seed_spec(&mut store, "Edited", "The original prose.\n");
+
+        // Behind the API, because `write_revision` would supersede the old
+        // revision and the trigger would take its passages. This is the state a
+        // crash between two writes leaves.
+        store
+            .connection()
+            .execute(
+                "UPDATE documents SET body = 'Something else entirely.', \
+                 body_hash = 'a-hash-no-passage-was-built-from' WHERE entity_id = ?1",
+                [id.as_str()],
+            )
+            .unwrap();
+        drop(store);
+
+        let report = examine(dir.path(), NO_DAEMON).unwrap();
+        let check = find(&report, "passage_index");
+        assert_eq!(check.level, Level::Problem, "{}", check.detail);
+        assert!(
+            check.detail.contains("superseded, archived or edited"),
+            "the detail has to say what went wrong: {}",
+            check.detail
+        );
+        assert!(!check.remedy.is_empty(), "a problem needs a remedy");
+    }
+
+    /// Create a spec with prose through the real write path.
+    fn seed_spec(store: &mut Store, title: &str, body: &str) -> keel_core::EntityId {
+        use keel_core::{Actor, EntityStore, EntityType, Project, Provenance, Spec};
+        let prov = Provenance::anonymous(Actor::Claude);
+        let project = store
+            .create(Project::new("demo", "Demo").into(), &prov)
+            .unwrap()
+            .entity
+            .id()
+            .clone();
+        let id = store
+            .create(Spec::new(project.clone(), title).into(), &prov)
+            .unwrap()
+            .entity
+            .id()
+            .clone();
+        store
+            .write_revision(
+                keel_core::Document::first(
+                    EntityType::Spec,
+                    id.clone(),
+                    Some(project),
+                    title,
+                    body,
+                    Actor::Claude,
+                    chrono::Utc::now(),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        id
     }
 
     /// An archived document must not hold the check red for ever.

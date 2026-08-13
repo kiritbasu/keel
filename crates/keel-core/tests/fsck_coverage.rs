@@ -32,6 +32,9 @@ const COVERED: &[&str] = &[
     "link_type_mismatch",
     "orphan_document",
     "multiple_current_revisions",
+    "document_without_passages",
+    "stale_passage",
+    "passages_from_mixed_models",
     "orphan_task",
     "stale_in_progress",
     "milestone_stores_a_derived_state",
@@ -580,4 +583,88 @@ fn shipped_without_a_date() {
     // date until somebody says it shipped.
     c.sql("UPDATE milestones SET status = 'open' WHERE id = 'mst_01H8XK4RPVBQ2N7DZM9C3FGTWY'");
     c.quiet("shipped_without_a_date");
+}
+
+/// A store whose write path builds passages, which the default `Corrupt` has
+/// no embedder for.
+///
+/// The other tests in this file deliberately have no model attached — they are
+/// about rows, not vectors — so attaching one everywhere would make every
+/// unrelated test slower for no reason.
+fn embedded() -> Corrupt {
+    let mut c = Corrupt::new();
+    c.store
+        .set_embedder(std::sync::Arc::new(HashEmbedder::new()));
+    c
+}
+
+/// Write a spec with a body, through the real path, so it gets real passages.
+fn spec_with_prose(c: &mut Corrupt, title: &str, body: &str) -> EntityId {
+    let id = c.spec(title);
+    c.store
+        .write_revision(
+            Document::first(
+                EntityType::Spec,
+                id.clone(),
+                Some(c.project.clone()),
+                title,
+                body,
+                Actor::Claude,
+                chrono::Utc::now(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    id
+}
+
+#[test]
+fn document_without_passages() {
+    let mut c = embedded();
+    let spec = spec_with_prose(&mut c, "Has prose", "Some prose worth embedding.\n");
+    c.quiet("document_without_passages");
+
+    // The shape this catches in the wild: a revision written while the daemon
+    // had no embedder, so the document is keyword-searchable and invisible to
+    // the semantic half with nothing saying so.
+    c.sql(&format!(
+        "DELETE FROM document_chunks WHERE entity_id = '{spec}'"
+    ));
+    c.trips("document_without_passages");
+}
+
+#[test]
+fn stale_passage() {
+    let mut c = embedded();
+    let spec = spec_with_prose(&mut c, "Changing", "The original text.\n");
+    c.quiet("stale_passage");
+
+    // An in-place edit, which `write_revision` would never do — it writes a new
+    // revision and the trigger takes the old passages with it. Doing it behind
+    // the API is the only way to reach the state this check exists for, and it
+    // is exactly what a crash between two writes or a bad restore would leave.
+    c.sql(&format!(
+        "UPDATE documents SET body = 'Entirely different text.', \
+         body_hash = 'not-the-hash-the-passages-were-built-from' \
+         WHERE entity_id = '{spec}'"
+    ));
+    c.trips("stale_passage");
+}
+
+#[test]
+fn passages_from_mixed_models() {
+    let mut c = embedded();
+    spec_with_prose(&mut c, "First", "Prose about storage.\n");
+    let second = spec_with_prose(&mut c, "Second", "Prose about retrieval.\n");
+    c.quiet("passages_from_mixed_models");
+
+    // As if half the corpus had been re-embedded and the pass was interrupted.
+    // Not corruption — it is the ordinary state during a model change, and the
+    // reason it matters is that vectors of a different width are skipped by
+    // search rather than failing it, so those rows quietly stop being findable.
+    c.sql(&format!(
+        "UPDATE document_chunks SET embedding_model = 'some-newer-model' \
+         WHERE entity_id = '{second}'"
+    ));
+    c.trips("passages_from_mixed_models");
 }

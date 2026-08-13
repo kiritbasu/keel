@@ -273,13 +273,16 @@ pub fn page_integrity(store: &Store, which: &str) -> Result<Option<String>> {
 /// here has a corruption test that trips it, and the test at the bottom of this
 /// file asserts the list matches what the code actually emits — so a new check
 /// cannot be added silently in either direction.
-pub const CHECKS: [&str; 22] = [
+pub const CHECKS: [&str; 25] = [
     "dangling_link_source",
     "dangling_link_target",
     "depends_on_stored",
     "link_type_mismatch",
     "orphan_document",
     "multiple_current_revisions",
+    "document_without_passages",
+    "stale_passage",
+    "passages_from_mixed_models",
     "orphan_task",
     "stale_in_progress",
     "milestone_stores_a_derived_state",
@@ -459,6 +462,116 @@ pub fn check(store: &Store) -> Result<FsckReport> {
             ),
             remedy: "mark all but the highest version as `superseded`".to_owned(),
             count: n,
+        });
+    }
+
+    // --- The passage index against the store it describes -----------------
+    //
+    // Passages are kept in step by a transaction on the write path and two
+    // delete triggers. These three checks are the audit of that mechanism, and
+    // on this project the audit is worth more than the mechanism: every bug in
+    // this area so far has been something that silently did nothing while
+    // looking entirely fine. `body_hash` on the passage row is what makes the
+    // question a query rather than a promise.
+    checks_run += 1;
+    let n = count(
+        "SELECT count(*) FROM documents d \
+         WHERE d.status = 'current' \
+           AND NOT EXISTS (SELECT 1 FROM document_chunks c \
+                            WHERE c.doc_id = d.doc_id AND c.body_hash = d.body_hash) \
+           AND NOT EXISTS (SELECT 1 FROM v_entities v \
+                            WHERE v.id = d.entity_id AND v.archived_at IS NOT NULL)",
+        "document_without_passages",
+    )?;
+    if n > 0 {
+        findings.push(Finding {
+            severity: Severity::Warning,
+            check: "document_without_passages".to_owned(),
+            detail: format!(
+                "{n} live current revision(s) have no passages at their current text. They \
+                 are keyword-searchable and invisible to the semantic half, which looks \
+                 exactly like a store where nobody has asked the right question yet"
+            ),
+            remedy: "run `keel reembed --missing`. If it reports nothing to do, an edit \
+                     landed while the daemon had no embedder attached — start it with \
+                     `--embeddings`"
+                .to_owned(),
+            count: n,
+        });
+    }
+
+    // Stale is the serious one. A passage whose revision is no longer current,
+    // or whose entity has been archived, is text the store has moved on from
+    // being offered as though it were current — and the semantic half has no
+    // status predicate to catch it, deliberately, because the triggers are
+    // supposed to have deleted it. If this ever fires, a trigger did not run.
+    checks_run += 1;
+    let n = count(
+        "SELECT count(*) FROM document_chunks c \
+         WHERE NOT EXISTS (SELECT 1 FROM documents d \
+                            WHERE d.doc_id = c.doc_id AND d.status = 'current' \
+                              AND d.body_hash = c.body_hash) \
+            OR EXISTS (SELECT 1 FROM v_entities v \
+                        WHERE v.id = c.entity_id AND v.archived_at IS NOT NULL)",
+        "stale_passage",
+    )?;
+    if n > 0 {
+        findings.push(Finding {
+            severity: Severity::Error,
+            check: "stale_passage".to_owned(),
+            detail: format!(
+                "{n} passage(s) describe a revision that is superseded, an entity that is \
+                 archived, or text that has since changed. Semantic search will return \
+                 them as current, and its ranking gives no sign that anything is wrong"
+            ),
+            remedy: "DELETE FROM document_chunks WHERE doc_id NOT IN \
+                     (SELECT doc_id FROM documents WHERE status = 'current'), then run \
+                     `keel reembed --missing`. A trigger that should have deleted these \
+                     did not run, so it is worth finding out which"
+                .to_owned(),
+            count: n,
+        });
+    }
+
+    // Not a fault, and deliberately not an error: it is the input to a
+    // re-embedding pass, and *when* that pass runs is TQ-3, still open. What
+    // makes it worth reporting is that mixed models degrade recall silently —
+    // `search_semantic` skips vectors of the wrong width to avoid taking the
+    // whole query out, so the rows simply stop being findable.
+    checks_run += 1;
+    let models: Vec<(String, i64)> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT embedding_model, count(*) FROM document_chunks \
+                 GROUP BY embedding_model ORDER BY count(*) DESC",
+            )
+            .map_err(Error::storage("run the `passages_from_mixed_models` check"))?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .map_err(Error::storage("run the `passages_from_mixed_models` check"))?;
+        rows.collect::<std::result::Result<_, _>>()
+            .map_err(Error::storage("read a passage model count"))?
+    };
+    if models.len() > 1 {
+        let spread = models
+            .iter()
+            .map(|(m, c)| format!("{m} ({c})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let stragglers: i64 = models.iter().skip(1).map(|(_, c)| c).sum();
+        findings.push(Finding {
+            severity: Severity::Warning,
+            check: "passages_from_mixed_models".to_owned(),
+            detail: format!(
+                "passages were written by more than one model: {spread}. Vectors from \
+                 different models are not comparable, and any of a different width are \
+                 skipped by search rather than failing it — so those rows quietly stop \
+                 being findable"
+            ),
+            remedy: "re-embed the whole corpus with one model. TQ-3 is the open question \
+                     about when that should happen automatically"
+                .to_owned(),
+            count: stragglers,
         });
     }
 
