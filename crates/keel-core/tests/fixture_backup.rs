@@ -377,6 +377,11 @@ fn a_restored_document_keeps_its_embedding() {
     // and `VACUUM INTO` copies them — so what is left to assert is the part
     // that was always the point: the vectors are there, and they are the right
     // width.
+    //
+    // They live on `document_chunks` since B-55, one per passage. That is the
+    // table a backup now has to carry, and it is a *new* table since this test
+    // was written — exactly the kind of thing a whole-file backup gets right
+    // for free and a per-table export forgets.
     let (store, _d, _) = loaded_store();
     let backup_dir = tempfile::tempdir().unwrap();
     backup::backup(&store, backup_dir.path()).unwrap();
@@ -388,29 +393,22 @@ fn a_restored_document_keeps_its_embedding() {
     let restored = Store::open(&root).unwrap();
     let with_vectors: i64 = restored
         .connection()
-        .query_row(
-            "SELECT count(*) FROM documents WHERE embedding IS NOT NULL",
-            [],
-            |r| r.get(0),
-        )
+        .query_row("SELECT count(*) FROM document_chunks", [], |r| r.get(0))
         .unwrap();
-    assert!(
-        with_vectors > 0,
-        "embeddings did not survive the round trip"
-    );
+    assert!(with_vectors > 0, "passages did not survive the round trip");
 
     let bytes: i64 = restored
         .connection()
         .query_row(
-            "SELECT length(embedding) FROM documents WHERE embedding IS NOT NULL LIMIT 1",
+            "SELECT length(embedding) FROM document_chunks LIMIT 1",
             [],
             |r| r.get(0),
         )
         .unwrap();
     assert_eq!(
-        bytes,
-        EMBEDDING_DIM as i64 * 4,
-        "the vector width changed: {bytes} bytes is not {EMBEDDING_DIM} little-endian f32s"
+        bytes as usize,
+        EMBEDDING_DIM * 4,
+        "the vector width changed"
     );
 }
 

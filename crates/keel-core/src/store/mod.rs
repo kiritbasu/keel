@@ -251,14 +251,19 @@ impl Store {
         self.vector_search
     }
 
-    /// How many current revisions have no vector.
+    /// How many live current revisions have no passages, and how many there are.
     ///
     /// The number that made semantic search a fiction for months: every
     /// document in the live store had a null embedding and nothing anywhere
     /// said so, because the keyword half kept answering.
     ///
+    /// "Has no vector" is now "has no passages" (B-55). The two are the same
+    /// question — a revision with passages is a revision the semantic half can
+    /// reach — but only one of them is still true of the schema, and this
+    /// function is what `doctor` and `keel reembed --missing` both read.
+    ///
     /// Archived entities are excluded from both halves of the ratio, and that
-    /// matters more than it looks. Their vectors are cleared on archive, so
+    /// matters more than it looks. Archiving deletes their passages, so
     /// counting them would report a permanent shortfall that no amount of
     /// re-embedding could close — `doctor` would say "13 of 135 have no vector"
     /// forever, and the honest reading of a check that can never go green is
@@ -279,13 +284,14 @@ impl Store {
             .conn
             .query_row(
                 "SELECT count(*) FROM documents d \
-                 WHERE d.status = 'current' AND d.embedding IS NULL AND NOT EXISTS (\
-                    SELECT 1 FROM v_entities v \
-                     WHERE v.id = d.entity_id AND v.archived_at IS NOT NULL)",
+                 WHERE d.status = 'current' \
+                   AND NOT EXISTS (SELECT 1 FROM document_chunks c WHERE c.doc_id = d.doc_id) \
+                   AND NOT EXISTS (SELECT 1 FROM v_entities v \
+                                    WHERE v.id = d.entity_id AND v.archived_at IS NOT NULL)",
                 [],
                 |r| r.get(0),
             )
-            .map_err(Error::storage("count the revisions with no embedding"))?;
+            .map_err(Error::storage("count the revisions with no passages"))?;
         Ok((current, missing))
     }
 

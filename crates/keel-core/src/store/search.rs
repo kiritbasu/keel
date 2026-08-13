@@ -482,8 +482,11 @@ impl Store {
         let mut params: Vec<Value> = vec![Value::Blob(probe), Value::Integer(width)];
         let mut filters = String::new();
 
+        // Qualified with `c.`, because the scan now joins `document_chunks` to
+        // `documents` and both carry a `project_id`. Unqualified, SQLite picks
+        // one and the query still runs.
         if let Some(project) = &query.project_id {
-            filters.push_str(" AND project_id = ?");
+            filters.push_str(" AND c.project_id = ?");
             params.push(Value::Text(project.as_str().to_owned()));
         }
         if !query.entity_types.is_empty() {
@@ -499,7 +502,7 @@ impl Store {
                 return Ok(Vec::new());
             }
             filters.push_str(&format!(
-                " AND entity_type IN ({})",
+                " AND c.entity_type IN ({})",
                 placeholders(types.len())
             ));
             params.extend(types.iter().map(|t| Value::Text(t.as_str().to_owned())));
@@ -507,15 +510,39 @@ impl Store {
 
         // `length(embedding) = ?` is the guard, not an optimisation:
         // `vec_distance_cosine` errors on a width mismatch and that error kills
-        // the whole query, so one document left behind by a model change would
+        // the whole query, so one passage left behind by a model change would
         // otherwise take out semantic search entirely.
+        //
+        // **Best passage per document, not every passage.** A long spec has
+        // sixty-nine of them and half of one page of results could otherwise be
+        // the same document sixty-nine times. `ROW_NUMBER` over the distance
+        // keeps the nearest and discards the rest, which is also the honest
+        // ranking: a document matches as well as its best passage does. Mean
+        // would punish a long document for having sections about other things,
+        // which is backwards.
+        //
+        // No archive or status predicate here, and that is the point. Passages
+        // exist only for the current revision of a live document, because
+        // archiving and superseding both delete them — so there is no
+        // `WHERE archived_at IS NULL` for anyone to forget, which is exactly
+        // the omission KEEL-175 was.
         let sql = format!(
-            "SELECT entity_id, entity_type, project_id, title, body, \
-                    vec_distance_cosine(embedding, ?) AS distance \
-             FROM documents \
-             WHERE status = 'current' AND embedding IS NOT NULL AND length(embedding) = ?{filters} \
-             ORDER BY distance ASC \
-             LIMIT {}",
+            "WITH scored AS (
+                 SELECT c.entity_id, c.entity_type, c.project_id, d.title,
+                        c.text, c.heading_path,
+                        vec_distance_cosine(c.embedding, ?) AS distance
+                   FROM document_chunks c
+                   JOIN documents d ON d.doc_id = c.doc_id
+                  WHERE length(c.embedding) = ?{filters}
+             ), ranked AS (
+                 SELECT *, ROW_NUMBER() OVER (
+                     PARTITION BY entity_id ORDER BY distance ASC
+                 ) AS rn FROM scored
+             )
+             SELECT entity_id, entity_type, project_id, title, text, heading_path, distance \
+               FROM ranked WHERE rn = 1 \
+              ORDER BY distance ASC \
+              LIMIT {}",
             query.inner_limit()
         );
 
@@ -551,7 +578,23 @@ impl Store {
                 continue;
             }
 
-            let body: String = row.get("body").map_err(e("body"))?;
+            // The excerpt is cut from the passage rather than from the whole
+            // document, which is the change that makes it worth reading. A
+            // semantic hit often shares no words with the query, so there was
+            // frequently no term to centre on and the window fell back to the
+            // opening of the document — the least informative part of it, and
+            // for a spec the same paragraph every time. Cut from the passage
+            // there is nowhere uninformative left to fall back to.
+            //
+            // Still cut, not returned whole: a passage runs to 1,400
+            // characters and a page of those is most of a digest's budget.
+            let text: String = row.get("text").map_err(e("text"))?;
+            let heading_path: String = row.get("heading_path").map_err(e("heading_path"))?;
+            let body = if heading_path.is_empty() {
+                text
+            } else {
+                format!("{heading_path} — {text}")
+            };
             out.push(SearchHit {
                 entity_id: EntityId::parse(
                     &row.get::<_, String>("entity_id").map_err(e("entity_id"))?,
@@ -844,13 +887,13 @@ mod tests {
         project: &EntityId,
         title: &str,
         body: &str,
-        embedder: Option<&dyn Embedder>,
+        embedder: Option<std::sync::Arc<dyn Embedder>>,
     ) -> EntityId {
         let spec = Spec::new(project.clone(), title);
         let id = spec.id.clone();
         insert_entity(store, &spec.into());
 
-        let mut document = Document::first(
+        let document = Document::first(
             EntityType::Spec,
             id.clone(),
             Some(project.clone()),
@@ -860,9 +903,16 @@ mod tests {
             stored_now(),
         )
         .unwrap();
+        // The embedder is attached to the *store* and the passages are built by
+        // the write path, rather than a vector being set on the document here.
+        //
+        // Setting it by hand was how this helper worked until B-55, and it was
+        // always a small lie: production embeds inside `write_revision_in` and
+        // the tests embedded outside it, so the two could diverge and the suite
+        // would agree with itself either way. Now the only way a test gets a
+        // vector is the way a user does.
         if let Some(embedder) = embedder {
-            document.embedding = Some(embedder.embed_one(&document.searchable_text()).unwrap());
-            document.embedding_model = embedder.model_name().to_owned();
+            store.set_embedder(embedder);
         }
         store.write_revision(document).unwrap();
         id
@@ -1155,7 +1205,7 @@ mod tests {
             &project,
             "Penguins",
             "the emperor penguin broods in the antarctic winter",
-            Some(&TopicEmbedder),
+            Some(std::sync::Arc::new(TopicEmbedder)),
         );
 
         // "flightless" is nowhere in the text, so a hit for it can only have
@@ -1224,7 +1274,7 @@ mod tests {
             &project,
             "Penguins",
             "the emperor penguin broods in the antarctic winter",
-            Some(&TopicEmbedder),
+            Some(std::sync::Arc::new(TopicEmbedder)),
         );
         store
             .conn
@@ -1293,30 +1343,33 @@ mod tests {
     /// provably cannot: a row sharing no words with the query.
     #[test]
     fn the_semantic_half_finds_a_row_with_no_words_in_common() {
-        let embedder = TopicEmbedder;
         let (mut store, project) = store_with_a_project();
         let birds = add_spec(
             &mut store,
             &project,
             "Husbandry",
             "penguin colonies in the southern ocean",
-            Some(&embedder),
+            Some(std::sync::Arc::new(TopicEmbedder)),
         );
         add_spec(
             &mut store,
             &project,
             "Money",
             "the invoice ledger and how it settles",
-            Some(&embedder),
+            Some(std::sync::Arc::new(TopicEmbedder)),
         );
 
         let query = SearchQuery::new("flightless");
+        // Explicitly without an embedder, which is what makes this the keyword
+        // half alone. `search` would no longer do: the store carries an
+        // embedder now that passages are built by the write path, so the plain
+        // call runs both halves and the control would be asserting nothing.
         assert!(
-            store.search(&query).unwrap().items.is_empty(),
+            store.search_with(&query, None).unwrap().items.is_empty(),
             "the keyword half must not find this, or the test proves nothing"
         );
 
-        let found = store.search_with(&query, Some(&embedder)).unwrap();
+        let found = store.search_with(&query, Some(&TopicEmbedder)).unwrap();
         assert_eq!(ids(&found), vec![birds.as_str()]);
         assert_eq!(found.items[0].source, SearchSource::Semantic);
     }
@@ -1332,7 +1385,6 @@ mod tests {
     /// as a bug because everything still looks like it is working.
     #[test]
     fn a_store_given_an_embedder_searches_semantically_through_the_trait() {
-        let embedder = TopicEmbedder;
         let (store, project) = store_with_a_project();
         let mut store = store.with_embedder(std::sync::Arc::new(TopicEmbedder));
 
@@ -1341,7 +1393,7 @@ mod tests {
             &project,
             "Husbandry",
             "penguin colonies in the southern ocean",
-            Some(&embedder),
+            Some(std::sync::Arc::new(TopicEmbedder)),
         );
 
         let query = SearchQuery::new("flightless");
@@ -1371,7 +1423,7 @@ mod tests {
             &project,
             "Storage",
             "the SQLite index is maintained by triggers",
-            Some(&embedder),
+            Some(std::sync::Arc::new(TopicEmbedder)),
         );
 
         let found = store
@@ -1386,36 +1438,41 @@ mod tests {
     /// error would otherwise fail the entire query.
     #[test]
     fn an_embedding_of_the_wrong_width_is_skipped_rather_than_failing_the_search() {
-        let embedder = TopicEmbedder;
         let (mut store, project) = store_with_a_project();
         let good = add_spec(
             &mut store,
             &project,
             "Husbandry",
             "penguin colonies in the southern ocean",
-            Some(&embedder),
+            Some(std::sync::Arc::new(TopicEmbedder)),
         );
         let stale = add_spec(
             &mut store,
             &project,
             "Older",
             "albatross nesting sites",
-            Some(&embedder),
+            Some(std::sync::Arc::new(TopicEmbedder)),
         );
 
         // As if an older model had written it: two floats where there should
-        // be four.
+        // be four. On the passage, because that is where vectors live since
+        // B-55 — the same corruption on `documents.embedding` now proves
+        // nothing, since nothing reads that column.
         let narrow: Vec<u8> = [1.0f32, 0.0].iter().flat_map(|f| f.to_le_bytes()).collect();
-        store
+        let touched = store
             .conn
             .execute(
-                "UPDATE documents SET embedding = ?1 WHERE entity_id = ?2",
+                "UPDATE document_chunks SET embedding = ?1 WHERE entity_id = ?2",
                 rusqlite::params![narrow, stale.as_str()],
             )
             .unwrap();
+        assert!(
+            touched > 0,
+            "nothing was corrupted, so the guard is not being exercised"
+        );
 
         let found = store
-            .search_with(&SearchQuery::new("flightless"), Some(&embedder))
+            .search_with(&SearchQuery::new("flightless"), Some(&TopicEmbedder))
             .unwrap();
         assert_eq!(
             ids(&found),

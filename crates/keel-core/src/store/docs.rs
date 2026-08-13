@@ -237,29 +237,10 @@ pub(super) fn write_revision_in(
     document.parent_version = if previous == 0 { None } else { Some(previous) };
     document.status = DocStatus::Current;
 
-    // Embed here, on the way in, rather than expecting the caller to have
-    // done it. A revision written without a vector is not a broken write —
-    // it is a document that never appears in a semantic result and never
-    // says so, because the keyword half keeps answering. That is the same
-    // silence `search` warns about, one layer earlier.
-    if document.embedding.is_none()
-        && let Some(embedder) = embedder
-    {
-        match embedder.embed_one(&document.searchable_text()) {
-            Ok(v) => {
-                document.embedding = Some(v);
-                document.embedding_model = embedder.model_name().to_owned();
-            }
-            // A failed embed must not lose the write. The document stays
-            // readable and keyword-searchable; a later re-embed pass picks
-            // it up, which is what `embedding_version` is for.
-            Err(e) => tracing::warn!(
-                entity_id = %document.entity_id,
-                error = %e,
-                "embedding failed; storing the revision without a vector"
-            ),
-        }
-    }
+    // `documents.embedding` is deliberately not filled in any more (B-55).
+    // Passages carry the vectors now, and a whole-document vector beside them
+    // is a second copy of the same claim with nothing keeping the two in step.
+    // The column stays until a later migration takes it.
 
     let params: Vec<Value> = vec![
         Value::Text(document.doc_id.as_str().to_owned()),
@@ -350,7 +331,129 @@ pub(super) fn write_revision_in(
         document.created_at,
     )?;
 
+    write_chunks_in(
+        conn,
+        embedder,
+        ChunkSource {
+            doc_id: document.doc_id.as_str(),
+            entity_id: document.entity_id.as_str(),
+            entity_type: document.entity_type.as_str(),
+            project_id: document
+                .project_id
+                .as_ref()
+                .map(|p| p.as_str())
+                .unwrap_or(""),
+            title: &document.title,
+            body: &document.body,
+            body_hash: &document.body_hash,
+        },
+    )?;
+
     Ok(document)
+}
+
+/// The columns a revision's passages are built from.
+///
+/// Borrowed rather than a `&Document`, because the re-embed pass has a row and
+/// not a document, and inventing a half-populated `Document` to satisfy a
+/// signature is how a field that was never read becomes a field that is. Seven
+/// borrowed strs is the honest description of what chunking needs.
+pub(super) struct ChunkSource<'a> {
+    pub doc_id: &'a str,
+    pub entity_id: &'a str,
+    pub entity_type: &'a str,
+    pub project_id: &'a str,
+    pub title: &'a str,
+    pub body: &'a str,
+    pub body_hash: &'a str,
+}
+
+/// Split the revision into passages and embed each one.
+///
+/// Runs inside the caller's transaction, so a revision and its passages become
+/// visible together or not at all. There is no moment when a document is
+/// current and its passages describe the version before it.
+///
+/// Does nothing without an embedder, and that is the ordinary case for the CLI
+/// and the whole test suite. A revision written with no model attached is not
+/// broken — it is keyword-searchable and invisible to the semantic half, which
+/// is what `keel reembed --missing` exists to fix and what `doctor` reports.
+///
+/// A model that fails is logged and skipped rather than failing the write. The
+/// document is the thing worth keeping; the passages can be rebuilt from it at
+/// any time, which is the invariant the whole delete-rather-than-archive
+/// carve-out rests on.
+pub(super) fn write_chunks_in(
+    conn: &Connection,
+    embedder: Option<&dyn crate::Embedder>,
+    document: ChunkSource<'_>,
+) -> Result<usize> {
+    let Some(embedder) = embedder else {
+        return Ok(0);
+    };
+    // Belt and braces against the superseded trigger: a rewritten revision
+    // reuses neither doc_id nor ordinal, but an interrupted re-embed could
+    // leave passages behind and this is cheaper than reasoning about it.
+    conn.execute(
+        "DELETE FROM document_chunks WHERE doc_id = ?1",
+        [document.doc_id],
+    )
+    .map_err(Error::storage(format!(
+        "clear the old passages of {}",
+        document.entity_id
+    )))?;
+
+    let chunks = crate::chunk::split(document.body);
+    if chunks.is_empty() {
+        return Ok(0);
+    }
+    let texts: Vec<String> = chunks
+        .iter()
+        .map(|c| c.embed_text(document.title))
+        .collect();
+    let vectors = match embedder.embed(&texts) {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!(
+                entity_id = %document.entity_id,
+                error = %e,
+                "embedding failed; the revision is stored without passages and \
+                 `keel reembed --missing` will pick it up"
+            );
+            return Ok(0);
+        }
+    };
+
+    for (chunk, vector) in chunks.iter().zip(vectors.iter()) {
+        conn.execute(
+            "INSERT INTO document_chunks (
+                 chunk_id, doc_id, entity_id, entity_type, project_id, ordinal,
+                 heading_path, char_start, char_end, text, body_hash,
+                 embedding, embedding_model, embedding_version)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            rusqlite::params![
+                crate::ChunkId::generate().as_str(),
+                document.doc_id,
+                document.entity_id,
+                document.entity_type,
+                document.project_id,
+                chunk.ordinal as i64,
+                chunk.heading_path.as_str(),
+                chunk.start as i64,
+                chunk.end as i64,
+                chunk.text.as_str(),
+                document.body_hash,
+                embedding_bytes(vector),
+                embedder.model_name(),
+                1i64,
+            ],
+        )
+        .map_err(Error::storage(format!(
+            "write passage {} of {}",
+            chunk.ordinal, document.entity_id
+        )))?;
+    }
+    Ok(chunks.len())
 }
 
 /// The highest revision number recorded for an entity, or zero.
@@ -1086,10 +1189,16 @@ impl Store {
     /// pass: one unembeddable document should not stop the other two hundred.
     ///
     /// Archived entities are skipped, and this is the one place the exclusion
-    /// has to be written out rather than inherited. Archiving clears the vector
-    /// through a trigger, which leaves the row looking exactly like a document
-    /// that was never embedded — so without the predicate this pass would put
-    /// back, every time it ran, precisely what archiving had just taken away.
+    /// has to be written out rather than inherited. Archiving deletes the
+    /// passages through a trigger, which leaves the revision looking exactly
+    /// like one that was never embedded — so without the predicate this pass
+    /// would put back, every time it ran, precisely what archiving had just
+    /// taken away.
+    ///
+    /// Since B-55 the unit of work is a *revision*, and what it builds is that
+    /// revision's passages. "Missing" therefore means "current, live, and has
+    /// no passages" rather than "has a null `embedding`", and the column it
+    /// used to fill is no longer written at all.
     pub fn reembed_missing(
         &mut self,
         embedder: &dyn crate::Embedder,
@@ -1102,17 +1211,19 @@ impl Store {
                 .conn
                 .prepare(
                     "SELECT d.doc_id, d.title, d.body FROM documents d \
-                     WHERE d.status = 'current' AND d.embedding IS NULL AND NOT EXISTS (\
-                        SELECT 1 FROM v_entities v \
-                         WHERE v.id = d.entity_id AND v.archived_at IS NOT NULL) \
+                     WHERE d.status = 'current' \
+                       AND NOT EXISTS (SELECT 1 FROM document_chunks c \
+                                        WHERE c.doc_id = d.doc_id) \
+                       AND NOT EXISTS (SELECT 1 FROM v_entities v \
+                                        WHERE v.id = d.entity_id AND v.archived_at IS NOT NULL) \
                      ORDER BY d.doc_id",
                 )
-                .map_err(Error::storage("list the revisions with no embedding"))?;
+                .map_err(Error::storage("list the revisions with no passages"))?;
             let rows = stmt
                 .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
-                .map_err(Error::storage("list the revisions with no embedding"))?;
+                .map_err(Error::storage("list the revisions with no passages"))?;
             rows.collect::<std::result::Result<_, _>>()
-                .map_err(Error::storage("read a revision with no embedding"))?
+                .map_err(Error::storage("read a revision with no passages"))?
         };
 
         report.missing = pending.len();
@@ -1121,50 +1232,80 @@ impl Store {
         }
 
         for batch in pending.chunks(REEMBED_BATCH) {
-            // The same text the write path embeds, so a backfilled vector and a
-            // freshly written one are comparable. Anything else would make
-            // search results depend on when a document happened to be embedded.
-            let texts: Vec<String> = batch
-                .iter()
-                .map(|(_, title, body)| Document::searchable_text_of(title, body))
-                .collect();
-
-            let vectors = match embedder.embed(&texts) {
-                Ok(v) => v,
-                Err(e) => {
-                    tracing::warn!(
-                        error = %e,
-                        batch = batch.len(),
-                        "a batch could not be embedded; skipping it and continuing"
-                    );
-                    report.failed += batch.len();
-                    progress(report.embedded + report.failed, report.missing);
-                    continue;
-                }
-            };
-
             // One transaction per batch. A killed pass then leaves whole
-            // batches done and the rest untouched, which is exactly what
-            // re-running it expects to find.
+            // revisions done and the rest untouched, which is exactly what
+            // re-running it expects to find. A revision's passages all land
+            // together or not at all — a half-chunked document would look
+            // complete to the "has no passages" query above and never be
+            // finished.
             let tx = self
                 .conn
                 .transaction()
                 .map_err(Error::storage("begin a re-embedding batch"))?;
-            for ((doc_id, _, _), vector) in batch.iter().zip(vectors.iter()) {
-                tx.execute(
-                    "UPDATE documents SET embedding = ?1, embedding_model = ?2, \
-                     embedding_version = embedding_version + 1 WHERE doc_id = ?3",
-                    params![embedding_bytes(vector), embedder.model_name(), doc_id],
-                )
-                .map_err(Error::storage(format!("store the vector for {doc_id}")))?;
+            let mut done = 0usize;
+            let mut failed = 0usize;
+            for (doc_id, title, body) in batch {
+                // Rebuilt through the same function the write path calls, on
+                // purpose. Two routes to the same passages is two chances for
+                // a backfilled one and a freshly written one to differ, and
+                // then which vector a document has depends on when it was last
+                // touched rather than on what it says.
+                match chunks_for(&tx, embedder, doc_id, title, body) {
+                    Ok(_) => done += 1,
+                    Err(e) => {
+                        tracing::warn!(
+                            doc_id = %doc_id,
+                            error = %e,
+                            "a revision could not be embedded; skipping it and continuing"
+                        );
+                        failed += 1;
+                    }
+                }
             }
             tx.commit()
                 .map_err(Error::storage("commit a re-embedding batch"))?;
 
-            report.embedded += batch.len();
+            report.embedded += done;
+            report.failed += failed;
             progress(report.embedded + report.failed, report.missing);
         }
 
         Ok(report)
     }
+}
+
+/// Build one revision's passages from its stored title and body.
+///
+/// A thin seam over [`write_chunks_in`] so the re-embed pass does not need a
+/// whole `Document` in hand — it reads three columns, which is the point of
+/// reading three columns.
+fn chunks_for(
+    conn: &Connection,
+    embedder: &dyn crate::Embedder,
+    doc_id: &str,
+    title: &str,
+    body: &str,
+) -> Result<usize> {
+    let (entity_id, entity_type, project_id, body_hash): (String, String, String, String) = conn
+        .query_row(
+            "SELECT entity_id, entity_type, COALESCE(project_id, ''), body_hash \
+             FROM documents WHERE doc_id = ?1",
+            [doc_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .map_err(Error::storage(format!("read the revision {doc_id}")))?;
+
+    write_chunks_in(
+        conn,
+        Some(embedder),
+        ChunkSource {
+            doc_id,
+            entity_id: &entity_id,
+            entity_type: &entity_type,
+            project_id: &project_id,
+            title,
+            body,
+            body_hash: &body_hash,
+        },
+    )
 }

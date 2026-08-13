@@ -238,21 +238,22 @@ fn embeddings_are_written_when_an_embedder_is_attached() {
     let id = f.spec("Storage specification");
     f.write(&id, "Storage", "DuckDB and Lance together.");
 
-    let has_vector: i64 = f
+    // Passages, not a column on the document. Since B-55 a revision's vectors
+    // live one per passage; `documents.embedding` is no longer written and
+    // asserting on it would pass only while nothing had changed.
+    let passages: i64 = f
         .store
         .connection()
-        .query_row(
-            "SELECT count(*) FROM documents WHERE embedding IS NOT NULL",
-            [],
-            |r| r.get(0),
-        )
+        .query_row("SELECT count(*) FROM document_chunks", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(has_vector, 1);
+    assert_eq!(passages, 1, "short prose is one passage");
 
     let model: String = f
         .store
         .connection()
-        .query_row("SELECT embedding_model FROM documents", [], |r| r.get(0))
+        .query_row("SELECT embedding_model FROM document_chunks", [], |r| {
+            r.get(0)
+        })
         .unwrap();
     assert_eq!(
         model, "test-hash-embedder",
@@ -717,7 +718,7 @@ fn reembed_gives_every_vectorless_revision_a_vector() {
     let width: i64 = store
         .connection()
         .query_row(
-            "SELECT length(embedding) FROM documents WHERE status = 'current' LIMIT 1",
+            "SELECT length(embedding) FROM document_chunks LIMIT 1",
             [],
             |r| r.get(0),
         )
@@ -729,7 +730,7 @@ fn reembed_gives_every_vectorless_revision_a_vector() {
     let model: String = store
         .connection()
         .query_row(
-            "SELECT embedding_model FROM documents WHERE status = 'current' LIMIT 1",
+            "SELECT embedding_model FROM document_chunks LIMIT 1",
             [],
             |r| r.get(0),
         )
@@ -820,7 +821,7 @@ fn reembed_leaves_archived_documents_alone() {
         store
             .connection()
             .query_row(
-                "SELECT count(*) FROM documents WHERE entity_id = ?1 AND embedding IS NOT NULL",
+                "SELECT count(*) FROM document_chunks WHERE entity_id = ?1",
                 [id.as_str()],
                 |r| r.get(0),
             )
@@ -832,4 +833,179 @@ fn reembed_leaves_archived_documents_alone() {
         "the backfill must not give an archived document a vector back"
     );
     assert_eq!(vectors(live.entity.id()), 1, "the live spec still gets one");
+}
+
+/// The exit criterion for KEEL-174: something written in the middle of a long
+/// document is findable.
+///
+/// Before B-55 a document went to the model whole and the model stopped at 512
+/// tokens, so on the live store the technical specification had its first 2.5%
+/// embedded and the rest was invisible to the semantic half — silently, because
+/// the keyword half kept answering.
+///
+/// The needle here sits about 30,000 characters in, far past any truncation
+/// point, and shares no words with the surrounding filler.
+#[test]
+fn a_phrase_buried_deep_in_a_long_document_is_findable() {
+    let mut f = Fixture::new();
+    let id = f.spec("A very long specification");
+
+    let filler = "Routine prose about scheduling and throughput. ".repeat(650);
+    let body = format!(
+        "# Opening\n\n{filler}\n\n## Buried\n\nThe wombat marsupial burrows nocturnally.\n\n\
+         ## Closing\n\n{filler}"
+    );
+    assert!(
+        body.len() > 30_000,
+        "the needle must be past any truncation"
+    );
+    f.write(&id, "A very long specification", &body);
+
+    let hits = f
+        .store
+        .search(&SearchQuery::new("wombat marsupial burrows"))
+        .unwrap();
+    let found: Vec<&str> = hits.items.iter().map(|h| h.entity_id.as_str()).collect();
+    assert!(
+        found.contains(&id.as_str()),
+        "the buried phrase did not surface: {found:?}"
+    );
+
+    // Being *found* proves little on its own: the needle's words are in the
+    // body, so BM25 would have found it before any of this existed. What the
+    // chunking has to earn is the semantic half finding it too — before B-55
+    // that text was past the truncation point and had no vector at all, so the
+    // only possible source was `Keyword`.
+    let hit = hits
+        .items
+        .iter()
+        .find(|h| h.entity_id == id)
+        .expect("the hit is there");
+    assert_eq!(
+        hit.source,
+        SearchSource::Both,
+        "the semantic half did not reach the buried passage, so nothing was gained"
+    );
+
+    // And the passage that matched is the buried one, not the opening — which
+    // is what makes the excerpt worth reading.
+    assert!(
+        hit.excerpt.contains("wombat") || hit.excerpt.contains("Buried"),
+        "the excerpt should come from the passage that matched: {}",
+        hit.excerpt
+    );
+
+    // The mechanism behind it, asserted directly: some passage begins past the
+    // point the whole-document embed used to stop at.
+    let deepest: i64 = f
+        .store
+        .connection()
+        .query_row(
+            "SELECT max(char_start) FROM document_chunks WHERE entity_id = ?1",
+            [id.as_str()],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(
+        deepest > 1_700,
+        "every passage started inside the old truncation window ({deepest})"
+    );
+}
+
+/// The invariant the delete carve-out to hard constraint 3 rests on.
+///
+/// Passages are `DELETE`d rather than archived, which is legal only because
+/// nothing is lost: the revision in `documents` is immutable and a passage can
+/// always be rebuilt from it. If this ever fails, the carve-out is unsound and
+/// passages have to start being soft-deleted like everything else.
+#[test]
+fn a_passage_can_always_be_rebuilt_from_its_revision() {
+    let mut f = Fixture::new();
+    let id = f.spec("Rebuildable");
+    let body = "# One\n\nAlpha beta gamma.\n\n## Two\n\nDelta epsilon zeta.\n";
+    f.write(&id, "Rebuildable", body);
+
+    let before: Vec<(i64, String, Vec<u8>)> = passages(&f.store, &id);
+    assert!(before.len() >= 2, "expected several passages");
+
+    // Wipe the derived table entirely, the way a corrupted index or a model
+    // change would.
+    f.store
+        .connection()
+        .execute("DELETE FROM document_chunks", [])
+        .unwrap();
+    assert!(passages(&f.store, &id).is_empty());
+
+    let embedder = HashEmbedder::new();
+    let report = f.store.reembed_missing(&embedder, |_, _| {}).unwrap();
+    assert_eq!(report.embedded, 1, "the revision should have been rebuilt");
+
+    let after = passages(&f.store, &id);
+    assert_eq!(
+        before, after,
+        "a rebuilt passage must be byte-identical to the original"
+    );
+}
+
+/// One document must not fill a page of results with its own passages.
+#[test]
+fn a_long_document_contributes_one_hit_not_one_per_passage() {
+    let mut f = Fixture::new();
+    let id = f.spec("Long");
+    let body = "Storage and retrieval and indexing. ".repeat(400);
+    f.write(&id, "Long", &body);
+
+    let chunk_count: i64 = f
+        .store
+        .connection()
+        .query_row("SELECT count(*) FROM document_chunks", [], |r| r.get(0))
+        .unwrap();
+    assert!(
+        chunk_count > 3,
+        "expected several passages, got {chunk_count}"
+    );
+
+    let hits = f
+        .store
+        .search(&SearchQuery::new("storage indexing"))
+        .unwrap();
+    let mine = hits.items.iter().filter(|h| h.entity_id == id).count();
+    assert_eq!(mine, 1, "one document, one hit");
+}
+
+/// Editing a document must take its old passages with it.
+#[test]
+fn rewriting_a_document_replaces_its_passages() {
+    let mut f = Fixture::new();
+    let id = f.spec("Changing");
+    f.write(&id, "Changing", "The original text mentions penguins.");
+    let first: Vec<String> = passages(&f.store, &id).into_iter().map(|p| p.1).collect();
+    assert!(first.iter().any(|t| t.contains("penguins")));
+
+    f.write(
+        &id,
+        "Changing",
+        "The replacement text mentions albatrosses.",
+    );
+    let second: Vec<String> = passages(&f.store, &id).into_iter().map(|p| p.1).collect();
+    assert!(
+        second.iter().all(|t| !t.contains("penguins")),
+        "the old passages outlived the revision they described: {second:?}"
+    );
+    assert!(second.iter().any(|t| t.contains("albatrosses")));
+}
+
+/// Passages of an entity, ordered, as (ordinal, text, vector).
+fn passages(store: &Store, id: &EntityId) -> Vec<(i64, String, Vec<u8>)> {
+    let conn = store.connection();
+    let mut stmt = conn
+        .prepare(
+            "SELECT ordinal, text, embedding FROM document_chunks \
+             WHERE entity_id = ?1 ORDER BY ordinal",
+        )
+        .unwrap();
+    let rows = stmt
+        .query_map([id.as_str()], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .unwrap();
+    rows.map(|r| r.unwrap()).collect()
 }

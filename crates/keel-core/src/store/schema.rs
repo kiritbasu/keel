@@ -453,6 +453,7 @@ CREATE INDEX blobs_sha ON blobs(sha256);
     );
 
     sql.push_str(&vertex_view());
+    sql.push_str(&chunk_schema());
     sql.push_str(&fts_schema());
     sql
 }
@@ -766,6 +767,7 @@ CREATE TRIGGER {table}_fts_archived AFTER UPDATE ON {table}
   WHEN new.archived_at IS NOT NULL
 BEGIN
   DELETE FROM fts_source WHERE entity_id = new.id;
+  DELETE FROM document_chunks WHERE entity_id = new.id;
   UPDATE documents SET embedding = NULL, embedding_model = NULL
     WHERE entity_id = new.id;
 END;
@@ -773,6 +775,68 @@ END;
             )
         })
         .collect()
+}
+
+/// Passages, and the two triggers that stop them outliving what they describe.
+///
+/// One row per passage of the *current* revision of a live document (B-55).
+/// `documents.embedding` is no longer written — a whole-document vector beside
+/// per-passage ones is a second copy of the same claim, and the argument
+/// against a `vec0` table in `store::search` applies to it word for word.
+///
+/// **These rows are deleted, and that is deliberate.** Hard constraint 3 says
+/// soft delete only; B-55 carves out derived indexes, on the grounds that the
+/// record is the revision in `documents` — immutable, append-only, untouched —
+/// and a passage is a derived artefact of it in the same way a BM25 posting is.
+/// `fts_source` has always worked this way. The invariant that makes the
+/// carve-out safe is that any passage can be recomputed from its revision, and
+/// `a_passage_can_always_be_rebuilt_from_its_revision` is the test that holds
+/// it.
+///
+/// `body_hash` is carried on the row so "is the index in step with the store"
+/// is a query rather than a promise. That is what KEEL-176 reports on, and it
+/// is worth more than the mechanism it checks: every bug in this area so far
+/// has been something that silently did nothing while looking fine.
+///
+/// The `ON CONFLICT` in the write path needs `(doc_id, ordinal)` unique, and
+/// that pair is also the only ordering anyone should read passages in.
+fn chunk_schema() -> String {
+    String::from(
+        "CREATE TABLE document_chunks (
+  chunk_id          TEXT PRIMARY KEY,
+  doc_id            TEXT NOT NULL,
+  entity_id         TEXT NOT NULL,
+  entity_type       TEXT NOT NULL,
+  project_id        TEXT NOT NULL DEFAULT '',
+  ordinal           INTEGER NOT NULL,
+  heading_path      TEXT NOT NULL DEFAULT '',
+  char_start        INTEGER NOT NULL,
+  char_end          INTEGER NOT NULL,
+  text              TEXT NOT NULL,
+  body_hash         TEXT NOT NULL,
+  embedding         BLOB NOT NULL,
+  embedding_model   TEXT NOT NULL,
+  embedding_version INTEGER NOT NULL DEFAULT 1
+) STRICT;
+CREATE UNIQUE INDEX document_chunks_ordinal ON document_chunks(doc_id, ordinal);
+CREATE INDEX document_chunks_entity ON document_chunks(entity_id);
+CREATE INDEX document_chunks_project ON document_chunks(project_id);
+
+-- A revision that stops being current takes its passages with it. Without
+-- this, editing a document leaves the old text ranking for ever: the keyword
+-- index would move on, the vector half would not, and the two would answer
+-- different questions about the same document.
+CREATE TRIGGER document_chunks_superseded AFTER UPDATE ON documents
+  WHEN new.status <> 'current'
+BEGIN
+  DELETE FROM document_chunks WHERE doc_id = new.doc_id;
+END;
+",
+    )
+    // The archive path deliberately is not here. It lives in
+    // `prose_archive_triggers` beside the keyword half, because archiving does
+    // one thing to both indexes and splitting that across two functions is how
+    // one of them later gets forgotten — which is the exact bug KEEL-175 was.
 }
 
 /// Every migration, in order.
@@ -785,6 +849,7 @@ pub fn migrations() -> Vec<Migration> {
     // few kilobytes that live as long as the process anyway.
     let initial: &'static str = Box::leak(initial_schema().into_boxed_str());
     let archive_prose: &'static str = Box::leak(archive_prose_types().into_boxed_str());
+    let passages: &'static str = Box::leak(passages_schema().into_boxed_str());
     vec![
         Migration {
             id: 1,
@@ -801,7 +866,45 @@ pub fn migrations() -> Vec<Migration> {
             name: "milestone_state_is_derived",
             sql: DERIVE_MILESTONE_STATE,
         },
+        Migration {
+            id: 4,
+            name: "documents_are_embedded_as_passages",
+            sql: passages,
+        },
     ]
+}
+
+/// Add the passage table and rewire archiving to clear it (B-55).
+///
+/// Written to be safe on a store that already has all of this, because
+/// [`initial_schema`] emits it too: a fresh store runs migration 1 with the
+/// table present and then this, which is why every statement is `IF NOT
+/// EXISTS` or a drop-and-recreate.
+///
+/// It leaves the passage table **empty**. Nothing here can fill it — embedding
+/// needs a model, and `keel-core` is the crate that must never decide to fetch
+/// one. `keel reembed --missing` builds the passages, and until it runs the
+/// semantic half returns nothing, which is what it has always done and says so
+/// through `doctor`.
+///
+/// The old `documents.embedding` column is left in place and left alone. It is
+/// no longer written or read, and dropping it is a table rewrite for a column
+/// that costs nothing where it sits — a later migration can take it once the
+/// passages have proved themselves.
+fn passages_schema() -> String {
+    let mut sql = chunk_schema()
+        .replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ")
+        .replace("CREATE UNIQUE INDEX ", "CREATE UNIQUE INDEX IF NOT EXISTS ")
+        .replace("CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ")
+        .replace("CREATE TRIGGER ", "CREATE TRIGGER IF NOT EXISTS ");
+
+    // The archive triggers gain a `DELETE FROM document_chunks`, so they have
+    // to be replaced rather than skipped.
+    for table in PROSE_TABLES {
+        sql.push_str(&format!("DROP TRIGGER IF EXISTS {table}_fts_archived;\n"));
+    }
+    sql.push_str(&prose_archive_triggers());
+    sql
 }
 
 /// Stop storing the three milestone states that can be worked out (B-57).

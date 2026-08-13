@@ -373,6 +373,7 @@ simple_id!(EventId, "evt", "an event");
 simple_id!(DocId, "doc", "a document revision");
 simple_id!(BlobId, "blb", "a stored blob");
 simple_id!(NoteId, "nte", "a note");
+simple_id!(ChunkId, "chk", "one embedded passage of a document");
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
