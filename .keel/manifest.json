@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-13T20:05:51.522221+00:00",
+  "generated_at": "2026-08-13T20:12:32.824754+00:00",
   "files": [
     {
       "path": ".keel/specs/phase-gates-that-cannot-be-verified-without-a-human.md",
@@ -10,6 +10,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/spec-decisions-that-outlive-their-reasoning-are-annotated-not-rewritten.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZYC1V6NV3H9EVNPVAHEECRJ",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "4b51006d325446e8fe2d4729e2c3c27c2d5975a9b7a53cb5b45708116f0b3fbf"
         }
       ]
     },
@@ -706,12 +717,6 @@
           "hash": "cd15299f160af71d12b93a81c47710b540f867259450dacbb2903aa59b1d1458"
         },
         {
-          "entity_id": "que_01KZSKBNXFZCB84AV1V0MDM8RA",
-          "entity_type": "question",
-          "version": 1,
-          "hash": "08e28341e7e6b36ffe2a0966dd2d59dd78d2f1ddd23bad45b52cdf14ad8468b0"
-        },
-        {
           "entity_id": "que_01KZKWMSCD3NRC7WJT5WMARCFW",
           "entity_type": "question",
           "version": 1,
@@ -746,6 +751,12 @@
           "entity_type": "question",
           "version": 0,
           "hash": "49f597287c2bd8f17809cf04ac2d1232f577f1e5d0856b9894a334dc05e88f7d"
+        },
+        {
+          "entity_id": "que_01KZSKBNXFZCB84AV1V0MDM8RA",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "08e28341e7e6b36ffe2a0966dd2d59dd78d2f1ddd23bad45b52cdf14ad8468b0"
         },
         {
           "entity_id": "que_01KZSF88553AJM4WDBMVGP9ZSC",

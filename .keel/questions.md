@@ -83,37 +83,6 @@ My recommendation is 3 then 2. By style.rs's own argument 3 is where the effect 
 
 `que_01KZSQHK2C0CTKN36WJ9G4ZHQC` · question · open
 
-### TQ-37 — Six rows of SPEC §13 argue from DuckDB and Lance. Reword, annotate, or leave?
-
-`que_01KZSKBNXFZCB84AV1V0MDM8RA` · question · open · severity low
-
-**Needs KB.** Raised 2026-08-12, closing KEEL-132.
-
-The standing contract says the decisions in SPEC §13 are KB's, so KEEL-132 rewrote §1 to §12 and §14 and did not touch the table. That leaves six rows arguing from an engine that is no longer in the tree:
-
-| Row | What it now says that is not true |
-|---|---|
-| D-1a | Its closing clause says "§3 onwards still describes the old shape and is being brought up to date separately". That is what KEEL-132 just did, so the sentence has outlived its job. |
-| D-2 | "Single unified `documents` **dataset**" — it is a table. |
-| D-2b | "Revisions in user columns, not **Lance dataset versions**" — the thing it was distinguishing itself from is gone. |
-| D-4 | "DuckPGQ can't run on 1.5.x alongside Lance" — the reason recursive CTEs won, and neither engine exists now. |
-| D-5 | "**Quack** changes convenience, not architecture" — Quack is a DuckDB feature. |
-| D-6 | "Storage engines are Rust-native" — SQLite is a C amalgamation compiled into the binary. |
-
-Every one of those decisions still reaches the right conclusion. D-4 is the sharpest case: recursive CTEs are more right now than they were then, because Turso was ruled out during the Phase 9 survey for not supporting them at all — the conclusion held while its entire rationale was replaced.
-
-## The three options
-
-**Leave the table and let the sections carry the correction.** A blockquote under §13 already names all six rows and says why they were not touched. Cheapest, and it keeps the record of what was argued at the time. The cost is that a reader who reads only the table is misinformed.
-
-**Annotate each row.** A second rationale line per row, in D-1's style: strike the clause that expired, say what replaced it. Six small edits, no conclusion changes, and it makes the table readable on its own.
-
-**Rewrite the six rationales.** Cleanest to read and the most history lost. This is the one that would make the spec read as though it always said SQLite, which is the thing KEEL-132 was told not to do.
-
-## Recommendation
-
-The second. D-1 already demonstrates the pattern and it is the only option that leaves the table honest without erasing what it used to argue. It is a small edit either way, which is why it is worth asking rather than assuming: the value is in matching however KB wants the decision log to age.
-
 ### TQ-1 — Are requirement anchors (REQ-4) parsed from markdown by convention, or declared in…
 
 `que_01KZKWMSCD3NRC7WJT5WMARCFW` · question · open
@@ -193,6 +162,37 @@ Recommending 1. The distinction it rests on is one the codebase already makes an
 ### Enforce the single-writer rule with an advisory lock file, or rely on the health probe alone?
 
 `que_01KZSQHFQ454B2S53T3SCYN4TC` · question · answered
+
+### TQ-37 — Six rows of SPEC §13 argue from DuckDB and Lance. Reword, annotate, or leave?
+
+`que_01KZSKBNXFZCB84AV1V0MDM8RA` · question · answered · severity low
+
+**Needs KB.** Raised 2026-08-12, closing KEEL-132.
+
+The standing contract says the decisions in SPEC §13 are KB's, so KEEL-132 rewrote §1 to §12 and §14 and did not touch the table. That leaves six rows arguing from an engine that is no longer in the tree:
+
+| Row | What it now says that is not true |
+|---|---|
+| D-1a | Its closing clause says "§3 onwards still describes the old shape and is being brought up to date separately". That is what KEEL-132 just did, so the sentence has outlived its job. |
+| D-2 | "Single unified `documents` **dataset**" — it is a table. |
+| D-2b | "Revisions in user columns, not **Lance dataset versions**" — the thing it was distinguishing itself from is gone. |
+| D-4 | "DuckPGQ can't run on 1.5.x alongside Lance" — the reason recursive CTEs won, and neither engine exists now. |
+| D-5 | "**Quack** changes convenience, not architecture" — Quack is a DuckDB feature. |
+| D-6 | "Storage engines are Rust-native" — SQLite is a C amalgamation compiled into the binary. |
+
+Every one of those decisions still reaches the right conclusion. D-4 is the sharpest case: recursive CTEs are more right now than they were then, because Turso was ruled out during the Phase 9 survey for not supporting them at all — the conclusion held while its entire rationale was replaced.
+
+## The three options
+
+**Leave the table and let the sections carry the correction.** A blockquote under §13 already names all six rows and says why they were not touched. Cheapest, and it keeps the record of what was argued at the time. The cost is that a reader who reads only the table is misinformed.
+
+**Annotate each row.** A second rationale line per row, in D-1's style: strike the clause that expired, say what replaced it. Six small edits, no conclusion changes, and it makes the table readable on its own.
+
+**Rewrite the six rationales.** Cleanest to read and the most history lost. This is the one that would make the spec read as though it always said SQLite, which is the thing KEEL-132 was told not to do.
+
+## Recommendation
+
+The second. D-1 already demonstrates the pattern and it is the only option that leaves the table honest without erasing what it used to argue. It is a small edit either way, which is why it is worth asking rather than assuming: the value is in matching however KB wants the decision log to age.
 
 ### TQ-36 — The single write path is now a convention. Enforce it, or accept that?
 
