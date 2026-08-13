@@ -1213,14 +1213,17 @@ impl Store {
                     "SELECT d.doc_id, d.title, d.body FROM documents d \
                      WHERE d.status = 'current' \
                        AND NOT EXISTS (SELECT 1 FROM document_chunks c \
-                                        WHERE c.doc_id = d.doc_id) \
+                                        WHERE c.doc_id = d.doc_id \
+                                          AND c.embedding_model = ?1) \
                        AND NOT EXISTS (SELECT 1 FROM v_entities v \
                                         WHERE v.id = d.entity_id AND v.archived_at IS NOT NULL) \
                      ORDER BY d.doc_id",
                 )
                 .map_err(Error::storage("list the revisions with no passages"))?;
             let rows = stmt
-                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                .query_map([embedder.model_name()], |r| {
+                    Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+                })
                 .map_err(Error::storage("list the revisions with no passages"))?;
             rows.collect::<std::result::Result<_, _>>()
                 .map_err(Error::storage("read a revision with no passages"))?

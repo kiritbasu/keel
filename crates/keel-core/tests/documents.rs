@@ -695,7 +695,7 @@ fn reembed_gives_every_vectorless_revision_a_vector() {
             .unwrap();
     }
 
-    let (current, missing) = store.documents_missing_embeddings().unwrap();
+    let (current, missing) = store.documents_missing_embeddings(None).unwrap();
     assert_eq!(current, 3);
     assert_eq!(missing, 3, "no embedder was attached, so none has a vector");
 
@@ -710,7 +710,7 @@ fn reembed_gives_every_vectorless_revision_a_vector() {
     assert_eq!(report.failed, 0);
     assert!(!steps.is_empty(), "a slow pass has to report progress");
 
-    let (_, still_missing) = store.documents_missing_embeddings().unwrap();
+    let (_, still_missing) = store.documents_missing_embeddings(None).unwrap();
     assert_eq!(still_missing, 0);
 
     // The stored width has to match what the schema and the query expect, or
@@ -808,7 +808,7 @@ fn reembed_leaves_archived_documents_alone() {
 
     // Both counts see one document, not two: an archived row that can never be
     // embedded must not sit in the denominator making the check permanently red.
-    let (current, missing) = store.documents_missing_embeddings().unwrap();
+    let (current, missing) = store.documents_missing_embeddings(None).unwrap();
     assert_eq!(current, 1, "the archived spec must not be counted");
     assert_eq!(missing, 1);
 
@@ -1008,4 +1008,61 @@ fn passages(store: &Store, id: &EntityId) -> Vec<(i64, String, Vec<u8>)> {
         .query_map([id.as_str()], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
         .unwrap();
     rows.map(|r| r.unwrap()).collect()
+}
+
+/// TQ-3, answered: changing the model makes every document missing again, and
+/// the ordinary `--missing` pass rebuilds them.
+///
+/// Before B-59 "missing" meant "has no passages at all", so a model change left
+/// a corpus that looked complete and was half in one vector space and half in
+/// another. Nothing would ever rebuild it, and nothing said so.
+#[test]
+fn changing_the_model_makes_every_document_missing_again() {
+    let mut f = Fixture::new();
+    let id = f.spec("Storage");
+    f.write(
+        &id,
+        "Storage",
+        "One SQLite file holds the rows and the prose.\n",
+    );
+
+    let first = HashEmbedder::new();
+    let (current, missing) = f
+        .store
+        .documents_missing_embeddings(Some(first.model_name()))
+        .unwrap();
+    assert_eq!(current, 1);
+    assert_eq!(missing, 0, "the write path already embedded it");
+
+    // A different model, same dimensions — the case the width guard cannot see.
+    let renamed = HashEmbedder::new().named("a-different-model");
+    let (_, missing_now) = f
+        .store
+        .documents_missing_embeddings(Some(renamed.model_name()))
+        .unwrap();
+    assert_eq!(
+        missing_now, 1,
+        "under the new model the document has no passages and must be rebuilt"
+    );
+
+    let report = f.store.reembed_missing(&renamed, |_, _| {}).unwrap();
+    assert_eq!(report.embedded, 1);
+
+    // Rebuilt, not accumulated: the old model's passages are gone rather than
+    // sitting alongside the new ones in a different vector space.
+    let models: Vec<String> = {
+        let conn = f.store.connection();
+        let mut stmt = conn
+            .prepare("SELECT DISTINCT embedding_model FROM document_chunks")
+            .unwrap();
+        let rows = stmt.query_map([], |r| r.get(0)).unwrap();
+        rows.map(|r| r.unwrap()).collect()
+    };
+    assert_eq!(models, vec!["a-different-model".to_owned()]);
+
+    let (_, still) = f
+        .store
+        .documents_missing_embeddings(Some(renamed.model_name()))
+        .unwrap();
+    assert_eq!(still, 0);
 }

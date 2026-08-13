@@ -432,7 +432,7 @@ fn embedding_coverage(store: &Store) -> Result<(i64, i64)> {
     // which is a check that can only ever be red and therefore a check nobody
     // reads.
     store
-        .documents_missing_embeddings()
+        .documents_missing_embeddings(None)
         .context("count how many current revisions have no vector")
 }
 

@@ -463,13 +463,18 @@ impl Store {
         if !self.vector_search_available() {
             return Ok(Vec::new());
         }
+        // The embedder is required even when the vector was computed
+        // elsewhere, because it is what names the model — and without the name
+        // there is no way to know which stored vectors this one may be compared
+        // against. Returning nothing is the honest answer; guessing is how the
+        // failure below happens silently.
+        let Some(embedder) = embedder else {
+            return Ok(Vec::new());
+        };
         let owned;
         let vector: &[f32] = match precomputed {
             Some(v) => v,
             None => {
-                let Some(embedder) = embedder else {
-                    return Ok(Vec::new());
-                };
                 owned = embedder.embed_one(&query.text)?;
                 &owned
             }
@@ -479,7 +484,11 @@ impl Store {
 
         // The probe binds first because it appears first in the statement —
         // in the SELECT list, not the WHERE clause.
-        let mut params: Vec<Value> = vec![Value::Blob(probe), Value::Integer(width)];
+        let mut params: Vec<Value> = vec![
+            Value::Blob(probe),
+            Value::Integer(width),
+            Value::Text(embedder.model_name().to_owned()),
+        ];
         let mut filters = String::new();
 
         // Qualified with `c.`, because the scan now joins `document_chunks` to
@@ -533,7 +542,7 @@ impl Store {
                         vec_distance_cosine(c.embedding, ?) AS distance
                    FROM document_chunks c
                    JOIN documents d ON d.doc_id = c.doc_id
-                  WHERE length(c.embedding) = ?{filters}
+                  WHERE length(c.embedding) = ? AND c.embedding_model = ?{filters}
              ), ranked AS (
                  SELECT *, ROW_NUMBER() OVER (
                      PARTITION BY entity_id ORDER BY distance ASC
@@ -1372,6 +1381,54 @@ mod tests {
         let found = store.search_with(&query, Some(&TopicEmbedder)).unwrap();
         assert_eq!(ids(&found), vec![birds.as_str()]);
         assert_eq!(found.items[0].source, SearchSource::Semantic);
+    }
+
+    /// Vectors from two different models must never be compared.
+    ///
+    /// The width guard catches a model that changed *dimension*. It cannot
+    /// catch one that did not: two 384-wide models produce vectors in
+    /// unrelated spaces, and the cosine between them is a number that sorts
+    /// perfectly well and means nothing. That is this codebase's signature
+    /// failure — a plausible ranking with nothing behind it — and it is the
+    /// reason TQ-3 could not be answered with a re-embedding strategy alone.
+    #[test]
+    fn a_passage_from_another_model_is_not_compared_against_this_one() {
+        let (mut store, project) = store_with_a_project();
+        let ours = add_spec(
+            &mut store,
+            &project,
+            "Husbandry",
+            "penguin colonies in the southern ocean",
+            Some(std::sync::Arc::new(TopicEmbedder)),
+        );
+        let theirs = add_spec(
+            &mut store,
+            &project,
+            "Older",
+            "albatross nesting sites",
+            Some(std::sync::Arc::new(TopicEmbedder)),
+        );
+
+        // Same width, different model: exactly what swapping bge-small for
+        // another 384-dimension model leaves behind.
+        let touched = store
+            .conn
+            .execute(
+                "UPDATE document_chunks SET embedding_model = 'some-other-model' \
+                 WHERE entity_id = ?1",
+                [theirs.as_str()],
+            )
+            .unwrap();
+        assert!(touched > 0, "nothing was relabelled, so nothing is proven");
+
+        let found = store
+            .search_prepared(&SearchQuery::new("flightless"), Some(&TopicEmbedder), None)
+            .unwrap();
+        assert_eq!(
+            ids(&found),
+            vec![ours.as_str()],
+            "a passage from another model was ranked against this one's query vector"
+        );
     }
 
     /// A store told about an embedder must actually use it when `search` is

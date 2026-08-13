@@ -1023,12 +1023,32 @@ fn run_fsck(home: &Path, daemon: &str, json: bool) -> Result<()> {
 fn run_reembed(home: &Path, missing: bool, force: bool, json: bool) -> Result<()> {
     if !missing {
         bail!(
-            "only `--missing` is supported. Re-embedding rows that already have a vector is              what happens when the model changes, and how to do that is TQ-3, which is open"
+            "only `--missing` is supported, and since B-59 it is also the answer to a changed \
+             model: `missing` means a revision with no passages from the model now configured, \
+             so swapping the model makes every document missing and this pass rebuilds them"
         );
     }
 
     let mut store = writes::open_for_write(home, &writes::daemon_url(), force, "re-embed")?;
-    let (current, absent) = store.documents_missing_embeddings()?;
+
+    // The model loads before the count, which looks like the wrong order and is
+    // not. "Missing" means "has no passages from *this* model" (B-59), and
+    // there is no way to ask that until the model has said what it is called.
+    // After the first run this is a local load of an already-cached file.
+    let models = home.join("models");
+    std::fs::create_dir_all(&models)
+        .with_context(|| format!("create the model cache at {}", models.display()))?;
+    if !json {
+        println!(
+            "loading the model from {} — the first run downloads it, which needs network access",
+            models.display()
+        );
+    }
+    let embedder = keel_embed::FastEmbedder::new(&models)
+        .context("load the embedding model. The first run downloads it")?;
+
+    let (current, absent) =
+        store.documents_missing_embeddings(Some(keel_core::Embedder::model_name(&embedder)))?;
     if absent == 0 {
         if json {
             println!(
@@ -1040,20 +1060,9 @@ fn run_reembed(home: &Path, missing: bool, force: bool, json: bool) -> Result<()
         }
         return Ok(());
     }
-
-    let models = home.join("models");
-    std::fs::create_dir_all(&models)
-        .with_context(|| format!("create the model cache at {}", models.display()))?;
     if !json {
-        println!(
-            "embedding {absent} of {current} current document(s)\n\
-             the first run downloads the model into {}, which needs network access",
-            models.display()
-        );
+        println!("embedding {absent} of {current} current document(s)");
     }
-
-    let embedder = keel_embed::FastEmbedder::new(&models)
-        .context("load the embedding model. The first run downloads it")?;
 
     let report = store.reembed_missing(&embedder, |done, total| {
         if !json {

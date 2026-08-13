@@ -52,12 +52,14 @@ pub trait Embedder: Send + Sync {
 #[derive(Debug, Clone)]
 pub struct HashEmbedder {
     dimensions: usize,
+    model_name: String,
 }
 
 impl Default for HashEmbedder {
     fn default() -> Self {
         HashEmbedder {
             dimensions: crate::EMBEDDING_DIM,
+            model_name: "test-hash-embedder".to_owned(),
         }
     }
 }
@@ -66,6 +68,20 @@ impl HashEmbedder {
     /// An embedder producing vectors of the store's declared width.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// The same embedder under another name.
+    ///
+    /// For testing what happens when the model changes (TQ-3, B-59). The
+    /// interesting case is not a change of *width* — the search query already
+    /// skips vectors it cannot compare — but a new model of the same width,
+    /// whose vectors live in an unrelated space and whose cosine against the
+    /// old ones is a number that sorts perfectly well and means nothing. Only
+    /// the name distinguishes them, which is why the name is what search and
+    /// the re-embedding pass both key on.
+    pub fn named(mut self, model_name: &str) -> Self {
+        self.model_name = model_name.to_owned();
+        self
     }
 }
 
@@ -97,7 +113,7 @@ impl Embedder for HashEmbedder {
     }
 
     fn model_name(&self) -> &str {
-        "test-hash-embedder"
+        &self.model_name
     }
 
     fn dimensions(&self) -> usize {

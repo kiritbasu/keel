@@ -268,7 +268,23 @@ impl Store {
     /// re-embedding could close — `doctor` would say "13 of 135 have no vector"
     /// forever, and the honest reading of a check that can never go green is
     /// that people stop reading it.
-    pub fn documents_missing_embeddings(&self) -> Result<(i64, i64)> {
+    ///
+    /// `model` is what makes this answer TQ-3. Passing `None` asks the broad
+    /// question — "is anything unembedded at all" — which is what `doctor`
+    /// wants, because it has no embedder attached and no business loading one.
+    /// Passing `Some(name)` asks the question a re-embedding pass needs: which
+    /// revisions have no passages **from this model**. A model change makes
+    /// every document missing under the second reading and none under the
+    /// first, which is exactly the distinction TQ-3 was about.
+    pub fn documents_missing_embeddings(&self, model: Option<&str>) -> Result<(i64, i64)> {
+        let same_model = match model {
+            Some(_) => " AND c.embedding_model = ?1",
+            None => "",
+        };
+        let params: Vec<rusqlite::types::Value> = match model {
+            Some(m) => vec![rusqlite::types::Value::Text(m.to_owned())],
+            None => Vec::new(),
+        };
         let current: i64 = self
             .conn
             .query_row(
@@ -283,12 +299,15 @@ impl Store {
         let missing: i64 = self
             .conn
             .query_row(
-                "SELECT count(*) FROM documents d \
-                 WHERE d.status = 'current' \
-                   AND NOT EXISTS (SELECT 1 FROM document_chunks c WHERE c.doc_id = d.doc_id) \
-                   AND NOT EXISTS (SELECT 1 FROM v_entities v \
-                                    WHERE v.id = d.entity_id AND v.archived_at IS NOT NULL)",
-                [],
+                &format!(
+                    "SELECT count(*) FROM documents d \
+                     WHERE d.status = 'current' \
+                       AND NOT EXISTS (SELECT 1 FROM document_chunks c \
+                                        WHERE c.doc_id = d.doc_id{same_model}) \
+                       AND NOT EXISTS (SELECT 1 FROM v_entities v \
+                                        WHERE v.id = d.entity_id AND v.archived_at IS NOT NULL)"
+                ),
+                rusqlite::params_from_iter(params),
                 |r| r.get(0),
             )
             .map_err(Error::storage("count the revisions with no passages"))?;

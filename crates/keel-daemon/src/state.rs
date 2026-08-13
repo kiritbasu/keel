@@ -114,7 +114,7 @@ impl AppState {
                  results will keep arriving and will simply be worse."
             );
         }
-        match store.documents_missing_embeddings() {
+        match store.documents_missing_embeddings(None) {
             Ok((current, missing)) if missing > 0 => tracing::warn!(
                 current,
                 missing,
