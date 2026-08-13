@@ -1666,15 +1666,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "keel-github"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "tempfile",
- "tracing",
-]
-
-[[package]]
 name = "keel-mcp"
 version = "0.1.0"
 dependencies = [

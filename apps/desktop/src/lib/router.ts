@@ -21,7 +21,7 @@
  * applied to components.
  */
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 export type ScreenId =
   | "home"
@@ -253,9 +253,4 @@ export function useRoute(): Route {
   // Parsed per render rather than memoised: it is a string split, and caching it
   // would mean caring about identity in every dependency array downstream.
   return parseHash(hash);
-}
-
-/** `navigate`, as a stable callback, for components that would rather not import it. */
-export function useNavigate(): typeof navigate {
-  return useCallback(navigate, []);
 }

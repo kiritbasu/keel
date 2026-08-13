@@ -13,7 +13,6 @@
 import { Badge, MilestoneChip, cx, priorityTone, statusTone, when } from "./ui";
 import { href } from "../lib/router";
 import { taskRef, type Group, type RankMap, type SortBy, type SortDir } from "../lib/tasks";
-import type { Entity } from "../lib/api";
 
 const COLUMNS: Array<{ sort: SortBy; label: string; className: string }> = [
   { sort: "number", label: "Ref", className: "w-24" },
@@ -147,9 +146,4 @@ export function TaskList({
       </table>
     </div>
   );
-}
-
-/** The task ordering a row-based layout walks, for J/K parity elsewhere. */
-export function inListOrder(groups: Group[]): Entity[] {
-  return groups.flatMap((group) => group.tasks);
 }

@@ -262,11 +262,6 @@ impl Document {
         self
     }
 
-    /// Whether this revision's content is identical to another's.
-    pub fn same_content_as(&self, other: &Document) -> bool {
-        self.body_hash == other.body_hash
-    }
-
     /// The text that gets embedded and keyword-indexed.
     ///
     /// Title and body together: a spec called "Rate limiting" whose body never

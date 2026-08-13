@@ -85,13 +85,6 @@ pub struct MirrorReport {
     pub orphans: Vec<String>,
 }
 
-impl MirrorReport {
-    /// Whether anything changed on disk.
-    pub fn is_noop(&self) -> bool {
-        self.written.is_empty()
-    }
-}
-
 /// Generate the mirror for a project into `repo_root/.keel/`.
 pub fn generate(store: &Store, project_id: &EntityId, repo_root: &Path) -> Result<MirrorReport> {
     generate_except(
@@ -562,14 +555,6 @@ fn slugify(name: &str) -> String {
     } else {
         joined
     }
-}
-
-/// Where a project's mirror lives, if it has a checkout.
-pub fn mirror_root(project: &crate::Project) -> Option<PathBuf> {
-    project
-        .root_path
-        .as_ref()
-        .map(|p| PathBuf::from(p).join(".keel"))
 }
 
 /// Convert a formatting error, which cannot actually happen when writing to a

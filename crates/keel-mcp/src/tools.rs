@@ -13,7 +13,7 @@
 //! like a function signature produces an agent that calls the wrong tool
 //! confidently.
 
-use keel_core::{CloseReason, EntityType, Relation, TaskPriority, TaskStatus};
+use keel_core::{CloseReason, EntityType, Relation};
 use serde_json::{Value, json};
 
 /// A tool as advertised over `tools/list`.
@@ -957,30 +957,12 @@ pub fn discover_result() -> Value {
         "capabilities": {
             "tools": { "listChanged": false },
             // Resources, prompts, sampling, roots and logging are all
-            // deliberately absent. Keel's surface is ten tools; advertising
+            // deliberately absent. Keel's surface is thirteen tools; advertising
             // capabilities it does not implement would invite calls it would
             // then have to refuse.
         },
         "instructions": crate::protocol::INSTRUCTIONS,
     })
-}
-
-/// Task statuses that count as open, for digest wording.
-pub fn open_task_statuses() -> Vec<&'static str> {
-    TaskStatus::ALL
-        .iter()
-        .filter(|s| s.is_open())
-        .map(|s| s.as_str())
-        .collect()
-}
-
-/// Priorities that count as urgent.
-pub fn urgent_priorities() -> Vec<&'static str> {
-    TaskPriority::ALL
-        .iter()
-        .filter(|p| p.is_urgent())
-        .map(|p| p.as_str())
-        .collect()
 }
 
 #[cfg(test)]

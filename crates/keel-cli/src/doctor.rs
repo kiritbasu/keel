@@ -723,13 +723,6 @@ mod tests {
         assert!(!report.is_healthy());
     }
 
-    /// Held by the tests that either poison the process-wide id generator or
-    /// assert that nothing is wrong with it.
-    ///
-    /// `keel_core::id`'s generator is one per process and moves only forward,
-    /// so a test that opens a store containing a future id primes it for every
-    /// test running alongside. Without this they interleave and the failure
-    /// lands on whichever innocent test ran next.
     /// Serialises every test that calls [`examine`].
     ///
     /// The id generator is process-global and monotonic, which is right in
