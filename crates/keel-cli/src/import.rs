@@ -665,3 +665,96 @@ mod preview_tests {
         drop(writer);
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod adopted_path_tests {
+    //! The one column of the preview that exists to prevent a silent loss.
+    //!
+    //! An artifact remembers which repository file it *is*, and `keel generate`
+    //! writes it back there. Importing the same document from a different path
+    //! moves that claim — so the next generate writes somewhere new and the old
+    //! file stops being updated while still looking maintained. Nothing errors.
+    //!
+    //! The preview says so when it would happen. These are the tests that the
+    //! saying works, because a warning nobody verified is the same as no
+    //! warning, and this one guards a file getting quietly abandoned.
+
+    use super::*;
+    use keel_core::{EntityStore, Project, Provenance};
+
+    /// A project whose `root_path` is the temporary directory, which is what
+    /// makes `repo_relative` produce a path at all.
+    fn rooted() -> (Store, EntityId, tempfile::TempDir) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut project = Project::new("demo", "Demo");
+        project.root_path = Some(dir.path().to_string_lossy().into_owned());
+        let id = store
+            .create(project.into(), &Provenance::anonymous(Actor::Human))
+            .unwrap()
+            .entity
+            .id()
+            .clone();
+        (store, id, dir)
+    }
+
+    fn write_at(dir: &tempfile::TempDir, rel: &str, body: &str) -> PathBuf {
+        let p = dir.path().join(rel);
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(&p, body).unwrap();
+        p
+    }
+
+    #[test]
+    fn moving_a_document_to_another_path_is_reported_before_it_happens() {
+        let (mut store, project, dir) = rooted();
+        let first = write_at(&dir, "docs/spec.md", "# Storage\n\nOne file.\n");
+        file(&mut store, &first, &project, EntityType::Spec, None, None).unwrap();
+
+        // Same title, so it resolves to the same artifact — and a different
+        // path, so importing would move where `keel generate` writes it.
+        let second = write_at(&dir, "product/SPEC.md", "# Storage\n\nOne file, revised.\n");
+        let p = preview(&store, &second, &project, EntityType::Spec, None).unwrap();
+
+        assert_eq!(p.mirror_path.as_deref(), Some("product/SPEC.md"));
+        assert_eq!(
+            p.mirror_path_now.as_deref(),
+            Some("docs/spec.md"),
+            "the preview has to name the path being given up, or the old file \
+             goes stale with nothing said"
+        );
+    }
+
+    #[test]
+    fn re_importing_from_the_same_path_reports_no_move() {
+        let (mut store, project, dir) = rooted();
+        let f = write_at(&dir, "docs/spec.md", "# Storage\n\nOne file.\n");
+        file(&mut store, &f, &project, EntityType::Spec, None, None).unwrap();
+
+        std::fs::write(&f, "# Storage\n\nOne file, edited in place.\n").unwrap();
+        let p = preview(&store, &f, &project, EntityType::Spec, None).unwrap();
+
+        assert_eq!(p.mirror_path.as_deref(), Some("docs/spec.md"));
+        assert_eq!(
+            p.mirror_path_now, None,
+            "an unchanged path must stay quiet — a warning that fires every \
+             time is one people stop reading"
+        );
+    }
+
+    #[test]
+    fn a_document_that_has_never_claimed_a_path_reports_no_move() {
+        let (store, project, dir) = rooted();
+        let f = write_at(
+            &dir,
+            "docs/new.md",
+            "# Brand new\n\nNothing owns this yet.\n",
+        );
+
+        let p = preview(&store, &f, &project, EntityType::Spec, None).unwrap();
+        assert_eq!(p.outcome, Outcome::Create);
+        assert_eq!(p.mirror_path.as_deref(), Some("docs/new.md"));
+        assert_eq!(p.mirror_path_now, None, "nothing is being given up");
+    }
+}
