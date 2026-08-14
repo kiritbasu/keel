@@ -690,7 +690,7 @@ fn keel_projects(store: &Store, args: &Value) -> Result<Value, RpcError> {
             (score > 0).then_some((score, p))
         })
         .collect();
-    scored.sort_by(|a, b| b.0.cmp(&a.0));
+    scored.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
 
     let candidates: Vec<&Project> = scored.iter().map(|(_, p)| **p).collect();
     let exact = scored.first().is_some_and(|(s, _)| *s >= 100);

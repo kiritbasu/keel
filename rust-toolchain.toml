@@ -1,0 +1,23 @@
+# The one Rust this project is built and linted with.
+#
+# Added after the drift it prevents cost an afternoon. There were three Rusts on
+# the development machine — Homebrew's 1.91 on `PATH`, rustup's stable at 1.63,
+# and CI's 1.97 — and the definition of done requires a clean
+# `cargo clippy -- -D warnings` before a task can close. That gate had been
+# answering a different question from the one that decides, so two lints sat on
+# `main` that no local run could have seen, and the first CI run this project
+# ever executed failed on them.
+#
+# Pinning rather than tracking `stable` is the deliberate choice. A new stable
+# brings new lints, and a lint that appears without anyone changing code turns a
+# green branch red for reasons unrelated to the work in front of you. Bumping is
+# a commit of its own, made when someone has time to read what changed.
+#
+# **This file does not bind Homebrew's cargo**, which is a real cargo rather than
+# a rustup shim and ignores it entirely. On a machine where `which cargo` is
+# `/opt/homebrew/bin/cargo`, the local gate is still checking the wrong compiler.
+# The fix is to let rustup's shim win — put `~/.cargo/bin` ahead of Homebrew on
+# `PATH` — or to run the gate explicitly through `rustup run 1.97 cargo …`.
+[toolchain]
+channel = "1.97"
+components = ["clippy", "rustfmt"]

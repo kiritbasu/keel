@@ -163,6 +163,16 @@ jobs:
     name: fuzz smoke (60s per target)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    # Overrides `rust-toolchain.toml`, which pins the rest of the workspace to a
+    # release. Without this the pin would win here too and cargo-fuzz would be
+    # handed a stable compiler, where `-Z sanitizer=address` does not exist —
+    # so the job would fail for a reason that has nothing to do with fuzzing.
+    #
+    # `RUSTUP_TOOLCHAIN` rather than `cargo +nightly` on each line: it covers
+    # `cargo fuzz`'s own inner invocations too, which is where the pin would
+    # otherwise reassert itself.
+    env:
+      RUSTUP_TOOLCHAIN: nightly
     steps:
       - uses: actions/checkout@v4
       # cargo-fuzz needs nightly: libFuzzer arrives through
