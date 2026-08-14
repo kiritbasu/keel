@@ -697,3 +697,326 @@ fn the_recorded_contracts_classify_against_a_baseline() {
         .count();
     println!("  {} difference(s), {breaking} breaking", all.len());
 }
+
+// --- the acknowledgement gate ---------------------------------------------
+//
+// A release carrying a breaking difference must not merge unless somebody has
+// written down what breaks, which migration handles it, and what the user is
+// told. That is the mechanism; the version number is decoration.
+//
+// It replaces a gate that could not work. An earlier draft refused a release
+// unless the version bump matched the highest severity found — and on 0.x both
+// additive and breaking mean a minor bump, so the condition was satisfied by
+// every release forever while looking like a guard.
+//
+// # Acknowledgement is by the exact sentence, and that is deliberate
+//
+// An entry names a difference by the same words the classifier produces. So
+// rewording a rule in this file invalidates the acknowledgements that quote it,
+// and the gate fails until somebody updates them.
+//
+// That is a feature rather than an oversight. If the description of what breaks
+// has changed, the person who signed it off should read it again — the
+// alternative is a stable key that lets prose drift away from what was actually
+// agreed to. The cost is real and bounded: rewording a rule is a change to this
+// file, which is reviewed anyway.
+
+/// Where the prose stops and the entries begin in `contracts/BREAKING.md`.
+const ENTRY_MARKER: &str = "<!-- acknowledgements -->";
+
+/// One acknowledged breaking change, parsed from `contracts/BREAKING.md`.
+#[derive(Debug, PartialEq, Eq)]
+struct Acknowledgement {
+    what: String,
+    migration: String,
+    tells_the_user: String,
+}
+
+/// Parse the acknowledgement file.
+///
+/// Markdown rather than TOML or JSON, because the two fields that matter are
+/// prose a human writes for another human, and a format that makes prose
+/// awkward gets prose that is awkward. The shape is fixed enough to check:
+///
+/// ```text
+/// ## <the difference, quoted exactly as the classifier reports it>
+/// - migration: <what handles it, or `none` and why that is alright>
+/// - tells the user: <the sentence they will actually read>
+/// ```
+fn parse_acknowledgements(text: &str) -> Vec<Acknowledgement> {
+    // Everything before the marker is instructions for a human, and its
+    // headings are not entries.
+    //
+    // Found by the control run for this gate: `## How to add one` was being
+    // read as an acknowledgement of a difference called "How to add one",
+    // which then failed as stale and blocked a release that was otherwise
+    // fine. A delimiter is duller than heading levels and cannot be tripped by
+    // someone writing an ordinary document.
+    //
+    // No marker means no entries. That direction matters: a file whose marker
+    // was renamed should gate everything rather than silently acknowledge
+    // nothing, and "nothing is acknowledged" is the failing side.
+    let entries = match text.split_once(ENTRY_MARKER) {
+        Some((_, rest)) => rest,
+        None => return Vec::new(),
+    };
+
+    let mut out: Vec<Acknowledgement> = Vec::new();
+    for line in entries.lines() {
+        let line = line.trim();
+        if let Some(what) = line.strip_prefix("## ") {
+            out.push(Acknowledgement {
+                what: what.trim().to_owned(),
+                migration: String::new(),
+                tells_the_user: String::new(),
+            });
+        // A field line before any heading has nothing to attach to, and is
+        // dropped rather than guessed at.
+        } else if let Some(v) = line.strip_prefix("- migration:")
+            && let Some(last) = out.last_mut()
+        {
+            last.migration = v.trim().to_owned();
+        } else if let Some(v) = line.strip_prefix("- tells the user:")
+            && let Some(last) = out.last_mut()
+        {
+            last.tells_the_user = v.trim().to_owned();
+        }
+    }
+    out
+}
+
+/// What the gate decided, so the caller can print all of it at once rather than
+/// stopping at the first problem.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct GateResult {
+    /// Breaking differences nobody wrote an entry for. Any of these fails.
+    unacknowledged: Vec<String>,
+    /// Entries whose `what` matches no current difference — a stale sign-off,
+    /// or a reworded rule. Also fails: an acknowledgement that describes
+    /// nothing is how a file of them stops meaning anything.
+    stale: Vec<String>,
+    /// Entries that exist but say nothing useful in one of the two fields.
+    incomplete: Vec<String>,
+}
+
+impl GateResult {
+    fn passes(&self) -> bool {
+        self.unacknowledged.is_empty() && self.stale.is_empty() && self.incomplete.is_empty()
+    }
+}
+
+/// Hold every breaking difference against the acknowledgements.
+fn gate(differences: &[Difference], acknowledgements: &[Acknowledgement]) -> GateResult {
+    let mut result = GateResult::default();
+
+    for d in differences
+        .iter()
+        .filter(|d| d.verdict == Verdict::Breaking)
+    {
+        if !acknowledgements.iter().any(|a| a.what == d.what) {
+            result.unacknowledged.push(d.what.clone());
+        }
+    }
+
+    for a in acknowledgements {
+        if !differences.iter().any(|d| d.what == a.what) {
+            result.stale.push(a.what.clone());
+        // An entry with an empty field is not an entry. "none" is a real
+        // answer for a migration and is accepted; blank is not.
+        } else if a.migration.is_empty() || a.tells_the_user.is_empty() {
+            result.incomplete.push(a.what.clone());
+        }
+    }
+
+    result
+}
+
+/// The Breaking section of the release notes, built from the entries.
+///
+/// This is the payoff. Notes assembled by hand from a week of commits are how a
+/// breaking change reaches users unannounced; notes built from the thing that
+/// already refused to let it merge cannot forget one.
+fn breaking_section(acknowledgements: &[Acknowledgement]) -> String {
+    if acknowledgements.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from("## Breaking\n");
+    for a in acknowledgements {
+        out.push_str(&format!(
+            "\n### {}\n\n{}\n\nMigration: {}\n",
+            a.what, a.tells_the_user, a.migration
+        ));
+    }
+    out
+}
+
+#[test]
+fn a_breaking_change_nobody_wrote_down_fails_the_gate() {
+    let differences = vec![breaking("tools", "tool `keel_note` was removed")];
+    let result = gate(&differences, &[]);
+
+    assert!(!result.passes());
+    assert_eq!(result.unacknowledged, vec!["tool `keel_note` was removed"]);
+}
+
+#[test]
+fn an_acknowledged_one_passes() {
+    let differences = vec![breaking("tools", "tool `keel_note` was removed")];
+    let acknowledgements = parse_acknowledgements(
+        "<!-- acknowledgements -->\n## tool `keel_note` was removed\n\
+         - migration: none — callers move to keel_update\n\
+         - tells the user: keel_note is gone; notes are a field on keel_update now.\n",
+    );
+
+    assert!(gate(&differences, &acknowledgements).passes());
+}
+
+/// Additive differences need no entry. A gate that demanded one for every
+/// change would be a gate people learn to satisfy without reading.
+#[test]
+fn additive_differences_need_no_entry() {
+    let differences = vec![additive("tools", "tool `keel_x` was added")];
+    assert!(gate(&differences, &[]).passes());
+}
+
+/// An entry that describes nothing is how a file of them stops meaning
+/// anything — usually a sign-off left behind after the change was reverted.
+#[test]
+fn a_stale_entry_fails_too() {
+    let acknowledgements = parse_acknowledgements(
+        "<!-- acknowledgements -->\n## tool `long_gone` was removed\n\
+         - migration: none\n\
+         - tells the user: it is gone.\n",
+    );
+
+    let result = gate(&[], &acknowledgements);
+    assert!(!result.passes());
+    assert_eq!(result.stale, vec!["tool `long_gone` was removed"]);
+}
+
+/// A heading with nothing under it is somebody acknowledging the existence of
+/// a problem rather than the problem.
+#[test]
+fn an_entry_missing_its_prose_fails() {
+    let differences = vec![breaking("tools", "tool `keel_note` was removed")];
+    let acknowledgements =
+        parse_acknowledgements("<!-- acknowledgements -->\n## tool `keel_note` was removed\n");
+
+    let result = gate(&differences, &acknowledgements);
+    assert!(!result.passes());
+    assert_eq!(result.incomplete, vec!["tool `keel_note` was removed"]);
+    assert!(
+        result.unacknowledged.is_empty(),
+        "an incomplete entry is a different complaint from a missing one"
+    );
+}
+
+#[test]
+fn the_release_notes_are_built_from_the_entries() {
+    let acknowledgements = parse_acknowledgements(
+        "<!-- acknowledgements -->\n## tool `keel_note` was removed\n\
+         - migration: none — callers move to keel_update\n\
+         - tells the user: keel_note is gone; notes are a field on keel_update now.\n",
+    );
+
+    let notes = breaking_section(&acknowledgements);
+    assert!(notes.contains("## Breaking"));
+    assert!(notes.contains("keel_note is gone"), "{notes}");
+    assert!(notes.contains("Migration: none"), "{notes}");
+    assert!(
+        breaking_section(&[]).is_empty(),
+        "a release with nothing breaking gets no section at all"
+    );
+}
+
+/// The real gate, when a baseline is named. Same skip rule as the classifier
+/// above: there are no release tags yet.
+#[test]
+fn the_real_release_is_gated_when_a_baseline_is_named() {
+    let Ok(baseline) = std::env::var("CONTRACTS_BASELINE") else {
+        eprintln!("CONTRACTS_BASELINE unset — skipping.");
+        return;
+    };
+
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let acknowledgements = std::fs::read_to_string(root.join("contracts/BREAKING.md"))
+        .map(|t| parse_acknowledgements(&t))
+        .unwrap_or_default();
+
+    let at_baseline = |file: &str| -> Option<String> {
+        let out = std::process::Command::new("git")
+            .current_dir(&root)
+            .args(["show", &format!("{baseline}:contracts/{file}")])
+            .output()
+            .ok()?;
+        out.status
+            .success()
+            .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+    };
+    let now = |f: &str| std::fs::read_to_string(root.join("contracts").join(f)).unwrap();
+
+    let mut all = Vec::new();
+    if let Some(o) = at_baseline("tools.json") {
+        all.extend(classify_tools(&o, &now("tools.json")));
+    }
+    if let Some(o) = at_baseline("schema.json") {
+        all.extend(classify_store_schema(&o, &now("schema.json")));
+    }
+    if let Some(o) = at_baseline("cli.txt") {
+        all.extend(classify_text("cli", &o, &now("cli.txt")));
+    }
+    if let Some(o) = at_baseline("generated.txt") {
+        all.extend(classify_text("generated", &o, &now("generated.txt")));
+    }
+
+    let result = gate(&all, &acknowledgements);
+    assert!(
+        result.passes(),
+        "the release is not ready.\n\
+         Breaking changes with no entry in contracts/BREAKING.md:\n  {}\n\
+         Entries describing nothing that changed:\n  {}\n\
+         Entries missing a migration or a user-facing sentence:\n  {}",
+        result.unacknowledged.join("\n  "),
+        result.stale.join("\n  "),
+        result.incomplete.join("\n  "),
+    );
+}
+
+/// The bug the control run for this gate found: a documentation heading read
+/// as an acknowledgement.
+///
+/// `## How to add one` became an entry for a difference of that name, which
+/// then failed as stale and blocked a release that was otherwise fine. The
+/// instructions and the data live in one file on purpose — the instructions
+/// are what somebody needs at the moment they are writing an entry — so the
+/// boundary has to be explicit rather than inferred from heading levels.
+#[test]
+fn prose_headings_before_the_marker_are_not_entries() {
+    let text = "# Breaking changes\n\n\
+                ## How to add one\n\
+                Copy the line exactly.\n\n\
+                <!-- acknowledgements -->\n\n\
+                ## tool `x` was removed\n\
+                - migration: none\n\
+                - tells the user: it is gone.\n";
+
+    let parsed = parse_acknowledgements(text);
+    assert_eq!(
+        parsed.len(),
+        1,
+        "only the entry after the marker: {parsed:?}"
+    );
+    assert_eq!(parsed[0].what, "tool `x` was removed");
+}
+
+/// A file whose marker is missing acknowledges nothing, which is the failing
+/// side. Renaming the marker must not quietly wave every breaking change
+/// through.
+#[test]
+fn a_file_with_no_marker_acknowledges_nothing() {
+    let text = "## tool `x` was removed\n- migration: none\n- tells the user: gone.\n";
+    assert!(parse_acknowledgements(text).is_empty());
+
+    let differences = vec![breaking("tools", "tool `x` was removed")];
+    assert!(!gate(&differences, &parse_acknowledgements(text)).passes());
+}
