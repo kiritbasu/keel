@@ -3,27 +3,28 @@ Keel — the project spine
 Usage: keel [OPTIONS] <COMMAND>
 
 Commands:
-  fsck           Check the store's referential integrity
-  doctor         Ask whether anything has quietly gone wrong
-  reembed        Give every current revision that has no vector one
-  backup         Back up the store: one consistent snapshot, plus a manifest
-  restore        Restore a backup into an empty directory
-  migrate        Apply any schema migrations the store is missing
-  fixture        Load the realistic fixture corpus into an empty store
-  import         Import markdown files into Keel as versioned documents
-  bootstrap      Seed Keel's own project — the dogfooding switch
-  status         Print a one-line summary of what is in the store
-  generate       Regenerate a project's repository files from Keel
-  gate           Score Phase 2's exit criterion from the event log
-  render-status  Print the generated tracker for a project to standard output
-  note           Append to a row's running commentary, or read it back
-  archive        Archive a row. Soft delete — it stays on disk and stops appearing
-  lint           Report the rows a reader would struggle with. Never rewrites one
-  ready          What can be worked on right now, best first
-  claim          Take a task: move it to in_progress and record who is on it
-  close          Close a task, saying why and showing the work
-  task           Create a task row
-  help           Print this message or the help of the given subcommand(s)
+  fsck              Check the store's referential integrity
+  doctor            Ask whether anything has quietly gone wrong
+  reembed           Give every current revision that has no vector one
+  backup            Back up the store: one consistent snapshot, plus a manifest
+  restore           Restore a backup into an empty directory
+  migrate           Apply any schema migrations the store is missing
+  fixture           Load the realistic fixture corpus into an empty store
+  import            Import markdown files into Keel as versioned documents
+  bootstrap         Seed Keel's own project — the dogfooding switch
+  release-manifest  Print what a release of this binary promises, as JSON
+  status            Print a one-line summary of what is in the store
+  generate          Regenerate a project's repository files from Keel
+  gate              Score Phase 2's exit criterion from the event log
+  render-status     Print the generated tracker for a project to standard output
+  note              Append to a row's running commentary, or read it back
+  archive           Archive a row. Soft delete — it stays on disk and stops appearing
+  lint              Report the rows a reader would struggle with. Never rewrites one
+  ready             What can be worked on right now, best first
+  claim             Take a task: move it to in_progress and record who is on it
+  close             Close a task, saying why and showing the work
+  task              Create a task row
+  help              Print this message or the help of the given subcommand(s)
 
 Options:
       --home <HOME>
@@ -691,6 +692,36 @@ Options:
 
       --missing
           Only revisions with no vector at all. The default and, for now, the only mode: re-embedding rows that already have a vector is TQ-3, which is still open
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== release-manifest =====
+
+Print what a release of this binary promises, as JSON.
+
+The updater has to decide whether a new version is safe to apply *before* it downloads it, and it cannot ask the candidate binary — running the thing you are deciding whether to run is the whole problem. So each release publishes this alongside its artifacts and the updater reads it first.
+
+Opens no store, which is the point: it is run in a release job against a freshly built binary on a machine that has no Keel home at all.
+
+Usage: keel release-manifest [OPTIONS]
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
 
       --json
           Print machine-readable JSON instead of prose

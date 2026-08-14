@@ -185,6 +185,18 @@ enum Command {
         only: bool,
     },
 
+    /// Print what a release of this binary promises, as JSON.
+    ///
+    /// The updater has to decide whether a new version is safe to apply
+    /// *before* it downloads it, and it cannot ask the candidate binary —
+    /// running the thing you are deciding whether to run is the whole problem.
+    /// So each release publishes this alongside its artifacts and the updater
+    /// reads it first.
+    ///
+    /// Opens no store, which is the point: it is run in a release job against
+    /// a freshly built binary on a machine that has no Keel home at all.
+    ReleaseManifest,
+
     /// Print a one-line summary of what is in the store.
     Status {
         /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
@@ -465,6 +477,7 @@ fn main() -> Result<()> {
             run_migrate(&home, daemon, *dry_run, cli.force, cli.json)
         }
         Command::Fixture => run_fixture(&home, cli.force, cli.json),
+        Command::ReleaseManifest => run_release_manifest(),
         Command::Status { daemon } => run_status(&home, daemon, cli.json),
         Command::RenderStatus {
             project,
@@ -1478,6 +1491,38 @@ fn run_fixture(home: &Path, force: bool, json: bool) -> Result<()> {
             println!("  {n:>4}  {ty}");
         }
     }
+    Ok(())
+}
+
+/// What a release of this binary promises, as JSON.
+///
+/// Three numbers and what each is for:
+///
+/// - `version` moves for any release, including one that changes nothing a
+///   caller can see. On its own it says almost nothing about safety.
+/// - `schema_version` moves only when the shape of the stored data moves, and
+///   is the one the updater actually splits on: equal means the update can be
+///   applied without asking, different means somebody's data is about to be
+///   rewritten and a person decides.
+/// - `min_plugin_version` is the daemon's half of the handshake with the
+///   Claude Code plugin, which updates over git on its own schedule.
+///
+/// Checksums are deliberately *not* here. This is what the binary knows about
+/// itself; what the release contains is what the release job knows, and the two
+/// are merged there. A binary that tried to state its own artifact hash would
+/// be describing a file it has never seen.
+///
+/// Always JSON, ignoring `--json`. Nothing reads this but a script.
+fn run_release_manifest() -> Result<()> {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&serde_json::json!({
+            "version": env!("CARGO_PKG_VERSION"),
+            "schema_version": keel_core::shipped_schema_version(),
+            "min_plugin_version": keel_core::MIN_PLUGIN_VERSION,
+            "protocol": keel_mcp::PROTOCOL_VERSION,
+        }))?
+    );
     Ok(())
 }
 

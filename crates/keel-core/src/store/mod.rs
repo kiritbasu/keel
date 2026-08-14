@@ -40,6 +40,25 @@ use std::path::{Path, PathBuf};
 /// The store file's name inside a Keel home directory.
 pub const STORE_FILE: &str = "keel.sqlite";
 
+/// The oldest plugin release this daemon can serve.
+///
+/// The Claude Code plugin updates itself over git while the binaries update
+/// from a GitHub release, so the two are separate channels and will drift in
+/// somebody else's install. That is TQ-26 — hand-copied hooks that went stale
+/// while nothing said so — except now across a network and on a machine nobody
+/// here can look at.
+///
+/// This is the daemon's half of the handshake and the plugin manifest's
+/// `min_daemon_version` is the other, so the mismatch is detectable from
+/// whichever side noticed first.
+///
+/// Raise it only when a plugin older than the new value genuinely cannot work
+/// — a removed tool, a changed response shape it reads. Raising it for a
+/// cosmetic change makes a working install report itself broken, and a version
+/// warning that fires when nothing is wrong is one people learn to ignore
+/// exactly as fast as any other false alarm.
+pub const MIN_PLUGIN_VERSION: &str = "0.1.0";
+
 /// Where a running daemon records the address it actually bound.
 ///
 /// The name lives here, beside [`STORE_FILE`], for the same reason: the daemon

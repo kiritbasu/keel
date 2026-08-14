@@ -406,9 +406,26 @@ fn classify_text(surface: &'static str, before: &str, after: &str) -> Vec<Differ
         )];
     }
 
-    let old: BTreeSet<&str> = before.lines().map(str::trim_end).collect();
-    let new: BTreeSet<&str> = after.lines().map(str::trim_end).collect();
-    let gone: Vec<&&str> = old.difference(&new).collect();
+    // Runs of spaces are collapsed before comparing, because clap lays its help
+    // out in columns and widens them to fit the longest subcommand name. Adding
+    // one long name therefore re-indents every other line, and a naive
+    // comparison reads all of them as removed and re-added.
+    //
+    // Found the first time a subcommand was added after this gate existed:
+    // `release-manifest` reported 21 lines gone and 27 arrived, and called an
+    // unambiguously additive change breaking. It fails in the safe direction,
+    // which is why it was only annoying — but a gate that cries wolf on every
+    // new subcommand is one people learn to wave through, and then it is not
+    // failing safe any more.
+    let flatten = |s: &str| -> BTreeSet<String> {
+        s.lines()
+            .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))
+            .filter(|l| !l.is_empty())
+            .collect()
+    };
+    let old = flatten(before);
+    let new = flatten(after);
+    let gone: Vec<&String> = old.difference(&new).collect();
     let arrived = new.difference(&old).count();
 
     let mut out = Vec::new();
@@ -1019,4 +1036,34 @@ fn a_file_with_no_marker_acknowledges_nothing() {
 
     let differences = vec![breaking("tools", "tool `x` was removed")];
     assert!(!gate(&differences, &parse_acknowledgements(text)).passes());
+}
+
+/// clap widens its help columns to fit the longest subcommand name, so adding
+/// one re-indents every other line. That must not read as 21 removals.
+#[test]
+fn re_indenting_the_cli_help_is_not_a_removal() {
+    let before = "Commands:\n  archive   Archive a row\n  backup    Back up the store\n";
+    let after = "Commands:\n  archive           Archive a row\n  \
+                 backup            Back up the store\n  \
+                 release-manifest  Print what a release promises\n";
+
+    let d = classify_text("cli", before, after);
+    assert!(
+        d.iter().all(|x| x.verdict == Verdict::Additive),
+        "a wider help column is not a breaking change: {d:?}"
+    );
+}
+
+/// And the real removal still has to be caught, or the fix above would have
+/// bought nothing.
+#[test]
+fn a_genuinely_removed_cli_line_is_still_caught() {
+    let before = "  archive   Archive a row\n  backup    Back up the store\n";
+    let after = "  archive           Archive a row\n";
+
+    let d = classify_text("cli", before, after);
+    assert!(
+        d.iter().any(|x| x.verdict == Verdict::Breaking),
+        "losing `backup` is breaking however the rest is spaced: {d:?}"
+    );
 }

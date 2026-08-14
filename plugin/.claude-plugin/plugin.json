@@ -1,6 +1,10 @@
 {
   "name": "keel",
   "version": "0.1.0",
-  "description": "Keel — the local-first store for everything about a software project except the code. Adds the Keel MCP server, the skill that teaches when to write to it, and the hook that turns an edit to a generated markdown file into a proper attributed revision.",
-  "author": { "name": "KB" }
+  "description": "Keel \u2014 the local-first store for everything about a software project except the code. Adds the Keel MCP server, the skills that teach when to write to it, and the session hooks that put the project's state in front of you.",
+  "author": {
+    "name": "KB"
+  },
+  "license": "Apache-2.0",
+  "min_daemon_version": "0.1.0"
 }
