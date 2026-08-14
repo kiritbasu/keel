@@ -35,3 +35,8 @@ chrono.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+# The contracts test reads the store's shape through PRAGMA and hashes the
+# generated tree. Both are test-only: the CLI itself never opens SQLite
+# directly, and keeping it that way is the point of the storage traits.
+rusqlite.workspace = true
+sha2.workspace = true

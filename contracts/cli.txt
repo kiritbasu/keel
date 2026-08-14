@@ -1,0 +1,856 @@
+Keel — the project spine
+
+Usage: keel [OPTIONS] <COMMAND>
+
+Commands:
+  fsck           Check the store's referential integrity
+  doctor         Ask whether anything has quietly gone wrong
+  reembed        Give every current revision that has no vector one
+  backup         Back up the store: one consistent snapshot, plus a manifest
+  restore        Restore a backup into an empty directory
+  migrate        Apply any schema migrations the store is missing
+  fixture        Load the realistic fixture corpus into an empty store
+  import         Import markdown files into Keel as versioned documents
+  bootstrap      Seed Keel's own project — the dogfooding switch
+  status         Print a one-line summary of what is in the store
+  generate       Regenerate a project's repository files from Keel
+  gate           Score Phase 2's exit criterion from the event log
+  render-status  Print the generated tracker for a project to standard output
+  note           Append to a row's running commentary, or read it back
+  archive        Archive a row. Soft delete — it stays on disk and stops appearing
+  lint           Report the rows a reader would struggle with. Never rewrites one
+  ready          What can be worked on right now, best first
+  claim          Take a task: move it to in_progress and record who is on it
+  close          Close a task, saying why and showing the work
+  task           Create a task row
+  help           Print this message or the help of the given subcommand(s)
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
+
+
+===== archive =====
+
+Archive a row. Soft delete — it stays on disk and stops appearing.
+
+Needed for the same reason `task` is: with MCP down there was no way to retire a row, and a document that has outlived its purpose keeps owning the file path it adopted.
+
+Usage: keel archive [OPTIONS] --version <VERSION> <ID>
+
+Arguments:
+  <ID>
+          The entity id
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --version <VERSION>
+          The version you believe is current, for optimistic concurrency
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== backup =====
+
+Back up the store: one consistent snapshot, plus a manifest
+
+Usage: keel backup [OPTIONS]
+
+Options:
+      --dest <DEST>
+          Where to write it. Defaults to `<home>/backups/<timestamp>`
+
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== bootstrap =====
+
+Seed Keel's own project — the dogfooding switch.
+
+Imports the real state from the product docs: phases as milestones, the actual task list, the decision log, the open questions and the glossary. After this, `keel render-status keel` generates `product/STATUS.md` rather than a human maintaining it.
+
+Usage: keel bootstrap [OPTIONS]
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --repo <REPO>
+          Repository path to record on the project, for the markdown mirror
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --only
+          Archive every other project, leaving only Keel visible.
+          
+          Soft delete — the rows stay on disk, they just stop appearing.
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== claim =====
+
+Take a task: move it to in_progress and record who is on it.
+
+Refused if another session holds it, unless that claim has gone stale after three days or `--force` is passed. Closing releases it.
+
+Usage: keel claim [OPTIONS] <TASK>
+
+Arguments:
+  <TASK>
+          The task — `KEEL-42` or a `tsk_…` id
+
+Options:
+      --force
+          Take a claim another session still holds
+
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --session <SESSION>
+          The session doing the work. Keel never invents one
+          
+          [env: KEEL_SESSION=]
+
+      --daemon <DAEMON>
+          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          
+          [env: KEEL_DAEMON_URL=]
+          [default: http://127.0.0.1:7654]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== close =====
+
+Close a task, saying why and showing the work.
+
+`done` needs a message and at least one piece of evidence; `wont_do` and `no_change` need a message; `duplicate` and `superseded` name the other task and draw the edge themselves.
+
+Usage: keel close [OPTIONS] --reason <REASON> --message <MESSAGE> <TASK>
+
+Arguments:
+  <TASK>
+          The task — `KEEL-42` or a `tsk_…` id
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --reason <REASON>
+          done, wont_do, duplicate, superseded, no_change
+
+      --json
+          Print machine-readable JSON instead of prose
+
+  -m, --message <MESSAGE>
+          What actually happened, in a sentence or two
+
+      --evidence <EVIDENCE>
+          Typed proof. `commit:<sha>`, `pr:<url>`, `test:<command>`, `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`. Repeatable
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+      --other <OTHER>
+          For `duplicate` and `superseded`: the other task
+
+      --session <SESSION>
+          The session closing it, for attribution
+          
+          [env: KEEL_SESSION=]
+
+      --daemon <DAEMON>
+          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          
+          [env: KEEL_DAEMON_URL=]
+          [default: http://127.0.0.1:7654]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== doctor =====
+
+Ask whether anything has quietly gone wrong.
+
+Composes every read-only check there is — the file's own integrity, referential integrity, whether search has any vectors, whether the committed markdown still matches the store, how old the backup is, and whether the clock has stepped — into one page.
+
+Exits non-zero only for a real problem. A degraded store says so without failing, because a check that cannot tell the two apart is one nobody can put in a hook.
+
+Usage: keel doctor [OPTIONS]
+
+Options:
+      --daemon <DAEMON>
+          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          
+          [env: KEEL_DAEMON_URL=]
+          [default: http://127.0.0.1:7654]
+
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== fixture =====
+
+Load the realistic fixture corpus into an empty store
+
+Usage: keel fixture [OPTIONS]
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== fsck =====
+
+Check the store's referential integrity.
+
+Exits non-zero if anything is actually broken, so it can gate a backup or a deploy.
+
+Usage: keel fsck [OPTIONS]
+
+Options:
+      --daemon <DAEMON>
+          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+          
+          Read through the daemon when one is running. It is the single writer, so going through it is what guarantees a consistent read.
+          
+          [env: KEEL_DAEMON_URL=]
+          [default: http://127.0.0.1:7654]
+
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== gate =====
+
+Score Phase 2's exit criterion from the event log.
+
+Does not run the sessions — "unprompted" is the whole claim and a test that calls the tool has prompted it. This scores what the sessions did.
+
+Usage: keel gate [OPTIONS]
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --project <PROJECT>
+          Restrict to one project
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --since <SINCE>
+          Only count activity after this instant (RFC 3339)
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+      --run <RUN>
+          Score from an archived run directory instead of the event log.
+          
+          Transcript-based: one file per session, so ids cannot collide, and a session that only *offered* to write is visible. This is the mode to use for a real run.
+
+      --sessions <SESSIONS>
+          How many sessions were run. The denominator.
+          
+          Not derived from the log: a session that wrote nothing leaves no event, so the log cannot tell you it happened.
+          
+          [default: 10]
+
+      --daemon <DAEMON>
+          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          
+          [env: KEEL_DAEMON_URL=]
+          [default: http://127.0.0.1:7654]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== generate =====
+
+Regenerate a project's repository files from Keel.
+
+Keel is the source of truth; the markdown in the repo is an output. This writes the adopted prose files at their recorded paths, the `.keel/` mirror for everything born in Keel, and the tracker.
+
+One-directional: nothing here reads a generated file back into the store. It goes through the running daemon, which owns the store — falling back to opening the store directly only when no daemon is up.
+
+Usage: keel generate [OPTIONS] <PROJECT>
+
+Arguments:
+  <PROJECT>
+          Project id, slug or name
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --repo <REPO>
+          Repository root. Defaults to the project's recorded `root_path`
+
+      --check
+          Report what would change and exit non-zero if anything would.
+          
+          For a pre-commit hook or CI: makes a hand edit to a generated file a failure someone sees rather than work someone silently loses.
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --daemon <DAEMON>
+          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          
+          [env: KEEL_DAEMON_URL=]
+          [default: http://127.0.0.1:7654]
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== import =====
+
+Import markdown files into Keel as versioned documents.
+
+Re-importing is safe: the same file lands on the same artifact, and unchanged content appends no revision. So the repo copy can stay authoritative for as long as you like with Keel kept in step.
+
+Usage: keel import [OPTIONS] --project <PROJECT> [FILES]...
+
+Arguments:
+  [FILES]...
+          Markdown files to import
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --project <PROJECT>
+          Project id, slug or name
+
+      --as <AS>
+          What to store them as
+          
+          [default: spec]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+      --kind <KIND>
+          Override the inferred spec kind: prd, spec, rfc, design-doc, note
+
+      --title <TITLE>
+          Override the title, which otherwise comes from the first heading
+
+      --dry-run
+          Say what would land and write nothing.
+          
+          Worth using first on a repository you have not imported before. Soft delete is the only delete there is, so an artifact created by a wrong guess is archived rather than removed — it stays on disk, out of every view, for good.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== lint =====
+
+Report the rows a reader would struggle with. Never rewrites one.
+
+Three rules arrived after most of this store existed — a task needs a summary, a close needs a reason, prose should not lean on a bare identifier — and none of them can be enforced backwards. This is the list a person works through.
+
+It does not fix anything, and that is the design: a machine filling in a missing summary would write exactly the confident, plausible, wrong prose the requirement exists to prevent.
+
+Usage: keel lint [OPTIONS] <PROJECT>
+
+Arguments:
+  <PROJECT>
+          Project id, slug or name
+
+Options:
+      --check <CHECK>
+          Only this rule: task_without_summary, unexpanded_identifier, closed_without_reason
+
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --limit <LIMIT>
+          How many findings to print. The total is reported either way
+          
+          [default: 40]
+
+      --daemon <DAEMON>
+          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          
+          [env: KEEL_DAEMON_URL=]
+          [default: http://127.0.0.1:7654]
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== migrate =====
+
+Apply any schema migrations the store is missing.
+
+Nothing else applies them to a store that already exists. A migration changes what every process believes the tables look like, so it happens when someone asks for it and the daemon is stopped — not as a side effect of whichever command opened the store first after an upgrade.
+
+Usage: keel migrate [OPTIONS]
+
+Options:
+      --daemon <DAEMON>
+          The daemon to check for before touching anything.
+          
+          Same default and same environment variable as every other command with this flag. A migrate pointed at a port nothing is listening on would conclude no daemon is running and change the schema under one that is — which is the exact failure this command exists to prevent, arriving through a typo in its own default.
+          
+          [env: KEEL_DAEMON_URL=]
+          [default: http://127.0.0.1:7654]
+
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --dry-run
+          Say what would be applied, and apply nothing
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== note =====
+
+Append to a row's running commentary, or read it back.
+
+The commentary is what the tracker's prose used to carry. Having it on the CLI matters beyond convenience: it is the only write path that does not go through MCP, so a note can still be recorded when the MCP surface is unavailable.
+
+Usage: keel note [OPTIONS] <COMMAND>
+
+Commands:
+  add      Append a note to a row
+  ls       Print a row's notes, oldest first
+  retract  Retract a note. Soft, like every other removal in the store
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== ready =====
+
+What can be worked on right now, best first.
+
+Open work with nothing live in its way. Ordered by what a task unblocks before its priority, so a p1 that releases three others comes above a p0 that releases nothing.
+
+The same computation the MCP tool and the app read. There is one ranking, so the three cannot disagree.
+
+Usage: keel ready [OPTIONS] <PROJECT>
+
+Arguments:
+  <PROJECT>
+          Project id, slug or name
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --unclaimed
+          Only work nobody is holding
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --label <LABELS>
+          Only tasks carrying all of these labels. Repeatable
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+      --no-label <NO_LABELS>
+          Skip tasks carrying any of these labels. Repeatable
+
+      --milestone <MILESTONE>
+          Only work under this milestone. An id, or a name like "Phase 8"
+
+      --limit <LIMIT>
+          How many to show
+          
+          [default: 10]
+
+      --daemon <DAEMON>
+          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          
+          [env: KEEL_DAEMON_URL=]
+          [default: http://127.0.0.1:7654]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== reembed =====
+
+Give every current revision that has no vector one.
+
+Embedding happens on the way into a new revision and nowhere else, so turning the feature on leaves the existing corpus invisible to the vector half of hybrid search — permanently, because nothing would ever rewrite those rows. This is the pass that fixes that.
+
+The first run downloads the model, which needs network access.
+
+Usage: keel reembed [OPTIONS]
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --missing
+          Only revisions with no vector at all. The default and, for now, the only mode: re-embedding rows that already have a vector is TQ-3, which is still open
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== render-status =====
+
+Print the generated tracker for a project to standard output
+
+Usage: keel render-status [OPTIONS] <PROJECT>
+
+Arguments:
+  <PROJECT>
+          Project id, slug or name. Must match exactly one project
+
+Options:
+      --daemon <DAEMON>
+          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          
+          [env: KEEL_DAEMON_URL=]
+          [default: http://127.0.0.1:7654]
+
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --out <OUT>
+          Write here instead of standard output
+
+      --force
+          Write even if the result is dramatically smaller than what is there
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== restore =====
+
+Restore a backup into an empty directory
+
+Usage: keel restore [OPTIONS] <SOURCE> <TARGET>
+
+Arguments:
+  <SOURCE>
+          The backup directory to read
+
+  <TARGET>
+          Where to restore to. Must not already contain a store
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== status =====
+
+Print a one-line summary of what is in the store
+
+Usage: keel status [OPTIONS]
+
+Options:
+      --daemon <DAEMON>
+          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+          
+          Read through the daemon when one is running. It is the single writer, so going through it is what guarantees a consistent read.
+          
+          [env: KEEL_DAEMON_URL=]
+          [default: http://127.0.0.1:7654]
+
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== task =====
+
+Create a task row.
+
+Exists because until now the only ways to bring a row into being were MCP and the one-shot `bootstrap`/`import` migrations. With MCP down there was no way at all, which is how four completed pieces of work ended up as lines in a markdown table and nowhere else.
+
+Usage: keel task [OPTIONS] --project <PROJECT> <TITLE>
+
+Arguments:
+  <TITLE>
+          The task title
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --project <PROJECT>
+          Project id, slug or name
+
+      --body <BODY>
+          Longer description
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+      --status <STATUS>
+          todo, in_progress, blocked, done, dropped
+          
+          [default: todo]
+
+      --priority <PRIORITY>
+          p0, p1, p2, p3
+          
+          [default: p2]
+
+  -h, --help
+          Print help (see a summary with '-h')
