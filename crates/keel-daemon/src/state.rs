@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use keel_core::{EventId, Store};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 /// A change worth telling the desktop app about.
@@ -55,6 +55,22 @@ pub struct AppState {
     /// The last project count anybody read, so `/api/health` can answer
     /// without taking the store lock. `-1` means nobody has read one yet.
     projects: Arc<std::sync::atomic::AtomicI64>,
+    /// Which store this daemon is holding, canonicalised.
+    ///
+    /// Reported by `/api/health` so another process can ask "is the daemon that
+    /// answered me holding *my* store?" rather than only "is a daemon running?".
+    /// Every write command probes for a daemon and refuses if one answers, and
+    /// until this existed the probe could not tell the difference: `keel fixture
+    /// --home /tmp/scratch` was refused by a daemon serving `~/.keel`, which has
+    /// no interest in `/tmp/scratch` and skips none of the write path for it
+    /// (KEEL-194).
+    ///
+    /// Canonicalised once at startup rather than per request, because the
+    /// comparison is only sound if both sides resolve symlinks the same way and
+    /// `/tmp` is a symlink to `/private/tmp` on macOS — which is exactly the
+    /// kind of difference that would make two names for one store look like two
+    /// stores.
+    home: Arc<PathBuf>,
 }
 
 impl AppState {
@@ -136,6 +152,11 @@ impl AppState {
             changes,
             rate_limit: Arc::new(crate::ratelimit::RateLimit::default()),
             projects: Arc::new(std::sync::atomic::AtomicI64::new(-1)),
+            // Falling back to the path as given is right rather than merely
+            // convenient: a home that cannot be canonicalised is one a
+            // comparison should fail on, and reporting the uncanonicalised
+            // path makes that failure visible instead of reporting nothing.
+            home: Arc::new(home.canonicalize().unwrap_or_else(|_| home.to_path_buf())),
         };
 
         if embeddings {
@@ -230,6 +251,12 @@ impl AppState {
     }
 
     /// Build state around an already-open store. Used by tests.
+    ///
+    /// The home reported here is empty rather than invented. A test store is
+    /// usually a `tempfile` handle with no directory anyone would compare
+    /// against, and a plausible-looking fake path is worse than an obviously
+    /// absent one: the whole point of reporting a home is that another process
+    /// can trust the answer.
     pub fn from_store(store: Store) -> Self {
         let (changes, _) = tokio::sync::broadcast::channel(256);
         AppState {
@@ -237,6 +264,7 @@ impl AppState {
             changes,
             rate_limit: Arc::new(crate::ratelimit::RateLimit::default()),
             projects: Arc::new(std::sync::atomic::AtomicI64::new(-1)),
+            home: Arc::new(PathBuf::new()),
         }
     }
 
@@ -253,6 +281,14 @@ impl AppState {
             Err(std::sync::TryLockError::WouldBlock) => None,
             Err(std::sync::TryLockError::Poisoned(p)) => Some(p.into_inner()),
         }
+    }
+
+    /// The store this daemon holds, canonicalised at startup.
+    ///
+    /// The answer to "whose store is this?", which is the question every write
+    /// command's daemon probe should have been asking and was not.
+    pub fn home(&self) -> &Path {
+        self.home.as_path()
     }
 
     /// Remember how many projects the store held, so health can answer while

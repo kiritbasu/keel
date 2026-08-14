@@ -19,10 +19,17 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.89"
 authors = ["KB"]
-# No licence chosen — personal, unpublished software (HANDOFF "Assumptions").
-# Deliberately absent rather than "UNLICENSED", which is not valid SPDX and
-# makes `cargo deny` fail to parse it. `publish = false` plus deny.toml's
-# `private.ignore` is the supported way to say this.
+license = "Apache-2.0"
+# Permissive, with the patent grant MIT lacks (B-65). The full text is in
+# `LICENSE` at the repository root; this is the metadata copy, and `cargo deny`
+# now checks the workspace crates against it like any other dependency —
+# deny.toml's `private.ignore` came out when this went in.
+#
+# `publish = false` stays, and does not mean what it used to. It no longer says
+# "this is nobody else's"; it says Keel is not a crates.io package. It is two
+# binaries distributed as release artifacts, and a library nobody depends on
+# externally, so the only thing `cargo publish` could do here is succeed by
+# accident.
 publish = false
 
 [workspace.dependencies]

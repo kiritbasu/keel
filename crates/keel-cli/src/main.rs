@@ -1272,7 +1272,7 @@ fn run_migrate(home: &Path, daemon: &str, dry_run: bool, force: bool, json: bool
     // The same probe that guards every other write from a non-daemon process,
     // for the same reason and more sharply: a schema change under a live reader
     // is worse than a poorly-attributed row.
-    writes::refuse_if_daemon_is_running(daemon, force, "migrate the store")?;
+    writes::refuse_if_daemon_is_running(daemon, home, force, "migrate the store")?;
     // Exclusive unless forced, for the same reason as every other write and one
     // more: this is the operation that changes the shape of the tables, so a
     // second process inside it is the worst version of the problem. `--force`

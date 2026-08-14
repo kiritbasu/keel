@@ -81,6 +81,102 @@ pub fn probe(base: &str) -> Daemon {
     }
 }
 
+/// Whose store the daemon at the other end is holding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Serving {
+    /// It is holding the store this command wants to write to. Refuse.
+    ThisStore,
+    /// It named a store, and it is not this one. Writing here goes nowhere near
+    /// it, so there is nothing to refuse.
+    AnotherStore(String),
+    /// It answered the port but not the question — an old daemon whose health
+    /// payload predates `home`, a timeout, unparseable JSON. Indistinguishable
+    /// from "it is holding your store", so it is treated as that.
+    CannotTell,
+}
+
+/// Ask the daemon which store it is holding, and compare it with `home`.
+///
+/// The probe above answers "is something listening", which is a different
+/// question and was for a long time the only one asked. A daemon serving
+/// `~/.keel` refused `keel fixture --home /tmp/scratch`, having no interest in
+/// `/tmp/scratch` and skipping none of the write path for it (KEEL-194). The
+/// override existed, but `--force` is documented for a wedged daemon and a
+/// store being repaired, and a flag people type daily to do something ordinary
+/// stops being a flag anyone reads.
+///
+/// **Only positive evidence of a different store permits the write.** Anything
+/// else — no `home` field, a timeout, a malformed reply — returns
+/// [`Serving::CannotTell`] and the caller refuses. That asymmetry is the whole
+/// design: the cost of refusing wrongly is one `--force`, and the cost of
+/// permitting wrongly is a second writer against a live store.
+pub fn serving(base: &str, home: &Path) -> Serving {
+    let url = format!("{}/api/health", base.trim_end_matches('/'));
+    let body: serde_json::Value = match ureq::get(&url)
+        .timeout(PROBE_TIMEOUT)
+        .call()
+        .ok()
+        .and_then(|r| r.into_json().ok())
+    {
+        Some(v) => v,
+        None => return Serving::CannotTell,
+    };
+
+    // `data` is not used by health, but every other endpoint wraps its payload
+    // in it and a reader that guessed wrong here would silently see no `home`
+    // and refuse every write. Looking in both places costs nothing and removes
+    // a way for this to fail closed forever without saying why.
+    let reported = body
+        .get("home")
+        .or_else(|| body.get("data").and_then(|d| d.get("home")))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if reported.is_empty() {
+        return Serving::CannotTell;
+    }
+
+    if resolve(Path::new(reported)) == resolve(home) {
+        Serving::ThisStore
+    } else {
+        Serving::AnotherStore(reported.to_owned())
+    }
+}
+
+/// Make a path comparable: absolute, with symlinks resolved as far as the
+/// filesystem can actually resolve them.
+///
+/// Plain `canonicalize` is not enough, because the path being written to often
+/// does not exist yet — `keel fixture --home /tmp/new-store` is the ordinary
+/// case, and canonicalising a missing directory fails. So this canonicalises the
+/// deepest ancestor that does exist and re-appends the rest.
+///
+/// That matters more on macOS than it looks: `/tmp` is a symlink to
+/// `/private/tmp`, so the daemon's canonicalised answer and a caller's raw
+/// `--home` would disagree about two names for one directory. Comparing
+/// unresolved paths would call a store somebody else's, which is the direction
+/// that permits a second writer.
+fn resolve(path: &Path) -> std::path::PathBuf {
+    if let Ok(p) = path.canonicalize() {
+        return p;
+    }
+    let mut tail = Vec::new();
+    let mut cursor = path;
+    while let Some(parent) = cursor.parent() {
+        if let Some(name) = cursor.file_name() {
+            tail.push(name.to_owned());
+        }
+        if let Ok(base) = parent.canonicalize() {
+            let mut out = base;
+            for part in tail.iter().rev() {
+                out.push(part);
+            }
+            return out;
+        }
+        cursor = parent;
+    }
+    path.to_path_buf()
+}
+
 /// Turn `http://127.0.0.1:7171` into a socket address.
 fn socket_addr(base: &str) -> Option<SocketAddr> {
     let rest = base
@@ -102,7 +198,7 @@ fn socket_addr(base: &str) -> Option<SocketAddr> {
 /// flag rather than an environment variable so that it appears in the shell
 /// history of whoever used it.
 pub fn open_for_write(home: &Path, daemon: &str, force: bool, what: &str) -> Result<Store> {
-    refuse_if_daemon_is_running(daemon, force, what)?;
+    refuse_if_daemon_is_running(daemon, home, force, what)?;
     let path = keel_core::store_path(home);
 
     // `--force` skips the lock as well as the probe, and that is the point of
@@ -125,20 +221,40 @@ pub fn open_for_write(home: &Path, daemon: &str, force: bool, what: &str) -> Res
 /// `keel migrate` needs the same refusal and cannot go through `open_for_write`
 /// to get it: the store it is about to migrate is one `Store::open` declines to
 /// open, which is the whole reason the command exists.
-pub fn refuse_if_daemon_is_running(daemon: &str, force: bool, what: &str) -> Result<()> {
+pub fn refuse_if_daemon_is_running(
+    daemon: &str,
+    home: &Path,
+    force: bool,
+    what: &str,
+) -> Result<()> {
     if force {
         return Ok(());
     }
     match probe(daemon) {
         Daemon::NotRunning => Ok(()),
-        Daemon::Listening => bail!(
-            "a daemon is running at {daemon}, and it owns the single write path.\n\n\
-             Writing to the store from here would skip validation, provenance, the event, \
-             the revision, the embedding and the index — six of the seven steps in a Keel \
-             write. Nothing would fail; the row would simply be poorer than every other row.\n\n\
-             Ask the daemon instead, or stop it and retry. To write anyway — a wedged \
-             daemon, a store being repaired — pass --force."
-        ),
+        // Something is listening — but a daemon only owns the write path for
+        // the store it is actually holding. Ask which one before refusing.
+        Daemon::Listening => match serving(daemon, home) {
+            Serving::AnotherStore(theirs) => {
+                tracing::debug!(
+                    daemon,
+                    theirs,
+                    ours = %home.display(),
+                    "a daemon is running, and it holds a different store"
+                );
+                Ok(())
+            }
+            Serving::ThisStore | Serving::CannotTell => bail!(
+                "a daemon is running at {daemon}, and it owns the single write path \
+                 for {}.\n\n\
+                 Writing to the store from here would skip validation, provenance, the event, \
+                 the revision, the embedding and the index — six of the seven steps in a Keel \
+                 write. Nothing would fail; the row would simply be poorer than every other row.\n\n\
+                 Ask the daemon instead, or stop it and retry. To write anyway — a wedged \
+                 daemon, a store being repaired — pass --force.",
+                home.display()
+            ),
+        },
         Daemon::Unknown(why) => bail!(
             "could not tell whether a daemon is running at {daemon}: {why}\n\n\
              Refusing to {what}, because a second writer against a live store skips most \
@@ -412,5 +528,92 @@ mod tests {
     fn nothing_listening_is_not_a_refusal() {
         refuse_if_daemon_is_older("http://127.0.0.1:1")
             .expect("an absent daemon is the caller's problem, not this check's");
+    }
+
+    // -- whose store is it (KEEL-194) ------------------------------------
+
+    /// The case the whole change exists for: a daemon is up, and it is holding
+    /// somebody else's store. Writing here goes nowhere near it.
+    #[test]
+    fn a_daemon_holding_another_store_does_not_refuse_this_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let (base, thread) = health_server(r#"{"status":"ok","home":"/somewhere/else"}"#);
+
+        assert_eq!(
+            serving(&base, dir.path()),
+            Serving::AnotherStore("/somewhere/else".to_owned())
+        );
+        thread.join().unwrap();
+    }
+
+    /// And the case it must not break: the daemon is holding exactly this
+    /// store, so the refusal stands.
+    #[test]
+    fn a_daemon_holding_this_store_still_refuses() {
+        let dir = tempfile::tempdir().unwrap();
+        let body: &'static str = Box::leak(
+            format!(
+                r#"{{"status":"ok","home":{}}}"#,
+                serde_json::json!(dir.path().to_string_lossy())
+            )
+            .into_boxed_str(),
+        );
+        let (base, thread) = health_server(body);
+
+        assert_eq!(serving(&base, dir.path()), Serving::ThisStore);
+        thread.join().unwrap();
+    }
+
+    /// A daemon built before `home` existed says nothing about which store it
+    /// holds, and silence is not permission. Failing closed here costs one
+    /// `--force`; failing open costs a second writer against a live store.
+    #[test]
+    fn a_daemon_that_does_not_say_which_store_is_treated_as_holding_ours() {
+        let dir = tempfile::tempdir().unwrap();
+        let (base, thread) = health_server(r#"{"status":"ok","version":"0.1.0"}"#);
+
+        assert_eq!(serving(&base, dir.path()), Serving::CannotTell);
+        thread.join().unwrap();
+
+        // And the refusal that follows from it, through the real entry point.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let err = open_for_write(
+            dir.path(),
+            &format!("http://127.0.0.1:{port}"),
+            false,
+            "test",
+        )
+        .expect_err("a daemon that will not say which store it holds must still refuse");
+        assert!(err.to_string().contains("--force"), "{err}");
+    }
+
+    /// Two names for one directory are one store. On macOS `/tmp` is a symlink
+    /// to `/private/tmp`, so the daemon's canonicalised answer and a caller's
+    /// raw `--home` disagree textually while meaning the same thing — and the
+    /// direction that error falls in is the one that permits a second writer.
+    #[test]
+    fn two_names_for_one_directory_are_one_store() {
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = dir.path().canonicalize().unwrap();
+        assert_eq!(resolve(dir.path()), resolve(&canonical));
+    }
+
+    /// The ordinary case for a fixture or a vintage store: the directory does
+    /// not exist yet. `canonicalize` fails outright on it, so a comparison that
+    /// relied on `canonicalize` alone would call every not-yet-created store
+    /// unknown and refuse it.
+    #[test]
+    fn a_store_that_does_not_exist_yet_still_resolves() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("not-created-yet").join("store");
+
+        let resolved = resolve(&missing);
+        assert!(resolved.is_absolute(), "{resolved:?}");
+        assert!(resolved.ends_with("not-created-yet/store"), "{resolved:?}");
+        assert!(
+            resolved.starts_with(dir.path().canonicalize().unwrap()),
+            "the existing ancestor should have been canonicalised: {resolved:?}"
+        );
     }
 }

@@ -23,6 +23,25 @@ use std::convert::Infallible;
 /// daemon hold hundreds of megabytes it will never use.
 pub const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 
+/// The oldest plugin release this daemon can serve.
+///
+/// The Claude Code plugin updates itself over git while the binaries update
+/// from a GitHub release, so the two are separate channels and will drift in
+/// somebody else's install. That is TQ-26 — hand-copied hooks that went stale
+/// while nothing said so — except now across a network and on a machine nobody
+/// here can look at.
+///
+/// This is the daemon's half of the handshake and the plugin manifest's
+/// `min_daemon_version` is the other, so the mismatch is detectable from
+/// whichever side noticed first.
+///
+/// Raise it only when a plugin older than the new value genuinely cannot work
+/// — a removed tool, a changed response shape it reads. Raising it for a
+/// cosmetic change makes a working install report itself broken, and a version
+/// warning that fires when nothing is wrong is one people learn to ignore
+/// exactly as fast as any other false alarm.
+pub const MIN_PLUGIN_VERSION: &str = "0.1.0";
+
 /// Build the router.
 pub fn router(state: AppState) -> Router {
     Router::new()
@@ -428,6 +447,16 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
         // holding the store believe the tables look like", and after startup
         // those are the same number.
         "schema": keel_core::shipped_schema_version(),
+        // Which store this daemon is holding. Answers "is the daemon that
+        // replied to me holding *my* store?", which is the question every
+        // write command's daemon probe needed and could not ask — see
+        // `AppState::home` for the failure that produced it.
+        "home": state.home().display().to_string(),
+        // The oldest plugin this daemon can serve. A plugin updates over git
+        // and the binary updates from a release, so the two drift; this is the
+        // half of the handshake the daemon owns, and the plugin manifest
+        // carries the other.
+        "min_plugin_version": MIN_PLUGIN_VERSION,
         "projects": projects,
         "store_busy": busy,
     }))
