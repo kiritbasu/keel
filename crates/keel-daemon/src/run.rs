@@ -1,12 +1,18 @@
-//! `keel-daemon` — the binary.
+//! `keel-daemon` — argument parsing and process lifecycle.
 //!
-//! Argument parsing and process lifecycle only. Everything else lives in the
-//! library half of this crate, so integration tests can drive the real router
-//! rather than a re-implementation of it.
+//! This was `src/main.rs` until KEEL-208. The binary now lives in the `keel`
+//! package, because `dist` builds one installer per package that owns binaries
+//! and PHASE-10 §1 promises exactly one. What is *in* the daemon did not move:
+//! this module did, so the entry point is a shim over [`run`] rather than 350
+//! lines in a package whose other binary has nothing to do with serving.
+//!
+//! Everything below the argument parsing lives in the rest of this crate, so
+//! integration tests can drive the real router rather than a re-implementation
+//! of it.
 
+use crate::{AppState, router};
 use anyhow::{Context, Result};
 use clap::Parser;
-use keel_daemon::{AppState, router};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
@@ -62,8 +68,17 @@ struct Args {
     allow_network_access: bool,
 }
 
+/// Run the daemon: parse arguments, open the store, serve, shut down cleanly.
+///
+/// Public because the binary that calls it lives in another package now. It
+/// takes no arguments and reads the real environment on purpose — this is the
+/// process, not a testable unit, and the parts worth testing (the bind refusal,
+/// the router, the restart behaviour) are reachable without it.
+///
+/// `#[tokio::main]` builds the runtime and blocks, so a caller needs no async
+/// of its own.
 #[tokio::main]
-async fn main() -> Result<()> {
+pub async fn run() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()

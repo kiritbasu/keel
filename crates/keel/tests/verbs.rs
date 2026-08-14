@@ -420,7 +420,7 @@ fn close_without_a_daemon_reports_the_reference_it_closed() {
             "--message",
             "Closed by a test, to check what the daemonless path prints.",
             "--evidence",
-            "test:cargo test -p keel-cli --test verbs",
+            "test:cargo test -p keel --test verbs",
             "--daemon",
             NO_DAEMON,
         ],

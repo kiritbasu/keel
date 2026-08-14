@@ -11,7 +11,7 @@ members = [
     "crates/keel-embed",
     "crates/keel-daemon",
     "crates/keel-mcp",
-    "crates/keel-cli",
+    "crates/keel",
 ]
 
 [workspace.package]
@@ -19,6 +19,12 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.89"
 authors = ["KB"]
+# `dist` refuses to configure a GitHub release without it, and it is the right
+# refusal: the installer bakes a download URL into itself, so a workspace that
+# has not said where it lives would produce a script pointing nowhere. HTTPS,
+# not SSH, for the reason in B-69 — key authentication is broken on the build
+# machine.
+repository = "https://github.com/kiritbasu/keel"
 license = "Apache-2.0"
 # Permissive, with the patent grant MIT lacks (B-65). The full text is in
 # `LICENSE` at the repository root; this is the metadata copy, and `cargo deny`
@@ -79,6 +85,10 @@ clap = { version = "4", features = ["derive"] }
 keel-core = { path = "crates/keel-core", version = "0.1.0" }
 keel-mcp = { path = "crates/keel-mcp", version = "0.1.0" }
 keel-embed = { path = "crates/keel-embed", version = "0.1.0" }
+# A library from the `keel` package's point of view: it holds the daemon, and
+# the `keel-daemon` *binary* is a shim in `keel` so that one installer ships
+# both executables. See `crates/keel/Cargo.toml`.
+keel-daemon = { path = "crates/keel-daemon", version = "0.1.0" }
 
 # Test-only
 insta = { version = "1", features = ["json", "redactions", "filters"] }

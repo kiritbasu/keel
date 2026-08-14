@@ -138,7 +138,7 @@ pub struct Document {
     /// header now sits in the same file with `foreign_keys = ON`. There is
     /// nothing for a `REFERENCES` clause to name: `entity_id` is polymorphic,
     /// pointing at whichever of the thirteen entity tables `entity_type` says.
-    /// So `keel-core` validates it on write and `keel-cli fsck` audits it. What
+    /// So `keel-core` validates it on write and `keel fsck` audits it. What
     /// one file did buy is that a document and its header are written in one
     /// transaction, so the pair can no longer be left half-written — the case
     /// left to audit is a reference to a row that never existed.

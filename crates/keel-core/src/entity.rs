@@ -363,7 +363,7 @@ pub enum Surface {
     Code,
     /// The Tauri desktop app.
     Ui,
-    /// `keel-cli`.
+    /// The `keel` command line.
     Cli,
 }
 

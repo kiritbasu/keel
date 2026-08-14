@@ -2,7 +2,7 @@
 //!
 //! Each struct mirrors its SQLite table from SPEC §3.2 field for field. Where
 //! the schema and this file disagree, the schema wins and this file is the
-//! bug — `keel-cli fsck` exists partly to catch that drift.
+//! bug — `keel fsck` exists partly to catch that drift.
 //!
 //! Optional fields are `Option`, list columns are `Vec`, and every struct ends
 //! with an [`Audit`] block. Nothing here validates itself on construction:

@@ -6,15 +6,20 @@ edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [lib]
 name = "keel_daemon"
 path = "src/lib.rs"
 
-[[bin]]
-name = "keel-daemon"
-path = "src/main.rs"
+[package.metadata.dist]
+# This crate owns no binaries any more — the `keel-daemon` executable is
+# declared by the `keel` package so that one `dist` app produces one installer
+# carrying both (PHASE-10 §1). Saying so explicitly rather than relying on
+# "no binaries, so nothing to do": if a binary is ever added back here it should
+# fail the plan loudly instead of quietly becoming a second installer.
+dist = false
 
 [lints]
 workspace = true

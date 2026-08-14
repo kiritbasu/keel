@@ -191,6 +191,20 @@ jobs:
           # is why this runs after the download and not in parallel with it.
           dist build --tag="${GITHUB_REF_NAME}" --artifacts=global
 
+      # Before the attestation, deliberately: the statement has to be about the
+      # bytes people download, and those are the patched ones. Attesting first
+      # would produce a signed claim about a file that no longer exists.
+      #
+      # The script exits non-zero if the block it rewrites is not there, which
+      # fails the release. That is the intended behaviour — see its header. An
+      # installer whose checksum path has not been checked is exactly the thing
+      # this step exists to stop shipping.
+      - name: Make the installer verify what it downloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/patch-installer.sh target/distrib/*.sh
+
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
         with:

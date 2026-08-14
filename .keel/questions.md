@@ -7,6 +7,38 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
+### The install path is built. Does the repository go public now, so the first release can run?
+
+`que_01M010R27R3M96XX4D93A937DH` · question · open · severity medium
+
+**Needs KB.** It is the condition B-69 set, and the condition is now met.
+
+## Where this comes from
+
+B-69 kept the repository private "while the install path is built against how public repos work". That build is done: `dist plan` announces one app with one `keel-installer.sh` carrying both binaries across three targets, the workflow is written, and the installer's checksum path is fixed and tested. Nothing else in Phase 10 can be checked from this machine.
+
+What remains is a pushed tag and one CI run, and that is where the visibility choice stops being deferrable.
+
+## Why it is not just a preference
+
+PHASE-10 §2 chose macOS runners for a hard reason — on Apple Silicon an executable needs an ad-hoc signature or the kernel kills it at exec, native toolchains add one at link time, and a cross-compile from Linux does not. It then rests on those runners being free, which is true for public repositories.
+
+On a private repository macOS minutes are billed at ten times the Linux rate against the account's allowance. At PHASE-10's stated cadence of "every few days at first" that is a recurring cost, and it is the kind that is discovered at the end of a month rather than at the moment it is incurred. I have not checked what allowance this account actually has — that is worth a look before choosing option 2.
+
+## Options
+
+1. **Go public now, and tag.** What §11 always said, and it makes the runners free. It also means the repository is readable, which is the part B-69 was holding off on. The licence is in place, so nothing blocks it mechanically.
+
+2. **Stay private and spend the minutes.** Nothing technical breaks. The pipeline is identical. It costs money or allowance per release, and the cadence multiplies it.
+
+3. **Stay private, and cut the first release by hand from this machine.** Builds both Macs locally, no Linux coverage at all, no attestation, and it would make the first release the one artifact nobody can trace to a workflow run — against §13's "a release is one CI run and produces every target". Not recommended; recorded because it is the tempting one.
+
+## Recommendation
+
+1. It is where §11 was always heading, it removes the cost question rather than managing it, and the thing B-69 was waiting for has happened.
+
+The one thing worth doing first either way is tier 1 of §12 against a locally built installer, so the first public release is not also the first time the installer has been run end to end.
+
 ### What should Keel measure, and should it measure anything by itself?
 
 `que_01KZTTC4VTBVG7KZ7H00RDQ4ZB` · question · open · severity low

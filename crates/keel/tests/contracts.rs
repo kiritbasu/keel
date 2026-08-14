@@ -190,7 +190,7 @@ fn tools_description() -> String {
 /// Every subcommand's help, which is the CLI's contract with anyone scripting it.
 ///
 /// Taken by running the real binary rather than by rendering the parser in
-/// process. `keel-cli` is a binary crate with no library half, so its `Cli` type
+/// process. `keel` is a binary crate with no library half, so its `Cli` type
 /// is not importable — but the better reason is that this way the description
 /// comes from the thing that actually ships, including anything a build script
 /// or a feature flag changed on the way.
@@ -296,7 +296,7 @@ fn every_surface_matches_its_recorded_description() {
         failures.is_empty(),
         "the contract descriptions are out of date:\n  {}\n\n\
          If the change was intended, re-record them with:\n\
-         \x20   UPDATE_CONTRACTS=1 cargo test -p keel-cli --test contracts\n\n\
+         \x20   UPDATE_CONTRACTS=1 cargo test -p keel --test contracts\n\n\
          Then read the diff before committing it. That diff is the release \
          diff, and a breaking difference in it needs an entry saying so.",
         failures.join("\n  ")

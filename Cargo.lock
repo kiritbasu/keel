@@ -1594,13 +1594,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "keel-cli"
+name = "keel"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
  "clap",
  "keel-core",
+ "keel-daemon",
  "keel-embed",
  "keel-mcp",
  "rusqlite",

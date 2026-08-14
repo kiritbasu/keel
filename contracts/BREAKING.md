@@ -14,7 +14,7 @@ satisfied by every release forever while looking like a guard.
 Run the classifier against the previous release tag:
 
 ```
-CONTRACTS_BASELINE=<last-tag> cargo test -p keel-cli --test classify -- --nocapture
+CONTRACTS_BASELINE=<last-tag> cargo test -p keel --test classify -- --nocapture
 ```
 
 Copy each `BREAKING` line **exactly** as printed, and write the two fields

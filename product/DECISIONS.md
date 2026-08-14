@@ -80,6 +80,8 @@ Every decision made while building, with the reasoning and what was rejected. In
 | B-67 | [Phase 10 runs after Phase 11, drops Windows, and plans for a release cadence that starts fast and slows down](#b-67) | `accepted` |
 | B-68 | [Mutation testing comes out of CI until there is traction worth protecting](#b-68) | `accepted` |
 | B-69 | [Serving a read-only page does not touch hard constraint 7, the repo stays private for now, and the package becomes keel](#b-69) | `accepted` |
+| B-70 | [One package owns both binaries, because dist builds one installer per package](#b-70) | `accepted` |
+| B-71 | [The installer refuses a download it cannot verify, rather than skipping the check](#b-71) | `accepted` |
 
 ## Reversals
 
@@ -1573,4 +1575,73 @@ Nothing was built, so there is nothing to unwind. The argument for revisiting wo
 `accepted` · `dec_01M00Y20C7Z39KK7QESF7VM0F9`
 
 *No reasoning recorded.*
+
+### B-70 — One package owns both binaries, because dist builds one installer per package
+
+`accepted` · `dec_01M010PFT9N71ZDB2EZ1BWV5Z4`
+
+#### Decision
+
+`keel-cli` is renamed `keel` (this is B-69's half of it) and now declares **both** shipped binaries. `crates/keel/src/bin/keel-daemon.rs` is a three-line shim over `keel_daemon::run`, and `keel-daemon` sets `[package.metadata.dist] dist = false`.
+
+#### Why
+
+`dist` names an installer after the package that owns the binaries, and treats every package with binaries as a separate app. Run against the workspace as it was, `dist plan` announced two apps and two installers — `keel-cli-installer.sh` and `keel-daemon-installer.sh`.
+
+Two things in the tree say that is wrong. PHASE-10 §1 advertises one URL ending `keel-installer.sh`, and `scripts/verify-release-tier1.sh` checks that running **one** installer leaves both `keel` and `keel-daemon` on disk. Two installers satisfies neither, and a user who ran only the advertised one would get a CLI with no daemon behind it.
+
+There is no setting for this. `binaries` in the dist config is a per-platform override, not a way to pull another package's binaries into an archive. So the package boundary had to move.
+
+#### What moved, and what did not
+
+Only the entry point. `crates/keel-daemon/src/main.rs` became `crates/keel-daemon/src/run.rs` with `pub fn run()`, so the argument parsing, the bind refusal and its three unit tests all stay in the crate they are about. What crossed the boundary is a `fn main` calling one function.
+
+The two integration tests that drive the real process — `end_to_end.rs` and `wont_restart_loop.rs` — did have to move to `crates/keel/tests/`, because `CARGO_BIN_EXE_keel-daemon` only resolves in the package that declares the binary. Nothing in them changed.
+
+#### The cost
+
+`cargo build -p keel` now builds axum and tokio. A workspace build was doing that anyway, and the `keel` binary references none of it so the linker drops it, but a single-package build of the CLI is slower than it was.
+
+#### Rejected
+
+Publishing under the names `dist` picks and correcting §1's URL. It reads as the smaller change and is not: it leaves the user running two installers to get one product, and it would have meant rewriting the tier-1 check to expect that rather than fixing what the check was right about.
+
+
+### B-71 — The installer refuses a download it cannot verify, rather than skipping the check
+
+`accepted` · `dec_01M010PZ4GM1Q2NS41KPJJEZAS`
+
+#### Decision
+
+`scripts/patch-installer.sh` rewrites the sha256 block in the installer `dist` generates. It tries `sha256sum`, falls back to `shasum -a 256`, and **errors** when neither is on the path. Upstream returns success in that last case.
+
+The release workflow runs it after building the installer and before attesting, so the provenance statement covers the bytes people download.
+
+#### The correction PHASE-10 needs
+
+§10 says stock macOS has no `sha256sum`. Measured on 2026-08-14 that is half right, and the half that is wrong changes where the bug bites.
+
+This machine ships `/sbin/sha256sum` — an Apple binary, universal with an arm64e slice, dated June 2026. So on a current macOS with the default path the check does run.
+
+It skips everywhere else on macOS:
+
+- Older macOS, which has it nowhere.
+- Any restricted path. `scripts/verify-release-tier1.sh` runs the installer under `env -i PATH=/usr/bin:/bin` precisely to prove a machine with no toolchain can install — and `/sbin` is not on it.
+
+So the tier the release gate leans on is the tier where integrity checking does nothing. Demonstrated directly: the unpatched installer, on that path, accepted a file whose contents had been changed and exited 0.
+
+`/usr/bin/shasum` is present in all of those cases.
+
+#### Why error rather than skip
+
+PHASE-10 §13 makes "the installer refuses a corrupted archive" an exit criterion. A check that could not run has established nothing about the bytes, so reporting success is a claim it has no basis for. Both target platforms carry one of the two commands, so the refusal only fires on a machine that has neither — where declining to install something unverified is the right answer.
+
+#### Why a patch script and not configuration
+
+The text is in `dist`'s own installer template. The choice was vendoring the whole template or a targeted rewrite; this is the second, with the fix to be sent upstream.
+
+It fails loudly on text it does not recognise, and that is the part worth defending. A patch that silently does not apply is the same failure as the bug it fixes. If `dist` fixes this upstream, the release fails and somebody deletes the script — which is the outcome we want, arrived at by being told rather than by noticing.
+
+`crates/keel/tests/installer_checksum.rs` covers it, including one test that pins the *unpatched* behaviour so the patch can be retired with evidence.
+
 

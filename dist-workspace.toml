@@ -5,10 +5,18 @@
 # should not contend for the same file. `dist` reads either; a
 # `dist-workspace.toml` at the root takes precedence.
 #
-# Everything below is from PHASE-10 §10, which is the decision record. Where a
-# key name is something this file is not certain about at 0.32, the comment says
-# so rather than sounding sure — a wrong key here is caught by `dist plan`, but
-# only if someone runs it.
+# Everything below is from PHASE-10 §10, which is the decision record. It was
+# written before anyone had run `dist`, so several key names carried an
+# "UNCERTAIN" note. KEEL-208 ran it. Every one is confirmed against
+# `cargo-dist` 0.32.0's own `config::v0::DistMetadata`, and the notes are
+# replaced by what was measured.
+#
+# **`dist` ignores keys it does not recognise, silently.** A junk key added to
+# this file produced a clean `dist plan` with no warning, so "it did not
+# complain" is not evidence a key is spelled right — every name here was checked
+# against the struct field it deserialises into, and the two that change
+# observable behaviour (`allow-dirty`, and the target list) were checked by
+# removing them and watching something fail.
 
 [workspace]
 # The one Cargo workspace at the repository root. `apps/desktop/src-tauri` is
@@ -22,10 +30,8 @@ members = ["cargo:."]
 # file. A release that quietly picked up a newer `dist` would change the
 # published artifact with nothing in the diff to say it had.
 #
-# UNCERTAIN: at 0.32 the tool is named `dist`, not `cargo-dist`, and this key
-# may have been renamed to `dist-version` along with it. `cargo-dist-version` is
-# what every generated config through the 0.2x line used. Verify with
-# `dist init` or `dist plan` before relying on it.
+# The key kept its old name through the rename: the field is
+# `cargo_dist_version` at 0.32.0. There is no `dist-version`.
 cargo-dist-version = "0.32.0"
 
 # GitHub Actions is the only backend. `.github/workflows/release.yml` is written
@@ -61,10 +67,13 @@ checksum = "sha256"
 # Build provenance, so a downloaded archive can be traced to the workflow run
 # and commit that produced it (`gh attestation verify <file> --repo <owner>/keel`).
 #
-# UNCERTAIN: the key is believed to be `github-attestations`. If `dist plan`
-# rejects it, the attestation steps in `.github/workflows/release.yml` still run
-# — they call `actions/attest-build-provenance` directly and do not depend on
-# this being honoured.
+# Confirmed: `github_attestations`, and workspace-level only — `dist` warns and
+# ignores it if it appears under `[package.metadata.dist]`, which is why it is
+# here rather than beside the `dist = true` opt-ins.
+#
+# The attestation steps in `.github/workflows/release.yml` call
+# `actions/attest-build-provenance` directly, so provenance does not depend on
+# this key being honoured. Set anyway, so the config says what the release does.
 github-attestations = true
 
 # No updater binary beside the app. Keel does its own updating: §6 specifies
@@ -85,10 +94,12 @@ install-updater = false
 # used here because it would be a third file, and because splicing steps into a
 # job you cannot see is harder to reason about than owning the job.
 #
-# UNCERTAIN: `allow-dirty` accepts a list of things `dist` should leave alone,
-# and `"ci"` is the member that covers generated workflows. The spelling of the
-# member is worth confirming with `dist generate --check`, which is the command
-# this is meant to keep quiet.
+# Confirmed, and load-bearing: with `allow-dirty = []` instead,
+# `dist generate --check` fails with a 300-line diff proposing to replace this
+# workflow with a generated one that has no Node steps in it. With `["ci"]` it
+# is silent. That is the check the pre-commit path runs, so the spelling being
+# right is the difference between the hand-written workflow being protected and
+# nobody finding out until a regeneration.
 allow-dirty = ["ci"]
 
 # --- Two things left undecided on purpose -----------------------------------
@@ -104,29 +115,50 @@ allow-dirty = ["ci"]
 # workflow globs `*.tar.*` rather than a fixed extension so that changing this
 # does not silently stop uploading the archives.
 
-# --- Two known frictions, recorded so they are not rediscovered -------------
+# --- The two frictions, now resolved ----------------------------------------
 #
-# 1. **Installer name.** `dist` names an installer after the package that owns
-#    the binary, so the shell installer is expected to be
-#    `keel-cli-installer.sh` — while §1 and §11 advertise
-#    `.../releases/latest/download/keel-installer.sh`. The binary is `keel`; the
-#    package is `keel-cli`. Nor is there a known way to fold `keel-cli` and
-#    `keel-daemon` into one installer: `dist` treats each package with binaries
-#    as its own app, so today this workspace produces two. Resolving it means
-#    either renaming the package, or publishing under the names `dist` chooses
-#    and correcting the documented URL. Both touch `Cargo.toml`, which is being
-#    edited elsewhere, so neither is done here.
+# Both were guesses when this file was written. `dist plan` settled them, and
+# both were real.
 #
-# 2. **`publish = false`.** Every workspace crate sets it. Whether `dist`
-#    excludes such packages by default — in which case each needs
-#    `[package.metadata.dist] dist = true` in its own `Cargo.toml` — is not
-#    settled here, and cannot be tested without running `dist plan`. If a
-#    release produces no artifacts, this is the first thing to check.
+# 1. **Installer name, and one installer rather than two.** `dist` names an
+#    installer after the package that owns the binaries and treats every package
+#    with binaries as its own app. With `keel-cli` and `keel-daemon` as separate
+#    packages the plan produced `keel-cli-installer.sh` *and*
+#    `keel-daemon-installer.sh` — two installers, while §1 advertises one
+#    `keel-installer.sh` and `scripts/verify-release-tier1.sh` asserts that
+#    running one leaves both binaries on disk.
 #
-# And one bug to patch on day one (§10): the shell installer `dist` generates
-# verifies downloads with `sha256sum`, which stock macOS does not have — macOS
-# has `shasum`. The generated script prints "skipping sha256 checksum
-# verification" and exits successfully, so on the primary platform integrity
-# checking silently does nothing. The fix is a `shasum -a 256` fallback, sent
-# upstream. It is not applied by this configuration or by the release workflow,
-# because neither is the right place to rewrite a generated script by hand.
+#    There is no setting that folds one package's binaries into another's
+#    archive; `binaries` is a per-platform override, not a manifest. So the
+#    packages were merged: `keel-cli` is now `keel` (B-69) and declares both
+#    binaries, with the daemon's entry point a shim over `keel_daemon::run`.
+#    The plan now announces one app, `keel`, with `keel` and `keel-daemon` in
+#    each of the three archives.
+#
+# 2. **`publish = false`.** Real, and it hid everything: `dist plan` refused the
+#    whole workspace with "no packages in your workspace with distable
+#    binaries". The opt-in is `[package.metadata.dist] dist = true`, per package,
+#    with no workspace-level form — it is in `crates/keel/Cargo.toml`, and
+#    `crates/keel-daemon/Cargo.toml` sets `dist = false` so that a binary added
+#    back there fails the plan instead of quietly becoming a second installer.
+#
+# And the bug from §10, now patched rather than only recorded: the generated
+# installer verifies a sha256 by calling `sha256sum`, and on a machine without
+# it prints "skipping sha256 checksum verification" and returns *success*, so a
+# corrupted archive installs.
+#
+# §10 says stock macOS has no `sha256sum`. Measured 2026-08-14, that is half
+# right and the correction matters: current macOS ships `/sbin/sha256sum`, so
+# with the default `PATH` the check runs. It skips on older macOS, and on any
+# restricted `PATH` — including the `env -i PATH=/usr/bin:/bin` that §12 tier 1
+# installs under, which is the tier the release gate leans on. `/usr/bin/shasum`
+# is present in every one of those cases.
+#
+# `scripts/patch-installer.sh` rewrites the block to fall back to
+# `shasum -a 256`, and refuses rather than skipping when neither command exists.
+# The release workflow runs it after building the installer and *before*
+# attesting, so provenance covers the bytes people download. It fails the
+# release if the text it expects is not there, which is how a `dist` upgrade
+# that fixes this upstream gets noticed instead of being papered over.
+# `crates/keel/tests/installer_checksum.rs` is the proof, including a test that
+# pins the unpatched behaviour so the patch can be deleted with evidence.

@@ -228,15 +228,21 @@ The agent sees ten tools: `keel_context`, `keel_search`, `keel_get`, `keel_proje
 
 ## How it's built
 
-Rust, one workspace, four crates.
+Rust, one workspace, five crates.
 
 ```
 crates/keel-core/     domain types, storage, graph, search, generation, backup
 crates/keel-mcp/      the thirteen tools, the digest, protocol handling
+crates/keel-embed/    the local embedding model, kept out of the core
 crates/keel-daemon/   axum: the MCP endpoint and a local read API
-crates/keel-cli/      fsck, backup, restore, import, generate, notes
+crates/keel/          fsck, backup, restore, import, generate, notes —
+                      and both shipped binaries, `keel` and `keel-daemon`
 apps/desktop/         Tauri + React. Read and search only
 ```
+
+Both binaries are declared by one package because `dist` builds one installer
+per package that owns binaries, and there is meant to be one `keel-installer.sh`.
+The daemon still lives in `keel-daemon`; only its entry point moved.
 
 Storage is **one SQLite file** — entities, links, the event log, document revisions, images and vectors all in the same database. Search is hybrid: FTS5 keyword and `sqlite-vec` similarity, fused by reciprocal rank.
 
