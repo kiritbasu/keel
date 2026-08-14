@@ -7,7 +7,7 @@
 
 **Goal:** a stranger reaches a working Keel without compiling anything, and before every release we know exactly what we are about to break.
 
-Revision history, because the shape of this document has changed twice and the reasons matter more than the diff. Drafted 2026-08-11 against DuckDB and a Tauri app. Rewritten 2026-08-14 when KB decided Keel is meant to have users. Rewritten again the same day after a stress test found six things in that rewrite that did not hold — two of them safety mechanisms that would have passed CI while doing nothing, which is the failure this project keeps finding in its own work. Those six are fixed here; the note on this spec records what they were.
+Revision history, because the shape of this document has changed three times and the reasons matter more than the diff. Drafted 2026-08-11 against DuckDB and a Tauri app. Rewritten 2026-08-14 when KB decided Keel is meant to have users. Rewritten again the same day after a stress test found six things in that rewrite that did not hold — two of them safety mechanisms that would have passed CI while doing nothing. Amended again after §5.6's determinism check was actually run, which answered it and corrected two claims this document had been making about `keel fixture` and about what a hundred runs would show.
 
 ---
 
@@ -39,7 +39,7 @@ Three commands and a restart:
 
 then restart Claude Code.
 
-The restart is not incidental and is not hidden here the way it was in the last draft. Claude Code connects MCP servers when it starts, and at step two nothing is listening yet — the binary arrives at step three. So the honest count is three commands and a restart, and the exit criteria in section 13 say that rather than something tidier.
+The restart is not incidental and is not hidden here the way it was in an earlier draft. Claude Code connects MCP servers when it starts, and at step two nothing is listening yet — the binary arrives at step three. So the honest count is three commands and a restart, and the exit criteria in section 13 say that rather than something tidier.
 
 `/keel:setup` is where the weight is. It downloads the binaries for the platform, verifies them, creates the store, resolves the port, installs the service, starts the daemon, asks once about embeddings and once about automatic updates, and prints each step as it goes.
 
@@ -73,7 +73,7 @@ So a CLI installed this way never meets Gatekeeper: no prompt, no "unidentified 
 
 ## 3. The read surface is the local site
 
-**This section has a prerequisite and it is open.** `que_01KZSQHK2C0CTKN36WJ9G4ZHQC` — does a browser-served write or intake endpoint require amending hard constraint 7 — is unanswered, and there is a task blocked behind it. The last draft shipped a browser-served UI without mentioning either. Because the order is now "Phase 10 in full", that question is a Phase 10 prerequisite: **it gets answered before section 3 starts**, not discovered halfway through it.
+**This section has a prerequisite and it is open.** `que_01KZSQHK2C0CTKN36WJ9G4ZHQC` — does a browser-served write or intake endpoint require amending hard constraint 7 — is unanswered, and there is a task blocked behind it. An earlier draft shipped a browser-served UI without mentioning either. Because the order is now "Phase 10 in full", that question is a Phase 10 prerequisite: **it gets answered before section 3 starts**, not discovered halfway through it.
 
 The React app already exists, already talks to `/api`, and already builds to `apps/desktop/dist`. Phase 10 compiles that build into `keel-daemon` with `rust-embed` and serves it from the axum server already there. `keel ui` opens `http://127.0.0.1:7654` in the user's browser.
 
@@ -114,7 +114,7 @@ contracts/
   tools.json         tools/list in full — names, descriptions, JSON Schemas
   api/*.json         one response per endpoint, against the fixture store
   cli.txt            --help for every subcommand and flag
-  generated/         keel generate output for the fixture corpus
+  generated/         keel generate output for the fixture corpus, banner stripped
   stores/v<n>.sqlite one fixture store per schema version — see 5.3
 ```
 
@@ -122,7 +122,9 @@ CI regenerates it and fails if the tree is dirty. That is the same pattern as `k
 
 **There are no per-release copies, because git already keeps history.** The release diff is `git diff <last-tag>..HEAD -- contracts/`. An earlier draft stored a directory per release; at this cadence that is thirty directories in six months, storing something version control already stores.
 
-**Schema is emitted through `PRAGMA`, not by dumping `sqlite_master`.** SQLite keeps the original `CREATE TABLE` text verbatim, so a comment or a line break becomes a diff. `table_info`, `index_list` and `foreign_key_list` give structured, sortable, semantically comparable output.
+**Schema is emitted through `PRAGMA`, not by dumping `sqlite_master`.** SQLite keeps the original `CREATE TABLE` text verbatim, so a comment or a line break becomes a diff. `table_info`, `index_list` and `foreign_key_list` give structured, sortable, semantically comparable output — and 5.6 confirms it emits identically across a hundred runs.
+
+**`generated/` is emitted with the `keel:generated` banner line stripped and the manifest excluded.** Both carry a wall-clock timestamp, so without that step every file changes every second and the gate is useless. This is not a new normalisation to design — `keel generate --check` already does exactly it, which 5.6 established by measurement rather than by reading the code.
 
 The emitter is an integration test that writes when `UPDATE_CONTRACTS=1` and asserts otherwise — the shape `insta` already gives this project seventeen snapshots of. `snapshots__tools_list.snap` already pins the tool surface; what was missing was ever comparing it to a *released* one.
 
@@ -153,7 +155,9 @@ Two rows deserve their reasoning.
 
 That is the test standing between a migration and somebody's year of notes, and it is the only artifact here that cannot be reconstructed later: a store can only be written by the code that wrote it.
 
-**Seed it from a scrubbed copy of the real store, not from `keel fixture`.** A synthetic corpus has the shapes we thought to generate; the real one is 7.2 MB and has archived rows, retracted notes, superseded decisions, blobs, a DuckDB-era history and whatever else five months produced. A migration that breaks on a null the fixture never leaves null passes green against the fixture and eats data in the field. Two things to do before relying on any of this: check that `keel fixture` writes a store where it is told, since a run during the stress test produced none, and diff the fixture's table-shape coverage against the real store's.
+Size is settled and small. `keel fixture --home <dir> --force` produces a 700 KB store in about a second, so four schema versions of vintage corpus is under 3 MB. An earlier draft of this section said a fixture run "produced none" and asked whether the command was broken. It is not: `--home` is a subcommand flag rather than a global one, so `keel --home X fixture` does not parse as intended, and a second attempt was refused because a daemon was running — which is its own defect, filed as KEEL-194, since that daemon holds a different store entirely.
+
+**Still seed the corpus from a scrubbed copy of the real store rather than from the fixture.** A synthetic corpus has the shapes we thought to generate; the real one is 7.2 MB and has archived rows, retracted notes, superseded decisions, blobs, a DuckDB-era history and whatever else five months produced. A migration that breaks on a null the fixture never leaves null passes green against the fixture and eats data in the field. The remaining thing to do before relying on any of this is to diff the fixture's table-shape coverage against the real store's, and treat every gap as a case the fixture cannot speak for.
 
 Two more, both cheap:
 
@@ -162,7 +166,7 @@ Two more, both cheap:
 
 ### 5.4 The release gate is about acknowledgement, not version numbers
 
-The previous draft refused a release unless "the version bump matches the highest severity found". **On 0.x that condition is satisfied by every release**, because additive and breaking both mean a minor bump. It would have passed forever while appearing to guard something.
+An earlier draft refused a release unless "the version bump matches the highest severity found". **On 0.x that condition is satisfied by every release**, because additive and breaking both mean a minor bump. It would have passed forever while appearing to guard something.
 
 What has teeth:
 
@@ -182,17 +186,23 @@ Breaking changes are allowed. Unannounced ones are not.
 - A column is never dropped in the release that stops writing it. Stop writing, ship, drop next time, so a rollback in between still has its data.
 - Every migration is reversible or takes a backup first. `/keel:setup` and the updater back up before migrating regardless.
 
-### 5.6 Determinism is the prerequisite, not a detail
+### 5.6 Determinism — asked, and answered
 
-Everything above rests on the emitter producing identical bytes for identical state. ULIDs, timestamps and map iteration order are exactly what makes snapshot emitters flap, and **a flapping gate is disabled within a month** — after which the project believes it is guarded and is not.
+Everything above rests on the emitter producing identical bytes for identical state. ULIDs, timestamps and map iteration order are what make snapshot emitters flap, and a flapping gate is disabled inside a month, after which the project believes it is guarded and is not. So this was run before anything was built on it, against the surfaces the emitter will wrap, on a fixed fixture store with its own daemon so that nothing observed was the live store moving underneath.
 
-So the first task in section 5 is not the emitter. It is running the emitter a hundred times and diffing. If it does not hold, redactions and sorted iteration come before anything is built on top. The `insta` suites already carry filters for this and are the place to start.
+**Nine of ten surfaces emit one hash across 100 runs**: CLI help, the PRAGMA schema dump, `tools/list`, and `/api/health`, `/api/context` and `/api/activity`.
+
+**The tenth, `keel generate`, produced 100 distinct hashes in 100 runs — and for exactly one reason.** Every `.keel/` file opens with a banner carrying the generation time, and `manifest.json` carries `generated_at`. Two generates in the same second are identical; two a second apart differ in all 67 files. Strip the banner line, drop the manifest, and it is **one hash across 100 runs spanning minutes**.
+
+That normalisation is already the project's own: the committed banner in `.keel/decisions/chrono-for-time-not-jiff.md` reads `2026-08-10T18:53:24Z`, four days stale, and `keel generate --check` still counts that file among "83 current". So §5.1's emitter inherits a rule that exists rather than inventing one, and the risk this section was written to guard against is measured and closed rather than assumed away.
+
+The harness is `scratchpad/determinism.sh`: `N` is an environment variable, a flapping surface leaves two differing runs on disk so the cause can be read instead of guessed, and a full pass at N=100 takes 60 seconds. It is worth keeping and pointing at the real emitter once that exists.
 
 ### 5.7 CI has never run
 
 Everything above assumes a working pipeline and there is not one. `.github/workflows/ci.yml` has been in the tree since it was written and has never been executed by anything: `git remote -v` is empty, so there is no repository for Actions to run in. The trigger also named `main` while trunk was `master`, fixed in f65be15.
 
-The Linux matrix entry has never tested anything on Linux, and every check in this project's history was run by hand on one Mac. **Creating the remote is step zero**, before the contracts work rather than after, because a corpus generated on one machine has that machine's opinion baked into it.
+The Linux matrix entry has never tested anything on Linux, and every check in this project's history was run by hand on one Mac — including, for now, 5.6's. **Creating the remote is step zero**, before the contracts work rather than after, because a corpus generated on one machine has that machine's opinion baked into it.
 
 ---
 
@@ -209,9 +219,9 @@ Each release publishes a manifest beside its artifacts:
   "min_plugin_version": "0.5.0", "artifacts": { "…": "sha256:…" } }
 ```
 
-The previous draft said to compare `shipped_schema_version()` on the candidate against the store's. **That cannot be done without executing the candidate**, which is the thing being decided. The schema version has to be readable before anything is downloaded, or "never automatic across a schema change" is a sentence with no mechanism behind it.
+An earlier draft said to compare `shipped_schema_version()` on the candidate against the store's. **That cannot be done without executing the candidate**, which is the thing being decided. The schema version has to be readable before anything is downloaded, or "never automatic across a schema change" is a sentence with no mechanism behind it.
 
-`/api/health` already reports `version`, `schema` and `protocol`. It gains `min_plugin_version`; the plugin manifest gains `min_daemon_version`.
+`/api/health` already reports `version`, `schema` and `protocol`. It gains `min_plugin_version` — and, for KEEL-194, the store it is actually serving.
 
 ### 6.2 Three outcomes
 
@@ -362,14 +372,14 @@ Adds a machine that has never had Rust or the Xcode command line tools, ad-hoc s
 - `jq` and `python3` are required by nothing.
 - The installer refuses a corrupted archive — checked by corrupting one.
 - A release is one CI run and produces every target.
-- **`contracts/` is emitted deterministically** — a hundred runs, zero diffs — **and CI fails on an unclassified difference.**
+- **`contracts/` emits one hash across 100 runs, and CI fails on an unclassified difference.** The surfaces it wraps already meet this, measured — see 5.6 — so what remains is for the emitter to inherit the banner normalisation rather than to rediscover the problem.
 - Every vintage store migrates green and passes `fsck`, and at least one is seeded from a scrubbed copy of the real store.
 - A release carrying a breaking change cannot merge without an entry naming its migration and its user-facing sentence.
 - A compatible update applies and announces itself in one line; one crossing a schema version stops and asks; `keel update --rollback` puts the previous binary back.
 - The daemon fails loudly on a taken port and refuses a non-loopback bind unless told.
 - `que_01KZSQHK2C0CTKN36WJ9G4ZHQC` is answered before section 3 begins.
 
-The previous draft asked for verification "on a Mac that has never had Rust installed", which KB has no way to do and which would have joined the two phase gates that cannot be checked without a human. Tiers replace it with something meetable.
+An earlier draft asked for verification "on a Mac that has never had Rust installed", which KB has no way to do and which would have joined the two phase gates that cannot be checked without a human. Tiers replace it with something meetable.
 
 ---
 
@@ -383,6 +393,10 @@ The previous draft asked for verification "on a Mac that has never had Rust inst
 | Plugins may declare an HTTP-transport MCP server | the official marketplace ships `linear`, `github` and `vercel` as `"type": "http"`; `./.mcp.json` is the default path and needs no manifest entry |
 | A plugin cannot ship the binaries | a plugin is a git clone of text; `keel` and `keel-daemon` are 37 MB each |
 | SQLite keeps `CREATE TABLE` text verbatim | which is why schema is emitted through `PRAGMA` rather than by dumping `sqlite_master` |
+| Nine of ten contract surfaces already emit deterministically | KEEL-193, N=100 against a fixed fixture store; `scratchpad/determinism.sh` |
+| `keel generate` flaps only on two timestamps | the per-file `keel:generated` banner and `manifest.json`'s `generated_at`; normalised, 100 runs give 1 hash |
+| `keel generate --check` already normalises the banner | a banner four days stale still counts among "83 current" |
+| A fixture store is 700 KB | `keel fixture --home <dir> --force`, so four schema versions of vintage corpus is under 3 MB |
 | `dist` installer checksum bug | its generated script calls `sha256sum`, which stock macOS does not have; it then skips verification and returns success |
 | `dist` is maintained | 0.32.0, May 2026; Astral forked it during a 2025 gap and the changes were merged back upstream |
 | ONNX Runtime does not compile | `ort` downloads a prebuilt static library at build time |
