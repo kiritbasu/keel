@@ -1,0 +1,132 @@
+# `dist` (formerly `cargo-dist`) — release packaging configuration.
+#
+# This lives here rather than in `Cargo.toml`'s `[workspace.metadata.dist]`
+# because release plumbing and crate metadata change for unrelated reasons and
+# should not contend for the same file. `dist` reads either; a
+# `dist-workspace.toml` at the root takes precedence.
+#
+# Everything below is from PHASE-10 §10, which is the decision record. Where a
+# key name is something this file is not certain about at 0.32, the comment says
+# so rather than sounding sure — a wrong key here is caught by `dist plan`, but
+# only if someone runs it.
+
+[workspace]
+# The one Cargo workspace at the repository root. `apps/desktop/src-tauri` is
+# excluded from that workspace already and is off the release path entirely
+# (§3), so nothing here has to say so a second time.
+members = ["cargo:."]
+
+[dist]
+# Pinned, never floating. The version that generates the installer is the
+# version whose bugs are known — see the `sha256sum` note at the bottom of this
+# file. A release that quietly picked up a newer `dist` would change the
+# published artifact with nothing in the diff to say it had.
+#
+# UNCERTAIN: at 0.32 the tool is named `dist`, not `cargo-dist`, and this key
+# may have been renamed to `dist-version` along with it. `cargo-dist-version` is
+# what every generated config through the 0.2x line used. Verify with
+# `dist init` or `dist plan` before relying on it.
+cargo-dist-version = "0.32.0"
+
+# GitHub Actions is the only backend. `.github/workflows/release.yml` is written
+# by hand rather than generated — see `allow-dirty` below for why — but the
+# backend still has to be declared so `dist` knows what shape of URL to bake
+# into the installer.
+ci = ["github"]
+
+# Three targets, and only three.
+#
+# **No Windows, deliberately.** It has never had CI coverage and the Claude Code
+# hooks cannot run there, so shipping it would mean either a binary nobody has
+# ever executed or a product that looks whole and is half-wired — this project's
+# recurring failure shape. It comes back when someone asks for it, with test
+# coverage from the first commit rather than added afterwards (§10).
+#
+# Linux ARM is absent for a narrower reason: there is no prebuilt ONNX Runtime
+# for it, so `fastembed` would have to compile (§9).
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "x86_64-unknown-linux-gnu",
+]
+
+# Shell only. There is no PowerShell installer because there is no Windows
+# target, and shipping one would advertise a platform we do not build.
+installers = ["shell"]
+
+# Checksums are the point of the installer's integrity check, so they are
+# explicit rather than left to a default that could move.
+checksum = "sha256"
+
+# Build provenance, so a downloaded archive can be traced to the workflow run
+# and commit that produced it (`gh attestation verify <file> --repo <owner>/keel`).
+#
+# UNCERTAIN: the key is believed to be `github-attestations`. If `dist plan`
+# rejects it, the attestation steps in `.github/workflows/release.yml` still run
+# — they call `actions/attest-build-provenance` directly and do not depend on
+# this being honoured.
+github-attestations = true
+
+# No updater binary beside the app. Keel does its own updating: §6 specifies
+# `keel update`, which refuses to cross a schema version without asking and has
+# `--rollback`. A second updater that knows nothing about the store would be a
+# way to walk straight through that guard.
+install-updater = false
+
+# `.github/workflows/release.yml` is hand-written and must not be regenerated
+# over. It carries a step `dist` does not know to emit — `npm ci` and
+# `npm run build` for `apps/desktop`, whose output the daemon embeds (§3) — and
+# a generated workflow would drop it, producing a daemon that starts, serves an
+# empty site, and looks fine.
+#
+# The supported alternative, if the workflow is ever regenerated: a
+# `github-build-setup` file (a YAML fragment path, relative to
+# `.github/workflows/`, whose steps are spliced into the build job). It is not
+# used here because it would be a third file, and because splicing steps into a
+# job you cannot see is harder to reason about than owning the job.
+#
+# UNCERTAIN: `allow-dirty` accepts a list of things `dist` should leave alone,
+# and `"ci"` is the member that covers generated workflows. The spelling of the
+# member is worth confirming with `dist generate --check`, which is the command
+# this is meant to keep quiet.
+allow-dirty = ["ci"]
+
+# --- Two things left undecided on purpose -----------------------------------
+#
+# `install-path` is unset, so the shell installer uses its default of
+# `CARGO_HOME` (`~/.cargo/bin`). PHASE-10 does not specify one, and the default
+# is arguably wrong for Keel: §12 tier 1 runs the installer under
+# `env -i PATH=/usr/bin:/bin` on a machine with no Rust, where creating
+# `~/.cargo` says something untrue about how the binary got there. Changing it
+# to `~/.keel/bin` is a decision for KB, not for this file.
+#
+# `unix-archive` is unset, so the default (`.tar.xz`) applies. The release
+# workflow globs `*.tar.*` rather than a fixed extension so that changing this
+# does not silently stop uploading the archives.
+
+# --- Two known frictions, recorded so they are not rediscovered -------------
+#
+# 1. **Installer name.** `dist` names an installer after the package that owns
+#    the binary, so the shell installer is expected to be
+#    `keel-cli-installer.sh` — while §1 and §11 advertise
+#    `.../releases/latest/download/keel-installer.sh`. The binary is `keel`; the
+#    package is `keel-cli`. Nor is there a known way to fold `keel-cli` and
+#    `keel-daemon` into one installer: `dist` treats each package with binaries
+#    as its own app, so today this workspace produces two. Resolving it means
+#    either renaming the package, or publishing under the names `dist` chooses
+#    and correcting the documented URL. Both touch `Cargo.toml`, which is being
+#    edited elsewhere, so neither is done here.
+#
+# 2. **`publish = false`.** Every workspace crate sets it. Whether `dist`
+#    excludes such packages by default — in which case each needs
+#    `[package.metadata.dist] dist = true` in its own `Cargo.toml` — is not
+#    settled here, and cannot be tested without running `dist plan`. If a
+#    release produces no artifacts, this is the first thing to check.
+#
+# And one bug to patch on day one (§10): the shell installer `dist` generates
+# verifies downloads with `sha256sum`, which stock macOS does not have — macOS
+# has `shasum`. The generated script prints "skipping sha256 checksum
+# verification" and exits successfully, so on the primary platform integrity
+# checking silently does nothing. The fix is a `shasum -a 256` fallback, sent
+# upstream. It is not applied by this configuration or by the release workflow,
+# because neither is the right place to rewrite a generated script by hand.

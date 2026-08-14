@@ -41,11 +41,51 @@ pub const DEFAULT_DAEMON_URL: &str = "http://127.0.0.1:7654";
 /// The daemon URL for a command that has no `--daemon` flag of its own.
 ///
 /// The write commands take no such flag — they are not *talking* to the daemon,
-/// they are checking whether one exists — so they read the same environment
-/// variable the flagged commands default from. One place, so the probe cannot
-/// look at a different daemon than the one the rest of the CLI talks to.
-pub fn daemon_url() -> String {
-    std::env::var("KEEL_DAEMON_URL").unwrap_or_else(|_| DEFAULT_DAEMON_URL.to_owned())
+/// they are checking whether one exists — so this is where they all resolve it.
+/// One place, so the probe cannot look at a different daemon than the one the
+/// rest of the CLI talks to.
+///
+/// Three sources, in this order:
+///
+/// 1. `KEEL_DAEMON_URL`. An explicit instruction from whoever ran the command,
+///    and it wins — pointing the CLI at a second daemon is how a migrated copy
+///    of the store gets checked without stopping the one serving the real one.
+/// 2. `<home>/daemon.json`, written by a running daemon with the address it
+///    actually bound. This is what makes a non-default port work without anyone
+///    having to remember it.
+/// 3. The default.
+///
+/// **The file is checked, not believed.** A daemon killed with `SIGKILL` leaves
+/// it behind, so a stale record would otherwise send every write command to a
+/// dead port, get `NotRunning`, and cheerfully open the store alongside a daemon
+/// that is in fact alive on the default port. So the address it names has to
+/// answer a probe before it is used; anything else falls through to the default,
+/// where the ordinary refusal logic takes over.
+pub fn daemon_url_for(home: &Path) -> String {
+    if let Ok(explicit) = std::env::var("KEEL_DAEMON_URL") {
+        return explicit;
+    }
+
+    let recorded = std::fs::read(home.join(keel_core::DAEMON_ENDPOINT_FILE))
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
+        .and_then(|v| {
+            v.get("url")
+                .and_then(Value::as_str)
+                .map(std::borrow::ToOwned::to_owned)
+        });
+
+    match recorded {
+        Some(url) if probe(&url) == Daemon::Listening => url,
+        Some(url) => {
+            tracing::debug!(
+                url,
+                "the recorded endpoint does not answer; falling back to the default"
+            );
+            DEFAULT_DAEMON_URL.to_owned()
+        }
+        None => DEFAULT_DAEMON_URL.to_owned(),
+    }
 }
 
 /// How long to wait for the port to answer. A local daemon accepts a connection

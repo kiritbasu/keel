@@ -1,0 +1,232 @@
+name: Release
+
+# This workflow is written by hand, not produced by `dist generate`, and
+# `dist-workspace.toml` sets `allow-dirty = ["ci"]` so that a regeneration does
+# not quietly replace it. The reason is the Node step below: the daemon embeds
+# the built site from `apps/desktop`, and a generated workflow has no way to
+# know that, so it would produce a daemon that starts, serves nothing, and looks
+# healthy. See PHASE-10 §3 and §10.
+#
+# It follows the shape of the workflow `dist` generates — build the per-target
+# artifacts on their native runners, then build the installer once from the
+# collected results — and calls `dist` for both. It does not call `dist host`;
+# the release is created with `gh`, which is one fewer moving part to be wrong
+# about, at the cost of not merging the per-target manifests.
+
+on:
+  push:
+    tags:
+      # A pushed tag is the only way to start a release, so a release always
+      # leaves a permanent mark in the repository (§13: "a release is one CI run
+      # and produces every target").
+      #
+      # These are ref *glob* filters, not regexes: `v0.1.0` and `v0.1.0-rc.1`
+      # match, `v0.1` and `v0.1.0-notes`... also matches the second pattern, so
+      # the prerelease detection in the publish job is what keeps an rc out of
+      # `latest` rather than this filter.
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+
+permissions:
+  # Create the release and upload the assets.
+  contents: write
+  # The two below are what `actions/attest-build-provenance` needs to mint a
+  # signed statement about the artifacts. Without `id-token: write` it fails at
+  # the end of a successful build, which is an expensive way to find out.
+  id-token: write
+  attestations: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # Pinned to match `dist-workspace.toml`'s `cargo-dist-version`. If the two
+  # disagree, `dist` warns and the artifact is not the one that was configured.
+  DIST_VERSION: "0.32.0"
+
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      # One platform failing should not hide the result on the other two. A
+      # release is all-or-nothing, but the diagnosis is much cheaper when every
+      # leg has reported.
+      fail-fast: false
+      matrix:
+        include:
+          # **macOS builds run on macOS runners and are never cross-compiled.**
+          # On Apple Silicon an executable must carry at least an ad-hoc
+          # signature or the kernel kills the process at exec. Native macOS
+          # toolchains add one at link time; a binary cross-compiled from Linux
+          # does not carry one and dies on every M-series Mac. The failure looks
+          # exactly like a corrupt download — no diagnostic, no signature
+          # message, just a killed process — so it would be blamed on the
+          # installer or the network long before anyone suspected the linker.
+          # macOS runners are free for public repositories (§2).
+          - target: aarch64-apple-darwin
+            runner: macos-14
+          # Intel macOS, on an Intel runner. The same rule applies for the same
+          # reason. Diary item from §10: GitHub retires the macOS Intel runners
+          # in August 2027, at which point this target either moves to an
+          # arm64 macOS runner with `--target=x86_64-apple-darwin` — still
+          # Apple's linker, so still ad-hoc signed — or is dropped.
+          - target: x86_64-apple-darwin
+            runner: macos-13
+          # Not `ubuntu-latest`. The glibc a binary is linked against is a floor,
+          # not a preference: built on a newer image, it refuses to start on
+          # anything older, and §12 tier 2 exists precisely because CI has never
+          # tested Linux. Building on the oldest supported image keeps that floor
+          # low and makes it a deliberate choice rather than a side effect of
+          # whichever image GitHub promoted this month.
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # --- The site the daemon embeds ---------------------------------------
+      #
+      # `keel-daemon` serves the React app from `apps/desktop` compiled into the
+      # binary, so `apps/desktop/dist` must exist before cargo runs. `dist` has
+      # no idea this dependency exists and will not do it; a build without these
+      # three steps still succeeds and still produces a working MCP server,
+      # which is why it needs saying here rather than being left to fail loudly.
+      #
+      # `npm run build` is `tsc --noEmit && vite build` — a type error fails the
+      # release, which is the right moment for it to.
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install the site's dependencies
+        # `ci`, not `install`: it installs exactly the lockfile and fails if
+        # `package.json` and `package-lock.json` disagree, rather than resolving
+        # something that was never tested.
+        run: npm ci --prefix apps/desktop
+
+      - name: Build the site
+        run: npm run build --prefix apps/desktop
+
+      # --- The binaries ------------------------------------------------------
+
+      - name: Install dist
+        shell: bash
+        run: |
+          set -euo pipefail
+          # UNCERTAIN: the release asset is believed to still be named
+          # `cargo-dist-installer.sh` even though the tool renamed itself to
+          # `dist`. If a release fails here with a 404, check the asset names on
+          # the `v${DIST_VERSION}` release and correct this line — do not paper
+          # over it by falling back to `cargo install`, which compiles dist from
+          # source on four runners.
+          #
+          # `--proto '=https' --tlsv1.2` stop a redirect downgrading the
+          # transfer to plaintext; `-f` makes curl fail on an HTTP error instead
+          # of piping an error page into sh.
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            "https://github.com/axodotdev/cargo-dist/releases/download/v${DIST_VERSION}/cargo-dist-installer.sh" | sh
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Build the artifacts for this target
+        shell: bash
+        run: |
+          set -euo pipefail
+          # `--artifacts=local` is this target's binaries, archives and
+          # checksums. The installer is a global artifact and is built once, in
+          # the publish job, from all three targets' results.
+          dist build \
+            --tag="${GITHUB_REF_NAME}" \
+            --target="${{ matrix.target }}" \
+            --artifacts=local
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.target }}
+          path: target/distrib/*
+          # An empty upload here would produce a release with a working-looking
+          # installer pointing at archives that do not exist. Fail instead.
+          if-no-files-found: error
+
+  publish:
+    name: installer, attestations and release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      # `dist` reads the workspace to build the installer, so the source has to
+      # be here even though nothing is compiled in this job. No Node either: the
+      # embedded site is already inside the binaries downloaded below.
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: artifacts-*
+          merge-multiple: true
+          path: target/distrib
+
+      - name: Install dist
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            "https://github.com/axodotdev/cargo-dist/releases/download/v${DIST_VERSION}/cargo-dist-installer.sh" | sh
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Build the installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Global artifacts are the shell installer and anything else that
+          # spans targets. It embeds the checksums of the local artifacts, which
+          # is why this runs after the download and not in parallel with it.
+          dist build --tag="${GITHUB_REF_NAME}" --artifacts=global
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          # The archives and the installer — the two things a user actually
+          # downloads, and so the two things `gh attestation verify` should be
+          # able to speak about. `*.tar.*` rather than a fixed `.tar.xz` so that
+          # setting `unix-archive` in `dist-workspace.toml` later does not
+          # silently stop attesting anything.
+          subject-path: |
+            target/distrib/*.tar.*
+            target/distrib/*.sh
+
+      - name: Publish the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+
+          args=(--title "$tag" --generate-notes --verify-tag)
+
+          # A prerelease must not become `latest`. The standalone install line
+          # in §1 fetches `.../releases/latest/download/keel-installer.sh`, so
+          # an rc landing there would become the default download for everyone
+          # who is not reading release notes.
+          case "$tag" in
+            *-*) args+=(--prerelease) ;;
+          esac
+
+          # Files only, one level deep: `dist` leaves working directories under
+          # `target/distrib` and `gh` errors on a directory argument.
+          mapfile -t files < <(find target/distrib -maxdepth 1 -type f | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "no artifacts in target/distrib — refusing to create an empty release" >&2
+            exit 1
+          fi
+
+          gh release create "$tag" "${args[@]}" "${files[@]}"

@@ -24,10 +24,16 @@ struct Args {
 
     /// Address to bind.
     ///
-    /// Localhost by default and it should stay that way until Phase 5: the
-    /// daemon has no authentication, and the MCP transport requires `Origin`
-    /// validation precisely because a local server is reachable from any web
-    /// page the user happens to have open.
+    /// Loopback by default, and anything else is refused unless
+    /// `--allow-network-access` says otherwise: the daemon has no
+    /// authentication, and the MCP transport requires `Origin` validation
+    /// precisely because a local server is reachable from any web page the user
+    /// happens to have open.
+    ///
+    /// This used to read "until Phase 5", which was the phase that would have
+    /// added authentication. Phase 5 is cut, so there is no later phase in which
+    /// this relaxes on its own — hence the flag, which makes it a decision
+    /// somebody takes rather than a default that drifts.
     // `KEEL_BIND` rather than `KEEL_DAEMON_URL`: this is a socket address, not
     // a URL, and conflating the two is how a client ends up trying to connect
     // to "127.0.0.1:7654" without a scheme. One name each, and both documented.
@@ -40,6 +46,20 @@ struct Args {
     /// either way, so this degrades rather than breaking.
     #[arg(long)]
     embeddings: bool,
+
+    /// Serve to the network, not just this machine. Read the whole sentence.
+    ///
+    /// The API has no authentication and it can write. Binding it anywhere but
+    /// loopback hands every machine that can reach the address the ability to
+    /// create, edit and archive anything in the store, with no credential and
+    /// no audit beyond Keel's own event log.
+    ///
+    /// It exists because the honest alternative to a flag is somebody setting
+    /// `KEEL_BIND=0.0.0.0:7654` to read the site from a laptop and never being
+    /// told what they just did. A refusal with a flag named after the risk is a
+    /// decision; a silent bind is an accident.
+    #[arg(long)]
+    allow_network_access: bool,
 }
 
 #[tokio::main]
@@ -61,6 +81,12 @@ async fn main() -> Result<()> {
             base.join(".keel")
         }
     };
+
+    // Before the store is opened, because it costs nothing and because taking
+    // the store's exclusive lock only to reject the address a moment later
+    // would leave a second daemon unable to start for a reason that has nothing
+    // to do with it.
+    check_bind_address(args.bind, args.allow_network_access)?;
 
     // Before anything is opened, because it is a statement about the location
     // rather than about the store, and because a person reading a log after a
@@ -102,9 +128,34 @@ async fn main() -> Result<()> {
     };
 
     let app = router(state.clone());
-    let listener = tokio::net::TcpListener::bind(args.bind)
-        .await
-        .with_context(|| format!("bind {}", args.bind))?;
+    // The store's exclusive lock is already held by this point, so no other
+    // keel-daemon can be serving *this* store. That narrows what a busy port
+    // can mean to exactly one thing — something else is on it — and lets the
+    // message say so rather than listing possibilities.
+    //
+    // No walking up the range to find a free port. The plugin's MCP config
+    // expands its environment when Claude Code starts and its settings are
+    // written at install time, so a daemon that quietly moved to 7655 would
+    // leave both stale and MCP would fail with no explanation. A wandering port
+    // and a static configuration file cannot both be right, and of the two the
+    // configuration file is the one people can see.
+    let listener = match tokio::net::TcpListener::bind(args.bind).await {
+        Ok(l) => l,
+        Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
+            anyhow::bail!(
+                "{} is already in use, and it is not another Keel daemon holding this \
+                 store — this process took that claim before reaching the socket.\n\n\
+                 So something else is on the port. Keel does not go looking for a free one: \
+                 the Claude Code plugin is configured with an address at install time and \
+                 reads it at startup, so a daemon that moved would be a daemon nothing could \
+                 find.\n\n\
+                 Pick a port and tell both ends: --bind 127.0.0.1:<port>, or KEEL_BIND in \
+                 the environment.",
+                args.bind
+            )
+        }
+        Err(e) => return Err(e).with_context(|| format!("bind {}", args.bind)),
+    };
 
     // The address that was actually bound, not the one that was asked for.
     //
@@ -124,6 +175,33 @@ async fn main() -> Result<()> {
     tracing::info!("  MCP endpoint  http://{bound}/mcp");
     tracing::info!("  local API     http://{bound}/api");
 
+    // Record where we actually landed, so the CLI can find a daemon that is not
+    // on the default port without being told.
+    //
+    // Written after the bind succeeded rather than before it, because the file
+    // is meant to describe a daemon that exists. Best-effort: a home that is
+    // read-only is a reason to log and keep serving, not a reason to refuse to
+    // start — the file is a convenience for other processes, and the daemon's
+    // actual job does not depend on it.
+    let endpoint = home.join(keel_core::DAEMON_ENDPOINT_FILE);
+    match serde_json::to_vec_pretty(&serde_json::json!({
+        "url": format!("http://{bound}"),
+        "pid": std::process::id(),
+        "home": home.display().to_string(),
+        "version": env!("CARGO_PKG_VERSION"),
+    })) {
+        Ok(bytes) => {
+            if let Err(e) = std::fs::write(&endpoint, bytes) {
+                tracing::warn!(
+                    path = %endpoint.display(),
+                    error = %e,
+                    "could not record the endpoint; the CLI will fall back to the default port"
+                );
+            }
+        }
+        Err(e) => tracing::warn!(error = %e, "could not serialise the endpoint record"),
+    }
+
     // Graceful shutdown, but on a deadline.
     //
     // `with_graceful_shutdown` waits for in-flight connections, and `/api/events`
@@ -142,12 +220,56 @@ async fn main() -> Result<()> {
         ),
     }
 
+    // Take the endpoint record down before the store, so nothing reads it in
+    // the window where the daemon is finishing up.
+    //
+    // This only runs on a graceful exit, and that is not a gap this tries to
+    // close. A `SIGKILL` leaves the file behind by construction, so a stale one
+    // is a case every reader has to handle anyway — which is why the constant's
+    // documentation says presence is not liveness, and why the CLI probes
+    // health rather than trusting the file. Cleaning up here keeps the ordinary
+    // case tidy; it does not make the file trustworthy.
+    if let Err(e) = std::fs::remove_file(&endpoint)
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        tracing::warn!(path = %endpoint.display(), error = %e, "could not remove the endpoint record");
+    }
+
     // The last thing, always. An unflushed write is the whole failure mode.
     match state.store().checkpoint() {
         Ok(()) => tracing::info!("checkpointed; the write handle is released cleanly"),
         Err(e) => tracing::error!(error = %e, "checkpoint failed — the store may need a restore"),
     }
     Ok(())
+}
+
+/// Refuse to publish an unauthenticated write API to the network.
+///
+/// A pure function with the decision in it, rather than an `if` inside `main`,
+/// because this is a security boundary and a security boundary nobody can write
+/// a test against is a comment with a syntax highlighter.
+///
+/// The rule is deliberately about the *address* and not about the interface or
+/// the subnet. `127.0.0.1` and `::1` pass; everything else — a LAN address, a
+/// VPN address, `0.0.0.0`, `::` — is the same decision with the same
+/// consequence, and drawing finer distinctions here would only produce cases
+/// where the refusal is surprising.
+fn check_bind_address(bind: SocketAddr, allowed: bool) -> Result<()> {
+    if bind.ip().is_loopback() || allowed {
+        return Ok(());
+    }
+    anyhow::bail!(
+        "refusing to bind {bind} — that is not loopback, and this API has no \
+         authentication.\n\n\
+         Anything that can reach that address could create, edit and archive rows in \
+         your store without a credential. The Origin and Host checks stop a web page \
+         doing it through your browser; they do not stop a machine on your network \
+         doing it directly.\n\n\
+         If that is genuinely what you want — a home server, a machine whose whole \
+         network you trust — pass --allow-network-access and it will bind. Otherwise \
+         leave --bind on 127.0.0.1 and reach it over SSH port forwarding, which gets \
+         you the same access without publishing the socket."
+    )
 }
 
 /// Wait for the shutdown signal, then allow `grace` for in-flight work.
@@ -182,4 +304,47 @@ async fn shutdown() {
         _ = terminate => {},
     }
     tracing::info!("shutting down; the write handle is released cleanly");
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    fn addr(s: &str) -> SocketAddr {
+        s.parse().unwrap()
+    }
+
+    /// The default, and the only shape that should ever be silent.
+    #[test]
+    fn loopback_binds_without_being_asked_twice() {
+        check_bind_address(addr("127.0.0.1:7654"), false).unwrap();
+        check_bind_address(addr("[::1]:7654"), false).unwrap();
+    }
+
+    /// The case this exists for: one environment variable used to be enough to
+    /// publish an unauthenticated write API to the network.
+    #[test]
+    fn a_network_address_is_refused_and_says_why() {
+        for a in ["0.0.0.0:7654", "192.168.1.10:7654", "[::]:7654"] {
+            let err = check_bind_address(addr(a), false)
+                .expect_err("{a} is not loopback and should be refused");
+            let message = err.to_string();
+            assert!(
+                message.contains("no authentication"),
+                "the refusal has to say what the risk is, not just that it refused: {message}"
+            );
+            assert!(
+                message.contains("--allow-network-access"),
+                "and how to proceed if it really is what you want: {message}"
+            );
+        }
+    }
+
+    /// The escape works. A refusal with no way past it is one people route
+    /// around by editing the source, which is worse than the bind.
+    #[test]
+    fn the_flag_is_a_real_escape() {
+        check_bind_address(addr("0.0.0.0:7654"), true).unwrap();
+    }
 }

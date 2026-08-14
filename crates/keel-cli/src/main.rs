@@ -475,8 +475,12 @@ fn main() -> Result<()> {
         Command::Note { action } => run_note(&home, action, cli.force, cli.json),
         Command::Archive { id, version } => {
             use keel_core::{Actor, EntityId, EntityStore, Provenance, Surface};
-            let mut store =
-                writes::open_for_write(&home, &writes::daemon_url(), cli.force, "archive a row")?;
+            let mut store = writes::open_for_write(
+                &home,
+                &writes::daemon_url_for(&home),
+                cli.force,
+                "archive a row",
+            )?;
             let prov = Provenance::anonymous(Actor::Human).with_surface(Surface::Cli);
             let archived = store.archive(&EntityId::parse(id)?, *version, &prov)?;
             println!("{} — archived", archived.id());
@@ -710,7 +714,7 @@ fn run_import(
     let mut store = if dry_run {
         open(home)?
     } else {
-        writes::open_for_write(home, &writes::daemon_url(), force, "import files")?
+        writes::open_for_write(home, &writes::daemon_url_for(home), force, "import files")?
     };
     let found = resolve_project(&store, project)?;
     let project_id = found.id().clone();
@@ -949,7 +953,8 @@ fn run_note(home: &Path, action: &NoteAction, force: bool, json: bool) -> Result
     // `Ls` only reads, but it shares this store handle with `Add` and
     // `Retract`, and a read is safe alongside a daemon in WAL mode. Probing for
     // all three keeps the funnel one function rather than three.
-    let mut store = writes::open_for_write(home, &writes::daemon_url(), force, "write a note")?;
+    let mut store =
+        writes::open_for_write(home, &writes::daemon_url_for(home), force, "write a note")?;
     // `cli` rather than `code`: this is a person at a terminal, and the whole
     // point of `surface` is telling those apart when reading the history back.
     let prov = Provenance::anonymous(Actor::Human).with_surface(Surface::Cli);
@@ -1016,7 +1021,8 @@ struct TaskDraft<'a> {
 fn run_task_add(home: &Path, draft: TaskDraft<'_>, force: bool, json: bool) -> Result<()> {
     use keel_core::{Actor, EntityStore, Provenance, Surface, Task, TaskPriority, TaskStatus};
 
-    let mut store = writes::open_for_write(home, &writes::daemon_url(), force, "add a task")?;
+    let mut store =
+        writes::open_for_write(home, &writes::daemon_url_for(home), force, "add a task")?;
     let found = resolve_project(&store, draft.project)?;
     let prov = Provenance::anonymous(Actor::Human).with_surface(Surface::Cli);
 
@@ -1133,7 +1139,7 @@ fn run_reembed(home: &Path, missing: bool, force: bool, json: bool) -> Result<()
         );
     }
 
-    let mut store = writes::open_for_write(home, &writes::daemon_url(), force, "re-embed")?;
+    let mut store = writes::open_for_write(home, &writes::daemon_url_for(home), force, "re-embed")?;
 
     // The model loads before the count, which looks like the wrong order and is
     // not. "Missing" means "has no passages from *this* model" (B-59), and
@@ -1444,7 +1450,7 @@ fn init_store_git(target: &std::path::Path) -> Result<bool> {
 fn run_fixture(home: &Path, force: bool, json: bool) -> Result<()> {
     let mut store = writes::open_for_write(
         home,
-        &writes::daemon_url(),
+        &writes::daemon_url_for(home),
         force,
         "load the fixture corpus",
     )?;

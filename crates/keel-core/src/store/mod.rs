@@ -40,6 +40,23 @@ use std::path::{Path, PathBuf};
 /// The store file's name inside a Keel home directory.
 pub const STORE_FILE: &str = "keel.sqlite";
 
+/// Where a running daemon records the address it actually bound.
+///
+/// The name lives here, beside [`STORE_FILE`], for the same reason: the daemon
+/// writes this file and the CLI reads it, and two crates that each spell a
+/// filename for themselves will one day spell it differently — after which the
+/// CLI silently falls back to a default port and reports that no daemon is
+/// running, which is the wrong answer in the direction that permits a second
+/// writer.
+///
+/// `keel-core` never reads it and never writes it. This is a name, not a
+/// behaviour; the crate still has no idea what a daemon is.
+///
+/// **Its presence is not liveness.** A daemon killed with `SIGKILL` leaves the
+/// file behind, so a reader must confirm with a health probe before trusting
+/// what it says.
+pub const DAEMON_ENDPOINT_FILE: &str = "daemon.json";
+
 /// Where the store lives inside `home`.
 ///
 /// A one-line function so that no two surfaces can disagree about it. They used
