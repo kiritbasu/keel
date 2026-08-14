@@ -5,37 +5,31 @@
 # Keel — Phase 10
 ## Release, distribution and install
 
-**Goal:** a new machine reaches a working Keel from inside Claude Code, nothing compiles on it, and before every release we know exactly what we are about to break.
+**Goal:** a stranger reaches a working Keel without compiling anything, and before every release we know exactly what we are about to break.
 
-Rewritten 2026-08-14. The first draft was written 2026-08-11 and carried a banner saying KB had more thoughts and wanted to discuss it. That conversation happened; this is the result, and the banner is gone.
+Revision history, because the shape of this document has changed twice and the reasons matter more than the diff. Drafted 2026-08-11 against DuckDB and a Tauri app. Rewritten 2026-08-14 when KB decided Keel is meant to have users. Rewritten again the same day after a stress test found six things in that rewrite that did not hold — two of them safety mechanisms that would have passed CI while doing nothing, which is the failure this project keeps finding in its own work. Those six are fixed here; the note on this spec records what they were.
 
 ---
 
-## What changed since the first draft
-
-Three of the draft's load-bearing assumptions have moved.
-
-**Phase 9 shipped.** Half the original document was about DuckDB refusing to cross-compile and what to do about it. SQLite's bundled build is one C file that cross-compiles routinely and links statically, so the release artifact is one binary and there is nothing left to decide. That section is deleted rather than updated.
-
-**The Claude Code plugin system is the front door.** The draft's install path was `curl … | sh` followed by `claude mcp add`. A plugin registers the MCP server and wires the hooks itself, which is exactly the half of the job `plugin/install.sh` deliberately refuses to do. What a plugin cannot do is ship 37 MB binaries — so the release pipeline below is a prerequisite for the plugin, not an alternative to it.
-
-**Keel is meant to have users.** Decided 2026-08-14, and it is the reason section 5 exists. Everything else in this document is a weekend's work. Section 5 is the phase.
-
-Three decisions taken alongside it, since everything below rests on them:
+## Settled
 
 | | |
 |---|---|
 | **Licence** | Apache-2.0. Permissive, with the patent grant MIT lacks. |
-| **Version line** | 0.x, declared unstable. Breaking changes are allowed on a minor bump — but every one is still detected, classified and migrated. The promise is softer; the machinery is identical. |
+| **Version line** | 0.x, declared unstable. Breaking changes allowed on a minor bump; every one still detected, acknowledged and migrated. |
 | **Updates** | Automatic when compatible. Never automatic across a schema change. |
+| **Order** | Phase 11 finishes first. Then Phase 10 in full. |
+| **Targets** | macOS arm64, macOS x86_64, Linux x86_64. **No Windows.** |
+| **Cadence** | Every few days at first, then weekly, then fortnightly. |
+| **Surfaces** | The local site, served by the daemon. No desktop app, no mobile app. |
 
-And one thing removed from scope entirely: **no desktop app and no mobile app.** The read surface is the local site, served by the daemon. Section 3 says what that means for the Tauri shell.
+Cadence is not scheduling trivia — it is the constraint that decided section 5. At a release every few days, anything stored per release accumulates thirty copies in six months, and a gate with a manual review step is the step that gets skipped.
 
 ---
 
 ## 1. What the user does
 
-Inside Claude Code:
+Three commands and a restart:
 
 ```
 /plugin marketplace add <owner>/keel
@@ -43,99 +37,102 @@ Inside Claude Code:
 /keel:setup
 ```
 
-`/keel:setup` is where the weight is. It downloads the binaries for the platform, verifies them, creates the store, installs the service so nothing has to be babysat, starts the daemon, and prints each step as it goes. After a restart of Claude Code the MCP server connects and the digest appears at session start.
+then restart Claude Code.
 
-Between step two and step three there is a gap that has to be handled rather than hoped away: the plugin is installed, the skills and hooks are live, and the MCP server cannot connect because nothing is listening yet. Today both hooks fail open and say nothing, which is right when the daemon is merely down and wrong here — the session looks fine and Keel is silently absent. So the session-start hook gains one case: no binary and no daemon means one line saying so and naming `/keel:setup`.
+The restart is not incidental and is not hidden here the way it was in the last draft. Claude Code connects MCP servers when it starts, and at step two nothing is listening yet — the binary arrives at step three. So the honest count is three commands and a restart, and the exit criteria in section 13 say that rather than something tidier.
 
-For anyone not using Claude Code, the same installer stands on its own:
+`/keel:setup` is where the weight is. It downloads the binaries for the platform, verifies them, creates the store, resolves the port, installs the service, starts the daemon, asks once about embeddings and once about automatic updates, and prints each step as it goes.
+
+**The command runs one script, not a sequence of steps a model improvises.** A slash command is a prompt, so anything expressed as "then run this, then run that" is executed non-deterministically and behind a permission prompt each time. `/keel:setup` therefore does one thing: run `${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh`. The determinism lives in the script, where it can be tested.
+
+Between step two and step three the plugin is installed and the MCP server cannot connect. Section 8 says how the session says so rather than looking fine.
+
+For anyone not using Claude Code the same installer stands alone:
 
 ```
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/<owner>/keel/releases/latest/download/keel-installer.sh | sh
 ```
 
-`--proto '=https' --tlsv1.2` are not decoration — they stop a redirect from downgrading the transfer to plaintext. `--no-setup` stops after the binaries.
+`--proto '=https' --tlsv1.2` stop a redirect from downgrading the transfer to plaintext. `--no-setup` stops after the binaries.
 
-The original scruple against editing `settings.json` from a shell script still holds and still applies. It never applied to `claude mcp add`, which is a supported and reversible command, and it does not apply to a plugin at all, which is the supported way to add hooks without touching anyone's settings file.
+The original scruple against editing `settings.json` from a shell script still holds. It never applied to `claude mcp add`, which is supported and reversible, and it does not apply to a plugin at all.
 
 ---
 
 ## 2. Zero compile, and Gatekeeper
 
-Nothing compiles on the user's machine. Two findings from the first draft survive intact and are the reason this is cheap.
+Nothing compiles on the user's machine. Two findings from the first draft survive intact.
 
 **`curl` does not quarantine.** The `com.apple.quarantine` attribute is applied by the downloading application through a key in its Info.plist, not by the kernel and not by Gatekeeper. Browsers set it. `curl`, `wget` and `git` have no Info.plist and do not. Apple treats this as intended.
 
-So a CLI installed this way never meets Gatekeeper: no prompt, no "unidentified developer", **no Apple Developer Program, no notarization, no $99 a year**. This is why rustup, uv, bun and deno all work this way.
+So a CLI installed this way never meets Gatekeeper: no prompt, no "unidentified developer", **no Apple Developer Program, no notarization, no $99 a year**. This is why rustup, uv, bun and deno all work this way. It is also directly checkable — `xattr -l` on a fresh download, which section 12 does.
 
-**One hard requirement comes with it.** On Apple Silicon every executable must carry at least an ad-hoc signature or the process is killed at exec. Native macOS toolchains add one at link time; a binary cross-compiled from Linux does not have one and dies on every M-series Mac. So macOS builds happen on macOS runners, which are free for public repositories. This is a real trap and it fails in a way that looks like a corrupt download.
+**One hard requirement comes with it.** On Apple Silicon every executable must carry at least an ad-hoc signature or the process is killed at exec. Native macOS toolchains add one at link time; a binary cross-compiled from Linux does not and dies on every M-series Mac. So macOS builds happen on macOS runners, free for public repositories. This fails in a way that looks like a corrupt download.
 
 ---
 
 ## 3. The read surface is the local site
 
-The React app already exists, already talks to `/api`, and already builds to `apps/desktop/dist`. Phase 10 compiles that build into `keel-daemon` with `rust-embed` and serves it from the axum server that is already there. `keel ui` opens `http://127.0.0.1:7654` in the user's browser.
+**This section has a prerequisite and it is open.** `que_01KZSQHK2C0CTKN36WJ9G4ZHQC` — does a browser-served write or intake endpoint require amending hard constraint 7 — is unanswered, and there is a task blocked behind it. The last draft shipped a browser-served UI without mentioning either. Because the order is now "Phase 10 in full", that question is a Phase 10 prerequisite: **it gets answered before section 3 starts**, not discovered halfway through it.
 
-**The Tauri shell comes off the install path.** A `.dmg` downloaded through a browser *is* quarantined, and then it needs Developer ID signing plus notarization — $99 a year forever, with a signing pipeline to maintain, and macOS Sequoia removed the Control-click bypass so there is no free workaround. Tauri also wants Node, Xcode command line tools, WebView2 on Windows and webkit2gtk on Linux, and it does not meaningfully cross-compile, so it is a second full release pipeline with a runner per platform.
+The React app already exists, already talks to `/api`, and already builds to `apps/desktop/dist`. Phase 10 compiles that build into `keel-daemon` with `rust-embed` and serves it from the axum server already there. `keel ui` opens `http://127.0.0.1:7654` in the user's browser.
 
-What dropping it removes: the Apple Developer Program, notarization, Gatekeeper entirely, WebView2, webkit2gtk and its distro-version minefield, Node on the user's machine, and one of two release pipelines.
+**The Tauri shell comes off the install path.** A `.dmg` downloaded through a browser *is* quarantined, and then it needs Developer ID signing plus notarization — $99 a year forever with a signing pipeline to maintain, and macOS Sequoia removed the Control-click bypass. Tauri also wants Node, Xcode command line tools, WebView2 and webkit2gtk, and does not meaningfully cross-compile, so it is a second full release pipeline with a runner per platform.
 
-What it costs: no dock icon, no native menus, no OS file dialogs. For a read-only surface that is a good trade, and it is an ordinary shape — Jupyter, Syncthing, Grafana, Meilisearch, Qdrant, code-server and pgAdmin all work exactly this way.
+Dropping it removes the Apple Developer Program, notarization, Gatekeeper entirely, WebView2, webkit2gtk and its distro-version minefield, Node on the user's machine, and one of two pipelines. It costs a dock icon, native menus and OS file dialogs. For a read-only surface that is a good trade, and it is an ordinary shape — Jupyter, Syncthing, Grafana, Meilisearch, Qdrant, code-server and pgAdmin all work this way.
 
-`apps/desktop/src-tauri` is already excluded from the workspace and its build script already refuses to run without `KEEL_DESKTOP=1`. Phase 10 does not delete it; it stops pretending it is on the release path. Mobile is not in scope and has never been.
+`apps/desktop/src-tauri` is already excluded from the workspace and already refuses to build without `KEEL_DESKTOP=1`. Phase 10 does not delete it; it stops pretending it is on the release path. Mobile has never been in scope.
 
-One thing this introduces that must not be skipped: anything on localhost is reachable by every other process on the machine. Section 7 covers it.
+One consequence for the pipeline: embedding the site means **Node is needed in the release job**, which the workflow `dist` generates will not do by itself.
 
 ---
 
-## 4. Two version numbers, and what each one means
+## 4. Two version numbers
 
-This is the foundation the rest of section 5 stands on, and most of it already exists.
+**Schema version** — `max(id)` over the `_keel_migrations` ledger, four today. It moves only when the shape of the data moves. `Store::schema_version()` reads a store's, `shipped_schema_version()` reads the binary's, `pending_migrations_at()` answers without opening the store properly, and the guard refusing a store newer than the binary already exists — written after KEEL-95, where a daemon 84 seconds behind wrote NULLs into a column it did not know about.
 
-**Schema version** — `max(id)` over the `_keel_migrations` ledger. It moves only when the shape of the data moves. `Store::schema_version()` reads a store's, `shipped_schema_version()` reads the binary's, and `pending_migrations_at()` answers the question without opening the store properly. The guard that refuses to open a store newer than the binary is already there, written after KEEL-95, where a daemon 84 seconds behind wrote NULLs into a column it did not know about.
+**Package version** — semver on 0.x, moves for any release.
 
-**Package version** — semver on 0.x. Moves for any release.
+Deliberately not the same number. The package version moves for reasons that have nothing to do with the tables, and conflating them makes a documentation fix look like a data migration.
 
-They are deliberately not the same number. The package version moves for reasons that have nothing to do with the tables, and conflating them is how a documentation fix comes to look like a data migration.
-
-A third number already exists and is not ours: `PROTOCOL_VERSION`, the MCP wire revision. It tracks the specification and changes when the specification does.
+`PROTOCOL_VERSION`, the MCP wire revision, is a third and is not ours.
 
 ---
 
 ## 5. Knowing what breaks, before it breaks
 
-The problem in one sentence: today a change to a table, a tool schema or an endpoint is caught by a human reading a diff, and that stops working the moment somebody else's data is on the other end.
+Today a change to a table, a tool schema or an endpoint is caught by a human reading a diff. That stops working when somebody else's data is on the other end.
 
-The answer is not more discipline. It is to make every surface emit a description of itself, store that description per release, and fail the build when the current one differs from the last without the version bump to match.
+### 5.1 One contracts directory, and git keeps the history
 
-### 5.1 The contract corpus
-
-A directory at the repository root, one subdirectory per released version:
+Every surface emits a description of itself into one always-current directory, checked in:
 
 ```
 contracts/
-  0.5.0/
-    schema.sql        normalised dump of sqlite_master, sorted
-    schema_version    the integer
-    tools.json        tools/list in full — names, descriptions, JSON Schemas
-    api/*.json        one response per HTTP endpoint, against the fixture store
-    cli.txt           --help for every subcommand and flag
-    generated/        keel generate output for the fixture corpus
-    store.sqlite      a fixture store built BY this version
-  0.6.0/
-    …
+  schema.json        PRAGMA table_info / index_list / foreign_key_list, per table
+  schema_version     the integer
+  tools.json         tools/list in full — names, descriptions, JSON Schemas
+  api/*.json         one response per endpoint, against the fixture store
+  cli.txt            --help for every subcommand and flag
+  generated/         keel generate output for the fixture corpus
+  stores/v<n>.sqlite one fixture store per schema version — see 5.3
 ```
 
-Everything but the last file is text and diffs cleanly. Everything is produced by one command, and nothing is written by hand.
+CI regenerates it and fails if the tree is dirty. That is the same pattern as `keel generate keel --check`, which this project already lives by and already trusts, and reusing it means one idea rather than two.
 
-The emitter is an integration test that writes the corpus when `UPDATE_CONTRACTS=1` and otherwise asserts against it — the same shape as `insta`, which the project already uses and already has seventeen snapshots in. No new machinery, no xtask crate, and nothing added to the shipped CLI surface.
+**There are no per-release copies, because git already keeps history.** The release diff is `git diff <last-tag>..HEAD -- contracts/`. An earlier draft stored a directory per release; at this cadence that is thirty directories in six months, storing something version control already stores.
 
-The MCP half of this is largely done: `snapshots__tools_list.snap` already pins the tool surface, and the Phase 9 engine swap produced zero diffs across both snapshot suites, which is the whole return on the Phase 0 trait boundary. What is missing is that the snapshots compare *current against current*. A released version is never kept, so there is nothing to compare a release against.
+**Schema is emitted through `PRAGMA`, not by dumping `sqlite_master`.** SQLite keeps the original `CREATE TABLE` text verbatim, so a comment or a line break becomes a diff. `table_info`, `index_list` and `foreign_key_list` give structured, sortable, semantically comparable output.
+
+The emitter is an integration test that writes when `UPDATE_CONTRACTS=1` and asserts otherwise — the shape `insta` already gives this project seventeen snapshots of. `snapshots__tools_list.snap` already pins the tool surface; what was missing was ever comparing it to a *released* one.
+
+**The emitter refuses to overwrite anything under `stores/`.** `UPDATE_CONTRACTS=1` is the insta footgun — the thing someone runs to make a failing test go away — and the text files are safe to regenerate because git shows what changed. A vintage store is not regenerable and must only ever be created.
 
 ### 5.2 What counts as breaking
 
-The classifier compares the current emission against the newest stored version and sorts every difference into one of three buckets. It is a table rather than a judgement call, because a judgement call at release time is made by whoever is tired.
+A table, not a judgement call, because a judgement call at release time is made by whoever is tired. **Anything the classifier cannot place is breaking.** Failing closed is the whole point; a classifier that guesses "additive" when unsure is worse than none.
 
-| Surface | Additive — minor bump | Breaking — needs a plan |
+| Surface | Additive | Breaking |
 |---|---|---|
 | **Store schema** | new table; new nullable column; new index | dropped or renamed table or column; narrowed type; `NOT NULL` without a default; changed primary or foreign key |
 | **MCP tools** | new tool; new optional argument; new field in a response | removed or renamed tool; new required argument; removed response field; narrowed enum; changed argument type |
@@ -146,135 +143,170 @@ The classifier compares the current emission against the newest stored version a
 
 Two rows deserve their reasoning.
 
-**Generated markdown has no additive column.** Users commit these files. A change to how a heading is rendered is a diff in every repository that has ever run `keel generate`, which is not a breaking change in any technical sense and is exactly as annoying as one. It gets announced.
+**Generated markdown has no additive column.** Users commit these files. A change to how a heading renders is a diff in every repository that has run `keel generate` — not breaking in any technical sense and exactly as annoying as one. It gets announced.
 
-**A tool description change is not breaking, and is not nothing.** The descriptions are the only documentation a model gets — they are the product. They do not break a caller, so they are additive; the classifier still prints them, because a silent rewrite of the thing that decides tool selection is worth a human reading.
+**A tool description change is not breaking and is not nothing.** The descriptions are the only documentation a model gets; they are the product. They break no caller, so they are additive — and the classifier prints them anyway, because a silent rewrite of the thing that decides tool selection deserves a human reading.
 
-### 5.3 The test that actually protects data
+### 5.3 Vintage stores, and why the fixture is not enough
 
-Everything above catches a change. One test catches the consequence.
+`contracts/stores/v<n>.sqlite` is one small store per **schema version** — four today, not one per release, because most releases do not touch the tables. The test opens every one with the current binary, runs `keel migrate`, runs `fsck`, and asserts row counts per table and content hashes per document survive.
 
-`contracts/<version>/store.sqlite` is a small store built by that version from `keel fixture`. The test opens every one of them with the current binary, runs `keel migrate`, runs `fsck`, and asserts that row counts per table and content hashes per document survive. A dozen versions of a fixture corpus is a few megabytes.
+That is the test standing between a migration and somebody's year of notes, and it is the only artifact here that cannot be reconstructed later: a store can only be written by the code that wrote it.
 
-That is the test that stands between a migration and somebody's year of notes. It is also the only one here that cannot be reconstructed later: a vintage store has to be captured at the time, because once the code that wrote it is gone there is no way to make another.
+**Seed it from a scrubbed copy of the real store, not from `keel fixture`.** A synthetic corpus has the shapes we thought to generate; the real one is 7.2 MB and has archived rows, retracted notes, superseded decisions, blobs, a DuckDB-era history and whatever else five months produced. A migration that breaks on a null the fixture never leaves null passes green against the fixture and eats data in the field. Two things to do before relying on any of this: check that `keel fixture` writes a store where it is told, since a run during the stress test produced none, and diff the fixture's table-shape coverage against the real store's.
 
 Two more, both cheap:
 
-- **The forward guard.** The current binary must refuse a store whose schema version is higher than its own, with a message naming the upgrade. The behaviour exists; the assertion does not.
-- **Round-trip across versions.** Back up with version N, restore with N+1, diff. The backup round-trip test already exists within one version; this points it across two.
+- **The forward guard.** The current binary must refuse a store whose schema version is higher than its own, naming the upgrade. The behaviour exists; the assertion does not.
+- **Round-trip across versions.** Back up with N, restore with N+1, diff. The within-version test exists; point it across two.
 
-### 5.4 The release gate
+### 5.4 The release gate is about acknowledgement, not version numbers
 
-A release is refused unless all of these hold:
+The previous draft refused a release unless "the version bump matches the highest severity found". **On 0.x that condition is satisfied by every release**, because additive and breaking both mean a minor bump. It would have passed forever while appearing to guard something.
 
-1. The contract diff is empty, or every difference is classified and the version bump matches the highest severity found.
-2. Every vintage store in `contracts/` migrates green and passes `fsck`.
-3. `keel generate keel --check` is clean.
-4. Every breaking change names its migration and the sentence the user will see.
-5. Release notes carry a **Breaking** section generated from the classification rather than written from memory.
+What has teeth:
 
-Point 5 is the one that pays for the rest. Release notes assembled by hand from a week of commits are how a breaking change reaches users unannounced.
+1. `contracts/` is clean after regeneration.
+2. Every difference classified breaking appears in a checked-in entry for this release, **naming its migration and the sentence the user will see**. CI fails otherwise. This is the mechanism; the version number is decoration.
+3. Every vintage store migrates green and passes `fsck`.
+4. `keel generate keel --check` is clean.
+5. Release notes carry a **Breaking** section generated from that entry rather than written from memory.
+
+Point 2 is what point 5 is made of. Release notes assembled by hand from a week of commits are how a breaking change reaches users unannounced.
 
 ### 5.5 Deprecation, while on 0.x
 
 Breaking changes are allowed. Unannounced ones are not.
 
 - A removed tool, subcommand or flag keeps working as an alias for **two minor releases**, warning each time, then goes.
-- A column is never dropped in the same release that stops writing it. Stop writing, ship, drop next time — so a rollback in between still has its data.
-- Every migration is reversible or takes a backup first. `/keel:setup` and the updater both back up before migrating regardless.
+- A column is never dropped in the release that stops writing it. Stop writing, ship, drop next time, so a rollback in between still has its data.
+- Every migration is reversible or takes a backup first. `/keel:setup` and the updater back up before migrating regardless.
 
-### 5.6 CI has never run
+### 5.6 Determinism is the prerequisite, not a detail
 
-Worth stating plainly, because everything above assumes a working pipeline and there is not one. `.github/workflows/ci.yml` has been in the tree since it was written and has never been executed by anything: `git remote -v` is empty, so there is no remote and no repository for Actions to run in. The trigger also named `main` while trunk was `master`, which is fixed in f65be15.
+Everything above rests on the emitter producing identical bytes for identical state. ULIDs, timestamps and map iteration order are exactly what makes snapshot emitters flap, and **a flapping gate is disabled within a month** — after which the project believes it is guarded and is not.
 
-So the Linux matrix entry has never tested anything on Linux, and every check in this project's history was run by hand on one Mac. **Creating the remote is step zero of Phase 10**, and it comes before the contract corpus rather than after, because a corpus that only one machine can generate is a corpus with one platform's opinion baked into it.
+So the first task in section 5 is not the emitter. It is running the emitter a hundred times and diffing. If it does not hold, redactions and sorted iteration come before anything is built on top. The `insta` suites already carry filters for this and are the place to start.
+
+### 5.7 CI has never run
+
+Everything above assumes a working pipeline and there is not one. `.github/workflows/ci.yml` has been in the tree since it was written and has never been executed by anything: `git remote -v` is empty, so there is no repository for Actions to run in. The trigger also named `main` while trunk was `master`, fixed in f65be15.
+
+The Linux matrix entry has never tested anything on Linux, and every check in this project's history was run by hand on one Mac. **Creating the remote is step zero**, before the contracts work rather than after, because a corpus generated on one machine has that machine's opinion baked into it.
 
 ---
 
 ## 6. Version drift, and updating without asking
 
-The plugin updates over git through `claude plugin update`. The binaries update from a release. Those are two channels and they will fall out of step — which is TQ-26 again, the hand-copied hooks that drifted while nothing said so, except now across a network and in someone else's install.
+The plugin updates over git through `claude plugin update`; the binaries update from a release. Two channels that will fall out of step — TQ-26 again, across a network and in someone else's install.
 
-### 6.1 The handshake
+### 6.1 The release manifest is what makes the decision possible
 
-`/api/health` already exists and reports a version. It gains `schema_version` and `min_plugin_version`, and the plugin's manifest gains `min_daemon_version`. The session-start hook compares them and has three outcomes.
+Each release publishes a manifest beside its artifacts:
 
-**They match.** Silence, as today.
+```json
+{ "version": "0.6.1", "schema_version": 5,
+  "min_plugin_version": "0.5.0", "artifacts": { "…": "sha256:…" } }
+```
 
-**The binary is behind, and no schema change lies between them.** The update is applied without asking. The user sees one line at the top of a session: `Keel updated to 0.6.1.` Nothing else changes, nothing is confirmed, and the next session says nothing at all.
+The previous draft said to compare `shipped_schema_version()` on the candidate against the store's. **That cannot be done without executing the candidate**, which is the thing being decided. The schema version has to be readable before anything is downloaded, or "never automatic across a schema change" is a sentence with no mechanism behind it.
 
-**A schema change or a breaking classification lies between them.** Nothing is applied. The hook injects one line naming what changes and pointing at `/keel:update`, which backs up first, prints what will happen, and waits. The user's data is about to be rewritten in a way a rollback will not undo, and that is a decision with an owner.
+`/api/health` already reports `version`, `schema` and `protocol`. It gains `min_plugin_version`; the plugin manifest gains `min_daemon_version`.
 
-### 6.2 Where the update actually runs
+### 6.2 Three outcomes
 
-Not in the hook. The hook runs before the user's first word and must never block a session — that is constraint 1 on `session-start.sh` and it does not bend for this.
+**Versions match.** Silence.
 
-So the daemon does it. Once a day it checks the release feed, and when it finds a compatible update it downloads it, verifies the checksum and the GitHub build attestation, and stages it beside the current binary. It applies the staged binary at its next start, which the service supervisor provides for free — launchd `KeepAlive` and systemd `Restart=always` both restart a daemon that exits. Swapping a binary that is not running removes a whole family of problems.
+**Binary behind, manifest reports the same schema version.** Applied without asking. One line at the top of a session: `Keel updated to 0.6.1.` Nothing is confirmed and the next session says nothing.
 
-The hook only reports. `keel update` forces it now. `KEEL_AUTO_UPDATE=0` turns it off, and `/keel:setup` asks once which the user wants.
+**Manifest reports a different schema version, or the release entry carries a breaking change.** Nothing is applied. One line names what changes and points at `/keel:update`, which backs up, prints what will happen, and waits. The data is about to be rewritten in a way a rollback will not undo, and that decision has an owner.
 
-Three limits on this, none negotiable:
+### 6.3 Where it runs, and how it lands
 
-- **Never across a schema version.** The check is `shipped_schema_version()` on the candidate against the store's, and unequal means stop and ask.
-- **Never without verification.** Checksum and attestation both, and a failure means staying put and saying so — never falling back to unverified.
-- **Never silent about what happened.** One line naming the new version, once. An update the user cannot see is one they cannot report a bug against.
+Not in the hook. The hook runs before the user's first word and must never block a session — constraint 1 on the session-start hook, which does not bend for this.
 
-### 6.3 Why not fully automatic
+The daemon checks the manifest daily, and on a compatible update downloads it, verifies checksum and GitHub build attestation, and stages it beside the current binary. **At its next startup the daemon finds the staged binary, renames it over itself and re-execs.** Renaming over a path is atomic and safe while the old image is still mapped; the restart comes free from the supervisor, since launchd `KeepAlive` and systemd `Restart=always` both restart a daemon that exits. Nothing ever swaps a binary that is running.
 
-Because a bad migration reaching every install before anyone can stop it is a class of failure this project has no way to undo, and because a self-updating binary is a supply-chain target — one compromised release becomes remote execution on every machine that has it. Splitting on schema version puts the automatic path where the blast radius is a restart, and a human in front of the path where the blast radius is their data.
+The hook only reports. `keel update` forces it now.
+
+### 6.4 Rollback
+
+The previous binary is kept as `keel.previous`, and `keel update --rollback` puts it back. This is the difference between one bad release being an inconvenience and being the end of somebody's trust.
+
+**A migrated store cannot be un-migrated**, which is the reason schema changes never auto-apply. Rollback covers the case automatic updates create and does not pretend to cover the other one.
+
+### 6.5 Disclosure
+
+A daily check is a network request from a tool whose whole identity is local-first, and users will find it. So it is disclosed rather than discovered: `/keel:setup` asks once and takes no for an answer, `KEEL_AUTO_UPDATE=0` turns it off, and `keel doctor` reports whether it is on and when it last ran.
+
+### 6.6 Why not fully automatic
+
+A bad migration reaching every install before anyone can stop it is the one failure here with no undo. And a self-updating binary is a supply-chain target — one compromised release is remote execution everywhere it lands. Splitting on schema version keeps the automatic path where the worst outcome is a restart, and puts a human in front of the path where the worst outcome is their data.
 
 ---
 
 ## 7. The port, and the network
 
-**Programmatic, not a question the user answers.** The daemon tries 7654. If something is already there it asks `/api/health`, and:
+**The daemon does not wander.** It tries its configured port, default 7654, and:
 
-- another `keel-daemon` on the same store — this is the single-writer design working. Exit cleanly saying so; that is not an error.
-- anything else — walk 7655, 7656, up to 7664 for a free port.
+- **Another `keel-daemon` on the same store** — the single-writer design working. Exit 0 saying so. Not an error.
+- **Anything else** — fail, naming `--bind` and `KEEL_BIND`.
 
-Whatever it binds, it writes `~/.keel/daemon.json` atomically with the URL, and removes it on shutdown. The CLI reads that file first, then `$KEEL_DAEMON_URL`, then the default — which also fixes `keel` today assuming 7654 with no way to learn otherwise.
+An earlier draft had it walk up the range to find a free port. That is the seductive wrong answer: `.mcp.json` expands its environment when Claude Code starts and plugin config is written at install time, so a daemon that quietly moves to 7655 leaves both stale and MCP fails with no explanation. **A wandering port and a static configuration file cannot both be right.**
 
-The plugin's `.mcp.json` becomes `"url": "${KEEL_DAEMON_URL}/mcp"` with 7654 as the declared default, and `/keel:setup` reads `daemon.json` and records a non-default URL through the plugin's own config. The user never types a port and never edits a file inside an installed plugin, which the next update would overwrite anyway.
+Collisions are handled at the only moment configuration can still be written. `/keel:setup` probes, and on a collision picks a free port and writes it into the service unit *and* the plugin config together. `.mcp.json` becomes `"url": "${KEEL_DAEMON_URL}/mcp"` with 7654 as the declared default. The user never types a port and never edits a file inside an installed plugin, which the next update would overwrite.
 
-**Binding.** `KEEL_BIND` accepts any address today, so a user who wants to reach the site from a laptop can expose an unauthenticated write API to their network in one environment variable. It starts refusing anything that is not loopback unless an explicit flag says otherwise, and the flag's help says what it is agreeing to.
+`~/.keel/daemon.json` records the live URL for the CLI, which reads it first, then `$KEEL_DAEMON_URL`, then the default. **Presence of that file is not liveness** — a crash leaves it behind — so the CLI confirms with a health probe before trusting it.
 
-The attack that actually matters is already handled: the Origin and Host checks in `keel-daemon::http` stop a web page reaching the daemon by DNS rebinding, with a test for the rebinding case. The remaining gap is local processes, which is why `keel ui` opens the site with a per-session token in the URL. Today the API is read-only and unauthenticated and that is defensible; it stops being defensible the moment a write or intake endpoint exists, which is what que_01KZSQHK2C0CTKN36WJ9G4ZHQC is about.
+**Binding.** `KEEL_BIND` accepts any address today, so one environment variable exposes an unauthenticated write API to the network. It starts refusing anything that is not loopback unless an explicit flag says otherwise, and the flag's help says what is being agreed to.
+
+The attack that matters is already handled: the Origin and Host checks in `keel-daemon::http` stop a web page reaching the daemon by DNS rebinding, with a test for the rebinding case. The remaining gap is other local processes, which is why `keel ui` opens the site with a per-session token. A read-only unauthenticated API is defensible; it stops being defensible the moment an intake endpoint exists, which is section 3's prerequisite.
 
 ---
 
-## 8. The hooks move into the binary
+## 8. The hooks move into the binary — and one shim stays
 
-`keel hook session-start` and `keel hook stop`, replacing the two shell scripts.
+`keel hook session-start` and `keel hook stop` replace the shell scripts' logic.
 
-This is not tidying. The scripts need `python3` and `curl`, neither of which is declared anywhere; `install.sh` warns about a missing `jq`, which neither script uses, so the one dependency check that exists is checking the wrong thing. A clean macOS has no `python3` until the Xcode command line tools are installed, so on a fresh machine the hooks silently do nothing — which looks exactly like Keel not working. And bash means Windows is out, while section 10 lists a Windows target.
+This is not tidying. The scripts need `python3` and `curl`, neither declared anywhere; `install.sh` warns about a missing `jq`, which neither script uses, so the one dependency check that exists checks the wrong thing. A clean macOS has no `python3` until the Xcode command line tools arrive, so on a fresh machine the hooks silently do nothing — which looks exactly like Keel not working.
 
-The fourth reason is the one that matters most here. **Nothing in the workspace or in CI executes either script.** KEEL-192 — the Stop hook nagging in projects Keel had never heard of — was found by reading and fixed by reading, and the fix is guarded by nothing. Every rule in section 5 is about surfaces that describe themselves and are tested; the hooks are the one surface that does neither, and moving them into the binary is what fixes that rather than another checklist item.
+The strongest reason is the fourth. **Nothing in the workspace or in CI executes either script.** KEEL-192 — the Stop hook nagging in projects Keel had never heard of — was found by reading and fixed by reading, and the fix is guarded by nothing. Section 5 is entirely about surfaces that describe themselves and are tested; the hooks are the one surface that does neither.
 
-The plugin still ships `hooks/hooks.json`. It calls `${CLAUDE_PLUGIN_ROOT}`-relative wrappers that exec the binary, so the hooks keep working when the binary is missing — by saying so, which is section 1's gap.
+**The shim that has to stay.** Section 1 wants the hook to say "the binary is missing, run `/keel:setup`" — and a hook that *is* the binary cannot report its own absence. So `hooks/hooks.json` keeps calling a `${CLAUDE_PLUGIN_ROOT}` script, and that script does exactly one thing:
+
+```sh
+[ -x "$KEEL_BIN" ] && exec "$KEEL_BIN" hook session-start
+printf '%s' '{"hookSpecificOutput":{…"Keel is installed but not set up — run /keel:setup."}}'
+```
+
+Ten lines that never change, holding no logic worth testing, with everything that can change on the other side of the `exec`. That is the honest resolution of the circularity rather than a claim it does not exist.
 
 ---
 
 ## 9. Embeddings
 
-`fastembed` is fine on the compile question and awkward on the download one. The ONNX Runtime is fetched prebuilt and statically linked at our build time — `ort-sys` pulls a 77 MB archive on every build already, so turning embeddings on adds no build step. The model is the cost: `bge-small-en-v1.5` is 133 MB on first use, or 66 MB quantized.
+`fastembed` is fine on the compile question and awkward on the download one. The ONNX Runtime is fetched prebuilt and statically linked at our build time — `ort-sys` already pulls a 77 MB archive on every build — so turning embeddings on adds no build step. The model is the cost: `bge-small-en-v1.5` is 133 MB on first use, 66 MB quantized.
 
-So: cache path set explicitly under `~/.keel/models` rather than fastembed's default, which is relative to the working directory and is a bug waiting to be found in a long-running daemon. Opt-in behind a visible prompt in `/keel:setup`, never a silent pull. Keyword search works without any of it, which is what makes opt-in honest rather than a downgrade.
+Cache path set explicitly under `~/.keel/models` rather than fastembed's default, which is relative to the working directory and is a bug waiting to be found in a long-running daemon. Opt-in behind a visible prompt in `/keel:setup`, never a silent pull. Keyword search works without any of it, which is what makes opt-in honest rather than a downgrade.
 
-There is no prebuilt ONNX Runtime for Linux ARM, so that target either ships without embeddings or is not shipped.
+There is no prebuilt ONNX Runtime for Linux ARM. Not a target, so not a problem today.
 
 ---
 
 ## 10. The pipeline
 
-`dist` at 0.32, released May 2026. Its sponsoring company wound down its commercial product and there was a six-month gap in 2025, during which Astral forked it for `uv`; those changes were merged back and releases have shipped every two to three months since. It is maintained by the original authors plus Astral. If it ever stalls, the workflow it generates is readable and can be vendored.
+`dist` at 0.32, released May 2026. Its sponsoring company wound down its commercial product and there was a six-month gap in 2025, during which Astral forked it for `uv`; those changes were merged back and releases have shipped every two to three months since. If it ever stalls, the workflow it generates is readable and can be vendored.
 
-- Targets: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`.
-- Shell and PowerShell installers, checksums embedded in the installer, GitHub artifact attestations on so build provenance can be verified.
+- Targets: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`.
+- Shell installer, checksums embedded in it, GitHub artifact attestations on.
 - macOS builds on macOS runners, for the ad-hoc signature.
+- **Node in the release job**, for the embedded site. Not in the generated workflow by default.
 
-**One bug to patch on day one.** The installer `dist` generates verifies downloads by calling `sha256sum`, and stock macOS does not have it — it has `shasum`. The generated script prints "skipping sha256 checksum verification" and returns success. On our primary platform, integrity checking silently does nothing. Fall back to `shasum -a 256`, and send the fix upstream.
+**Windows is not a target.** It had no CI coverage and the hooks cannot run there, so shipping it would have meant either a binary nobody had run or a product that looks whole and is half-wired — this project's recurring failure shape. It comes back when someone asks, with test coverage from the first commit.
 
-**One thing to diary.** GitHub's macOS Intel runners retire in August 2027. Before then, `x86_64` macOS either moves to cross-compilation with an explicit signing step or is dropped.
+**One bug to patch on day one.** The installer `dist` generates verifies downloads with `sha256sum`, which stock macOS does not have — it has `shasum`. The generated script prints "skipping sha256 checksum verification" and returns success, so on our primary platform integrity checking silently does nothing. Fall back to `shasum -a 256` and send the fix upstream.
+
+**One thing to diary.** GitHub's macOS Intel runners retire in August 2027. Before then `x86_64` macOS either moves to cross-compilation with an explicit signing step, or is dropped.
 
 ---
 
@@ -291,26 +323,53 @@ github.com/<owner>/keel
 └── apps/desktop/                       the local site
 ```
 
-The plugin stays in this repository rather than getting its own. Its skills describe behaviour the binary implements, so one commit changes both and there is nothing to keep in step — which is the TQ-26 drift class removed by construction rather than by discipline. The cost is that installing the plugin clones the Rust source to get four text files. A few megabytes, and worth it.
+The plugin stays in this repository. Its skills describe behaviour the binary implements, so one commit changes both and there is nothing to keep in step — the TQ-26 drift class removed by construction rather than by discipline. The cost is cloning the Rust source to get four text files. Worth it.
 
-Binaries go to GitHub Releases. `keel.sh` is a redirect that can be added at any time and is not a prerequisite; the release URL works today and costs nothing.
+Binaries go to GitHub Releases. `keel.sh` is a redirect that can be added any time and is not a prerequisite.
 
-Apache-2.0 replaces the deliberately-absent licence, which means `publish = false` and `deny.toml`'s `private.ignore` both come out.
+Apache-2.0 replaces the deliberately-absent licence, so `publish = false` and `deny.toml`'s `private.ignore` come out.
 
 ---
 
-## 12. Exit criteria
+## 12. How a release is verified
 
-- **A fresh machine reaches a working Keel from three lines inside Claude Code, and nothing compiles on it** — verified on a clean container and on a Mac that has never had Rust installed.
+Three tiers. **Tier 2 is the standing gate**; tier 3 runs before the first public release and before major ones after that.
+
+### Tier 1 — the build machine, clean environment
+
+Run the installer under `env -i HOME=/tmp/keel-clean PATH=/usr/bin:/bin` so there is no cargo on the path and no existing store.
+
+Covers the installer end to end; the checksum refusal path, by corrupting an archive on purpose and confirming it refuses; a binary running with no toolchain; store creation; daemon start; MCP answering; the plugin installed into a virgin `~/.claude`; and the quarantine claim proved directly with `xattr -l` on a fresh download.
+
+Blind to Linux entirely, to a Mac without the Xcode command line tools, and to the cross-compile signature trap. About fifteen minutes, scriptable, every release.
+
+### Tier 2 — tier 1 plus a Linux VM in UTM, snapshot-restored, run by hand
+
+Adds the Linux binary actually running, glibc compatibility, the shell installer on a non-Mac, the systemd unit installing and restarting after a kill, and "nothing compiles" on a machine that has genuinely never had Rust.
+
+**This is the highest value per unit of effort in the whole phase**, because it covers the platform CI has never tested once. An hour of setup, then about ten minutes a release with a snapshot restore.
+
+### Tier 3 — tier 2 plus a clean Mac
+
+Adds a machine that has never had Rust or the Xcode command line tools, ad-hoc signature behaviour in the wild, and the multi-machine store story. A macOS VM in UTM on Apple Silicon may collapse most of this into tier 2's infrastructure and is worth trying before buying anything.
+
+---
+
+## 13. Exit criteria
+
+- **Three commands and a restart, inside Claude Code, reach a working Keel with nothing compiling** — verified at tier 1 and tier 2.
 - No artifact on the install path requires an Apple Developer ID.
-- `jq` and `python3` are required by nothing, and the hooks run on Windows.
-- The installer verifies its own downloads on macOS — checked by corrupting an archive on purpose and confirming it refuses.
+- `jq` and `python3` are required by nothing.
+- The installer refuses a corrupted archive — checked by corrupting one.
 - A release is one CI run and produces every target.
-- **The contract corpus exists, CI fails on an unclassified difference, and every stored vintage store migrates green.**
-- A compatible update applies itself and announces itself in one line; an update crossing a schema version stops and asks.
-- The daemon picks a working port without the user being asked, and refuses a non-loopback bind unless told.
+- **`contracts/` is emitted deterministically** — a hundred runs, zero diffs — **and CI fails on an unclassified difference.**
+- Every vintage store migrates green and passes `fsck`, and at least one is seeded from a scrubbed copy of the real store.
+- A release carrying a breaking change cannot merge without an entry naming its migration and its user-facing sentence.
+- A compatible update applies and announces itself in one line; one crossing a schema version stops and asks; `keel update --rollback` puts the previous binary back.
+- The daemon fails loudly on a taken port and refuses a non-loopback bind unless told.
+- `que_01KZSQHK2C0CTKN36WJ9G4ZHQC` is answered before section 3 begins.
 
-The last three are new and are the ones that make this a product rather than a distribution.
+The previous draft asked for verification "on a Mac that has never had Rust installed", which KB has no way to do and which would have joined the two phase gates that cannot be checked without a human. Tiers replace it with something meetable.
 
 ---
 
@@ -322,6 +381,8 @@ The last three are new and are the ones that make this a product rather than a d
 | Apple Silicon kills unsigned executables | an ad-hoc signature is required at exec; native macOS toolchains add one at link time, cross-compiles do not |
 | A browser-downloaded `.dmg` needs notarization | $99/yr, and macOS Sequoia removed the Control-click bypass |
 | Plugins may declare an HTTP-transport MCP server | the official marketplace ships `linear`, `github` and `vercel` as `"type": "http"`; `./.mcp.json` is the default path and needs no manifest entry |
+| A plugin cannot ship the binaries | a plugin is a git clone of text; `keel` and `keel-daemon` are 37 MB each |
+| SQLite keeps `CREATE TABLE` text verbatim | which is why schema is emitted through `PRAGMA` rather than by dumping `sqlite_master` |
 | `dist` installer checksum bug | its generated script calls `sha256sum`, which stock macOS does not have; it then skips verification and returns success |
 | `dist` is maintained | 0.32.0, May 2026; Astral forked it during a 2025 gap and the changes were merged back upstream |
 | ONNX Runtime does not compile | `ort` downloads a prebuilt static library at build time |
@@ -330,3 +391,4 @@ The last three are new and are the ones that make this a product rather than a d
 | Serving a UI from a local daemon is ordinary | Jupyter, Syncthing, Grafana, Meilisearch, Qdrant, code-server, pgAdmin |
 | CI has never run | `git remote -v` is empty and no keel repository exists under the account; the workflow has never been executed by anything |
 | The MCP surface already survives an engine swap | Phase 9 changed the storage engine and both insta suites produced zero diffs |
+| The store ships four migrations, and the live store is at schema 4 | `schema::migrations()` lists ids 1–4; `keel doctor` reports "the store is at schema 4, which is what this binary ships" |

@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-14T07:21:56.044233+00:00",
+  "generated_at": "2026-08-14T08:38:47.135434+00:00",
   "files": [
     {
       "path": ".keel/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/phase-10-runs-after-phase-11-drops-windows-and-plans-for-a-release-cadence-that-starts-fast-and-slows-down.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZZPATJ8RNYQ573W4701AK63",
+          "entity_type": "decision",
+          "version": 0,
+          "hash": "24ad721df386cd393709354d387bb7f61c429b17478abc51c59cdda506542649"
         }
       ]
     },
