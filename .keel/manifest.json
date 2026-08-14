@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-14T06:47:24.673891+00:00",
+  "generated_at": "2026-08-14T06:54:20.658705+00:00",
   "files": [
     {
       "path": ".keel/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/the-write-ahead-log-stays-on-sqlite-s-defaults-unwatched.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01KZZGS6S1DC5T05KFQY6KQCFT",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "066cf69161a7a4c026d2015b487fab0369b869dc776f3a45f84440a2b0e15738"
         }
       ]
     },
