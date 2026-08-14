@@ -123,41 +123,26 @@ jobs:
             lcov.info
             coverage-summary.txt
 
-  mutants:
-    name: mutation testing (discovery)
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    # Mutation testing rebuilds and re-tests once per mutant. Bounded so a
-    # runaway run cannot hold a runner all day.
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-mutants
-
-      # Scoped to the files where a surviving mutant would be a real hole: the
-      # graph traversal (an inverted walk returns a plausible empty set), the
-      # blocked/ready derivation (a wrong answer looks like work you can pick
-      # up), path confinement, and the id parser. Running it over the whole
-      # workspace would take hours and spend most of them on rendering code
-      # whose mutants a snapshot already catches.
-      - name: Mutate the load-bearing files
-        run: |
-          cargo mutants --no-shuffle -j 2 \
-            --file crates/keel-core/src/store/graph.rs \
-            --file crates/keel-core/src/next.rs \
-            --file crates/keel-core/src/safe_path.rs \
-            --file crates/keel-core/src/id.rs \
-            || true
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: mutants
-          path: mutants.out/
+  # The mutation-testing job was here, and it has been taken out rather than
+  # disabled. It ran weekly against graph.rs, next.rs, safe_path.rs and id.rs,
+  # ended in `|| true` so it could never fail a build, and took two hours and
+  # thirteen minutes for those four files.
+  #
+  # It was removed because it had done its job and nobody had read the answer.
+  # The one run that finished found twelve mutations the suite did not catch —
+  # two of them in the ready/blocked ranking, where a wrong result is
+  # indistinguishable from a real one — and those sat unread in an artifact for
+  # two days. A weekly report nobody opens is not a safety net; it is a bill.
+  #
+  # The twelve are KEEL-214, which is where the value went. Bring the job back
+  # when that is closed and there is traction worth protecting, and prefer
+  # running it by hand against the files a change actually touched:
+  #
+  #   cargo mutants --no-shuffle -j 2 --file <the file you changed>
+  #
+  # Commented history is not kept here on purpose. `git log` has the job, and a
+  # block of dead YAML is the kind of thing that gets uncommented years later
+  # by someone who does not know why it was switched off.
 
   fuzz:
     name: fuzz smoke (60s per target)

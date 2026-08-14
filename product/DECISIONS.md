@@ -78,6 +78,7 @@ Every decision made while building, with the reasoning and what was rejected. In
 | B-65 | [Keel ships as a product: Apache-2.0, 0.x, and the Claude Code plugin as the front door](#b-65) | `accepted` |
 | B-66 | [Updates apply themselves when compatible, and stop and ask across a schema change](#b-66) | `accepted` |
 | B-67 | [Phase 10 runs after Phase 11, drops Windows, and plans for a release cadence that starts fast and slows down](#b-67) | `accepted` |
+| B-68 | [Mutation testing comes out of CI until there is traction worth protecting](#b-68) | `accepted` |
 
 ## Reversals
 
@@ -1557,6 +1558,12 @@ Nothing was built, so there is nothing to unwind. The argument for revisiting wo
 ### B-67 — Phase 10 runs after Phase 11, drops Windows, and plans for a release cadence that starts fast and slows down
 
 `accepted` · `dec_01KZZPATJ8RNYQ573W4701AK63`
+
+*No reasoning recorded.*
+
+### B-68 — Mutation testing comes out of CI until there is traction worth protecting
+
+`accepted` · `dec_01M00V2TMZR4HY008QJMCXE8YG`
 
 *No reasoning recorded.*
 

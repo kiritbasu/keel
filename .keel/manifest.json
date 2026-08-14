@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-14T19:06:36.577100+00:00",
+  "generated_at": "2026-08-14T19:13:43.141508+00:00",
   "files": [
     {
       "path": ".keel/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/mutation-testing-comes-out-of-ci-until-there-is-traction-worth-protecting.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M00V2TMZR4HY008QJMCXE8YG",
+          "entity_type": "decision",
+          "version": 0,
+          "hash": "fdb53648105cea47fdc5c09729683aa42accdfa12c54dc69e61772f5d678f954"
         }
       ]
     },
