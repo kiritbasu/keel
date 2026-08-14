@@ -253,7 +253,7 @@ pub fn by_session(store: &Store, query: &ChangeQuery) -> Result<ChangeLog> {
             .sort_by(|a, b| a.at.cmp(&b.at).then_with(|| a.id.cmp(&b.id)));
         group.headline = headline(group);
     }
-    grouped.sort_by(|a, b| b.ended_at.cmp(&a.ended_at));
+    grouped.sort_by_key(|g| std::cmp::Reverse(g.ended_at));
 
     Ok(ChangeLog {
         changes: total_read.min(limit),

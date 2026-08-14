@@ -718,7 +718,7 @@ fn glossary(store: &Store, project: Option<&EntityId>) -> Result<Vec<TermEntry>>
         .map(|t| t.term.to_lowercase())
         .collect();
     terms.retain(|t| !t.global || !scoped.contains(&t.term.to_lowercase()));
-    terms.sort_by(|a, b| a.term.to_lowercase().cmp(&b.term.to_lowercase()));
+    terms.sort_by_key(|t| t.term.to_lowercase());
     Ok(terms)
 }
 

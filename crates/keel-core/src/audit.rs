@@ -94,9 +94,34 @@ pub struct Audit {
     pub archived_at: Option<DateTime<Utc>>,
 }
 
+/// Round a timestamp down to the precision the store actually keeps.
+///
+/// The timestamp columns are TEXT with six sub-second digits — deliberately,
+/// and documented on `TIMESTAMP_FORMAT`: six is what SPEC §3.1 stores and what
+/// the rows carried over from DuckDB have, and nine would invent three zeroes
+/// and imply an accuracy the source never had.
+///
+/// `Utc::now()` is nanosecond-precise, so an audit block stamped straight from
+/// it holds three digits the store is about to discard. Nothing failed, because
+/// the entity returned by `create` and the entity returned by a later `get`
+/// were never compared by anything that ran — and on macOS they usually agree
+/// anyway, since the clock there rarely fills those digits.
+///
+/// On Linux it does. The first CI run this project ever executed found
+/// `…:40.360446Z` from the store against `…:40.360446996Z` in memory, and the
+/// round-trip test had been passing on one developer's Mac for months.
+///
+/// Truncating here rather than at each `Utc::now()` call site is deliberate:
+/// this is the one place every audit block is built, so the invariant holds by
+/// construction rather than by everyone remembering.
+fn to_stored_precision(t: DateTime<Utc>) -> DateTime<Utc> {
+    DateTime::from_timestamp_micros(t.timestamp_micros()).unwrap_or(t)
+}
+
 impl Audit {
     /// The audit block for a row being created now.
     pub fn new(provenance: &Provenance, now: DateTime<Utc>) -> Self {
+        let now = to_stored_precision(now);
         Audit {
             created_at: now,
             updated_at: now,
@@ -119,7 +144,7 @@ impl Audit {
     pub fn touched(&self, provenance: &Provenance, now: DateTime<Utc>, new_version: i32) -> Self {
         Audit {
             created_at: self.created_at,
-            updated_at: now,
+            updated_at: to_stored_precision(now),
             version: new_version,
             created_by: self.created_by,
             updated_by: provenance.actor,
@@ -197,5 +222,45 @@ mod tests {
         let a = Audit::new(&Provenance::anonymous(Actor::Claude), at(1));
         assert_eq!(a.session_id, None);
         assert_eq!(a.created_by, Actor::Claude);
+    }
+
+    /// Sub-microsecond precision is dropped when the block is stamped, not when
+    /// it is stored.
+    ///
+    /// Deliberately built from a fixed nanosecond value rather than from
+    /// `Utc::now()`. The bug this covers hid for months precisely because it
+    /// depended on the clock: macOS rarely fills the last three digits, Linux
+    /// does, and the round-trip test passed on one machine and failed on the
+    /// first CI run that ever executed. A test that reproduces only on some
+    /// hardware is not a test.
+    #[test]
+    fn a_stamp_carries_only_the_precision_the_store_keeps() {
+        let with_nanos = DateTime::from_timestamp_nanos(1_775_000_000_360_446_996);
+        assert_eq!(
+            with_nanos.timestamp_subsec_nanos() % 1_000,
+            996,
+            "the fixture has to actually carry sub-microsecond digits, or this proves nothing"
+        );
+
+        let created = Audit::new(&Provenance::anonymous(Actor::Claude), with_nanos);
+        assert_eq!(
+            created.created_at.timestamp_subsec_nanos() % 1_000,
+            0,
+            "created_at kept digits the store will discard: {}",
+            created.created_at
+        );
+        assert_eq!(created.created_at, created.updated_at);
+
+        let touched = created.touched(&Provenance::anonymous(Actor::Human), with_nanos, 2);
+        assert_eq!(
+            touched.updated_at.timestamp_subsec_nanos() % 1_000,
+            0,
+            "updated_at kept digits the store will discard: {}",
+            touched.updated_at
+        );
+        assert_eq!(
+            touched.created_at, created.created_at,
+            "an update must not restamp the creation half"
+        );
     }
 }
