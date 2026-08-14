@@ -41,6 +41,16 @@
 #     correct behaviour is one a user disables within a week. This hook is
 #     silent for them and speaks only to the three that missed.
 #
+#  5. **Only in a directory Keel knows about.** KEEL-192. Constraint 4 was
+#     written as though every session were a Keel session, which is true on
+#     the machine this was developed on and on no other. The activity check
+#     below is global — it asks whether any event carries this session id, and
+#     a session in an unrelated repository has none, so it was nagged for not
+#     filing notes about a project that does not exist. One directory
+#     resolution ahead of the activity check turns "wrote nothing" into "wrote
+#     nothing about the project it is standing in", which is the question the
+#     hook meant to ask all along.
+#
 # Fails open in every direction: a missing daemon, an unparseable payload or a
 # timeout all exit 0 silently. Blocking a session because a bookkeeping hook
 # could not reach its store would be a far worse failure than a missed record.
@@ -53,18 +63,19 @@ state_dir="${TMPDIR:-/tmp}/keel-stop-hook"
 payload="$(cat 2>/dev/null || true)"
 [ -n "$payload" ] || exit 0
 
-read -r session_id already_active <<EOF
+read -r session_id already_active cwd <<EOF
 $(printf '%s' "$payload" | python3 -c '
 import json, sys
 try:
     d = json.load(sys.stdin)
 except Exception:
     sys.exit(0)
-print(d.get("session_id", ""), "yes" if d.get("stop_hook_active") else "no")
+print(d.get("session_id", ""), "yes" if d.get("stop_hook_active") else "no", d.get("cwd", ""))
 ' 2>/dev/null)
 EOF
 
 [ -n "$session_id" ] || exit 0
+[ -n "$cwd" ] || cwd="$PWD"
 
 # Constraint 2. Claude Code sets this when it is already continuing because of
 # a stop hook; blocking again from here is an infinite loop.
@@ -74,6 +85,34 @@ EOF
 mkdir -p "$state_dir" 2>/dev/null
 marker="$state_dir/$session_id"
 [ -f "$marker" ] && exit 0
+
+# Constraint 5. Is this directory a Keel project at all? `/api/context` already
+# answers exactly this for the session-start hook, and it answers it the same
+# way here: a populated `data.project` means the directory resolved, a null one
+# means it did not. `depth=brief` because the digest itself is not wanted — only
+# whether there is one.
+#
+# Fails open in the direction of silence, which is the opposite of the choice
+# made for constraint 4 below and deliberately so. There, an unreachable daemon
+# means "assume it wrote" so that a down daemon does not nag every session. Here,
+# an unreachable daemon means "assume no project" for the same reason: both
+# roads lead to saying nothing, which is the only safe thing a bookkeeping hook
+# can do when it cannot tell.
+project="$(
+  curl -sf --max-time 5 --get "$daemon/api/context" \
+    --data-urlencode "cwd=$cwd" \
+    --data-urlencode "depth=brief" 2>/dev/null \
+    | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin).get("data") or {}
+except Exception:
+    print("")
+    sys.exit(0)
+print("yes" if (data.get("project") or {}) else "")
+' 2>/dev/null
+)" || exit 0
+[ -n "$project" ] || exit 0
 
 # Constraint 4. Did this session already record something? The store is the
 # only honest answer — a session can talk about recording without doing it,
