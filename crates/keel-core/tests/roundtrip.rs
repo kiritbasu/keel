@@ -8,7 +8,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use chrono::{NaiveDate, Utc};
+use chrono::NaiveDate;
 use keel_core::*;
 use serde_json::json;
 
@@ -66,7 +66,7 @@ fn one_of_each(project_id: &EntityId, metric_id: &EntityId) -> Vec<Entity> {
 
     let mut decision = Decision::new(project_id.clone(), "DuckDB and Lance, not SQLite");
     decision.status = DecisionStatus::Accepted;
-    decision.decided_at = Some(Utc::now());
+    decision.decided_at = Some(keel_core::now());
 
     let mut question = Question::new(project_id.clone(), "Where does the store live?");
     question.kind = QuestionKind::Risk;
@@ -84,7 +84,7 @@ fn one_of_each(project_id: &EntityId, metric_id: &EntityId) -> Vec<Entity> {
     feedback.source = Some("Customer A".into());
     feedback.contact = Some("a@example.com".into());
     feedback.sentiment = Some(Sentiment::Negative);
-    feedback.occurred_at = Some(Utc::now());
+    feedback.occurred_at = Some(keel_core::now());
 
     let mut design = Design::new(project_id.clone(), "Home screen");
     design.state = DesignState::Approved;
@@ -95,7 +95,7 @@ fn one_of_each(project_id: &EntityId, metric_id: &EntityId) -> Vec<Entity> {
     environment.deployed_version = Some("0.1.0".into());
     environment.deployed_commit = Some("abc1234".into());
     environment.status = EnvironmentStatus::Healthy;
-    environment.last_deployed_at = Some(Utc::now());
+    environment.last_deployed_at = Some(keel_core::now());
 
     let mut metric = Metric::new(project_id.clone(), "Sessions where Claude writes to Keel");
     metric.id = metric_id.clone();
@@ -103,8 +103,12 @@ fn one_of_each(project_id: &EntityId, metric_id: &EntityId) -> Vec<Entity> {
     metric.target_value = Some(80.0);
     metric.direction = MetricDirection::Up;
 
-    let mut observation =
-        MetricObservation::new(metric_id.clone(), project_id.clone(), 62.5, Utc::now());
+    let mut observation = MetricObservation::new(
+        metric_id.clone(),
+        project_id.clone(),
+        62.5,
+        keel_core::now(),
+    );
     observation.note = Some("Before the skill landed".into());
 
     let mut artifact = Artifact::new(project_id.clone(), "Competitor teardown");

@@ -114,8 +114,25 @@ pub struct Audit {
 /// Truncating here rather than at each `Utc::now()` call site is deliberate:
 /// this is the one place every audit block is built, so the invariant holds by
 /// construction rather than by everyone remembering.
-fn to_stored_precision(t: DateTime<Utc>) -> DateTime<Utc> {
+pub fn to_stored_precision(t: DateTime<Utc>) -> DateTime<Utc> {
     DateTime::from_timestamp_micros(t.timestamp_micros()).unwrap_or(t)
+}
+
+/// The current time, at the precision Keel stores.
+///
+/// Use this rather than `Utc::now()` for any timestamp that will be written to
+/// the store: `decided_at`, `occurred_at`, `last_deployed_at`, a blob's
+/// `created_at`, an observation's `observed_at`. The audit block is handled for
+/// you — [`Audit::new`] truncates whatever it is given — but the fields a
+/// caller sets directly are the caller's to get right, and `Utc::now()` gives
+/// them three digits the store will silently drop.
+///
+/// The symptom, when it goes wrong, is that the entity handed back by `create`
+/// is not equal to the one a later `get` returns, and only on a machine whose
+/// clock fills those digits. That is a bad afternoon, and it is the reason this
+/// function exists rather than a comment asking people to remember.
+pub fn now() -> DateTime<Utc> {
+    to_stored_precision(Utc::now())
 }
 
 impl Audit {

@@ -1592,7 +1592,7 @@ fn keel_update(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
             .project_id()
             .cloned()
             .unwrap_or_else(|| updated.id().clone());
-        let blob = keel_core::store::Blob::new(bytes, media_type.clone(), chrono::Utc::now())
+        let blob = keel_core::store::Blob::new(bytes, media_type.clone(), keel_core::now())
             .owned_by(updated.id().clone(), project);
         let blob_id = store.put_blob(blob).map_err(|e| to_rpc_error(store, e))?;
 
@@ -1709,7 +1709,7 @@ fn keel_write_doc(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
         title,
         body,
         provenance.actor,
-        chrono::Utc::now(),
+        keel_core::now(),
     )
     .map_err(|e| to_rpc_error(store, e))?
     .attributed(provenance.session_id.clone(), provenance.surface);
