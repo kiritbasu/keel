@@ -640,3 +640,82 @@ fn a_backup_verifies_the_snapshot_it_just_wrote() {
         "the manifest's task count does not match the snapshot it describes"
     );
 }
+
+/// A backup taken before an upgrade must still restore after one.
+///
+/// The round-trip test above proves a backup survives a wipe. It does not prove
+/// a backup survives a *release*, because it takes and restores with the same
+/// binary and the same schema — and that is the shape a user actually meets.
+/// Something goes wrong after an upgrade, and the backup they reach for was
+/// written by the version they were running last week.
+///
+/// Simulated within one binary by forging the ledger backwards: the store is
+/// made to look like one an older release wrote, backed up in that state, then
+/// restored and migrated forward. Forging is the honest way to do this until
+/// there are real vintage stores in the tree, and it tests the sequence rather
+/// than any particular pair of versions.
+#[test]
+fn a_backup_from_an_older_schema_restores_and_migrates_forward() {
+    let (store, source_dir, _summary) = loaded_store();
+    let source_path = source_dir.path().join("keel.sqlite");
+
+    // What the older release could see: everything, minus the knowledge that
+    // the newest migration exists.
+    let before = fsck::check(&store).unwrap();
+    assert!(before.is_clean(), "the fixture should start clean");
+    let documents_before = store
+        .list(&EntityQuery::default().of_type(EntityType::Spec))
+        .unwrap()
+        .total;
+    drop(store);
+
+    {
+        let conn = rusqlite::Connection::open(&source_path).unwrap();
+        let removed = conn
+            .execute(
+                "DELETE FROM _keel_migrations WHERE id = (SELECT max(id) FROM _keel_migrations)",
+                [],
+            )
+            .unwrap();
+        assert_eq!(removed, 1, "there was no newest migration to forget");
+    }
+
+    // Back up the store in that older-looking state. `Store::open` refuses it
+    // now — which is the guard working — so the backup is taken through the
+    // owner's entry point, the same way `keel backup` would after a migration.
+    let older = Store::open_and_migrate(&source_path).expect("the owner may migrate it");
+    let backup_dir = tempfile::tempdir().unwrap();
+    let manifest = backup::backup(&older, backup_dir.path()).expect("backup");
+    drop(older);
+
+    // Restore with the current binary, which is a release ahead.
+    let target = tempfile::tempdir().unwrap();
+    let restored_path = target.path().join("restored").join("keel.sqlite");
+    let restored_manifest = backup::restore(backup_dir.path(), &restored_path).expect("restore");
+    assert_eq!(restored_manifest, manifest);
+
+    let restored = Store::open(&restored_path).expect("open the restored store");
+    assert_eq!(
+        restored.schema_version().unwrap(),
+        shipped_schema_version(),
+        "a restore has to leave the store at the schema this binary ships, or the next \
+         open refuses it"
+    );
+
+    // Assert equality, do not eyeball it.
+    backup::verify_restore(&restored, &manifest).expect("restore diff");
+    let after = fsck::check(&restored).unwrap();
+    assert!(
+        after.is_clean(),
+        "restored store fails fsck: {:#?}",
+        after.errors().collect::<Vec<_>>()
+    );
+    assert_eq!(
+        restored
+            .list(&EntityQuery::default().of_type(EntityType::Spec))
+            .unwrap()
+            .total,
+        documents_before,
+        "crossing a schema boundary must not lose rows"
+    );
+}

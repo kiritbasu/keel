@@ -118,3 +118,79 @@ fn a_file_with_no_ledger_has_applied_nothing() {
     let pending = pending_migrations_at(&path).unwrap();
     assert_eq!(pending.len(), shipped_schema_version() as usize);
 }
+
+/// Forge a ledger entry from the future: a migration this binary has never
+/// heard of, already applied.
+///
+/// The number is deliberately far ahead rather than `shipped + 1`, so the test
+/// keeps meaning the same thing as migrations are added and never accidentally
+/// collides with a real one.
+fn pretend_a_newer_binary_migrated_it(path: &std::path::Path) -> i32 {
+    let future = shipped_schema_version() + 1000;
+    let conn = rusqlite::Connection::open(path).unwrap();
+    conn.execute(
+        "INSERT INTO _keel_migrations (id, name, applied_at) VALUES (?1, ?2, ?3)",
+        rusqlite::params![
+            future,
+            "written_by_a_binary_from_the_future",
+            "2099-01-01T00:00:00Z"
+        ],
+    )
+    .unwrap();
+    future
+}
+
+/// The guard that turns a silent corruption into a startup error.
+///
+/// This is the direction that actually cost this project data. A daemon built
+/// before a migration kept running, found every migration it knew about already
+/// applied, concluded it was up to date, and went on inserting rows with the new
+/// column left NULL — surfacing two days later as an unrelated-looking read
+/// error.
+///
+/// It was lost once already and nobody noticed at the time: DuckDB's engine
+/// refused such an open on its own, so the guard was never the only thing
+/// holding the line. SQLite opens it happily. The behaviour came back because
+/// repointed tests caught it, which is luck rather than coverage — hence this
+/// test, which fails if it is ever lost again.
+#[test]
+fn a_store_newer_than_this_binary_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("keel.sqlite");
+    drop(Store::open(&path).unwrap());
+    let future = pretend_a_newer_binary_migrated_it(&path);
+
+    let error = Store::open(&path).expect_err("a store from the future must not be opened");
+    let message = error.to_string();
+
+    assert!(
+        message.contains(&future.to_string()),
+        "the refusal should name the schema it found: {message}"
+    );
+    assert!(
+        message.contains(&shipped_schema_version().to_string()),
+        "and the one this binary understands, so the direction is unambiguous: {message}"
+    );
+    assert!(
+        message.contains("older than the store"),
+        "and say which way round it is, because the opposite case has a different fix: {message}"
+    );
+}
+
+/// Opening for write must refuse it too.
+///
+/// The read path and the write path reach the ledger by different routes, and a
+/// guard that only covered one of them would leave the daemon — the process
+/// that actually writes — free to do the damage.
+#[test]
+fn a_store_newer_than_this_binary_is_refused_to_a_writer_as_well() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("keel.sqlite");
+    drop(Store::open(&path).unwrap());
+    pretend_a_newer_binary_migrated_it(&path);
+
+    Store::open_and_migrate(&path)
+        .expect_err("migrating a store from the future is the worst version of this");
+    Store::open_and_migrate_exclusive(&path)
+        .expect_err("and the daemon's own entry point must refuse it too");
+}
