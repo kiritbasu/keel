@@ -75,6 +75,8 @@ Every decision made while building, with the reasoning and what was rejected. In
 | B-62 | [Spec decisions that outlive their reasoning are annotated, not rewritten](#b-62) | `accepted` |
 | B-63 | [The keel-github stub comes out of the tree; SPEC §1.1 stays as the intended layout](#b-63) | `accepted` |
 | B-64 | [The write-ahead log stays on SQLite's defaults, unwatched](#b-64) | `accepted` |
+| B-65 | [Keel ships as a product: Apache-2.0, 0.x, and the Claude Code plugin as the front door](#b-65) | `accepted` |
+| B-66 | [Updates apply themselves when compatible, and stop and ask across a schema change](#b-66) | `accepted` |
 
 ## Reversals
 
@@ -1538,4 +1540,16 @@ If a `-wal` is ever found larger than the store beside it, the diagnosis is alre
 
 Nothing was built, so there is nothing to unwind. The argument for revisiting would be an actual observation — a log that does not come back down — rather than the theoretical possibility, which is what was on the table this time.
 
+
+### B-65 — Keel ships as a product: Apache-2.0, 0.x, and the Claude Code plugin as the front door
+
+`accepted` · `dec_01KZZJAD9639CB9V0Q4PJY8ZGT`
+
+*No reasoning recorded.*
+
+### B-66 — Updates apply themselves when compatible, and stop and ask across a schema change
+
+`accepted` · `dec_01KZZJATJZSJWEZ6ASKN0BFWQR`
+
+*No reasoning recorded.*
 
