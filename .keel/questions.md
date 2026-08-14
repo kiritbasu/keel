@@ -79,10 +79,6 @@ The shape is a different matter. Phase 11's titles run to a median of 69 charact
 
 My recommendation is 3 then 2. By style.rs's own argument 3 is where the effect is, and it costs nothing but words; 2 closes a real hole with code already written and tested, and its false-rejection risk is the one you already accepted for `body`.
 
-### Does a browser-served write/intake endpoint require amending hard constraint 7?
-
-`que_01KZSQHK2C0CTKN36WJ9G4ZHQC` · question · open
-
 ### TQ-1 — Are requirement anchors (REQ-4) parsed from markdown by convention, or declared in…
 
 `que_01KZKWMSCD3NRC7WJT5WMARCFW` · question · open
@@ -162,6 +158,10 @@ Options:
 3. **No chunk table at all** — keep one vector per document and accept 512-token truncation. This is the status quo and it is what raised the question.
 
 Recommending 1. The distinction it rests on is one the codebase already makes and already relies on; making it explicit is cheaper than either living with 2 or pretending the tension is not there. It touches storage format, so it is KB's call.
+
+### Does a browser-served write/intake endpoint require amending hard constraint 7?
+
+`que_01KZSQHK2C0CTKN36WJ9G4ZHQC` · question · answered
 
 ### Enforce the single-writer rule with an advisory lock file, or rely on the health probe alone?
 
