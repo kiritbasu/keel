@@ -175,8 +175,22 @@ jobs:
       # with a corpus that persists between runs.
       - name: Smoke each target
         run: |
-          for target in confine_path fts_query parse_id; do
-            cargo fuzz run "$target" -- -max_total_time=60
+          # The target triple has to be named, and the reason is not obvious.
+          #
+          # `install-action` has no recipe for cargo-fuzz, so it falls back to
+          # cargo-binstall, which fetches a *musl-linked* build. cargo-fuzz then
+          # takes its default `--target` from its own binary's triple, so it
+          # tried to build the fuzz targets for x86_64-unknown-linux-musl on a
+          # gnu runner. Two errors follow: musl links libc statically and ASan
+          # refuses that outright, and the musl std is not installed so `core`
+          # cannot be found either.
+          #
+          # Asking rustc for the host rather than hard-coding it keeps this
+          # working if the runner image ever changes architecture.
+          host=$(rustc -vV | awk '/^host:/{print $2}')
+          echo "fuzzing for $host"
+          for name in confine_path fts_query parse_id; do
+            cargo fuzz run --target "$host" "$name" -- -max_total_time=60
           done
 
       - uses: actions/upload-artifact@v4
