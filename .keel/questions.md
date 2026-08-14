@@ -7,6 +7,10 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
+### Is the Claude Code plugin the front door for Phase 10, and what licence ships with it?
+
+`que_01KZZFF8R4VG5KCD759KPZGMWP` · question · open
+
 ### What should Keel measure, and should it measure anything by itself?
 
 `que_01KZTTC4VTBVG7KZ7H00RDQ4ZB` · question · open · severity low
