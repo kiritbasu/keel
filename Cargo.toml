@@ -16,7 +16,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 rust-version = "1.89"
 authors = ["KB"]
@@ -94,16 +94,16 @@ ureq = { version = "2", default-features = false, features = ["json", "tls"] }
 clap = { version = "4", features = ["derive"] }
 
 # Internal
-keel-core = { path = "crates/keel-core", version = "0.1.2" }
-keel-mcp = { path = "crates/keel-mcp", version = "0.1.2" }
-keel-embed = { path = "crates/keel-embed", version = "0.1.2" }
+keel-core = { path = "crates/keel-core", version = "0.1.3" }
+keel-mcp = { path = "crates/keel-mcp", version = "0.1.3" }
+keel-embed = { path = "crates/keel-embed", version = "0.1.3" }
 # Checking for and installing a newer release. Depended on by both shipped
 # binaries — see its own manifest for why it is not in `keel-core`.
-keel-update = { path = "crates/keel-update", version = "0.1.2" }
+keel-update = { path = "crates/keel-update", version = "0.1.3" }
 # A library from the `keel` package's point of view: it holds the daemon, and
 # the `keel-daemon` *binary* is a shim in `keel` so that one installer ships
 # both executables. See `crates/keel/Cargo.toml`.
-keel-daemon = { path = "crates/keel-daemon", version = "0.1.2" }
+keel-daemon = { path = "crates/keel-daemon", version = "0.1.3" }
 
 # Test-only
 insta = { version = "1", features = ["json", "redactions", "filters"] }
