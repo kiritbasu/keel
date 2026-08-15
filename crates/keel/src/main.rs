@@ -287,6 +287,14 @@ enum Command {
         /// backup.
         #[arg(long, conflicts_with = "check")]
         rollback: bool,
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+        ///
+        /// Replacing the binaries is half of an update: the daemon is another
+        /// process and goes on running what it loaded at startup. This is the
+        /// one asked to restart into the new version afterwards, and the one
+        /// checked to see which version came back.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
+        daemon: String,
     },
 
     /// Print a one-line summary of what is in the store.
@@ -593,7 +601,11 @@ fn main() -> Result<()> {
         }
         Command::Fixture => run_fixture(&home, cli.force, cli.json),
         Command::ReleaseManifest => run_release_manifest(),
-        Command::Update { check, rollback } => keel_update::run(*check, *rollback, cli.json),
+        Command::Update {
+            check,
+            rollback,
+            daemon,
+        } => keel_update::run(*check, *rollback, cli.json, daemon),
         Command::Status { daemon } => run_status(&home, daemon, cli.json),
         Command::RenderStatus {
             project,

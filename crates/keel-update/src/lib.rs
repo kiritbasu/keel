@@ -564,6 +564,156 @@ pub fn target() -> Result<&'static str> {
     Ok(target)
 }
 
+/// What happened when the new binaries were put in front of a running daemon.
+///
+/// A value rather than a printed line, so `run` says it once, `--json` says the
+/// same thing in its own shape, and the awkward outcome — a daemon that came
+/// back on the version it started with — is a case somebody has to handle
+/// rather than a string nobody reads.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Restart {
+    /// Nothing was listening, so there was nothing to restart.
+    NoDaemon,
+    /// It went away and came back on the version that was just installed.
+    Restarted {
+        /// The version now serving.
+        version: String,
+    },
+    /// It restarted, and came back on something other than what was installed.
+    ///
+    /// The interesting failure. `keel update` writes into the directory holding
+    /// the `keel` being run; a daemon started from somewhere else has a
+    /// different binary at its own path and is untouched by the update. Silence
+    /// here would leave somebody looking at a version banner that never moves.
+    Elsewhere {
+        /// The version now serving.
+        version: String,
+        /// The version that was installed.
+        installed: String,
+    },
+    /// It was asked and something went wrong, with what went wrong.
+    Failed {
+        /// What to tell the person, in a sentence.
+        why: String,
+    },
+}
+
+impl Restart {
+    /// The sentence to print after the update line.
+    fn sentence(&self, daemon: &str) -> String {
+        match self {
+            Restart::NoDaemon => {
+                "No daemon was running, so there was nothing to restart. Start one with \
+                 `keel-daemon` when you want it."
+                    .to_owned()
+            }
+            Restart::Restarted { version } => {
+                format!("The daemon restarted and is now serving {version}.")
+            }
+            Restart::Elsewhere { version, installed } => format!(
+                "The daemon restarted but came back on {version}, not {installed}. It is running \
+                 from a different directory than the one that was just updated, so it did not \
+                 pick this up — find it with `pgrep -fl keel-daemon` and update that copy."
+            ),
+            Restart::Failed { why } => format!(
+                "The daemon could not be restarted: {why}\n\nIt is still running the old version. \
+                 Restart it yourself with:\n\n    pkill -f keel-daemon && keel-daemon\n\nThe \
+                 daemon it tried was {daemon} — pass `--daemon` if yours is elsewhere."
+            ),
+        }
+    }
+
+    /// The same thing for `--json`.
+    fn as_json(&self) -> serde_json::Value {
+        match self {
+            Restart::NoDaemon => serde_json::json!({ "restarted": false, "reason": "no_daemon" }),
+            Restart::Restarted { version } => {
+                serde_json::json!({ "restarted": true, "version": version })
+            }
+            Restart::Elsewhere { version, installed } => serde_json::json!({
+                "restarted": true,
+                "reason": "different_install",
+                "version": version,
+                "installed": installed,
+            }),
+            Restart::Failed { why } => {
+                serde_json::json!({ "restarted": false, "reason": "failed", "detail": why })
+            }
+        }
+    }
+}
+
+/// Read the version a daemon is serving, or `None` if none answers.
+///
+/// Short timeouts throughout: this runs against loopback, and a daemon that
+/// takes seconds to answer its own health check is one this should stop waiting
+/// for rather than one to be patient with.
+fn daemon_version(daemon: &str) -> Option<String> {
+    let response = ureq::get(&format!("{}/api/health", daemon.trim_end_matches('/')))
+        .timeout(std::time::Duration::from_secs(2))
+        .call()
+        .ok()?;
+    let body: serde_json::Value = response.into_json().ok()?;
+    body.get("version")?.as_str().map(str::to_owned)
+}
+
+/// Ask the daemon to restart into the binaries that were just installed, and
+/// wait to see what comes back.
+///
+/// The waiting is the point. "Asked it to restart" is a claim about a request;
+/// "it is now serving 0.1.3" is a claim about the thing somebody cares about,
+/// and the difference between them is the whole class of bug this project keeps
+/// meeting. So this polls health until the version it reads is one it can
+/// report, rather than returning as soon as the POST succeeds.
+pub fn restart_daemon(daemon: &str, installed: Option<&str>) -> Restart {
+    let base = daemon.trim_end_matches('/');
+
+    // Nothing listening is the ordinary case for anyone who does not leave a
+    // daemon up, and it is not a failure.
+    let before = match daemon_version(base) {
+        Some(version) => version,
+        None => return Restart::NoDaemon,
+    };
+
+    if let Err(e) = ureq::post(&format!("{base}/api/update/restart"))
+        .timeout(std::time::Duration::from_secs(5))
+        .call()
+    {
+        return match e {
+            ureq::Error::Status(404, _) => Restart::Failed {
+                why: format!(
+                    "the daemon on {base} is running {before}, which is too old to know how to \
+                     restart itself"
+                ),
+            },
+            other => Restart::Failed {
+                why: format!("{other}"),
+            },
+        };
+    }
+
+    // It replies before it execs, so the process is still the old one for a
+    // moment. Poll until something answers with a version, then say what that
+    // version is — including when it is the one we started with, which means
+    // the restart happened and changed nothing.
+    for _ in 0..40 {
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        if let Some(version) = daemon_version(base) {
+            return match installed {
+                Some(installed) if version != installed => Restart::Elsewhere {
+                    version,
+                    installed: installed.to_owned(),
+                },
+                _ => Restart::Restarted { version },
+            };
+        }
+    }
+
+    Restart::Failed {
+        why: format!("it stopped answering on {base} and did not come back within ten seconds"),
+    }
+}
+
 /// `keel update`.
 ///
 /// One line when there is nothing to do, one line when something is done, and
@@ -571,17 +721,31 @@ pub fn target() -> Result<&'static str> {
 /// eventually runs this check on its own schedule — the open half of KEEL-203 —
 /// it will report through a log nobody reads, so the terminal is where any of
 /// this is legible and the wording is worth the care.
-pub fn run(check_only: bool, rollback_requested: bool, json: bool) -> Result<()> {
+///
+/// Replacing the binaries is only half of an update, because the daemon is a
+/// separate process that goes on running what it loaded at startup. It is asked
+/// to restart itself here, and what comes back is reported — see
+/// [`restart_daemon`].
+pub fn run(check_only: bool, rollback_requested: bool, json: bool, daemon: &str) -> Result<()> {
     let dir = install_dir()?;
 
     if rollback_requested {
         rollback(&dir)?;
+        // No expected version: what is being restored is whatever was there
+        // before, and this process is the *new* binary asking, so its own
+        // version is the wrong thing to compare against. Whatever comes back is
+        // the answer, and reporting it is how you find out the rollback took.
+        let restart = restart_daemon(daemon, None);
         if json {
-            println!("{}", serde_json::json!({ "rolled_back": true }));
+            println!(
+                "{}",
+                serde_json::json!({ "rolled_back": true, "daemon": restart.as_json() })
+            );
         } else {
             println!(
-                "Put the previous binaries back in {}. Restart the daemon to run them.",
-                dir.display()
+                "Put the previous binaries back in {}.\n{}",
+                dir.display(),
+                restart.sentence(daemon)
             );
         }
         return Ok(());
@@ -595,7 +759,12 @@ pub fn run(check_only: bool, rollback_requested: bool, json: bool) -> Result<()>
     let installed_schema = keel_core::shipped_schema_version();
     let plan = plan(installed_version, installed_schema, &manifest, target)?;
 
-    if json {
+    // One JSON object per run, so anything parsing this reads a line rather
+    // than a stream. The branch that actually installs prints its own, with the
+    // daemon's fate merged in — it cannot be printed here because it has not
+    // happened yet.
+    let installing = !check_only && matches!(plan, Plan::Apply { .. });
+    if json && !installing {
         println!("{}", serde_json::to_string(&describe(&plan))?);
     }
 
@@ -645,10 +814,19 @@ pub fn run(check_only: bool, rollback_requested: bool, json: bool) -> Result<()>
             let unpacked = unpack(&archive, work.path(), target)?;
             install_from(&unpacked, &dir)?;
 
-            if !json {
+            let restart = restart_daemon(daemon, Some(version));
+
+            if json {
+                let mut out = describe(&plan);
+                if let Some(fields) = out.as_object_mut() {
+                    fields.insert("daemon".to_owned(), restart.as_json());
+                }
+                println!("{}", serde_json::to_string(&out)?);
+            } else {
                 println!(
-                    "Updated Keel {installed_version} → {version}. Restart the daemon to run it; \
-                     `keel update --rollback` undoes this."
+                    "Updated Keel {installed_version} → {version}.\n{}\n\nTo go back: `keel \
+                     update --rollback`.",
+                    restart.sentence(daemon)
                 );
             }
             Ok(())
@@ -693,6 +871,146 @@ mod tests {
             schema_version: schema,
             artifacts: BTreeMap::new(),
         }
+    }
+
+    /// A daemon-shaped thing on loopback, for the restart tests.
+    ///
+    /// Enough HTTP to answer `/api/health` with a version and to take the
+    /// restart POST. It cannot be the real daemon: the endpoint under test ends
+    /// in `exec`, and a test that reached it would replace the test binary with
+    /// itself. So what is tested here is the caller's half — which is the half
+    /// that decides what a person is told.
+    ///
+    /// `after` is the version health reports once the restart has been asked
+    /// for, which is how a real restart looks from outside. Setting it to the
+    /// version it already served is how a daemon running from somewhere else
+    /// looks, and that is a case with its own sentence.
+    fn stub_daemon(before: &str, after: Option<&str>, restart_status: u16) -> String {
+        use std::io::{Read, Write};
+        use std::sync::{Arc, Mutex};
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let version = Arc::new(Mutex::new(before.to_owned()));
+        let after = after.map(str::to_owned);
+
+        // Detached: the harness ends the process and the thread with it. A stop
+        // flag here would be ceremony around a listener nothing else can reach.
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { continue };
+                let mut buf = [0u8; 1024];
+                let read = stream.read(&mut buf).unwrap_or(0);
+                let request = String::from_utf8_lossy(&buf[..read]).to_string();
+
+                let response = if request.starts_with("POST") {
+                    if restart_status == 200 {
+                        if let Some(next) = &after {
+                            *version.lock().unwrap() = next.clone();
+                        }
+                        "HTTP/1.1 200 OK\r\nContent-Length: 20\r\n\r\n{\"restarting\":true}\n"
+                            .to_owned()
+                    } else {
+                        "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n".to_owned()
+                    }
+                } else {
+                    let body = format!("{{\"version\":\"{}\"}}", version.lock().unwrap());
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: \
+                         {}\r\n\r\n{body}",
+                        body.len()
+                    )
+                };
+                let _ = stream.write_all(response.as_bytes());
+                let _ = stream.flush();
+            }
+        });
+
+        format!("http://{addr}")
+    }
+
+    /// Nobody home is the ordinary case, not a failure, and it must not be
+    /// reported as one — most people do not leave a daemon running.
+    #[test]
+    fn no_daemon_is_not_a_failure() {
+        // Bound and dropped, so the port is one nothing is listening on.
+        let dead = {
+            let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            l.local_addr().unwrap()
+        };
+        let outcome = restart_daemon(&format!("http://{dead}"), Some("0.1.3"));
+        assert_eq!(outcome, Restart::NoDaemon);
+        assert!(
+            outcome.sentence("x").contains("nothing to restart"),
+            "and it should say so plainly: {}",
+            outcome.sentence("x")
+        );
+    }
+
+    #[test]
+    fn a_daemon_that_comes_back_on_the_new_version_is_reported_as_restarted() {
+        let addr = stub_daemon("0.1.2", Some("0.1.3"), 200);
+        assert_eq!(
+            restart_daemon(&addr, Some("0.1.3")),
+            Restart::Restarted {
+                version: "0.1.3".to_owned()
+            }
+        );
+    }
+
+    /// The failure that is easiest to miss, and the reason the caller waits and
+    /// re-reads the version rather than trusting the POST. `keel update` writes
+    /// beside the `keel` being run; a daemon started from another directory has
+    /// a different binary at its own path and the update never touched it.
+    #[test]
+    fn a_daemon_that_comes_back_unchanged_says_it_is_installed_elsewhere() {
+        let addr = stub_daemon("0.1.2", None, 200);
+        let outcome = restart_daemon(&addr, Some("0.1.3"));
+        assert_eq!(
+            outcome,
+            Restart::Elsewhere {
+                version: "0.1.2".to_owned(),
+                installed: "0.1.3".to_owned(),
+            }
+        );
+        let said = outcome.sentence(&addr);
+        assert!(
+            said.contains("different directory") && said.contains("pgrep"),
+            "and it must say what to do about it: {said}"
+        );
+    }
+
+    /// A daemon old enough to predate the endpoint. The update itself worked,
+    /// so this reports a restart that did not happen rather than an update that
+    /// did not — and gives the command to do it by hand.
+    #[test]
+    fn a_daemon_without_the_endpoint_is_a_named_failure() {
+        let addr = stub_daemon("0.1.2", None, 404);
+        let outcome = restart_daemon(&addr, Some("0.1.3"));
+        let Restart::Failed { why } = &outcome else {
+            panic!("expected a failure, got {outcome:?}");
+        };
+        assert!(
+            why.contains("too old"),
+            "it should name why the daemon refused: {why}"
+        );
+        assert!(
+            outcome.sentence(&addr).contains("pkill -f keel-daemon"),
+            "and every failure must leave the person able to do it themselves"
+        );
+    }
+
+    /// Rollback has no version to expect — this process is the *new* binary
+    /// asking — so whatever comes back is the answer.
+    #[test]
+    fn with_no_expected_version_whatever_comes_back_is_the_answer() {
+        let addr = stub_daemon("0.1.3", Some("0.1.2"), 200);
+        assert_eq!(
+            restart_daemon(&addr, None),
+            Restart::Restarted {
+                version: "0.1.2".to_owned()
+            }
+        );
     }
 
     #[test]

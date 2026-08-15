@@ -994,6 +994,14 @@ Options:
           
           One generation only, and binaries only. If the update you are undoing migrated the store, this does not undo that — restore a backup.
 
+      --daemon <DAEMON>
+          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+          
+          Replacing the binaries is half of an update: the daemon is another process and goes on running what it loaded at startup. This is the one asked to restart into the new version afterwards, and the one checked to see which version came back.
+          
+          [env: KEEL_DAEMON_URL=]
+          [default: http://127.0.0.1:7654]
+
       --force
           Write to the store even though a daemon appears to be running.
           

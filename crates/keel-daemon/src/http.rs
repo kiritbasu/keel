@@ -59,6 +59,13 @@ pub fn router(state: AppState) -> Router {
         // staged itself. So the most any caller can cause — and the API has no
         // token yet, KEEL-168 — is a restart into a version Keel already chose.
         .route("/api/update/apply", post(api_update_apply))
+        // The other half of `keel update`, which replaces the binaries on disk
+        // from a process that does not own the daemon and so cannot restart it.
+        // Same power as the endpoint above and less: it restarts into whatever
+        // is at this process's own path, and cannot cause anything to be
+        // downloaded or installed. Without it the CLI's update ends by telling
+        // you to go and do something it has no way to help you do.
+        .route("/api/update/restart", post(api_update_restart))
         // Read-shaped CLI commands, served here because they cannot open the
         // store themselves while this process holds the write lock — which is
         // always (TQ-15, KEEL-57). `fsck` is the one that matters: an integrity
@@ -506,6 +513,37 @@ async fn api_update_apply() -> Response {
         }
         Err(e) => internal_error(&format!("the staged update was not applied: {e:#}")),
     }
+}
+
+/// Restart into the binary now at this process's own path.
+///
+/// `keel update` replaces both binaries on disk and then has a problem: the
+/// daemon is a different process it does not own, still running the code it
+/// loaded at startup, and there is nothing supervising it that would bring it
+/// back. Until this existed the CLI's only move was to print "restart the
+/// daemon" and leave, which is a chore handed over without the means to do it.
+///
+/// It installs nothing and fetches nothing — every byte it might run is already
+/// on disk, put there by whoever ran the update. That makes it strictly less
+/// than `/api/update/apply`, which can promote something this daemon staged.
+///
+/// The version it was running goes back in the response, and the caller is
+/// expected to ask `/api/health` afterwards for the version that came back. The
+/// two disagreeing is worth knowing about: it means the daemon's binary is not
+/// the one the update replaced, which happens when it was started from a
+/// different directory than the `keel` doing the updating.
+///
+/// The response goes out *before* the restart, for the reason
+/// [`api_update_apply`] gives: `exec` would otherwise drop the connection and
+/// the caller would see a network error for something that worked.
+async fn api_update_restart() -> Response {
+    let was = env!("CARGO_PKG_VERSION");
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        tracing::info!("restarting into the binary now on disk, as asked");
+        crate::run::reexec();
+    });
+    Json(json!({ "restarting": true, "was": was })).into_response()
 }
 
 /// Turn a tool call into an HTTP response, for the REST surface.
