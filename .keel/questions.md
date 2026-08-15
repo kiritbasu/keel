@@ -7,6 +7,37 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
+### Should Keel write a CLAUDE.md into a user's repository, and on whose say-so?
+
+`que_01M032CNQT67QRCD9RTJAWY4HZ` · question · open · severity medium
+
+**Needs KB, but not yet — measure first.**
+
+Asked after KEEL-224: the reason claiming works in this repository and nowhere else is `product/CLAUDE.md`, which is loaded every session and says to claim before starting. No other project has one. Should `/keel:setup` create or update a `CLAUDE.md` in the project being set up?
+
+## Why this may already be answered
+
+KEEL-224 was the actual cause and it is fixed. The skill now leads with claiming and its description covers build requests, so a session on a fresh project has the same instruction this repository gets — via a different route.
+
+**So the first thing to do is not build anything.** Re-run the case on the second Mac with the updated plugin and look at whether tasks move. If they do, this question closes as `no_change` and Keel never touches anybody's `CLAUDE.md`. That is worth an hour of waiting, because every option below is a write into somebody else's repository and the bar for that should be "the cheaper thing did not work".
+
+## If it is still needed
+
+**A managed block, never the whole file.** `CLAUDE.md` belongs to the user and may be hundreds of lines of their own standing instructions. Anything Keel writes goes between markers it can find again, so a second run updates its own block and leaves everything else untouched. Appending unmarked text means the second run duplicates it and no run can ever remove it.
+
+**Written by a command, never by `generate`.** Two reasons, and the second is the load-bearing one. Constraint 2 says the mirror is one-directional and `generate` writes only what Keel owns; a user's `CLAUDE.md` is not that. And this project already decided that a root `CLAUDE.md` cannot be generated at all — Keel's own is excluded on purpose, because Claude Code loads it before anything else, so it is the bootstrap and cannot depend on a generation step having run. The same argument holds in somebody else's repository.
+
+**Say what it did.** A tool that silently edits a file in a repository is the thing people find later and distrust. `/keel:setup` should print the path and the block, and adding it should be a yes/no rather than a default.
+
+## Options
+
+1. **Do nothing; the skill fix is the fix.** Cheapest, and the only one that writes nothing into a user's tree. *(Recommended, pending the measurement.)*
+2. **`/keel:setup` offers a managed block**, creating `CLAUDE.md` if absent and updating its own markers if present, on an explicit yes.
+3. **Detect and tell, write nothing.** The session-start digest notices there is no `CLAUDE.md` mentioning Keel and says so once, with the two lines to paste. Keeps the write in the user's hands at the cost of being ignorable.
+4. **Write it silently at setup.** Rejected — it is the version people find later and distrust, and it is how a tool acquires a reputation for editing files it was not asked to edit.
+
+Recommending 1 until the measurement says otherwise, and 2 over 3 if it does, because the failure being fixed is that people do not read the thing telling them to act.
+
 ### Should the interface tell people an update exists, and may it ask the internet itself?
 
 `que_01M02YVASAEX8HV2JDCTHDS15A` · question · open · severity medium
