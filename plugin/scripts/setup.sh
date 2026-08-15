@@ -1,0 +1,346 @@
+#!/usr/bin/env bash
+#
+# `/keel:setup` — get from "the plugin is installed" to "Keel is running".
+#
+# ## Why this is a script and not a list of steps in a prompt
+#
+# A slash command is a prompt. Anything written there as "then run this, then
+# run that" is executed non-deterministically, asks permission at every step,
+# and does something slightly different each time. So the command's whole body
+# is one line that runs this file, and every decision that matters lives here,
+# where it can be read and tested.
+#
+#   /keel:setup                    what the slash command runs
+#   plugin/scripts/setup.sh        the same thing, by hand
+#   plugin/scripts/setup.sh --dry-run    say what would happen, change nothing
+#
+# ## What it does, in order
+#
+#   1. Refuses early if something is already listening on the port and it is
+#      not Keel.
+#   2. Downloads and verifies the release for this platform.
+#   3. Creates the store, and migrates one that already exists.
+#   4. Installs a service so the daemon comes back after a reboot.
+#   5. Starts it, and waits until it actually answers.
+#
+# ## The port is fixed, deliberately
+#
+# An earlier plan had this resolve a collision by moving to the next free port
+# and writing the result into the plugin config. That is the opposite of what
+# the daemon does, and the daemon is right: it refuses a busy port rather than
+# wandering, because the plugin's MCP entry is written at install time and read
+# at startup, so a daemon that quietly moved to 7655 would leave the config
+# stale and MCP would fail with nothing to explain it. A wandering port and a
+# static configuration file cannot both be right.
+#
+# So a busy port is a refusal with instructions, not a silent relocation.
+
+set -uo pipefail
+
+REPO="${KEEL_REPO:-kiritbasu/keel}"
+PORT="${KEEL_PORT:-7654}"
+BIN_DIR="${KEEL_BIN_DIR:-$HOME/.local/bin}"
+KEEL_HOME_DIR="${KEEL_HOME:-$HOME/.keel}"
+DAEMON_URL="http://127.0.0.1:$PORT"
+
+DRY_RUN=false
+EMBEDDINGS=false
+INSTALL_SERVICE=true
+
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run)     DRY_RUN=true ;;
+        --embeddings)  EMBEDDINGS=true ;;
+        --no-service)  INSTALL_SERVICE=false ;;
+        -h|--help)     sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *)             echo "setup: unknown argument: $arg" >&2; exit 2 ;;
+    esac
+done
+
+step()  { printf '\n\033[1m%s\033[0m\n' "$*"; }
+ok()    { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+info()  { printf '    %s\n' "$*"; }
+fail()  { printf '  \033[31m✗\033[0m %s\n' "$*" >&2; }
+
+die() {
+    fail "$1"
+    shift
+    for line in "$@"; do printf '    %s\n' "$line" >&2; done
+    exit 1
+}
+
+run() {
+    if [ "$DRY_RUN" = true ]; then
+        info "would run: $*"
+        return 0
+    fi
+    "$@"
+}
+
+# --- 0. is the port already taken, and by what? -----------------------------
+#
+# Asked first, because everything below is wasted if the answer is "something
+# else is on 7654" — and because a Keel already running is a *success*, not a
+# collision. Re-running setup is the ordinary thing someone does when they are
+# not sure it worked, and it must not punish them.
+
+step "Checking the port"
+
+health="$(curl -sf --max-time 3 "$DAEMON_URL/api/health" 2>/dev/null)"
+if [ -n "$health" ] && printf '%s' "$health" | grep -q '"status"'; then
+    ok "a Keel daemon is already answering on $PORT"
+    info "setup will reinstall the binaries and restart it"
+    ALREADY_RUNNING=true
+elif command -v nc >/dev/null 2>&1 && nc -z 127.0.0.1 "$PORT" 2>/dev/null; then
+    die "something is listening on $PORT and it is not Keel." \
+        "Keel does not pick another port: the plugin's MCP entry names this one" \
+        "and is read when Claude Code starts, so a daemon that moved would leave" \
+        "the config stale with nothing to explain the failure." \
+        "" \
+        "Stop whatever is on $PORT, or set KEEL_PORT and pass the same value to" \
+        "the daemon and to the MCP config."
+else
+    ok "port $PORT is free"
+    ALREADY_RUNNING=false
+fi
+
+# --- 1. the binaries --------------------------------------------------------
+
+step "Installing the binaries"
+
+installer_url="https://github.com/$REPO/releases/latest/download/keel-installer.sh"
+
+if [ "$DRY_RUN" = true ]; then
+    info "would download and run $installer_url"
+else
+    # A private repository serves a 404 to an unauthenticated download, which
+    # is indistinguishable from "no release exists" unless somebody says so.
+    # `gh` is the cheapest way to turn that into a token when it is available,
+    # and the message below covers the case where it is not.
+    if [ -z "${KEEL_GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
+        KEEL_GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
+        [ -n "$KEEL_GITHUB_TOKEN" ] && export KEEL_GITHUB_TOKEN && \
+            info "using a token from the GitHub CLI (this repository is private)"
+    fi
+
+    install_log="$(mktemp)"
+    if curl --proto '=https' --tlsv1.2 -LsSf \
+        ${KEEL_GITHUB_TOKEN:+--header "Authorization: Bearer $KEEL_GITHUB_TOKEN"} \
+        "$installer_url" 2>"$install_log" | sh >>"$install_log" 2>&1
+    then
+        ok "binaries installed"
+    else
+        # Say which of the three it is, rather than printing curl's exit code.
+        if grep -qiE '404|not found' "$install_log" 2>/dev/null; then
+            die "the release could not be downloaded (404)." \
+                "Either no release has been published yet, or this repository is" \
+                "private and the download needs a token." \
+                "" \
+                "  gh auth login          # then run /keel:setup again" \
+                "  KEEL_GITHUB_TOKEN=...  # or set one directly" \
+                "" \
+                "Log: $install_log"
+        fi
+        die "the installer failed. Log: $install_log"
+    fi
+fi
+
+keel_bin="$BIN_DIR/keel"
+daemon_bin="$BIN_DIR/keel-daemon"
+
+if [ "$DRY_RUN" = false ]; then
+    # The installer's own default is CARGO_HOME, so look there too rather than
+    # assuming. A binary that installed successfully into a directory this
+    # script did not expect is a working install, not a failure.
+    for candidate in "$BIN_DIR" "$HOME/.cargo/bin" "$HOME/.local/bin"; do
+        if [ -x "$candidate/keel" ] && [ -x "$candidate/keel-daemon" ]; then
+            keel_bin="$candidate/keel"
+            daemon_bin="$candidate/keel-daemon"
+            break
+        fi
+    done
+    [ -x "$keel_bin" ] || die "keel is not where the installer said it would be" \
+        "Looked in: $BIN_DIR, $HOME/.cargo/bin, $HOME/.local/bin"
+    ok "keel $("$keel_bin" --version 2>/dev/null | awk '{print $2}') at $keel_bin"
+fi
+
+# --- 2. the store -----------------------------------------------------------
+
+step "Preparing the store"
+
+if [ "$DRY_RUN" = true ]; then
+    info "would create or migrate $KEEL_HOME_DIR"
+elif [ -f "$KEEL_HOME_DIR/keel.sqlite" ]; then
+    # An existing store may be behind this binary. Migrating is the daemon's
+    # precondition, not an optional tidy-up — it refuses to open a store newer
+    # than itself and will not silently upgrade one that is older.
+    if [ "$ALREADY_RUNNING" = true ]; then
+        info "a daemon is holding the store; it will be stopped before migrating"
+        stop_daemon_for_migrate=true
+    fi
+    ok "store exists at $KEEL_HOME_DIR"
+else
+    run "$keel_bin" --home "$KEEL_HOME_DIR" fsck >/dev/null 2>&1
+    if [ -f "$KEEL_HOME_DIR/keel.sqlite" ]; then
+        ok "store created at $KEEL_HOME_DIR"
+    else
+        die "the store was not created at $KEEL_HOME_DIR"
+    fi
+fi
+
+# --- 3. stop anything already running, then migrate -------------------------
+
+if [ "$DRY_RUN" = false ] && [ "$ALREADY_RUNNING" = true ]; then
+    step "Stopping the running daemon"
+    pkill -f "keel-daemon" 2>/dev/null
+    for _ in $(seq 1 10); do
+        curl -sf --max-time 1 "$DAEMON_URL/api/health" >/dev/null 2>&1 || break
+        sleep 1
+    done
+    ok "stopped"
+fi
+
+if [ "$DRY_RUN" = false ]; then
+    step "Applying migrations"
+    if "$keel_bin" --home "$KEEL_HOME_DIR" migrate --daemon "$DAEMON_URL" >/dev/null 2>&1; then
+        ok "store is at the schema this binary ships"
+    else
+        info "nothing to migrate, or the store is already current"
+    fi
+fi
+
+# --- 4. the service ---------------------------------------------------------
+#
+# So the daemon survives a reboot. Everything Keel does depends on it being up,
+# and "start it yourself after every restart" is a step people stop doing.
+
+install_launchd() {
+    local plist="$HOME/Library/LaunchAgents/sh.keel.daemon.plist"
+    local args="<string>$daemon_bin</string>"
+    [ "$EMBEDDINGS" = true ] && args="$args
+        <string>--embeddings</string>"
+
+    mkdir -p "$HOME/Library/LaunchAgents"
+    cat > "$plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>sh.keel.daemon</string>
+    <key>ProgramArguments</key>
+    <array>
+        $args
+    </array>
+    <key>KeepAlive</key>
+    <dict><key>SuccessfulExit</key><false/></dict>
+    <key>RunAtLoad</key><true/>
+    <key>StandardOutPath</key><string>$KEEL_HOME_DIR/daemon.log</string>
+    <key>StandardErrorPath</key><string>$KEEL_HOME_DIR/daemon.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>KEEL_HOME</key><string>$KEEL_HOME_DIR</string>
+        <key>KEEL_BIND</key><string>127.0.0.1:$PORT</string>
+    </dict>
+</dict>
+</plist>
+PLIST
+    launchctl unload "$plist" 2>/dev/null
+    launchctl load "$plist" 2>/dev/null
+    info "launchd agent at $plist"
+}
+
+install_systemd() {
+    local unit="$HOME/.config/systemd/user/keel.service"
+    local exec="$daemon_bin"
+    [ "$EMBEDDINGS" = true ] && exec="$exec --embeddings"
+
+    mkdir -p "$HOME/.config/systemd/user"
+    cat > "$unit" <<UNIT
+[Unit]
+Description=Keel daemon
+After=network.target
+
+[Service]
+Environment=KEEL_HOME=$KEEL_HOME_DIR
+Environment=KEEL_BIND=127.0.0.1:$PORT
+ExecStart=$exec
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target
+UNIT
+    systemctl --user daemon-reload 2>/dev/null
+    systemctl --user enable --now keel.service 2>/dev/null
+    info "systemd user unit at $unit"
+}
+
+if [ "$INSTALL_SERVICE" = true ]; then
+    step "Installing the service"
+    if [ "$DRY_RUN" = true ]; then
+        info "would install a $([ "$(uname -s)" = "Darwin" ] && echo launchd agent || echo systemd user unit)"
+    elif [ "$(uname -s)" = "Darwin" ]; then
+        install_launchd
+        ok "the daemon will start at login"
+    elif command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
+        install_systemd
+        ok "the daemon will start at login"
+    else
+        # Not fatal. A machine with no user systemd session can still run Keel;
+        # it just has to be started by hand, and saying so is better than
+        # failing an install over it.
+        fail "no supported service manager found — start the daemon yourself:"
+        info "$daemon_bin"
+        INSTALL_SERVICE=false
+    fi
+fi
+
+# --- 5. start it, and prove it answers --------------------------------------
+
+step "Starting the daemon"
+
+if [ "$DRY_RUN" = true ]; then
+    info "would start the daemon and wait for /api/health"
+else
+    if [ "$INSTALL_SERVICE" = false ]; then
+        embed_flag=""
+        [ "$EMBEDDINGS" = true ] && embed_flag="--embeddings"
+        KEEL_HOME="$KEEL_HOME_DIR" nohup "$daemon_bin" --bind "127.0.0.1:$PORT" $embed_flag \
+            >>"$KEEL_HOME_DIR/daemon.log" 2>&1 &
+    fi
+
+    answered=false
+    for _ in $(seq 1 20); do
+        if curl -sf --max-time 2 "$DAEMON_URL/api/health" >/dev/null 2>&1; then
+            answered=true
+            break
+        fi
+        sleep 1
+    done
+
+    if [ "$answered" = true ]; then
+        ok "answering on $DAEMON_URL"
+    else
+        die "the daemon did not answer within 20 seconds." \
+            "Log: $KEEL_HOME_DIR/daemon.log"
+    fi
+fi
+
+# --- done -------------------------------------------------------------------
+
+step "Done"
+printf '  Store      %s\n' "$KEEL_HOME_DIR"
+printf '  Daemon     %s\n' "$DAEMON_URL"
+printf '  Interface  keel ui\n'
+printf '  Embeddings %s\n\n' \
+    "$([ "$EMBEDDINGS" = true ] && echo "on" || echo "off — keyword search works either way")"
+# `printf`, not a heredoc: a heredoc does not interpret escapes, so the bold
+# sequence printed literally as \033[1m — in the one line that most needs to be
+# read, which is a fair demonstration of why the dry run exists.
+printf '  \033[1mRestart Claude Code now.\033[0m MCP servers are connected at startup,\n'
+printf '  and nothing was listening when this session began — so the keel_* tools\n'
+printf '  will not appear until you do.\n\n'
+
+[ "$EMBEDDINGS" = false ] && printf '  For semantic search as well as keyword: re-run with --embeddings\n  (the first start downloads a 133 MB model).\n\n'
+
+exit 0

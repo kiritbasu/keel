@@ -1,0 +1,28 @@
+{
+  "name": "keel",
+  "owner": {
+    "name": "KB"
+  },
+  "metadata": {
+    "description": "Keel — a local-first store for everything about a software project except the code.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "keel",
+      "source": "./plugin",
+      "description": "The project spine: an MCP server over a local SQLite store, the skills that teach Claude when to write to it, and the session hooks that put the project's state in front of every conversation.",
+      "version": "0.1.0",
+      "author": {
+        "name": "KB"
+      },
+      "license": "Apache-2.0",
+      "keywords": [
+        "project-management",
+        "memory",
+        "local-first",
+        "mcp"
+      ]
+    }
+  ]
+}
