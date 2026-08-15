@@ -7,6 +7,55 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
+### STATUS.md is 87% closed tasks and too large to read. What should it be?
+
+`que_01M03MCAA0131JEBED8P63HNJA` · question · open · severity medium
+
+KB asked whether `product/STATUS.md` is really part of the product or a remnant.
+
+## It is part of the product
+
+`status_path` is a field on the project entity, `keel render-status` is a command, `keel generate` writes it for any adopted repository, and `keel-core/tests/generate.rs` exercises it at `docs/STATUS.md` for a project that is not this one. Any repo that adopts Keel gets one wherever it points.
+
+## What *is* a remnant is what it contains
+
+It renders like the hand-maintained tracker it replaced. TQ-14 moved the tracker to rows and the file survived as the committed shadow of the board — but it still prints every task that has ever existed, with its full body.
+
+Measured today:
+
+| | |
+|---|---|
+| Total | 488,033 bytes |
+| `### done` | 405,711 |
+| `### wont_do` | 19,078 |
+| **Closed work** | **87% of the file** |
+| Open tasks | 49,330 |
+| Everything else | 11,978 |
+
+## And at this size it fails its own job
+
+Session-ritual step 1 is "Read `product/STATUS.md`". At the start of this session that read was refused:
+
+```
+File content (469.9KB) exceeds maximum allowed size (256KB)
+```
+
+So the contract's first instruction cannot be carried out on the project that wrote it, and the digest is what actually orients a session instead. Every adopting project reaches this point eventually — the file grows monotonically with closed work and nothing trims it.
+
+## What the file does that the app and the digest do not
+
+Worth keeping in view before deciding to drop it: it is readable on GitHub without running anything, it works when the daemon is down, and tracker movement shows up in a commit diff, which is how a session's effect on the board becomes reviewable.
+
+## Options
+
+1. **Render current state only.** At a glance, phases, what's next, open and in-progress tasks, blocked, and a bounded recent-changes tail. Closed history moves to a generated `CHANGELOG.md` — the content already exists as a section inside STATUS.md. The file goes from 488KB to something in the tens of kilobytes and becomes readable again.
+2. **Leave it and change the ritual** to say the digest is what orients a session, with STATUS.md as an archive nobody reads front to back.
+3. **Drop it.** The app and the digest are the surfaces; the repo keeps DECISIONS, JOURNAL and questions.
+
+**Recommended: 1.** It is the only one that keeps the three properties above and makes step 1 possible again. 3 gives up the commit-diff property, which is the one thing neither the app nor the digest can offer. 2 leaves an instruction in the contract that cannot be followed, which this project has twice decided is worse than no instruction.
+
+Worth settling at the same time: whether a release is a task. 0.1.2 and 0.1.3 both went out as bare commits with no row, so neither appears on the board or in the changelog.
+
 ### Should Keel write a CLAUDE.md into a user's repository, and on whose say-so?
 
 `que_01M032CNQT67QRCD9RTJAWY4HZ` · question · open · severity medium
