@@ -110,34 +110,76 @@ step "Installing the binaries"
 
 installer_url="https://github.com/$REPO/releases/latest/download/keel-installer.sh"
 
+# **A token does not make the ordinary download URL work.**
+#
+# This is the bug the first real install on a second machine hit, and it is
+# worth writing down because the intuition is wrong. For a private repository
+# `https://github.com/OWNER/REPO/releases/download/...` returns 404 *even with a
+# valid Bearer token* — GitHub serves private release assets only through the
+# API, at `/repos/OWNER/REPO/releases/assets/{id}` with
+# `Accept: application/octet-stream`. Measured both ways: 404 with the token,
+# 404 without it, 200 through the API.
+#
+# So the earlier version of this step was correct in intent and pointed at a URL
+# that cannot work, and every private-repo install would have hit the same wall
+# with a message blaming the token.
+#
+# It is two downloads, not one. Fetching the installer through the API is half
+# the problem: the installer then fetches the *archive* from the same shape of
+# URL. Both have to come through the API, which is why the assets are pulled
+# into a directory and the installer is pointed at it with `KEEL_DOWNLOAD_URL` —
+# the generator's own override, and the same route `verify-release-tier1.sh`
+# uses to test a release before it is published.
+#
+# `gh` does the API download rather than curl plus a JSON parser. Asset ids have
+# to be looked up by name, and parsing JSON in shell is what put `python3` on
+# the critical path of the session hooks — a dependency absent from a clean Mac,
+# failing silently. Not making that mistake twice.
+download_via_api() {
+    local dest="$1"
+    command -v gh >/dev/null 2>&1 || return 1
+    gh auth status >/dev/null 2>&1 || return 1
+    # `--pattern '*'` is not decoration: without a tag argument `gh release
+    # download` refuses unless given `--pattern` or `--archive`, and the refusal
+    # is an exit 1 that looks exactly like "no access" from a caller that only
+    # checks the status. No tag, so this always takes the latest release.
+    gh release download --repo "$REPO" --dir "$dest" --pattern '*' --clobber \
+        >/dev/null 2>&1
+}
+
 if [ "$DRY_RUN" = true ]; then
     info "would download and run $installer_url"
 else
-    # A private repository serves a 404 to an unauthenticated download, which
-    # is indistinguishable from "no release exists" unless somebody says so.
-    # `gh` is the cheapest way to turn that into a token when it is available,
-    # and the message below covers the case where it is not.
-    if [ -z "${KEEL_GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
-        KEEL_GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
-        [ -n "$KEEL_GITHUB_TOKEN" ] && export KEEL_GITHUB_TOKEN && \
-            info "using a token from the GitHub CLI (this repository is private)"
-    fi
-
     install_log="$(mktemp)"
-    if curl --proto '=https' --tlsv1.2 -LsSf \
-        ${KEEL_GITHUB_TOKEN:+--header "Authorization: Bearer $KEEL_GITHUB_TOKEN"} \
-        "$installer_url" 2>"$install_log" | sh >>"$install_log" 2>&1
+    assets="$(mktemp -d)"
+
+    if download_via_api "$assets" && [ -f "$assets/keel-installer.sh" ]; then
+        # Private or public, this route works for both, so it is tried first
+        # rather than kept as a fallback — the failure it avoids is silent.
+        info "fetched the release through the GitHub API"
+        if KEEL_DOWNLOAD_URL="file://$assets" sh "$assets/keel-installer.sh" \
+            >>"$install_log" 2>&1
+        then
+            ok "binaries installed"
+        else
+            die "the installer failed. Log: $install_log"
+        fi
+    elif curl --proto '=https' --tlsv1.2 -LsSf "$installer_url" 2>"$install_log" \
+        | sh >>"$install_log" 2>&1
     then
         ok "binaries installed"
     else
-        # Say which of the three it is, rather than printing curl's exit code.
+        # Say which of the causes it is rather than printing curl's exit code.
         if grep -qiE '404|not found' "$install_log" 2>/dev/null; then
             die "the release could not be downloaded (404)." \
-                "Either no release has been published yet, or this repository is" \
-                "private and the download needs a token." \
                 "" \
-                "  gh auth login          # then run /keel:setup again" \
-                "  KEEL_GITHUB_TOKEN=...  # or set one directly" \
+                "If this repository is private, the plain download URL returns 404" \
+                "even with a valid token — private assets are only served through" \
+                "the API, and reaching them needs the GitHub CLI:" \
+                "" \
+                "  brew install gh && gh auth login" \
+                "" \
+                "Otherwise no release has been published yet." \
                 "" \
                 "Log: $install_log"
         fi
@@ -149,10 +191,14 @@ keel_bin="$BIN_DIR/keel"
 daemon_bin="$BIN_DIR/keel-daemon"
 
 if [ "$DRY_RUN" = false ]; then
-    # The installer's own default is CARGO_HOME, so look there too rather than
-    # assuming. A binary that installed successfully into a directory this
-    # script did not expect is a working install, not a failure.
-    for candidate in "$BIN_DIR" "$HOME/.cargo/bin" "$HOME/.local/bin"; do
+    # The installer's own default is `$CARGO_HOME/bin`, falling back to
+    # `~/.cargo/bin`, so both are looked for and `CARGO_HOME` comes first —
+    # anyone with it set puts the binary somewhere none of the other candidates
+    # name, and this found a *different* `keel` further down the list instead.
+    # An install that reports the version of a binary it did not install is
+    # worse than one that fails.
+    for candidate in "${CARGO_HOME:+$CARGO_HOME/bin}" "$BIN_DIR" "$HOME/.cargo/bin" "$HOME/.local/bin"; do
+        [ -n "$candidate" ] || continue
         if [ -x "$candidate/keel" ] && [ -x "$candidate/keel-daemon" ]; then
             keel_bin="$candidate/keel"
             daemon_bin="$candidate/keel-daemon"
@@ -180,11 +226,24 @@ elif [ -f "$KEEL_HOME_DIR/keel.sqlite" ]; then
     fi
     ok "store exists at $KEEL_HOME_DIR"
 else
-    run "$keel_bin" --home "$KEEL_HOME_DIR" fsck >/dev/null 2>&1
+    # `--daemon "$DAEMON_URL"`, never the default, and this is the second thing
+    # the first real install got wrong.
+    #
+    # Read commands go *through* a daemon when one answers, and `--daemon`
+    # defaults to 127.0.0.1:7654. So on a machine that already runs Keel, this
+    # asked the live daemon about the store it serves, got a cheerful exit 0
+    # about somebody else's data, and created nothing here — then the check
+    # below failed with "the store was not created", which is true and explains
+    # nothing. Pointing it at the port being set up means it opens this store
+    # directly when nothing is listening, which is the case on a clean machine
+    # and the case that matters.
+    run "$keel_bin" --home "$KEEL_HOME_DIR" fsck --daemon "$DAEMON_URL" >/dev/null 2>&1
     if [ -f "$KEEL_HOME_DIR/keel.sqlite" ]; then
         ok "store created at $KEEL_HOME_DIR"
     else
-        die "the store was not created at $KEEL_HOME_DIR"
+        die "the store was not created at $KEEL_HOME_DIR" \
+            "The daemon creates one on first start, so this is recoverable —" \
+            "but something is wrong if opening it directly did not."
     fi
 fi
 
