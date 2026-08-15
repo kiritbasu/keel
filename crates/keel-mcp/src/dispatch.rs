@@ -126,6 +126,59 @@ fn readable_ref(store: &Store, entity: &Entity) -> Option<String> {
     }
 }
 
+/// Where this artifact lives in the interface, if it has a screen and there is
+/// an interface running.
+///
+/// `None` for the types with no screen of their own — a milestone, a term, an
+/// environment, a metric. A link that opens the app's fallback and shows
+/// something unrelated is worse than no link, because it reads as the interface
+/// being broken rather than as the thing having no page.
+fn interface_url(store: &Store, entity: &Entity) -> Option<String> {
+    let base = crate::links::interface()?;
+
+    // A project is its own screen and has no project of its own to look up.
+    if let Entity::Project(project) = entity {
+        return Some(crate::links::project(base, &project.slug));
+    }
+
+    let Ok(Some(Entity::Project(project))) = store.get(entity.project_id()?) else {
+        return None;
+    };
+
+    match entity {
+        Entity::Task(task) => Some(crate::links::task(
+            base,
+            &project.slug,
+            &format!("{}-{}", project.key, task.number),
+        )),
+        Entity::Spec(_)
+        | Entity::Decision(_)
+        | Entity::Question(_)
+        | Entity::Feedback(_)
+        | Entity::Design(_) => Some(crate::links::document(
+            base,
+            &project.slug,
+            entity.id().as_ref(),
+        )),
+        _ => None,
+    }
+}
+
+/// [`entity_json`] with the interface link attached, for the responses that
+/// name one artifact.
+///
+/// Separate from `entity_json` rather than folded into it, because that
+/// function is the wire shape for every surface including bulk listings, and a
+/// URL on each of several hundred rows is tokens spent on links nobody will
+/// click. This is for the results a reply actually quotes back.
+fn entity_json_linked(store: &Store, entity: &Entity) -> Value {
+    let mut value = entity_json(entity);
+    if let (Some(obj), Some(url)) = (value.as_object_mut(), interface_url(store, entity)) {
+        obj.insert("url".to_owned(), json!(url));
+    }
+    value
+}
+
 /// A missing or malformed argument.
 fn bad_arg(field: &str, problem: &str, expected: &str) -> RpcError {
     RpcError::new(
@@ -588,7 +641,7 @@ fn keel_get(store: &Store, args: &Value) -> Result<Value, RpcError> {
             continue;
         };
 
-        let mut item = json!({ "entity": entity_json(&entity) });
+        let mut item = json!({ "entity": entity_json_linked(store, &entity) });
 
         if include_body && id.entity_type().has_document() {
             let doc = store
@@ -1226,7 +1279,7 @@ fn keel_create(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     Ok(tool_result(
         summary,
         json!({
-            "entity": entity_json(&entity),
+            "entity": entity_json_linked(store, &entity),
             "created": created.created,
             "document": document,
             "style_warnings": style_warnings,
@@ -1940,6 +1993,14 @@ fn keel_ready(store: &Store, args: &Value) -> Result<Value, RpcError> {
 
     let ready = keel_core::ready(store, &project, &filter).map_err(|e| to_rpc_error(store, e))?;
 
+    // The slug once, not once per row. `keel_ready` is what a session calls to
+    // decide what to work on, so these are the references it is about to say
+    // out loud — which makes them the ones most worth being clickable.
+    let ready_slug = match store.get(&project) {
+        Ok(Some(Entity::Project(p))) => Some(p.slug),
+        _ => None,
+    };
+
     let summary = if ready.items.is_empty() {
         "Nothing is ready. Either everything open is blocked or waiting on a person — \
          `keel_context` says which — or the filters are narrower than the work."
@@ -1969,7 +2030,11 @@ fn keel_ready(store: &Store, args: &Value) -> Result<Value, RpcError> {
     Ok(tool_result(
         summary,
         json!({
-            "ready": ready.items.iter().map(candidate_json).collect::<Vec<_>>(),
+            "ready": ready
+                .items
+                .iter()
+                .map(|c| candidate_json(c, ready_slug.as_deref()))
+                .collect::<Vec<_>>(),
             "total": ready.total,
             "truncated": ready.truncated,
         }),
@@ -1977,15 +2042,28 @@ fn keel_ready(store: &Store, args: &Value) -> Result<Value, RpcError> {
 }
 
 /// One ranked candidate as JSON.
-fn candidate_json(c: &keel_core::Candidate) -> Value {
-    json!({
+fn candidate_json(c: &keel_core::Candidate, slug: Option<&str>) -> Value {
+    // Absent rather than null when there is no interface to point at. A `url`
+    // key holding nothing is a field every caller has to test, and a model
+    // reading one is being shown a link-shaped hole.
+    let mut value = json!({
         "id": c.id.to_string(),
         "reference": c.reference,
         "title": c.title,
         "priority": c.priority,
         "unblocks": c.unblocks,
         "why": c.why,
-    })
+    });
+
+    if let (Some(obj), Some(url)) = (
+        value.as_object_mut(),
+        slug.zip(crate::links::interface())
+            .map(|(slug, base)| crate::links::task(base, slug, &c.reference)),
+    ) {
+        obj.insert("url".to_owned(), json!(url));
+    }
+
+    value
 }
 
 /// Resolve a milestone by id or by name within one project.
@@ -2052,7 +2130,7 @@ fn keel_claim(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     Ok(tool_result(
         summary,
         json!({
-            "task": entity_json(&Entity::Task(claimed.task)),
+            "task": entity_json_linked(store, &Entity::Task(claimed.task)),
             "reference": reference,
             "took_over_from": claimed.took_over_from,
         }),
@@ -2114,7 +2192,7 @@ fn keel_close(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     Ok(tool_result(
         summary,
         json!({
-            "task": entity_json(&Entity::Task(closed.task)),
+            "task": entity_json_linked(store, &Entity::Task(closed.task)),
             "reference": reference,
             "linked": closed.linked.map(|(rel, to)| json!({
                 "rel": rel.as_str(),

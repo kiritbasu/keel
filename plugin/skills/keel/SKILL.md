@@ -94,6 +94,27 @@ still happening.
 
 ---
 
+## Name an artifact as a link, not as a string
+
+When a tool result carries a `url`, use it: write `[KEEL-42](the url)` rather
+than `KEEL-42`. Claude Code renders markdown links in the terminal and in the
+desktop app, so that one change is the difference between somebody reading about
+a task and somebody being able to open it.
+
+The URL comes from the daemon, never from you. It knows the address it actually
+bound — which is not 7654 for anyone running a second daemon — and it knows
+which types have a screen. A link you compose from a template is wrong on both
+counts sooner than you would think, and a link that opens the wrong page is
+worse than plain text, because it reads as the interface being broken.
+
+`keel_get`, `keel_create`, `keel_claim`, `keel_close` and `keel_ready` return a
+`url` on the artifacts they name. Nothing else does: a digest listing forty rows
+would spend more tokens on links than on the rows. If there is no `url`, the
+artifact has no screen or nothing is serving the interface — say the reference
+plainly and do not invent an address.
+
+---
+
 ## Thread a session id through every call
 
 The session-start hook tells you which identifier to use, and it is the one

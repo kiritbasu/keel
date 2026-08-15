@@ -136,3 +136,91 @@ async fn every_mutating_endpoint_is_behind_the_token() {
         );
     }
 }
+
+// --- Links into the interface ---------------------------------------------
+
+/// A reference in a reply is a dead string unless it carries a URL, and the
+/// daemon is the only thing that knows the address it bound (KEEL-226).
+///
+/// **One test, covering both halves, because the interface address is process
+/// global** — one daemon binds one address for its lifetime, so it is set once
+/// and first write wins. Two tests would race for it and the loser would assert
+/// against the winner's port, which is a flake rather than a finding.
+#[tokio::test]
+async fn tool_results_link_into_the_interface_that_is_actually_serving() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = AppState::open(dir.path(), false).expect("open the store");
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    // What `run` does once its own bind has succeeded.
+    keel_mcp::links::set_interface(&format!("http://{addr}"));
+    let app = router(state);
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+    let base = keel_mcp::links::interface()
+        .expect("the interface address is set")
+        .to_owned();
+    let client = reqwest::Client::new();
+
+    let create = |arguments: serde_json::Value| {
+        let client = client.clone();
+        let at = format!("http://{addr}");
+        async move {
+            client
+                .post(format!("{at}/mcp"))
+                .json(&serde_json::json!({
+                    "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                    "params": { "name": "keel_create", "arguments": arguments },
+                }))
+                .send()
+                .await
+                .unwrap()
+                .json::<serde_json::Value>()
+                .await
+                .unwrap()
+        }
+    };
+
+    create(serde_json::json!({"type": "project", "title": "Links", "slug": "links"})).await;
+
+    let task = create(serde_json::json!({
+        "type": "task", "project": "links", "title": "A task worth opening",
+        "summary": "Something a reply would name, so it needs an address to name it with."
+    }))
+    .await;
+
+    let url = task
+        .pointer("/result/structuredContent/entity/url")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+
+    assert!(
+        url.starts_with(&base),
+        "the link must use the address a daemon bound rather than a default: {url}"
+    );
+    // The path shape, not the key. Keel derives a project's key from its slug
+    // by a rule this test has no business restating — asserting `LINKS-1`
+    // rather than `LINK-1` would be testing a guess about that rule.
+    assert!(
+        url.contains("/#/projects/links/tasks/") && url.ends_with("-1"),
+        "and it must address the task the way the app does — by reference, \
+         under the project's slug: {url}"
+    );
+
+    // The other half: a type with no screen gets no link. A URL that opens the
+    // app's fallback and shows something unrelated reads as the interface being
+    // broken, which is worse than a plain reference.
+    let term = create(serde_json::json!({
+        "type": "term", "project": "links", "title": "Backpressure",
+        "definition": "What a queue does when it is full."
+    }))
+    .await;
+
+    assert!(
+        term.pointer("/result/structuredContent/entity/url")
+            .is_none(),
+        "a glossary entry has no screen, so it must not be handed a link: {term}"
+    );
+}

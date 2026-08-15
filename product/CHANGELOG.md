@@ -1,6 +1,6 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T22:58:34Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T23:18:55Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -814,6 +814,9 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-15 | claude | status todo → in_progress |
+| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
+| 2026-08-15 | claude | claimed_at none → 2026-08-15T23:07:03.365743Z |
 | 2026-08-15 | claude | status in_progress → done |
 | 2026-08-15 | claude | evidence [] → (107 characters) |
 | 2026-08-15 | claude | close_reason none → done |
@@ -1011,9 +1014,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | claimed_at none → 2026-08-15T02:02:47.859794Z |
 | 2026-08-15 | claude | status todo → done |
 | 2026-08-15 | claude | evidence [] → (83 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (425 characters) |
-| 2026-08-15 | claude | created task “Two tests read the machine instead of the code, and the first real CI run found both” |
 
-*Showing the 200 most recent of 1640 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1643 changes. Use `keel_activity` for the rest.*
 

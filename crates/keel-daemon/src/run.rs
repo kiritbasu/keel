@@ -197,6 +197,13 @@ pub async fn run() -> Result<()> {
     tracing::info!("  MCP endpoint  http://{bound}/mcp");
     tracing::info!("  local API     http://{bound}/api");
 
+    // Tell the tool layer where the interface it is describing actually is, so
+    // a result can carry a link into it (KEEL-226). After the bind, because the
+    // port may have been 0 — and a link to the port somebody asked for rather
+    // than the one they got is exactly the wrong-by-default this exists to
+    // avoid.
+    keel_mcp::links::set_interface(&format!("http://{bound}"));
+
     // Record where we actually landed, so the CLI can find a daemon that is not
     // on the default port without being told.
     //
