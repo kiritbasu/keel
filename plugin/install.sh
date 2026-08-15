@@ -68,14 +68,43 @@ install_skill() {
   install_file "$repo_root/plugin/skills/keel/SKILL.md" "$skill_dir/SKILL.md" 644
   mkdir -p "$adopt_dir"
   install_file "$repo_root/plugin/skills/keel-adopt/SKILL.md" "$adopt_dir/SKILL.md" 644
-  install_file "$repo_root/plugin/hooks/session-start.sh" "$skill_dir/session-start.sh" 755
-  install_file "$repo_root/plugin/hooks/stop.sh" "$skill_dir/stop.sh" 755
+  # One shim now, not two scripts. KEEL-206 moved the logic into the binary as
+  # `keel hook session-start` and `keel hook stop`; what is left here is the
+  # only part that has to run *without* the binary, so a session between
+  # installing the plugin and running setup can say the binary is missing.
+  install_file "$repo_root/plugin/hooks/keel-hook.sh" "$skill_dir/keel-hook.sh" 755
+
+  # The two scripts this replaced become forwarders rather than disappearing.
+  #
+  # This is not tidiness, it is the upgrade path. `settings.json` is the user's
+  # file and this script will not edit it — which is right, and it means an
+  # existing install still names `session-start.sh` and `stop.sh` by absolute
+  # path. Deleting them outright breaks every hook on the machine at the moment
+  # of upgrade, silently, until somebody edits a file they were never told to
+  # edit. That was tried here and it did exactly that.
+  #
+  # Three lines each, forwarding to the shim. Nothing needs to change for an
+  # upgrade to work, and a settings.json that is simplified later keeps working
+  # too.
+  for pair in "session-start.sh session-start" "stop.sh stop"; do
+    stale="${pair%% *}"
+    event="${pair##* }"
+    cat > "$skill_dir/$stale" <<FORWARD
+#!/bin/sh
+# Compatibility forwarder. The hooks moved into the binary in KEEL-206; this
+# exists so a settings.json written before that keeps working unchanged.
+# Nothing needs it once settings.json points at keel-hook.sh directly.
+exec "\$(dirname "\$0")/keel-hook.sh" $event
+FORWARD
+    chmod 755 "$skill_dir/$stale"
+    note "$stale — forwards to keel-hook.sh"
+  done
 
   # Read-only inspection, not a rewrite. A settings file that does not mention
   # these paths means the hooks are installed and never run, which looks
   # exactly like the hooks not working.
   local settings="$HOME/.claude/settings.json"
-  if [ -f "$settings" ] && ! grep -q "$skill_dir/session-start.sh" "$settings" 2>/dev/null; then
+  if [ -f "$settings" ] && ! grep -q "$skill_dir/keel-hook.sh" "$settings" 2>/dev/null; then
     note ""
     note "NOTE: $settings does not reference these hooks, so they will not run."
     note "See the settings snippet printed at the end."
@@ -128,9 +157,17 @@ fi
 
 install_skill
 
-for tool in jq curl; do
-  command -v "$tool" >/dev/null 2>&1 || note "WARNING: \`$tool\` is missing; the session hooks need it."
-done
+# The dependency check that used to be here warned about `jq` and `curl` and
+# named the session hooks as the reason. It was wrong twice over: the hooks
+# never used `jq`, and the thing they *did* need — `python3`, absent on a Mac
+# until the Xcode command line tools arrive — was never checked at all. So the
+# one dependency check in the installer was checking the wrong tools for the
+# wrong component.
+#
+# KEEL-206 removed the need rather than correcting the warning. The hooks are
+# `keel hook session-start` and `keel hook stop` now, and the only shell left is
+# `keel-hook.sh`, which is POSIX `sh` and shells out to nothing. There is
+# nothing here to warn about, so there is no warning.
 
 say "Next"
 cat <<EOF
@@ -149,11 +186,11 @@ cat <<EOF
          "hooks": {
            "SessionStart": [
              { "hooks": [ { "type": "command", "timeout": 10,
-                 "command": "$skill_dir/session-start.sh" } ] }
+                 "command": "$skill_dir/keel-hook.sh session-start" } ] }
            ],
            "Stop": [
              { "hooks": [ { "type": "command", "timeout": 15,
-                 "command": "$skill_dir/stop.sh" } ] }
+                 "command": "$skill_dir/keel-hook.sh stop" } ] }
            ]
          }
        }

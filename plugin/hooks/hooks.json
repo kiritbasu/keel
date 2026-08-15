@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/keel-hook.sh session-start",
             "timeout": 10
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/keel-hook.sh stop",
             "timeout": 15
           }
         ]

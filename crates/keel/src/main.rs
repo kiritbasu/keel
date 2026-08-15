@@ -12,6 +12,7 @@ mod bootstrap;
 mod doctor;
 mod gate;
 mod generate;
+mod hook;
 mod import;
 mod rubric;
 mod work;
@@ -50,6 +51,35 @@ struct Cli {
 
     #[command(subcommand)]
     command: Command,
+}
+
+/// Which session hook is being run.
+///
+/// Separate from the daemon-facing commands because these have a different
+/// caller and a different contract: Claude Code invokes them, the payload
+/// arrives on stdin, and the exit code is always 0.
+#[derive(Subcommand)]
+enum HookCommand {
+    /// Put the project digest into a session as it starts.
+    ///
+    /// Orientation stops being a decision the model makes and becomes something
+    /// that happens to the session. Whether to *write* is still judgement, and
+    /// that part stays in the skill.
+    SessionStart {
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
+        daemon: String,
+    },
+
+    /// Ask, once, whether anything from this session should have been recorded.
+    ///
+    /// Silent for a session that already wrote, for a directory Keel does not
+    /// know, and for a daemon it cannot reach.
+    Stop {
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+        #[arg(long, env = "KEEL_DAEMON_URL", default_value = "http://127.0.0.1:7654")]
+        daemon: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -107,6 +137,20 @@ enum Command {
         #[arg(long)]
         print: bool,
     },
+
+    /// Run a Claude Code session hook. Called by the plugin, not by a person.
+    ///
+    /// These were shell scripts until KEEL-206, and they needed `python3` and
+    /// `curl` — neither declared anywhere, and `python3` absent on a Mac until
+    /// the Xcode command line tools arrive. Every failure path exited 0
+    /// silently, so on a fresh machine they did nothing and it looked exactly
+    /// like Keel not working.
+    ///
+    /// Both read a JSON payload on stdin and write JSON on stdout. Both exit 0
+    /// whatever happens: a hook that can block a session is worse than a hook
+    /// that misses a record.
+    #[command(subcommand)]
+    Hook(HookCommand),
 
     /// Give every current revision that has no vector one.
     ///
@@ -490,12 +534,34 @@ fn main() -> Result<()> {
         .init();
 
     let cli = Cli::parse();
+
+    // The hooks are dispatched before the store location is resolved, and that
+    // ordering is the whole point rather than a tidiness.
+    //
+    // `resolve_home` fails when `HOME` is unset — correctly, for every command
+    // that needs a store. A hook needs none: it talks to the daemon over HTTP
+    // and never opens the file. Leaving it below the resolution meant
+    // `keel hook session-start` exited 1 with "HOME is not set" in any stripped
+    // environment, and a hook that exits non-zero is the one thing these must
+    // never do. Caught by `tests/hooks.rs` running the binary under `env -i`,
+    // which is exactly the shape of the environment the bash version was
+    // silently failing in for a different reason.
+    if let Command::Hook(which) = &cli.command {
+        match which {
+            HookCommand::SessionStart { daemon } => hook::session_start(daemon),
+            HookCommand::Stop { daemon } => hook::stop(daemon),
+        }
+        return Ok(());
+    }
+
     let home = resolve_home(cli.home.clone())?;
 
     match &cli.command {
         Command::Fsck { daemon } => run_fsck(&home, daemon, cli.json),
         Command::Doctor { daemon } => doctor::run(&home, daemon, cli.json),
         Command::Ui { daemon, print } => run_ui(&home, daemon.as_deref(), *print, cli.json),
+        // Handled above, before the store location is resolved.
+        Command::Hook(_) => Ok(()),
         Command::Reembed { missing } => run_reembed(&home, *missing, cli.force, cli.json),
         Command::Backup { dest } => run_backup(&home, dest.clone(), cli.json),
         Command::Restore { source, target } => run_restore(source, target, cli.json),

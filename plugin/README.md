@@ -9,9 +9,10 @@ nothing.
 | Piece | What it does | Owns |
 |---|---|---|
 | `.mcp.json` | Points Claude at the local daemon's MCP endpoint. | — |
-| `hooks/session-start.sh` | Injects the digest before the first word. | **The session identity**, and "record it, don't offer to". |
+| `keel hook session-start` | Injects the digest before the first word. | **The session identity**, and "record it, don't offer to". |
 | `skills/keel/SKILL.md` | Teaches Claude *what* belongs where. This is the load-bearing part. | **When to write, and what to write.** |
-| `hooks/stop.sh` | Speaks only to a session that recorded nothing. | **The end-of-session check**, in one sentence. |
+| `keel hook stop` | Speaks only to a session that recorded nothing. | **The end-of-session check**, in one sentence. |
+| `hooks/keel-hook.sh` | Execs the two above, or says the binary is missing. | **Nothing.** It is the only part that must run without Keel. |
 
 The session identity is the hook's because Claude Code already assigns one and
 the model inventing its own produced collisions: two date-based ids landed on

@@ -77,11 +77,11 @@ Then add the hooks to `~/.claude/settings.json`. **`install.sh` deliberately won
   "hooks": {
     "SessionStart": [
       { "hooks": [ { "type": "command", "timeout": 10,
-          "command": "/Users/you/.claude/skills/keel/session-start.sh" } ] }
+          "command": "/Users/you/.claude/skills/keel/keel-hook.sh session-start" } ] }
     ],
     "Stop": [
       { "hooks": [ { "type": "command", "timeout": 15,
-          "command": "/Users/you/.claude/skills/keel/stop.sh" } ] }
+          "command": "/Users/you/.claude/skills/keel/keel-hook.sh stop" } ] }
     ]
   }
 }
@@ -133,13 +133,17 @@ And things that make it read:
 > "What's blocking the release?"
 > "What should I do next?"
 
-### The desktop app
+### The interface
 
 ```bash
-cd apps/desktop && npm install && npm run dev
+keel ui
 ```
 
+The daemon serves it, compiled into the binary — no Node, no second process, nothing to start. It opens whatever address the daemon is actually listening on, so a non-default port needs no arguments.
+
 A board, a roadmap, documents with revision history, a searchable everything, and an activity feed showing what changed and which conversation changed it.
+
+To work on the interface itself, `npm run dev --prefix apps/desktop` gives you the usual hot reload against the same daemon.
 
 **The app is read-only, on purpose.** Claude and the CLI are the only writers. If the app could also write, you'd have two sources of truth for the same row and no answer to which one is right when they disagree.
 
