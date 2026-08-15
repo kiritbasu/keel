@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T21:54:13Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T21:54:28Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (211)
+## Closed work (212)
 
 ### 2026-08-15
+
+- **KEEL-235** The interface shows a version but gives no way to find out what is in it — `done`
+
+  The version in the footer is now a link to that release's notes, and a staged update carries a "What's in it" link beside the restart offer. Both URLs are minted by the daemon and arrive on health, because the repository is configurable and a template in the frontend would only be right for the default. A missing URL falls back to plain text rather than a dead link, and never takes the update offer down with it.
+
+  <sub>commit:2c6b2c4 · test:npx vitest run src/components/VersionFooter.test.tsx · test:rustup run 1.97 cargo test -p keel-update</sub>
 
 - **KEEL-234** A dev install and a release install land in different directories, and one shadows the other — `done`
 
@@ -790,6 +796,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-15 | claude | status in_progress → done |
+| 2026-08-15 | claude | evidence [] → (127 characters) |
+| 2026-08-15 | claude | close_reason none → done |
+| 2026-08-15 | claude | close_message none → (415 characters) |
 | 2026-08-15 | claude | status todo → in_progress |
 | 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
 | 2026-08-15 | claude | claimed_at none → 2026-08-15T21:45:45.696261Z |
@@ -986,10 +996,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-14 | claude | created decision “One package owns both binaries, because dist builds one installer per package” |
 | 2026-08-14 | claude | status todo → in_progress |
 | 2026-08-14 | claude | claimed_by none → ses_0d013ca6-a51f-4bcf-b118-1f9720d86d0e |
-| 2026-08-14 | claude | claimed_at none → 2026-08-14T20:32:17.353561Z |
-| 2026-08-14 | claude | status todo → done |
-| 2026-08-14 | claude | evidence [] → ["commit:f7b9e84","test:cargo test --workspace"] |
-| 2026-08-14 | claude | close_reason none → done |
 
-*Showing the 200 most recent of 1604 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1608 changes. Use `keel_activity` for the rest.*
 
