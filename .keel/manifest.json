@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-15T15:24:05.935478+00:00",
+  "generated_at": "2026-08-15T15:41:39.135767+00:00",
   "files": [
     {
       "path": ".keel/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/the-repository-is-public-and-the-self-hosted-runner-stays-behind-an-all-external-contributors-approval-gate.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M031B11Y5XFDD2QGMA3CP85V",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "6eb91e9fcadcbbff558441065330a164c423d6be92a3adfa9483f96978e7560e"
         }
       ]
     },
