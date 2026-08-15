@@ -328,6 +328,43 @@ fn apply_staged_update() {
     }
 }
 
+/// Replace this process with the binary now at its own path.
+///
+/// Returns only on failure. `exec` keeps the pid, which matters more than it
+/// looks: launchd and systemd are watching this process, and exiting to be
+/// restarted would work but would count as a crash against whatever restart
+/// throttling they apply.
+///
+/// Called from the apply endpoint (B-75) rather than at startup. Startup
+/// reports what is staged and applies nothing — a restart is agreed to, not
+/// arranged (KEEL-225).
+pub(crate) fn reexec() {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        let exe = match std::env::current_exe() {
+            Ok(exe) => exe,
+            Err(e) => {
+                tracing::error!(
+                    "updated, but cannot find this binary's path to restart into it: {e}. \
+                     Running the previous version until restarted."
+                );
+                return;
+            }
+        };
+        // Only `exec` can fail here; on success this process is gone.
+        let e = std::process::Command::new(exe)
+            .args(std::env::args_os().skip(1))
+            .exec();
+        tracing::error!(
+            "updated, but could not restart into the new binary: {e}. Running the previous \
+             version until restarted."
+        );
+    }
+    #[cfg(not(unix))]
+    tracing::info!("updated. Restart the daemon to run the new version.");
+}
+
 /// Look for a newer release on a schedule, and stage one when it is safe.
 ///
 /// **This is the daemon's only outbound request.** Nothing else in this process
@@ -364,8 +401,23 @@ fn spawn_update_check() {
     };
 
     tokio::spawn(async move {
+        // A day was the wrong number and was chosen for the wrong project: it
+        // suits a tool whose releases are rare, and Keel's currently land every
+        // few hours. An hour is the new default, and `KEEL_UPDATE_INTERVAL`
+        // takes seconds, because the right number now is not the right number
+        // in six months and neither is worth a release to change.
+        //
+        // Nothing is applied by finding an update, so a short interval costs a
+        // request and a staged file rather than a surprise restart — which is
+        // what made a day feel like the safe choice in the first place.
         let settle = std::time::Duration::from_secs(5 * 60);
-        let day = std::time::Duration::from_secs(24 * 60 * 60);
+        let interval = std::time::Duration::from_secs(
+            std::env::var("KEEL_UPDATE_INTERVAL")
+                .ok()
+                .and_then(|raw| raw.trim().parse::<u64>().ok())
+                .filter(|seconds| *seconds >= 60)
+                .unwrap_or(60 * 60),
+        );
         tokio::time::sleep(settle).await;
 
         loop {
@@ -395,7 +447,7 @@ fn spawn_update_check() {
                 Err(e) => tracing::warn!("the update check task failed: {e}"),
             }
 
-            tokio::time::sleep(day).await;
+            tokio::time::sleep(interval).await;
         }
     });
 }

@@ -53,6 +53,12 @@ pub fn router(state: AppState) -> Router {
         // Generation writes files into the user's repository, so it is a POST:
         // it is not a safe, cacheable read even though it only reads the store.
         .route("/api/generate", post(api_generate))
+        // The one write endpoint the interface is allowed (B-75, amending hard
+        // constraint 7). It takes no body, no version and no URL: it can only
+        // apply what this daemon has already fetched, checksum-verified and
+        // staged itself. So the most any caller can cause — and the API has no
+        // token yet, KEEL-168 — is a restart into a version Keel already chose.
+        .route("/api/update/apply", post(api_update_apply))
         // Read-shaped CLI commands, served here because they cannot open the
         // store themselves while this process holds the write lock — which is
         // always (TQ-15, KEEL-57). `fsck` is the one that matters: an integrity
@@ -447,9 +453,59 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
         // half of the handshake the daemon owns, and the plugin manifest
         // carries the other.
         "min_plugin_version": keel_core::MIN_PLUGIN_VERSION,
+        // What is downloaded, verified and waiting, or null. The interface
+        // reads health already, so an update becoming available costs no new
+        // endpoint and no new capability — it is a field appearing on a
+        // response the app was fetching anyway.
+        //
+        // Null is the answer when nothing is staged *and* when the install
+        // directory cannot be read; the difference does not matter to a caller,
+        // and reporting an error here would put a red state on a healthy daemon
+        // for something that is not about its health.
+        "staged_version": keel_update::install_dir()
+            .ok()
+            .and_then(|dir| keel_update::staged_version(&dir).ok().flatten()),
         "projects": projects,
         "store_busy": busy,
     }))
+}
+
+/// Apply the staged update and restart into it.
+///
+/// The endpoint B-75 permits, and the whole of what it permits. There is no
+/// body to parse because there is no choice to make: either something is staged
+/// or nothing is, and what was staged was chosen by this daemon.
+///
+/// The response goes out *before* the restart. `exec` replaces the process
+/// immediately, so re-execing inline would drop the connection and the caller
+/// would see a network error for something that worked — which is exactly the
+/// "failure that looks like something else" this project keeps meeting. A short
+/// delay lets the response flush first.
+async fn api_update_apply() -> Response {
+    let dir = match keel_update::install_dir() {
+        Ok(dir) => dir,
+        Err(e) => return internal_error(&format!("cannot find the install directory: {e:#}")),
+    };
+
+    match keel_update::apply_staged(&dir) {
+        Ok(None) => bad_request(
+            "nothing is staged, so there is nothing to apply. The daemon stages an update only \
+             after it has downloaded and verified one.",
+        ),
+        Ok(Some(version)) => {
+            let restarting_into = version.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                tracing::info!(
+                    version = %restarting_into,
+                    "restarting into the update that was just agreed to"
+                );
+                crate::run::reexec();
+            });
+            Json(json!({ "applied": version, "restarting": true })).into_response()
+        }
+        Err(e) => internal_error(&format!("the staged update was not applied: {e:#}")),
+    }
 }
 
 /// Turn a tool call into an HTTP response, for the REST surface.

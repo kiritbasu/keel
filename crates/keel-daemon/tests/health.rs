@@ -186,3 +186,46 @@ async fn the_schema_is_reported_without_the_store() {
 
     held.give_back();
 }
+
+/// Nothing staged means nothing to apply, and the refusal says so.
+///
+/// The endpoint B-75 permits takes no arguments, so this is the only way it can
+/// be wrong: asked to apply when there is nothing there. It must refuse rather
+/// than restart, because a daemon that restarts on an empty request is a daemon
+/// any localhost page can bounce (KEEL-168's token is still open).
+#[tokio::test]
+async fn applying_an_update_that_is_not_staged_is_refused() {
+    let (base, state, _home) = daemon().await;
+
+    let response = reqwest::Client::new()
+        .post(format!("{base}/api/update/apply"))
+        .send()
+        .await
+        .expect("the apply endpoint answers");
+
+    assert_eq!(response.status(), 400, "an empty apply must not succeed");
+    let body = response.text().await.unwrap_or_default();
+    assert!(
+        body.contains("nothing is staged"),
+        "the refusal should say what is missing, got: {body}"
+    );
+    drop(state);
+}
+
+/// Health carries what the daemon already knows, so the interface needs no new
+/// endpoint to show that an update is waiting.
+#[tokio::test]
+async fn health_reports_whether_an_update_is_staged() {
+    let (base, state, _home) = daemon().await;
+
+    let body = health(&base).await;
+    assert!(
+        body.get("staged_version").is_some(),
+        "health should always carry the field, null when nothing is staged: {body}"
+    );
+    assert!(
+        body["staged_version"].is_null(),
+        "nothing was staged in this test, so it should be null: {body}"
+    );
+    drop(state);
+}
