@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T22:28:31Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T22:28:46Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (213)
+## Closed work (214)
 
 ### 2026-08-15
+
+- **KEEL-237** Board search cannot find a task by the identifier everyone uses for it — `done`
+
+  The board's text filter now matches the reference and the bare number as well as the title and body. Verified against the real store: `?q=KEEL-168` and `?q=168` both return KEEL-168, where both returned nothing before. Four tests cover it, including that a reference belonging to no task still comes back empty.
+
+  <sub>commit:dfc39b4 · test:npx vitest run src/lib/filters.test.ts</sub>
 
 - **KEEL-236** Release 0.1.4 — the update restarts the daemon, and the tracker is readable again — `done`
 
@@ -802,6 +808,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-15 | claude | status todo → done |
+| 2026-08-15 | claude | evidence [] → ["commit:dfc39b4","test:npx vitest run src/lib/filters.test.ts"] |
+| 2026-08-15 | claude | close_reason none → done |
+| 2026-08-15 | claude | close_message none → (311 characters) |
 | 2026-08-15 | claude | created task “Board search cannot find a task by the identifier everyone uses for it” |
 | 2026-08-15 | claude | “Hard constraint 7 is amended: the interface may ask the…” resolves “Should the interface tell people an update exists, and may…” |
 | 2026-08-15 | claude | status open → answered |
@@ -998,10 +1008,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | created decision “The repository stays private and macOS builds run on a self-hosted runner” |
 | 2026-08-15 | claude | created task “The changelog reprints old field values, so nothing can ever be redacted from the mirror” |
 | 2026-08-15 | claude | body (1237 characters) → (1223 characters) |
-| 2026-08-15 | claude | retracted a note on tsk_01KZSD5346R7KAV8R4KDS8JEZE |
-| 2026-08-15 | claude | retracted a note on tsk_01KZZFEPGZRZ0KDT9JB5TR32TN |
-| 2026-08-15 | claude | retracted a note on tsk_01KZSKFY6JH7FHPKEVQZGDJ2XQ |
-| 2026-08-15 | claude | unlinked “The install path is built. Does the repository go public…” blocks “Build releases for three targets, and fix the installer's…” |
 
-*Showing the 200 most recent of 1619 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1623 changes. Use `keel_activity` for the rest.*
 
