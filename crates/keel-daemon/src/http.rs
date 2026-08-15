@@ -424,6 +424,17 @@ fn latest_event(store: &keel_core::Store) -> Option<keel_core::EventId> {
 /// count on a health page costs nothing; a health page that hangs costs the
 /// constraint.
 async fn health(State(state): State<AppState>) -> Json<Value> {
+    // Read once: it is reported as a version and again as a link, and asking
+    // the filesystem twice for one fact is how the two come to disagree.
+    //
+    // Null is the answer when nothing is staged *and* when the install
+    // directory cannot be read; the difference does not matter to a caller, and
+    // reporting an error here would put a red state on a healthy daemon for
+    // something that is not about its health.
+    let staged: Option<String> = keel_update::install_dir()
+        .ok()
+        .and_then(|dir| keel_update::staged_version(&dir).ok().flatten());
+
     let (projects, busy) = match state.try_store() {
         Some(store) => {
             use keel_core::{EntityQuery, EntityStore, EntityType};
@@ -463,15 +474,18 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
         // What is downloaded, verified and waiting, or null. The interface
         // reads health already, so an update becoming available costs no new
         // endpoint and no new capability — it is a field appearing on a
-        // response the app was fetching anyway.
-        //
-        // Null is the answer when nothing is staged *and* when the install
-        // directory cannot be read; the difference does not matter to a caller,
-        // and reporting an error here would put a red state on a healthy daemon
-        // for something that is not about its health.
-        "staged_version": keel_update::install_dir()
-            .ok()
-            .and_then(|dir| keel_update::staged_version(&dir).ok().flatten()),
+        // response the app was fetching anyway. See the binding above for what
+        // null covers.
+        "staged_version": staged.clone(),
+        // Where to read what these versions contain. Minted here rather than
+        // composed by the interface: the repository is configurable and a
+        // template in the frontend would be right only for the default. Two
+        // fields rather than one because the two answer different questions —
+        // "what am I running" and "what would I be taking".
+        "release_notes": keel_update::release_notes_url(env!("CARGO_PKG_VERSION")),
+        "staged_release_notes": staged
+            .as_deref()
+            .map(keel_update::release_notes_url),
         "projects": projects,
         "store_busy": busy,
     }))

@@ -183,6 +183,30 @@ fn repo() -> String {
     std::env::var("KEEL_REPO").unwrap_or_else(|_| "kiritbasu/keel".to_owned())
 }
 
+/// Where to read what a version contains.
+///
+/// The release page for the tag, which is the changelog for that version: the
+/// release job builds it with `--generate-notes`, so it is the one place that
+/// says what changed and it is public.
+///
+/// Minted here rather than composed by whoever is displaying it, for the same
+/// reason the daemon mints artifact links: the repository comes from
+/// `KEEL_REPO`, and a caller building the URL from a template would be right
+/// only for the default. It is a pure string function so the interface can show
+/// the link without another request.
+///
+/// The `v` prefix is the tag convention `release.yml` filters on, so a version
+/// of `0.1.3` is the tag `v0.1.3`. Passing a version that was never released
+/// gives a URL that 404s — this cannot check, and a link to a missing release
+/// is a better failure than no link.
+pub fn release_notes_url(version: &str) -> String {
+    format!(
+        "https://github.com/{}/releases/tag/v{}",
+        repo(),
+        version.trim_start_matches('v')
+    )
+}
+
 /// Fetch one asset from the latest release.
 ///
 /// A plain unauthenticated GET, which is what the repository going public buys:
@@ -927,6 +951,25 @@ mod tests {
         });
 
         format!("http://{addr}")
+    }
+
+    /// The link the interface shows beside a version. A release page rather
+    /// than a file in the repository, because it is the one place that says
+    /// what a *published* version contains and it is reachable without a
+    /// checkout.
+    #[test]
+    fn a_version_becomes_the_url_of_its_release() {
+        assert_eq!(
+            release_notes_url("0.1.3"),
+            "https://github.com/kiritbasu/keel/releases/tag/v0.1.3"
+        );
+    }
+
+    /// The tag carries a `v` and the version does not, so a caller that passes
+    /// either gets the same link rather than `.../tag/vv0.1.3`.
+    #[test]
+    fn a_leading_v_is_not_doubled() {
+        assert_eq!(release_notes_url("v0.1.3"), release_notes_url("0.1.3"));
     }
 
     /// Nobody home is the ordinary case, not a failure, and it must not be

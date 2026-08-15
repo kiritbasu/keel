@@ -299,6 +299,17 @@ export const api = {
        * costs no extra request because health is already fetched.
        */
       staged_version?: string | null;
+      /**
+       * Where to read what the running version contains — the release page for
+       * its tag, which the release job builds with `--generate-notes`.
+       *
+       * The daemon mints it rather than the interface composing one, because
+       * the repository is configurable (`KEEL_REPO`) and a template here would
+       * be right only for the default.
+       */
+      release_notes?: string;
+      /** The same for the staged version, or null when nothing is staged. */
+      staged_release_notes?: string | null;
     }>("/api/health"),
 
   /**

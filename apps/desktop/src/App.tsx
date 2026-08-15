@@ -215,6 +215,8 @@ export function App() {
   const [health, setHealth] = useState<{
     version?: string;
     staged_version?: string | null;
+    release_notes?: string;
+    staged_release_notes?: string | null;
   } | null>(null);
   useEffect(() => {
     api
@@ -438,6 +440,8 @@ export function App() {
           <VersionFooter
             version={health?.version}
             stagedVersion={health?.staged_version}
+            releaseNotes={health?.release_notes}
+            stagedReleaseNotes={health?.staged_release_notes}
             onApplied={refresh}
           />
           <div className="mt-cosy">

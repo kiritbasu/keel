@@ -24,10 +24,14 @@ import { Button } from "./ui";
 export function VersionFooter({
   version,
   stagedVersion,
+  releaseNotes,
+  stagedReleaseNotes,
   onApplied,
 }: {
   version: string | undefined;
   stagedVersion: string | null | undefined;
+  releaseNotes?: string;
+  stagedReleaseNotes?: string | null;
   onApplied: () => void;
 }) {
   const [applying, setApplying] = useState(false);
@@ -57,14 +61,43 @@ export function VersionFooter({
   return (
     <div className="mt-cosy px-2.5">
       <p className="text-micro text-ink-faint">
-        Keel <span className="font-mono">{version}</span>
+        Keel{" "}
+        {releaseNotes ? (
+          // A version with no way to find out what is in it is a number. The
+          // link is the release's own notes, which the release job generates,
+          // so it is the changelog for exactly this build.
+          <a
+            href={releaseNotes}
+            target="_blank"
+            rel="noreferrer"
+            className="font-mono underline decoration-dotted underline-offset-2 hover:text-ink"
+            title={`What changed in ${version}`}
+          >
+            {version}
+          </a>
+        ) : (
+          <span className="font-mono">{version}</span>
+        )}
       </p>
 
       {stagedVersion && !applying && (
         <div className="mt-cosy">
           <p className="text-micro text-ink-muted">
             <span className="font-mono">{stagedVersion}</span> is downloaded and
-            verified.
+            verified.{" "}
+            {stagedReleaseNotes && (
+              // Before the button, deliberately: deciding whether to restart
+              // means knowing what the restart brings, and this is the only
+              // place that answers it.
+              <a
+                href={stagedReleaseNotes}
+                target="_blank"
+                rel="noreferrer"
+                className="underline decoration-dotted underline-offset-2 hover:text-ink"
+              >
+                What's in it
+              </a>
+            )}
           </p>
           <Button
             size="sm"

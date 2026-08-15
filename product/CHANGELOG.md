@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T21:45:02Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T21:54:13Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (210)
+## Closed work (211)
 
 ### 2026-08-15
+
+- **KEEL-234** A dev install and a release install land in different directories, and one shadows the other — `done`
+
+  A dev install now writes exactly where a release writes — `CARGO_HOME`, falling back to `~/.cargo/bin` — across the installer, the setup script, the session hook and both READMEs. `~/.local/bin` is off every search path because no release has ever written there. The four stray copies on this machine are gone, `keel` and `keel-daemon` both resolve to the one location, and `install.sh` now warns when the binary it installed is not the one PATH will run.
+
+  <sub>commit:4a1b571 · test:rustup run 1.97 cargo test --workspace</sub>
 
 - **KEEL-232** A release is a task, so cutting one shows on the board and in the changelog — `done`
 
@@ -786,6 +792,13 @@ What has finished. What is happening now is in the tracker beside this file.
 |---|---|---|
 | 2026-08-15 | claude | status todo → in_progress |
 | 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
+| 2026-08-15 | claude | claimed_at none → 2026-08-15T21:45:45.696261Z |
+| 2026-08-15 | claude | status in_progress → done |
+| 2026-08-15 | claude | evidence [] → ["commit:4a1b571","test:rustup run 1.97 cargo test --workspace"] |
+| 2026-08-15 | claude | close_reason none → done |
+| 2026-08-15 | claude | close_message none → (455 characters) |
+| 2026-08-15 | claude | status todo → in_progress |
+| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
 | 2026-08-15 | claude | claimed_at none → 2026-08-15T21:36:51.429298Z |
 | 2026-08-15 | claude | created task “The interface shows a version but gives no way to find out what is in it” |
 | 2026-08-15 | claude | created task “A dev install and a release install land in different directories, and one shadows the other” |
@@ -977,13 +990,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-14 | claude | status todo → done |
 | 2026-08-14 | claude | evidence [] → ["commit:f7b9e84","test:cargo test --workspace"] |
 | 2026-08-14 | claude | close_reason none → done |
-| 2026-08-14 | claude | close_message none → (507 characters) |
-| 2026-08-14 | claude | unlinked “Does a browser-served write/intake endpoint require…” blocks “Security prerequisites before any browser-served UI or…” |
-| 2026-08-14 | claude | unlinked “Does a browser-served write/intake endpoint require…” blocks “Serve the read surface from the daemon instead of a dev…” |
-| 2026-08-14 | claude | “Serving a read-only page does not touch hard constraint 7,…” resolves “Does a browser-served write/intake endpoint require…” |
-| 2026-08-14 | claude | status open → answered |
-| 2026-08-14 | claude | status proposed → accepted |
-| 2026-08-14 | claude | created decision “Serving a read-only page does not touch hard constraint 7, the repo stays private for now, and the package becomes keel” |
 
-*Showing the 200 most recent of 1597 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1604 changes. Use `keel_activity` for the rest.*
 
