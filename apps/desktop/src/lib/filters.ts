@@ -16,6 +16,7 @@
  */
 
 import type { Entity } from "./api";
+import { taskRef } from "./tasks";
 
 /** Everything that narrows the task list. Empty arrays mean "no restriction". */
 export interface TaskFilter {
@@ -27,7 +28,7 @@ export interface TaskFilter {
   milestone: string | undefined;
   /** Only tasks something is linked to as a blocker. */
   blocked: boolean;
-  /** Free text over the title and body. */
+  /** Free text over the reference, the number, the title and the body. */
   text: string;
 }
 
@@ -69,7 +70,9 @@ export function parseFilter(query: Record<string, string>): TaskFilter {
  * and an unfiltered board is `#/projects/keel/board` rather than a URL trailing
  * seven empty parameters.
  */
-export function filterToQuery(filter: TaskFilter): Record<string, string | undefined> {
+export function filterToQuery(
+  filter: TaskFilter,
+): Record<string, string | undefined> {
   return {
     status: filter.status.join(",") || undefined,
     priority: filter.priority.join(",") || undefined,
@@ -109,7 +112,9 @@ export function activeCount(filter: TaskFilter): number {
 
 /** Add or remove one value from a multi-valued facet. */
 export function toggle(values: string[], value: string): string[] {
-  return values.includes(value) ? values.filter((v) => v !== value) : [...values, value];
+  return values.includes(value)
+    ? values.filter((v) => v !== value)
+    : [...values, value];
 }
 
 /**
@@ -126,17 +131,25 @@ export function applyFilter(
   tasks: Entity[],
   filter: TaskFilter,
   blockedIds: ReadonlySet<string>,
+  projectKey?: string,
 ): Entity[] {
   const needle = filter.text.trim().toLowerCase();
 
   return tasks.filter((task) => {
-    if (filter.status.length && !filter.status.includes(String(task.status))) return false;
-    if (filter.priority.length && !filter.priority.includes(String(task.priority))) return false;
-    if (filter.kind.length && !filter.kind.includes(String(task.kind))) return false;
+    if (filter.status.length && !filter.status.includes(String(task.status)))
+      return false;
+    if (
+      filter.priority.length &&
+      !filter.priority.includes(String(task.priority))
+    )
+      return false;
+    if (filter.kind.length && !filter.kind.includes(String(task.kind)))
+      return false;
 
     if (filter.labels.length) {
       const labels = (task.labels as string[] | undefined) ?? [];
-      if (!filter.labels.some((wanted) => labels.includes(wanted))) return false;
+      if (!filter.labels.some((wanted) => labels.includes(wanted)))
+        return false;
     }
 
     if (filter.milestone) {
@@ -149,7 +162,23 @@ export function applyFilter(
     if (needle) {
       // Title and body, because a task's detail is where the searchable words
       // usually are — the title is one line and often generic.
-      const haystack = `${String(task.title ?? "")} ${String(task.body ?? "")}`.toLowerCase();
+      //
+      // **And the reference, which is what people actually type.** `KEEL-168`
+      // and `168` are how a task is named in conversation and in every commit
+      // message; searching the board for either found nothing, because the
+      // haystack was prose only. The command palette had ranked by reference
+      // since it was built, so search worked in one place and not the other —
+      // and the board is the place you are already looking at the tasks.
+      //
+      // The bare number is included separately so `168` matches `KEEL-168`
+      // without the reader having to remember the project's key. It is a
+      // substring match like everything else here, so `16` matching `168` and
+      // `1168` is expected: this narrows a list somebody is looking at, it is
+      // not a lookup.
+      const reference = taskRef(projectKey, task);
+      const number = typeof task.number === "number" ? String(task.number) : "";
+      const haystack =
+        `${reference} ${number} ${String(task.title ?? "")} ${String(task.body ?? "")}`.toLowerCase();
       if (!haystack.includes(needle)) return false;
     }
 

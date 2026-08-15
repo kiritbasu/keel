@@ -57,7 +57,10 @@ describe("parseFilter", () => {
   // and stray whitespace are what happens when someone deletes one value from
   // a comma-separated list by hand.
   it("survives a hand-edited query", () => {
-    expect(parseFilter({ status: "todo,,  ,blocked " }).status).toEqual(["todo", "blocked"]);
+    expect(parseFilter({ status: "todo,,  ,blocked " }).status).toEqual([
+      "todo",
+      "blocked",
+    ]);
     expect(parseFilter({ blocked: "yes" }).blocked).toBe(false);
     expect(parseFilter({ milestone: "" }).milestone).toBeUndefined();
   });
@@ -97,7 +100,9 @@ describe("filterToQuery", () => {
 
 describe("activeCount", () => {
   it("counts each value, not each facet", () => {
-    expect(activeCount(parseFilter({ status: "todo,blocked", label: "desktop" }))).toBe(3);
+    expect(
+      activeCount(parseFilter({ status: "todo,blocked", label: "desktop" })),
+    ).toBe(3);
   });
 
   it("ignores whitespace-only text", () => {
@@ -114,10 +119,30 @@ describe("toggle", () => {
 });
 
 describe("applyFilter", () => {
+  // Numbered, because the reference is part of what a search matches and a row
+  // without one is the degraded case rather than the normal one.
   const tasks = [
-    task("a", { status: "todo", priority: "p0", labels: ["desktop"], title: "Routing" }),
-    task("b", { status: "done", priority: "p1", labels: ["mcp"], title: "Billing rework" }),
-    task("c", { status: "todo", priority: "p2", labels: ["desktop", "mcp"], kind: "bug" }),
+    task("a", {
+      number: 1,
+      status: "todo",
+      priority: "p0",
+      labels: ["desktop"],
+      title: "Routing",
+    }),
+    task("b", {
+      number: 2,
+      status: "done",
+      priority: "p1",
+      labels: ["mcp"],
+      title: "Billing rework",
+    }),
+    task("c", {
+      number: 3,
+      status: "todo",
+      priority: "p2",
+      labels: ["desktop", "mcp"],
+      kind: "bug",
+    }),
   ];
 
   it("returns everything when nothing is set", () => {
@@ -128,25 +153,85 @@ describe("applyFilter", () => {
   // them. Any other reading makes "status: todo, blocked" mean nothing.
   it("ORs within a facet and ANDs across them", () => {
     expect(
-      applyFilter(tasks, parseFilter({ status: "todo,done" }), nothingBlocked).map((t) => t.id),
+      applyFilter(
+        tasks,
+        parseFilter({ status: "todo,done" }),
+        nothingBlocked,
+      ).map((t) => t.id),
     ).toEqual(["a", "b", "c"]);
 
     expect(
-      applyFilter(tasks, parseFilter({ status: "todo", priority: "p0" }), nothingBlocked).map(
-        (t) => t.id,
-      ),
+      applyFilter(
+        tasks,
+        parseFilter({ status: "todo", priority: "p0" }),
+        nothingBlocked,
+      ).map((t) => t.id),
     ).toEqual(["a"]);
   });
 
   it("matches a task carrying any one of the wanted labels", () => {
     expect(
-      applyFilter(tasks, parseFilter({ label: "mcp" }), nothingBlocked).map((t) => t.id),
+      applyFilter(tasks, parseFilter({ label: "mcp" }), nothingBlocked).map(
+        (t) => t.id,
+      ),
     ).toEqual(["b", "c"]);
   });
 
   it("searches the body as well as the title", () => {
-    const withBody = [task("d", { title: "Opaque", body: "aggregation granularity" })];
-    expect(applyFilter(withBody, parseFilter({ q: "granularity" }), nothingBlocked)).toHaveLength(1);
+    const withBody = [
+      task("d", { title: "Opaque", body: "aggregation granularity" }),
+    ];
+    expect(
+      applyFilter(withBody, parseFilter({ q: "granularity" }), nothingBlocked),
+    ).toHaveLength(1);
+  });
+
+  // The bug KB hit: searching the board for the identifier every commit message
+  // and every conversation uses found nothing, because the haystack was prose
+  // only. The command palette had matched references since it was built, so
+  // search worked in one place and not the other.
+  it("finds a task by its reference, which is what people type", () => {
+    const found = applyFilter(
+      tasks,
+      parseFilter({ q: "KEEL-2" }),
+      nothingBlocked,
+      "KEEL",
+    );
+    expect(found.map((t) => t.id)).toEqual(["b"]);
+  });
+
+  it("finds a task by its bare number, without the project key", () => {
+    const found = applyFilter(
+      tasks,
+      parseFilter({ q: "3" }),
+      nothingBlocked,
+      "KEEL",
+    );
+    expect(found.map((t) => t.id)).toEqual(["c"]);
+  });
+
+  it("matches the reference whatever case it is typed in", () => {
+    const found = applyFilter(
+      tasks,
+      parseFilter({ q: "keel-2" }),
+      nothingBlocked,
+      "KEEL",
+    );
+    expect(found.map((t) => t.id)).toEqual(["b"]);
+  });
+
+  // The failure case: a reference that belongs to no task must still return
+  // nothing. A search that quietly widens when it cannot match is worse than
+  // one that comes back empty.
+  it("returns nothing for a reference that does not exist", () => {
+    expect(
+      applyFilter(
+        tasks,
+        parseFilter({ q: "KEEL-999" }),
+        nothingBlocked,
+        "KEEL",
+      ),
+    ).toHaveLength(0);
   });
 
   it("takes blockedness from the graph rather than from the status field", () => {
@@ -154,7 +239,9 @@ describe("applyFilter", () => {
     // it as a blocker. Status and links are different questions, and this filter
     // asks the link one.
     expect(
-      applyFilter(tasks, parseFilter({ blocked: "true" }), new Set(["b"])).map((t) => t.id),
+      applyFilter(tasks, parseFilter({ blocked: "true" }), new Set(["b"])).map(
+        (t) => t.id,
+      ),
     ).toEqual(["b"]);
   });
 
@@ -165,10 +252,18 @@ describe("applyFilter", () => {
       task("z"),
     ];
     expect(
-      applyFilter(scheduled, parseFilter({ milestone: "mst_1" }), nothingBlocked).map((t) => t.id),
+      applyFilter(
+        scheduled,
+        parseFilter({ milestone: "mst_1" }),
+        nothingBlocked,
+      ).map((t) => t.id),
     ).toEqual(["x"]);
     expect(
-      applyFilter(scheduled, parseFilter({ milestone: "none" }), nothingBlocked).map((t) => t.id),
+      applyFilter(
+        scheduled,
+        parseFilter({ milestone: "none" }),
+        nothingBlocked,
+      ).map((t) => t.id),
     ).toEqual(["z"]);
   });
 
@@ -176,7 +271,11 @@ describe("applyFilter", () => {
   // everything. Silently ignoring an unsatisfiable condition is how a web API
   // returned every type when asked for specs only.
   it("returns nothing when nothing matches", () => {
-    expect(applyFilter(tasks, parseFilter({ status: "review" }), nothingBlocked)).toEqual([]);
-    expect(applyFilter(tasks, parseFilter({ label: "nonexistent" }), nothingBlocked)).toEqual([]);
+    expect(
+      applyFilter(tasks, parseFilter({ status: "review" }), nothingBlocked),
+    ).toEqual([]);
+    expect(
+      applyFilter(tasks, parseFilter({ label: "nonexistent" }), nothingBlocked),
+    ).toEqual([]);
   });
 });

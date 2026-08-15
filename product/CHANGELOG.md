@@ -1,6 +1,6 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T22:18:48Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T22:28:31Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -802,6 +802,7 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-15 | claude | created task “Board search cannot find a task by the identifier everyone uses for it” |
 | 2026-08-15 | claude | “Hard constraint 7 is amended: the interface may ask the…” resolves “Should the interface tell people an update exists, and may…” |
 | 2026-08-15 | claude | status open → answered |
 | 2026-08-15 | claude | status in_progress → done |
@@ -1001,7 +1002,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | retracted a note on tsk_01KZZFEPGZRZ0KDT9JB5TR32TN |
 | 2026-08-15 | claude | retracted a note on tsk_01KZSKFY6JH7FHPKEVQZGDJ2XQ |
 | 2026-08-15 | claude | unlinked “The install path is built. Does the repository go public…” blocks “Build releases for three targets, and fix the installer's…” |
-| 2026-08-15 | claude | status open → answered |
 
-*Showing the 200 most recent of 1618 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1619 changes. Use `keel_activity` for the rest.*
 

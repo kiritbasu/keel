@@ -11,7 +11,12 @@
  */
 
 import { useMemo } from "react";
-import { api, type Entity, type NextItem, type Page as PageOf } from "../lib/api";
+import {
+  api,
+  type Entity,
+  type NextItem,
+  type Page as PageOf,
+} from "../lib/api";
 import { useAsync } from "../lib/useAsync";
 import { Empty, ErrorBox, Spinner } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
@@ -29,10 +34,20 @@ import {
   type SortBy,
   type SortDir,
 } from "../lib/tasks";
-import { applyFilter, filterToQuery, isFiltering, parseFilter } from "../lib/filters";
+import {
+  applyFilter,
+  filterToQuery,
+  isFiltering,
+  parseFilter,
+} from "../lib/filters";
 import type { ScreenProps } from "../App";
 
-export function BoardScreen({ route, generation, milestoneNoun, projectKey }: ScreenProps) {
+export function BoardScreen({
+  route,
+  generation,
+  milestoneNoun,
+  projectKey,
+}: ScreenProps) {
   const project = route.project;
 
   // The whole view comes out of the address. Anything unrecognised falls back
@@ -88,7 +103,9 @@ export function BoardScreen({ route, generation, milestoneNoun, projectKey }: Sc
 
   const rank = useMemo<RankMap>(() => {
     const m: RankMap = new Map();
-    ready?.forEach((item, i) => m.set(item.id, { position: i + 1, why: item.why }));
+    ready?.forEach((item, i) =>
+      m.set(item.id, { position: i + 1, why: item.why }),
+    );
     return m;
   }, [ready]);
 
@@ -105,7 +122,8 @@ export function BoardScreen({ route, generation, milestoneNoun, projectKey }: Sc
   // whatever it grouped by and both kinds of key land in the same place.
   const groupNames = useMemo(() => {
     const names = new Map<string, string>();
-    for (const m of milestones.data?.items ?? []) names.set(String(m.id), String(m.name));
+    for (const m of milestones.data?.items ?? [])
+      names.set(String(m.id), String(m.name));
     for (const t of data?.items ?? []) names.set(String(t.id), String(t.title));
     return names;
   }, [milestones.data, data]);
@@ -115,14 +133,16 @@ export function BoardScreen({ route, generation, milestoneNoun, projectKey }: Sc
   // would find a task title for any id that happened to match.
   const milestoneNames = useMemo(() => {
     const names = new Map<string, string>();
-    for (const m of milestones.data?.items ?? []) names.set(String(m.id), String(m.name));
+    for (const m of milestones.data?.items ?? [])
+      names.set(String(m.id), String(m.name));
     return names;
   }, [milestones.data]);
 
   const facets = useMemo<Facets>(() => {
     const labels = new Set<string>();
     for (const task of data?.items ?? []) {
-      for (const label of (task.labels as string[] | undefined) ?? []) labels.add(label);
+      for (const label of (task.labels as string[] | undefined) ?? [])
+        labels.add(label);
     }
     return {
       labels: [...labels].sort(),
@@ -135,7 +155,12 @@ export function BoardScreen({ route, generation, milestoneNoun, projectKey }: Sc
 
   const filterKey = JSON.stringify(filter);
   const groups = useMemo(() => {
-    const matching = applyFilter(data?.items ?? [], parseFilter(route.query), blockedIds);
+    const matching = applyFilter(
+      data?.items ?? [],
+      parseFilter(route.query),
+      blockedIds,
+      projectKey,
+    );
     // A board with one column is not a board, so `none` degrades to status
     // there rather than being offered and then quietly ignored.
     const by = layout === "board" && group === "none" ? "status" : group;
@@ -146,7 +171,18 @@ export function BoardScreen({ route, generation, milestoneNoun, projectKey }: Sc
     // `filter` is rebuilt from the query on every render, so the memo compares
     // its serialised form rather than its identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, filterKey, blockedIds, group, layout, groupNames, sort, dir, rank]);
+  }, [
+    data,
+    filterKey,
+    blockedIds,
+    group,
+    layout,
+    groupNames,
+    sort,
+    dir,
+    rank,
+    projectKey,
+  ]);
 
   // Counted as distinct tasks, not as the sum of the groups: grouping by label
   // puts a task with three labels in three groups, and adding the columns up
@@ -183,7 +219,9 @@ export function BoardScreen({ route, generation, milestoneNoun, projectKey }: Sc
           facets={facets}
           milestoneNoun={milestoneNoun}
           total={(data?.items ?? []).length}
-          onFilter={(next) => setQuery(route, filterToQuery(next), { replace: true })}
+          onFilter={(next) =>
+            setQuery(route, filterToQuery(next), { replace: true })
+          }
           onView={(next) =>
             setQuery(
               route,
@@ -191,9 +229,15 @@ export function BoardScreen({ route, generation, milestoneNoun, projectKey }: Sc
                 // A default is written as the absence of a parameter, so the
                 // unfiltered board has a clean address rather than one trailing
                 // four parameters that say "as usual".
-                ...(next.group ? { group: next.group === "status" ? undefined : next.group } : {}),
-                ...(next.sort ? { sort: next.sort === "next" ? undefined : next.sort } : {}),
-                ...(next.dir ? { dir: next.dir === "asc" ? undefined : next.dir } : {}),
+                ...(next.group
+                  ? { group: next.group === "status" ? undefined : next.group }
+                  : {}),
+                ...(next.sort
+                  ? { sort: next.sort === "next" ? undefined : next.sort }
+                  : {}),
+                ...(next.dir
+                  ? { dir: next.dir === "asc" ? undefined : next.dir }
+                  : {}),
                 ...(next.layout
                   ? { view: next.layout === "board" ? undefined : next.layout }
                   : {}),
@@ -223,7 +267,8 @@ export function BoardScreen({ route, generation, milestoneNoun, projectKey }: Sc
                     <span className="mr-1.5 font-mono text-micro text-ink-faint">
                       {item.reference}
                     </span>
-                    {item.title} <span className="text-ink-faint">— {item.why}</span>
+                    {item.title}{" "}
+                    <span className="text-ink-faint">— {item.why}</span>
                   </span>
                 </li>
               ))}
@@ -246,7 +291,9 @@ export function BoardScreen({ route, generation, milestoneNoun, projectKey }: Sc
             dir={dir}
             milestoneNames={milestoneNames}
             onFilterMilestone={(id) =>
-              setQuery(route, filterToQuery({ ...filter, milestone: id }), { replace: true })
+              setQuery(route, filterToQuery({ ...filter, milestone: id }), {
+                replace: true,
+              })
             }
             onSort={(by) =>
               setQuery(
@@ -270,7 +317,9 @@ export function BoardScreen({ route, generation, milestoneNoun, projectKey }: Sc
             noteCounts={noteCounts}
             milestoneNames={milestoneNames}
             onFilterMilestone={(id) =>
-              setQuery(route, filterToQuery({ ...filter, milestone: id }), { replace: true })
+              setQuery(route, filterToQuery({ ...filter, milestone: id }), {
+                replace: true,
+              })
             }
           />
         )}
