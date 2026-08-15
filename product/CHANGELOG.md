@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T21:54:28Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T22:13:47Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (212)
+## Closed work (213)
 
 ### 2026-08-15
+
+- **KEEL-236** Release 0.1.4 — the update restarts the daemon, and the tracker is readable again — `done`
+
+  Built, published and taken. `keel update` moved this machine 0.1.3 → 0.1.4, restarted the daemon itself, and reported the version that came back — the first time that path has run against a published release rather than a scratch one. Tier 1 against the downloaded artifacts is 14 passed, 0 failed, and the installer's embedded digest matches the published archive byte for byte.
+
+  <sub>commit:de365ce · url:https://github.com/kiritbasu/keel/releases/tag/v0.1.4 · test:scripts/verify-release-tier1.sh</sub>
 
 - **KEEL-235** The interface shows a version but gives no way to find out what is in it — `done`
 
@@ -797,6 +803,14 @@ What has finished. What is happening now is in the tracker beside this file.
 | Date | Actor | Change |
 |---|---|---|
 | 2026-08-15 | claude | status in_progress → done |
+| 2026-08-15 | claude | evidence [] → (117 characters) |
+| 2026-08-15 | claude | close_reason none → done |
+| 2026-08-15 | claude | close_message none → (379 characters) |
+| 2026-08-15 | claude | status todo → in_progress |
+| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
+| 2026-08-15 | claude | claimed_at none → 2026-08-15T21:57:05.637248Z |
+| 2026-08-15 | claude | created task “Release 0.1.4 — the update restarts the daemon, and the tracker is readable again” |
+| 2026-08-15 | claude | status in_progress → done |
 | 2026-08-15 | claude | evidence [] → (127 characters) |
 | 2026-08-15 | claude | close_reason none → done |
 | 2026-08-15 | claude | close_message none → (415 characters) |
@@ -988,14 +1002,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | status open → answered |
 | 2026-08-15 | claude | revised question “The install path is built. Does the repository go public now, so the first release can run?” to v2 |
 | 2026-08-14 | claude | “The install path is built. Does the repository go public…” blocks “Build releases for three targets, and fix the installer's…” |
-| 2026-08-14 | claude | revised question “The install path is built. Does the repository go public now, so the first release can run?” to v1 |
-| 2026-08-14 | claude | created question “The install path is built. Does the repository go public now, so the first release can run?” |
-| 2026-08-14 | claude | revised decision “The installer refuses a download it cannot verify, rather than skipping the check” to v1 |
-| 2026-08-14 | claude | created decision “The installer refuses a download it cannot verify, rather than skipping the check” |
-| 2026-08-14 | claude | revised decision “One package owns both binaries, because dist builds one installer per package” to v1 |
-| 2026-08-14 | claude | created decision “One package owns both binaries, because dist builds one installer per package” |
-| 2026-08-14 | claude | status todo → in_progress |
-| 2026-08-14 | claude | claimed_by none → ses_0d013ca6-a51f-4bcf-b118-1f9720d86d0e |
 
-*Showing the 200 most recent of 1608 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1616 changes. Use `keel_activity` for the rest.*
 
