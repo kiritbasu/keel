@@ -96,12 +96,15 @@ const CONTENT_SECURITY_POLICY: &str = "default-src 'self'; \
 /// broken bundle reference fails as a broken bundle reference rather than as an
 /// HTML page arriving where JavaScript was expected — which is a confusing
 /// syntax error rather than a missing file.
-pub async fn serve(uri: Uri) -> Response {
+pub async fn serve(
+    axum::extract::State(state): axum::extract::State<crate::state::AppState>,
+    uri: Uri,
+) -> Response {
     let path = uri.path().trim_start_matches('/');
     let path = if path.is_empty() { "index.html" } else { path };
 
     if let Some(file) = Site::get(path) {
-        return respond(path, file);
+        return respond(path, file, state.token());
     }
 
     // A path whose last segment has a dot is asking for a file, not a route.
@@ -119,7 +122,7 @@ pub async fn serve(uri: Uri) -> Response {
     }
 
     match Site::get("index.html") {
-        Some(file) => respond("index.html", file),
+        Some(file) => respond("index.html", file, state.token()),
         // Only reachable if the embed is empty, which `build.rs` prevents.
         // Saying so plainly beats a bare 404 that reads as a routing bug.
         None => (
@@ -132,8 +135,37 @@ pub async fn serve(uri: Uri) -> Response {
     }
 }
 
-fn respond(path: &str, file: rust_embed::EmbeddedFile) -> Response {
+fn respond(path: &str, file: rust_embed::EmbeddedFile, token: &str) -> Response {
     let mime = file.metadata.mimetype();
+
+    // **This is how the interface gets its token, and the delivery is the
+    // security property.** The page can write to the daemon; a page served by
+    // anything else cannot, because it has no way to read this response — the
+    // same-origin policy is doing the work, not the header.
+    //
+    // Only `index.html`. An asset carrying the secret would be cached
+    // immutably, which is the opposite of a token that lives for one daemon.
+    let body = if path == "index.html" {
+        let html = String::from_utf8_lossy(&file.data);
+        // Escaped, though the token is hex from the operating system and cannot
+        // contain a quote. Building markup by concatenation is a habit worth
+        // not having, and the day the token format changes is the day this
+        // would have been an injection point.
+        let meta = format!(
+            "<meta name=\"keel-token\" content=\"{}\">",
+            token.replace('&', "&amp;").replace('"', "&quot;")
+        );
+        Body::from(match html.split_once("<head>") {
+            Some((before, after)) => format!("{before}<head>{meta}{after}"),
+            // No `<head>` means this is not the document the build produces.
+            // Serving it unmodified is right: the app will say it has no token
+            // when it tries to write, which is a legible failure, where a
+            // mangled document is not.
+            None => html.into_owned(),
+        })
+    } else {
+        Body::from(file.data)
+    };
 
     // Hashed asset names are content-addressed by Vite, so they can be cached
     // hard. `index.html` never can: it is what points at the current hashes, and
@@ -170,7 +202,7 @@ fn respond(path: &str, file: rust_embed::EmbeddedFile) -> Response {
             // from, and the paths carry entity ids.
             (header::REFERRER_POLICY, "no-referrer".to_owned()),
         ],
-        Body::from(file.data),
+        body,
     )
         .into_response()
 }
@@ -182,8 +214,14 @@ mod tests {
 
     async fn get(path: &str) -> Response {
         let uri: Uri = path.parse().unwrap();
-        serve(uri).await
+        let store = keel_core::Store::in_memory().expect("an in-memory store");
+        let state = crate::state::AppState::from_store_with_token(store, TEST_TOKEN);
+        serve(axum::extract::State(state), uri).await
     }
+
+    /// A token the injection test can look for. Any value will do; what is
+    /// being checked is that the page carries the one the daemon holds.
+    const TEST_TOKEN: &str = "token-for-the-page";
 
     fn header_of(response: &Response, name: &str) -> String {
         response

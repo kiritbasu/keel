@@ -13,7 +13,7 @@ use keel_daemon::{AppState, http::router};
 use serde_json::{Value, json};
 
 /// A daemon with one project whose checkout is `repo`.
-async fn daemon(repo: &std::path::Path) -> (String, tempfile::TempDir) {
+async fn daemon(repo: &std::path::Path) -> (String, String, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
     let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
 
@@ -24,13 +24,17 @@ async fn daemon(repo: &std::path::Path) -> (String, tempfile::TempDir) {
         .unwrap();
 
     let state = AppState::from_store(store);
+    // Generation mutates, so it is behind the token (KEEL-238). Taken from the
+    // state rather than written out here, so a change to how a test daemon is
+    // built cannot leave these tests quietly asserting 401.
+    let token = state.token().to_owned();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let app = router(state);
     tokio::spawn(async move {
         let _ = axum::serve(listener, app).await;
     });
-    (format!("http://{addr}"), dir)
+    (format!("http://{addr}"), token, dir)
 }
 
 fn tool_call(name: &str, arguments: Value) -> Value {
@@ -47,10 +51,11 @@ fn tool_call(name: &str, arguments: Value) -> Value {
 #[tokio::test]
 async fn a_generate_through_the_daemon_writes_the_files() {
     let repo = tempfile::tempdir().unwrap();
-    let (base, _dir) = daemon(repo.path()).await;
+    let (base, token, _dir) = daemon(repo.path()).await;
 
     let response = reqwest::Client::new()
         .post(format!("{base}/api/generate"))
+        .header("x-keel-token", &token)
         .json(&json!({"project": "demo"}))
         .send()
         .await
@@ -81,7 +86,7 @@ async fn a_generate_through_the_daemon_writes_the_files() {
 #[tokio::test]
 async fn a_generate_does_not_stop_the_daemon_answering() {
     let repo = tempfile::tempdir().unwrap();
-    let (base, _dir) = daemon(repo.path()).await;
+    let (base, token, _dir) = daemon(repo.path()).await;
     let client = reqwest::Client::new();
 
     let generating = {
@@ -90,6 +95,8 @@ async fn a_generate_does_not_stop_the_daemon_answering() {
         tokio::spawn(async move {
             client
                 .post(format!("{base}/api/generate"))
+                .header("x-keel-token", &token)
+                .header("x-keel-token", &token)
                 .json(&json!({"project": "demo"}))
                 .send()
                 .await

@@ -32,7 +32,7 @@ pub fn run(
     daemon: &str,
     json: bool,
 ) -> Result<()> {
-    let report = match via_daemon(daemon, project, repo.as_deref(), check) {
+    let report = match via_daemon(home, daemon, project, repo.as_deref(), check) {
         Ok(report) => report,
         Err(e) => {
             // The fallback used to fire on *any* transport error, including
@@ -44,8 +44,11 @@ pub fn run(
             // `may_read_directly` asks the only question with a safe answer:
             // is anything holding the port. Connection refused means no; a
             // timeout means yes and busy, which is a reason to stop.
-            crate::writes::may_read_directly(daemon)
-                .with_context(|| format!("ask the daemon at {daemon} to generate: {e}"))?;
+            // `{e}` already names the daemon and what was being attempted, so
+            // this says only what *this* step establishes: whether falling back
+            // to a direct read is safe. Wrapping it in a second "ask the daemon
+            // at … to generate" printed the address twice and the verb twice.
+            crate::writes::may_read_directly(daemon).with_context(|| e.to_string())?;
             tracing::debug!(error = %e, "no daemon is running, opening the store directly");
             directly(home, project, repo, check)?
         }
@@ -116,6 +119,7 @@ struct WireReport {
 }
 
 fn via_daemon(
+    home: &std::path::Path,
     base: &str,
     project: &str,
     repo: Option<&std::path::Path>,
@@ -126,10 +130,40 @@ fn via_daemon(
         body["repo"] = serde_json::Value::String(repo.display().to_string());
     }
 
+    // Generation writes files, so the daemon wants the token (KEEL-238). Read
+    // it from beside the store rather than caching it: each daemon mints its
+    // own, and a stale one is exactly what a restart leaves behind.
+    //
+    // A missing token is not fatal here. The daemon will say what is wrong far
+    // better than a guess can, and refusing locally would turn "the daemon is
+    // not running" into a confusing complaint about a file.
+    let token = keel_core::token::read(home)
+        .unwrap_or_default()
+        .unwrap_or_default();
+
     let response = ureq::post(&format!("{base}/api/generate"))
+        .set(keel_daemon::TOKEN_HEADER, &token)
         .timeout(std::time::Duration::from_secs(30))
         .send_json(body)
-        .map_err(|e| anyhow::anyhow!("ask the daemon at {base} to generate: {e}"))?;
+        .map_err(|e| match e {
+            // The daemon writes a sentence saying what would work. `ureq`'s
+            // own Display for a status error is "status code 401", which is
+            // the least actionable half of what arrived — and this is the one
+            // failure a person can actually do something about.
+            ureq::Error::Status(status, response) => {
+                let explanation = response
+                    .into_string()
+                    .ok()
+                    .and_then(|body| {
+                        serde_json::from_str::<serde_json::Value>(&body)
+                            .ok()
+                            .and_then(|v| v["error"].as_str().map(str::to_owned))
+                    })
+                    .unwrap_or_else(|| format!("HTTP {status}"));
+                anyhow::anyhow!("the daemon at {base} refused to generate: {explanation}")
+            }
+            other => anyhow::anyhow!("ask the daemon at {base} to generate: {other}"),
+        })?;
 
     let wire: serde_json::Value = response
         .into_json()

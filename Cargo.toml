@@ -64,6 +64,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Content
 similar = "2"
 sha2 = "0.10"
+# The daemon's per-request secret comes from the operating system, not from a
+# clock or a counter (KEEL-238).
+rand = "0.9"
 base64 = "0.22"
 fastembed = "5"
 

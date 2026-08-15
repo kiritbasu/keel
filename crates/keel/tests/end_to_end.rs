@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 struct Daemon {
     child: Child,
     base: String,
-    _home: tempfile::TempDir,
+    home: tempfile::TempDir,
 }
 
 impl Drop for Daemon {
@@ -85,11 +85,20 @@ impl Daemon {
             let _ = reader.read_to_string(&mut sink);
         });
 
-        Daemon {
-            child,
-            base,
-            _home: home,
-        }
+        Daemon { child, base, home }
+    }
+}
+
+impl Daemon {
+    /// The token this daemon minted, read the way the CLI reads it.
+    ///
+    /// Not a test convenience: a mutating request needs it, and reading it from
+    /// the daemon's home is the whole of how a real caller gets one. A test
+    /// that skipped it would be exercising a path nobody has (KEEL-238).
+    fn token(&self) -> String {
+        keel_core::token::read(self.home.path())
+            .expect("read the daemon's token")
+            .expect("a running daemon has minted one")
     }
 }
 
@@ -175,6 +184,7 @@ fn generate_runs_over_the_real_transport() {
         .unwrap();
 
     let response: Value = ureq::post(&format!("{}/api/generate", d.base))
+        .set("x-keel-token", &d.token())
         .send_json(json!({"project": "e2e", "repo": repo.path()}))
         .expect("generate")
         .into_json()

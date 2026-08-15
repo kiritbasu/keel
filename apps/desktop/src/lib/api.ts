@@ -64,11 +64,28 @@ async function get<T>(
 async function post<T>(path: string, body: unknown): Promise<T> {
   const url = new URL(`${BASE}${path}`, window.location.origin);
 
+  // The daemon puts its token in the document it serves, and refuses a mutating
+  // request without it (KEEL-238). So a page the daemon did not serve — a dev
+  // server, a copy opened from disk, a hostile page that has somehow reached
+  // this origin — has no token and can only read. That is the point: the
+  // same-origin policy is what keeps the secret, not the header.
+  const token = document
+    .querySelector('meta[name="keel-token"]')
+    ?.getAttribute("content");
+
+  if (!token) {
+    throw new ApiError(
+      "This page was not served by the Keel daemon, so it cannot change anything. " +
+        "Open the interface at the daemon's own address.",
+      0,
+    );
+  }
+
   let response: Response;
   try {
     response = await fetch(url.toString(), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-keel-token": token },
       body: JSON.stringify(body),
     });
   } catch {

@@ -689,7 +689,7 @@ fn daemon_version(daemon: &str) -> Option<String> {
 /// and the difference between them is the whole class of bug this project keeps
 /// meeting. So this polls health until the version it reads is one it can
 /// report, rather than returning as soon as the POST succeeds.
-pub fn restart_daemon(daemon: &str, installed: Option<&str>) -> Restart {
+pub fn restart_daemon(daemon: &str, installed: Option<&str>, token: &str) -> Restart {
     let base = daemon.trim_end_matches('/');
 
     // Nothing listening is the ordinary case for anyone who does not leave a
@@ -700,10 +700,20 @@ pub fn restart_daemon(daemon: &str, installed: Option<&str>) -> Restart {
     };
 
     if let Err(e) = ureq::post(&format!("{base}/api/update/restart"))
+        // Restarting is a mutating request, so it carries the daemon's token
+        // (KEEL-238). Read from the store's directory, because that is where
+        // the daemon wrote it.
+        .set("x-keel-token", token)
         .timeout(std::time::Duration::from_secs(5))
         .call()
     {
         return match e {
+            ureq::Error::Status(401, _) => Restart::Failed {
+                why: format!(
+                    "the daemon on {base} refused the token. It is a different daemon from the \
+                     one that wrote the token file — check `--home`, or restart it by hand"
+                ),
+            },
             ureq::Error::Status(404, _) => Restart::Failed {
                 why: format!(
                     "the daemon on {base} is running {before}, which is too old to know how to \
@@ -738,6 +748,18 @@ pub fn restart_daemon(daemon: &str, installed: Option<&str>) -> Restart {
     }
 }
 
+/// The daemon's token, or an empty string.
+///
+/// Empty rather than an error: the daemon is the authority on whether a request
+/// is acceptable, and its refusal says far more than a local guess about a
+/// missing file could. A daemon that is not running has no token and needs
+/// none.
+fn read_token(home: &Path) -> String {
+    keel_core::token::read(home)
+        .unwrap_or_default()
+        .unwrap_or_default()
+}
+
 /// `keel update`.
 ///
 /// One line when there is nothing to do, one line when something is done, and
@@ -750,7 +772,15 @@ pub fn restart_daemon(daemon: &str, installed: Option<&str>) -> Restart {
 /// separate process that goes on running what it loaded at startup. It is asked
 /// to restart itself here, and what comes back is reported — see
 /// [`restart_daemon`].
-pub fn run(check_only: bool, rollback_requested: bool, json: bool, daemon: &str) -> Result<()> {
+pub fn run(
+    check_only: bool,
+    rollback_requested: bool,
+    json: bool,
+    daemon: &str,
+    home: &Path,
+) -> Result<()> {
+    // Each daemon mints its own token, so this is read now rather than cached.
+    let token = read_token(home);
     let dir = install_dir()?;
 
     if rollback_requested {
@@ -759,7 +789,7 @@ pub fn run(check_only: bool, rollback_requested: bool, json: bool, daemon: &str)
         // before, and this process is the *new* binary asking, so its own
         // version is the wrong thing to compare against. Whatever comes back is
         // the answer, and reporting it is how you find out the rollback took.
-        let restart = restart_daemon(daemon, None);
+        let restart = restart_daemon(daemon, None, &token);
         if json {
             println!(
                 "{}",
@@ -838,7 +868,7 @@ pub fn run(check_only: bool, rollback_requested: bool, json: bool, daemon: &str)
             let unpacked = unpack(&archive, work.path(), target)?;
             install_from(&unpacked, &dir)?;
 
-            let restart = restart_daemon(daemon, Some(version));
+            let restart = restart_daemon(daemon, Some(version), &token);
 
             if json {
                 let mut out = describe(&plan);
@@ -981,7 +1011,7 @@ mod tests {
             let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
             l.local_addr().unwrap()
         };
-        let outcome = restart_daemon(&format!("http://{dead}"), Some("0.1.3"));
+        let outcome = restart_daemon(&format!("http://{dead}"), Some("0.1.3"), "t");
         assert_eq!(outcome, Restart::NoDaemon);
         assert!(
             outcome.sentence("x").contains("nothing to restart"),
@@ -994,7 +1024,7 @@ mod tests {
     fn a_daemon_that_comes_back_on_the_new_version_is_reported_as_restarted() {
         let addr = stub_daemon("0.1.2", Some("0.1.3"), 200);
         assert_eq!(
-            restart_daemon(&addr, Some("0.1.3")),
+            restart_daemon(&addr, Some("0.1.3"), "t"),
             Restart::Restarted {
                 version: "0.1.3".to_owned()
             }
@@ -1008,7 +1038,7 @@ mod tests {
     #[test]
     fn a_daemon_that_comes_back_unchanged_says_it_is_installed_elsewhere() {
         let addr = stub_daemon("0.1.2", None, 200);
-        let outcome = restart_daemon(&addr, Some("0.1.3"));
+        let outcome = restart_daemon(&addr, Some("0.1.3"), "t");
         assert_eq!(
             outcome,
             Restart::Elsewhere {
@@ -1029,7 +1059,7 @@ mod tests {
     #[test]
     fn a_daemon_without_the_endpoint_is_a_named_failure() {
         let addr = stub_daemon("0.1.2", None, 404);
-        let outcome = restart_daemon(&addr, Some("0.1.3"));
+        let outcome = restart_daemon(&addr, Some("0.1.3"), "t");
         let Restart::Failed { why } = &outcome else {
             panic!("expected a failure, got {outcome:?}");
         };
@@ -1049,7 +1079,7 @@ mod tests {
     fn with_no_expected_version_whatever_comes_back_is_the_answer() {
         let addr = stub_daemon("0.1.3", Some("0.1.2"), 200);
         assert_eq!(
-            restart_daemon(&addr, None),
+            restart_daemon(&addr, None, "t"),
             Restart::Restarted {
                 version: "0.1.2".to_owned()
             }

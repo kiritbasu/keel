@@ -36,6 +36,6 @@ pub mod run;
 pub mod site;
 pub mod state;
 
-pub use http::router;
+pub use http::{TOKEN_HEADER, router};
 pub use run::run;
 pub use state::AppState;

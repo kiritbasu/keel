@@ -23,8 +23,79 @@ use std::convert::Infallible;
 /// daemon hold hundreds of megabytes it will never use.
 pub const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 
+/// The header a mutating request carries its token in.
+///
+/// Custom on purpose. A form post, an image tag and a stylesheet can all be
+/// aimed at this daemon by a page the user did not write, and none of them can
+/// set a header — so requiring one turns "any page can reach loopback" into
+/// "any page can reach the reads", which is the difference between a nuisance
+/// and a writer.
+pub const TOKEN_HEADER: &str = "x-keel-token";
+
+/// Refuse a mutating request that does not carry this daemon's token.
+///
+/// Applied as a layer over a sub-router rather than checked inside each
+/// handler, so that a mutating endpoint added later is guarded by where it is
+/// registered instead of by whoever adds it remembering. The failure this
+/// project keeps meeting is a check that is absent while everything looks
+/// healthy; a handler is the easiest place to leave one out.
+async fn require_token(
+    State(state): State<AppState>,
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let offered = request
+        .headers()
+        .get(TOKEN_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+
+    if keel_core::token::matches(state.token(), offered) {
+        return next.run(request).await;
+    }
+
+    // Say what would work. A 401 with no explanation on a local daemon reads as
+    // a bug in the caller, and the two callers who will hit this — the CLI
+    // against a daemon that restarted, and a page served by something other
+    // than the daemon — both have a specific thing to do about it.
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(json!({
+            "error": format!(
+                "this request changes something, so it needs the daemon's token in the \
+                 {TOKEN_HEADER} header. The CLI reads it from the token file beside the store; \
+                 the interface is given it by the daemon that serves it, so a page loaded from \
+                 anywhere else will not have one. A token from an earlier daemon is no longer \
+                 valid — each daemon mints its own."
+            ),
+        })),
+    )
+        .into_response()
+}
+
 /// Build the router.
 pub fn router(state: AppState) -> Router {
+    // Everything that changes something, in one place and behind one layer.
+    let guarded = Router::new()
+        // Generation writes files into the user's repository, so it is a POST:
+        // it is not a safe, cacheable read even though it only reads the store.
+        .route("/api/generate", post(api_generate))
+        // The write endpoint the interface is allowed (B-75, amending hard
+        // constraint 7). It takes no body, no version and no URL: it can only
+        // apply what this daemon has already fetched, checksum-verified and
+        // staged itself.
+        .route("/api/update/apply", post(api_update_apply))
+        // The other half of `keel update`, which replaces the binaries on disk
+        // from a process that does not own the daemon and so cannot restart it.
+        // Same power as the endpoint above and less: it restarts into whatever
+        // is at this process's own path, and cannot cause anything to be
+        // downloaded or installed.
+        .route("/api/update/restart", post(api_update_restart))
+        .route_layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            require_token,
+        ));
+
     Router::new()
         // The single MCP endpoint. GET and DELETE are answered 405 rather than
         // 404: an older client may try the pre-2026-07-28 GET stream or the
@@ -50,22 +121,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/document/{id}", get(api_document))
         .route("/api/graph/{id}", get(api_graph))
         .route("/api/events", get(api_events_stream))
-        // Generation writes files into the user's repository, so it is a POST:
-        // it is not a safe, cacheable read even though it only reads the store.
-        .route("/api/generate", post(api_generate))
-        // The one write endpoint the interface is allowed (B-75, amending hard
-        // constraint 7). It takes no body, no version and no URL: it can only
-        // apply what this daemon has already fetched, checksum-verified and
-        // staged itself. So the most any caller can cause — and the API has no
-        // token yet, KEEL-168 — is a restart into a version Keel already chose.
-        .route("/api/update/apply", post(api_update_apply))
-        // The other half of `keel update`, which replaces the binaries on disk
-        // from a process that does not own the daemon and so cannot restart it.
-        // Same power as the endpoint above and less: it restarts into whatever
-        // is at this process's own path, and cannot cause anything to be
-        // downloaded or installed. Without it the CLI's update ends by telling
-        // you to go and do something it has no way to help you do.
-        .route("/api/update/restart", post(api_update_restart))
+        // Everything that mutates is in `guarded` below, behind the token.
         // Read-shaped CLI commands, served here because they cannot open the
         // store themselves while this process holds the write lock — which is
         // always (TQ-15, KEEL-57). `fsck` is the one that matters: an integrity
@@ -103,6 +159,10 @@ pub fn router(state: AppState) -> Router {
         // same origin it calls, so it needs no CORS headers of its own, and
         // attaching them to HTML would only widen what another page can read.
         .fallback(crate::site::serve)
+        // The mutating routes, already wearing their own layer. Merged rather
+        // than chained so that the guard covers exactly them and cannot be
+        // widened or narrowed by where a later route happens to be added.
+        .merge(guarded)
         .layer(tower_http::trace::TraceLayer::new_for_http())
         // A cap on how much the daemon will read, and a handler that explains
         // it in the shape the caller is speaking.

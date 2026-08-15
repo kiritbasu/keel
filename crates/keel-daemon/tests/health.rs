@@ -191,14 +191,22 @@ async fn the_schema_is_reported_without_the_store() {
 ///
 /// The endpoint B-75 permits takes no arguments, so this is the only way it can
 /// be wrong: asked to apply when there is nothing there. It must refuse rather
-/// than restart, because a daemon that restarts on an empty request is a daemon
-/// any localhost page can bounce (KEEL-168's token is still open).
+/// than restart.
+///
+/// The request carries the daemon's token, because the endpoint is behind it
+/// now (KEEL-238) — and that is the point of sending it here: this test is
+/// about the *empty* apply being refused, so it has to get past the guard to
+/// reach the thing it is testing. `tests/token.rs` covers the guard itself.
 #[tokio::test]
 async fn applying_an_update_that_is_not_staged_is_refused() {
-    let (base, state, _home) = daemon().await;
+    let (base, state, home) = daemon().await;
+    let token = keel_core::token::read(home.path())
+        .expect("read the token")
+        .expect("a daemon mints one at startup");
 
     let response = reqwest::Client::new()
         .post(format!("{base}/api/update/apply"))
+        .header("x-keel-token", token)
         .send()
         .await
         .expect("the apply endpoint answers");

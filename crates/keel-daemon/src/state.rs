@@ -71,6 +71,14 @@ pub struct AppState {
     /// kind of difference that would make two names for one store look like two
     /// stores.
     home: Arc<PathBuf>,
+    /// The secret a mutating request has to carry, minted for this daemon's
+    /// lifetime (KEEL-238).
+    ///
+    /// Held here rather than re-read per request: the file is the way it
+    /// *reaches* other processes, not the authority. Reading it on every call
+    /// would mean a request could be judged against a token some other process
+    /// had just written, which is the one thing the check must not depend on.
+    token: Arc<String>,
 }
 
 impl AppState {
@@ -157,6 +165,18 @@ impl AppState {
             // comparison should fail on, and reporting the uncanonicalised
             // path makes that failure visible instead of reporting nothing.
             home: Arc::new(home.canonicalize().unwrap_or_else(|_| home.to_path_buf())),
+            // Minted at startup, into a file only this user can read. A daemon
+            // that cannot write it is a daemon whose mutating endpoints would
+            // be unguarded, so this is a refusal to start rather than a warning
+            // — the failure mode being avoided is precisely a security check
+            // that is absent while everything looks healthy.
+            token: Arc::new(keel_core::token::mint(home).with_context(|| {
+                format!(
+                    "mint the API token in {}. Without it no caller could be told apart from a \
+                     web page, so the daemon will not serve unguarded",
+                    home.display()
+                )
+            })?),
         };
 
         if embeddings {
@@ -258,6 +278,16 @@ impl AppState {
     /// absent one: the whole point of reporting a home is that another process
     /// can trust the answer.
     pub fn from_store(store: Store) -> Self {
+        Self::from_store_with_token(store, "test-token")
+    }
+
+    /// The same, with a chosen token, for tests about the guard itself.
+    ///
+    /// A fixed value rather than a minted one: a test that has to read a file
+    /// to learn what it should send is testing the filesystem, and the property
+    /// under test is "the header has to match", not "the token is unguessable".
+    /// That second property is [`keel_core::token`]'s and is tested there.
+    pub fn from_store_with_token(store: Store, token: &str) -> Self {
         let (changes, _) = tokio::sync::broadcast::channel(256);
         AppState {
             store: Arc::new(Mutex::new(store)),
@@ -265,6 +295,7 @@ impl AppState {
             rate_limit: Arc::new(crate::ratelimit::RateLimit::default()),
             projects: Arc::new(std::sync::atomic::AtomicI64::new(-1)),
             home: Arc::new(PathBuf::new()),
+            token: Arc::new(token.to_owned()),
         }
     }
 
@@ -289,6 +320,11 @@ impl AppState {
     /// command's daemon probe should have been asking and was not.
     pub fn home(&self) -> &Path {
         self.home.as_path()
+    }
+
+    /// The token this daemon will accept on a mutating request.
+    pub fn token(&self) -> &str {
+        self.token.as_str()
     }
 
     /// Remember how many projects the store held, so health can answer while

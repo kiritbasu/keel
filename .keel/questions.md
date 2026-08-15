@@ -7,40 +7,6 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
-### How far does hard constraint 7 move, now that the app needs to write?
-
-`que_01M03RQ09G7V88E1ZPHEBMCTBB` · question · open · severity high
-
-KB, 2026-08-15, asking for KEEL-168 and naming the use cases: archiving or deleting docs, questions, milestones and tasks; adding comments to tasks; creating tasks.
-
-Every one of those is a write from the interface, and hard constraint 7 says the interface does not write. KEEL-168's own summary says the amendment has to be explicit and has to come before any write endpoint exists. So this is the decision that gates the work, not a detail inside it.
-
-## What the constraint has survived so far
-
-It has been amended twice, both times narrowly and both times for the same thing: B-75 let the interface ask the daemon to apply an update it had already staged, and B-77 added the CLI's equivalent. Neither writes to the store. The constraint's actual sentence — "Claude and Keel are the only writers" — is still true today.
-
-## The line worth drawing
-
-The PRD's bet is that **Claude writes the substance**: the specs, the decisions, the reasoning, the notes that say what was learned. That is the product. If a person ends up typing prose into forms, Keel has become a tracker with an AI feature rather than the thing it is trying to be.
-
-But none of KB's four use cases are that. Archiving a stale row, closing something that turned out not to matter, adding a comment, creating a task you just thought of — these are *curation and capture*, and making somebody open a chat window to archive a row is friction with nothing behind it.
-
-So the amendment I would write is not "the app can write" but:
-
-> **The interface may perform a person's own curation and capture: create a task, comment on one, and archive or close a row. It does not author prose.** No form ever edits a spec, a decision or a question body — those stay with Claude and `keel_write_doc`, because the reasoning in them is the product.
-
-That keeps the constraint meaningful rather than deleted, and it is a line that can be checked: an endpoint that accepts a document revision is on the wrong side of it.
-
-## The three options
-
-1. **Curation and capture only, as above.** Create task, note, archive, close, and the status and priority fields a person moves while looking at a board. No prose authoring. *(Recommended.)*
-2. **General write.** The app can edit anything the MCP surface can. Simpler to describe and much larger to build and defend, and it makes the app a second author of the reasoning.
-3. **Keep the constraint, do it in Claude.** No change. Costs the friction KB just named as the reason for asking.
-
-## What this does not decide
-
-The security work in KEEL-168 is needed for **any** of this and is not waiting on the answer: a per-session token on mutating endpoints, a strict CSP with sanitised bodies and nosniff on anything served, blob reads confined to allowlisted roots. The advisory lock, the fourth item, is already done (B-60). Splitting those out so they can start is the next thing regardless.
-
 ### Should Keel write a CLAUDE.md into a user's repository, and on whose say-so?
 
 `que_01M032CNQT67QRCD9RTJAWY4HZ` · question · open · severity medium
@@ -203,6 +169,40 @@ It grows forever. Keep everything, which is probably fine for a decade at this w
 ## Settled
 
 *Decided, with the reasoning. Do not re-litigate these.*
+
+### How far does hard constraint 7 move, now that the app needs to write?
+
+`que_01M03RQ09G7V88E1ZPHEBMCTBB` · question · answered · severity high
+
+KB, 2026-08-15, asking for KEEL-168 and naming the use cases: archiving or deleting docs, questions, milestones and tasks; adding comments to tasks; creating tasks.
+
+Every one of those is a write from the interface, and hard constraint 7 says the interface does not write. KEEL-168's own summary says the amendment has to be explicit and has to come before any write endpoint exists. So this is the decision that gates the work, not a detail inside it.
+
+## What the constraint has survived so far
+
+It has been amended twice, both times narrowly and both times for the same thing: B-75 let the interface ask the daemon to apply an update it had already staged, and B-77 added the CLI's equivalent. Neither writes to the store. The constraint's actual sentence — "Claude and Keel are the only writers" — is still true today.
+
+## The line worth drawing
+
+The PRD's bet is that **Claude writes the substance**: the specs, the decisions, the reasoning, the notes that say what was learned. That is the product. If a person ends up typing prose into forms, Keel has become a tracker with an AI feature rather than the thing it is trying to be.
+
+But none of KB's four use cases are that. Archiving a stale row, closing something that turned out not to matter, adding a comment, creating a task you just thought of — these are *curation and capture*, and making somebody open a chat window to archive a row is friction with nothing behind it.
+
+So the amendment I would write is not "the app can write" but:
+
+> **The interface may perform a person's own curation and capture: create a task, comment on one, and archive or close a row. It does not author prose.** No form ever edits a spec, a decision or a question body — those stay with Claude and `keel_write_doc`, because the reasoning in them is the product.
+
+That keeps the constraint meaningful rather than deleted, and it is a line that can be checked: an endpoint that accepts a document revision is on the wrong side of it.
+
+## The three options
+
+1. **Curation and capture only, as above.** Create task, note, archive, close, and the status and priority fields a person moves while looking at a board. No prose authoring. *(Recommended.)*
+2. **General write.** The app can edit anything the MCP surface can. Simpler to describe and much larger to build and defend, and it makes the app a second author of the reasoning.
+3. **Keep the constraint, do it in Claude.** No change. Costs the friction KB just named as the reason for asking.
+
+## What this does not decide
+
+The security work in KEEL-168 is needed for **any** of this and is not waiting on the answer: a per-session token on mutating endpoints, a strict CSP with sanitised bodies and nosniff on anything served, blob reads confined to allowlisted roots. The advisory lock, the fourth item, is already done (B-60). Splitting those out so they can start is the next thing regardless.
 
 ### STATUS.md is 87% closed tasks and too large to read. What should it be?
 

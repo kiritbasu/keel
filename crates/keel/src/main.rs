@@ -605,7 +605,7 @@ fn main() -> Result<()> {
             check,
             rollback,
             daemon,
-        } => keel_update::run(*check, *rollback, cli.json, daemon),
+        } => keel_update::run(*check, *rollback, cli.json, daemon, &home),
         Command::Status { daemon } => run_status(&home, daemon, cli.json),
         Command::RenderStatus {
             project,

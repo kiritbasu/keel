@@ -51,6 +51,7 @@ pub mod render_status;
 pub mod safe_path;
 pub mod store;
 pub mod style;
+pub mod token;
 pub mod types;
 pub mod vocabulary;
 pub mod work;
