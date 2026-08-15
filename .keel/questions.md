@@ -38,48 +38,6 @@ KEEL-224 was the actual cause and it is fixed. The skill now leads with claiming
 
 Recommending 1 until the measurement says otherwise, and 2 over 3 if it does, because the failure being fixed is that people do not read the thing telling them to act.
 
-### Should the interface tell people an update exists, and may it ask the internet itself?
-
-`que_01M02YVASAEX8HV2JDCTHDS15A` · question · open · severity medium
-
-**Needs KB.** Three separate boundaries meet here and only one of them is obviously safe.
-
-Asked whether the interface could show that an update is available, and whether a person could press something there to check.
-
-## Where this starts
-
-Nothing checks for updates today. There is no `update` subcommand and no version-checking code anywhere in the tree — KEEL-203 and KEEL-204 are both open and unbuilt, so the honest answer to "how do users check" is currently "they cannot".
-
-And **the daemon has never made an outbound network request.** Not one `reqwest` or `ureq` call in `keel-daemon`; it is a purely local server that reads a file and answers on loopback. Whatever gets built here would be the first time it talks to the internet, which is a property worth spending deliberately rather than by accident.
-
-## The three boundaries, separated
-
-**Showing that an update exists.** Not a write, not a request, and untroubled by hard constraint 7 — that rule is about the app writing to the *store*, and a version banner writes nothing. This one is free.
-
-**Checking, on a person's click.** TQ-6 and TQ-33 settled that the daemon does not make outbound requests on a *model's* instruction, and a person clicking is not that. But the endpoint would not know the difference: any page on localhost can reach the API, which is KEEL-168's first item and still open. So "the user asked for it" is not a property the daemon can currently verify.
-
-**Applying an update from the interface.** Replacing the binaries under a running daemon is as far from read-only as this gets, and it would need constraint 7 amended rather than interpreted. This one should stay in a terminal.
-
-## The option that avoids the middle case entirely
-
-`/api/health` already returns `version`, and the interface already reads it — that was wired for the first-run screen. If the *daemon* does the check on its own schedule, caches the answer and adds `update_available` to health, then:
-
-- no new endpoint exists to be reached by a stray localhost page,
-- the interface makes no outbound request and gains no new capability,
-- the UI change is a banner reading a field it already fetches,
-- and the check is one thing, in one place, that KEEL-204's opt-out can govern.
-
-The button disappears as a requirement, because there is nothing for it to trigger that is not already happening. A manual "check now" could be added later if the cadence turns out to be wrong, and it would then be a considered addition rather than the mechanism.
-
-## Options
-
-1. **Daemon checks on a schedule, health carries the answer, the UI shows a banner.** No new capability, no new endpoint, opt-out lands naturally with KEEL-204. *(Recommended.)*
-2. **The UI triggers the check.** Needs a new endpoint that makes an outbound request, reachable by any localhost page until KEEL-168's token exists. Buys immediacy that a background check already provides.
-3. **Nothing in the UI; `keel update` in a terminal only.** Cheapest and consistent with the read-only surface, but nobody who does not already know about updates will ever discover one.
-4. **The UI applies updates.** Requires amending constraint 7. Not recommended and not asked for.
-
-Recommending 1, and noting that it does not need deciding before KEEL-203 — the updater has to exist before anything can report on it. What this question does settle is that the interface should *display* rather than *do*, which is a constraint on how KEEL-203 is built rather than work that follows it.
-
 ### Keel models chat and cowork surfaces it has never been used from. Support them, or say so?
 
 `que_01M02R01Z5H9MD2E596D20593C` · question · open · severity low
@@ -278,6 +236,48 @@ The options, and what each costs:
 **Recommended: 1.** The fix is in and tested, the release path now proves itself, and cutting 0.1.3 is the only option that leaves the published artifacts matching the workflow that made them. It also exercises the new check for real, which is worth having before a release anyone else depends on.
 
 This needs KB either way: publishing is outward-facing and re-cutting a release is not a decision to take on somebody's behalf.
+
+### Should the interface tell people an update exists, and may it ask the internet itself?
+
+`que_01M02YVASAEX8HV2JDCTHDS15A` · question · answered · severity medium
+
+**Needs KB.** Three separate boundaries meet here and only one of them is obviously safe.
+
+Asked whether the interface could show that an update is available, and whether a person could press something there to check.
+
+## Where this starts
+
+Nothing checks for updates today. There is no `update` subcommand and no version-checking code anywhere in the tree — KEEL-203 and KEEL-204 are both open and unbuilt, so the honest answer to "how do users check" is currently "they cannot".
+
+And **the daemon has never made an outbound network request.** Not one `reqwest` or `ureq` call in `keel-daemon`; it is a purely local server that reads a file and answers on loopback. Whatever gets built here would be the first time it talks to the internet, which is a property worth spending deliberately rather than by accident.
+
+## The three boundaries, separated
+
+**Showing that an update exists.** Not a write, not a request, and untroubled by hard constraint 7 — that rule is about the app writing to the *store*, and a version banner writes nothing. This one is free.
+
+**Checking, on a person's click.** TQ-6 and TQ-33 settled that the daemon does not make outbound requests on a *model's* instruction, and a person clicking is not that. But the endpoint would not know the difference: any page on localhost can reach the API, which is KEEL-168's first item and still open. So "the user asked for it" is not a property the daemon can currently verify.
+
+**Applying an update from the interface.** Replacing the binaries under a running daemon is as far from read-only as this gets, and it would need constraint 7 amended rather than interpreted. This one should stay in a terminal.
+
+## The option that avoids the middle case entirely
+
+`/api/health` already returns `version`, and the interface already reads it — that was wired for the first-run screen. If the *daemon* does the check on its own schedule, caches the answer and adds `update_available` to health, then:
+
+- no new endpoint exists to be reached by a stray localhost page,
+- the interface makes no outbound request and gains no new capability,
+- the UI change is a banner reading a field it already fetches,
+- and the check is one thing, in one place, that KEEL-204's opt-out can govern.
+
+The button disappears as a requirement, because there is nothing for it to trigger that is not already happening. A manual "check now" could be added later if the cadence turns out to be wrong, and it would then be a considered addition rather than the mechanism.
+
+## Options
+
+1. **Daemon checks on a schedule, health carries the answer, the UI shows a banner.** No new capability, no new endpoint, opt-out lands naturally with KEEL-204. *(Recommended.)*
+2. **The UI triggers the check.** Needs a new endpoint that makes an outbound request, reachable by any localhost page until KEEL-168's token exists. Buys immediacy that a background check already provides.
+3. **Nothing in the UI; `keel update` in a terminal only.** Cheapest and consistent with the read-only surface, but nobody who does not already know about updates will ever discover one.
+4. **The UI applies updates.** Requires amending constraint 7. Not recommended and not asked for.
+
+Recommending 1, and noting that it does not need deciding before KEEL-203 — the updater has to exist before anything can report on it. What this question does settle is that the interface should *display* rather than *do*, which is a constraint on how KEEL-203 is built rather than work that follows it.
 
 ### ONNX Runtime blocks two of the three release targets. Which platforms does 0.1.0 actually support?
 
