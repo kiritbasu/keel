@@ -99,7 +99,10 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
             _ => None,
         })
         .collect();
-    closed.sort_by(|a, b| b.closed_at.cmp(&a.closed_at));
+    // Newest first. `Reverse` rather than a flipped comparator so clippy is
+    // satisfied on every platform — and `None` still sorts last, because it is
+    // less than any `Some` and reversing makes it greatest.
+    closed.sort_by_key(|t| std::cmp::Reverse(t.closed_at));
 
     writeln!(out, "---")?;
     writeln!(out)?;

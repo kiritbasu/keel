@@ -28,9 +28,15 @@ event="${1:-}"
 
 # Where the installer puts it, then whatever is on PATH. `command -v` rather
 # than a hardcoded path so a non-standard install still works.
+#
+# `~/.local/bin/keel` used to be first on this list, and it was the wrong place:
+# no release has ever written there, only the old default of
+# `plugin/install.sh`. So a machine with both had its session hook running a
+# development build while everything else ran the released one (KEEL-234). One
+# location, and it is the one a release installs to.
 keel="${KEEL_BIN:-}"
 if [ -z "$keel" ]; then
-    for candidate in "$HOME/.local/bin/keel" "$HOME/.cargo/bin/keel"; do
+    for candidate in "${CARGO_HOME:-$HOME/.cargo}/bin/keel" "$HOME/.cargo/bin/keel"; do
         [ -x "$candidate" ] && keel="$candidate" && break
     done
 fi

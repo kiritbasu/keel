@@ -27,7 +27,20 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-bin_dir="${KEEL_BIN_DIR:-$HOME/.local/bin}"
+# Where a *release* installs, and therefore where this installs too.
+#
+# `dist`'s shell installer uses `CARGO_HOME`, falling back to `~/.cargo/bin`,
+# and `install-path` is unset in `dist-workspace.toml` so that default is what a
+# real install actually does.
+#
+# This used to default to `~/.local/bin`, which produced two of everything: a
+# dev build there and a released one in `~/.cargo/bin`, with the first shadowing
+# the second on PATH. On 2026-08-15 that left the CLI running one build while
+# the daemon ran another, several hours apart, with nothing anywhere saying so
+# (KEEL-234). A development install that lands somewhere a release never touches
+# is not a rehearsal of the thing users get; it is a second installation to keep
+# in step by hand.
+bin_dir="${KEEL_BIN_DIR:-${CARGO_HOME:-$HOME/.cargo}/bin}"
 keel_home="${KEEL_HOME:-$HOME/.keel}"
 skill_dir="${KEEL_SKILL_DIR:-$HOME/.claude/skills/keel}"
 # Adoption is its own skill because it is used once per project and the everyday
@@ -135,6 +148,19 @@ if ! command -v keel >/dev/null 2>&1; then
   note ""
   note "WARNING: $bin_dir is not on your PATH. Add it:"
   note "  export PATH=\"$bin_dir:\$PATH\""
+# Installing is not the same as being the one that runs. An older copy earlier
+# on PATH wins, and everything downstream then describes a binary this script
+# did not write — which is how a CLI and a daemon ended up hours apart with
+# nothing saying so (KEEL-234). Checked by resolution rather than by directory,
+# so a symlink farm or a shim is caught too.
+elif [ "$(command -v keel)" != "$bin_dir/keel" ]; then
+  note ""
+  note "WARNING: this is not the keel your shell will run."
+  note "  installed:  $bin_dir/keel"
+  note "  PATH finds: $(command -v keel)"
+  note ""
+  note "Remove the other copy, or put $bin_dir earlier on PATH. Until then the"
+  note "binaries this script just built are installed and not in use."
 fi
 
 say "Creating the store at $keel_home"

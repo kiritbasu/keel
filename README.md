@@ -50,7 +50,7 @@ git clone <this repo> && cd keel
 ./plugin/install.sh
 ```
 
-That builds the binaries, puts them in `~/.local/bin`, creates the store at `~/.keel`, and copies the agent's skill and hooks to `~/.claude/skills/keel/`.
+That builds the binaries, puts them in `~/.cargo/bin` — the same place a release installs, so there is only ever one copy — creates the store at `~/.keel`, and copies the agent's skill and hooks to `~/.claude/skills/keel/`.
 
 SQLite is compiled in, so the binaries are self-contained — there is no database to install alongside them.
 
@@ -107,7 +107,7 @@ Everything has a working default. Override with environment variables:
 | `KEEL_HOME` | `~/.keel` | Where the store lives |
 | `KEEL_DAEMON_URL` | `http://127.0.0.1:7654` | Where the CLI looks for the daemon |
 | `KEEL_BIND` | `127.0.0.1:7654` | What the daemon binds |
-| `KEEL_BIN_DIR` | `~/.local/bin` | Where `install.sh` puts binaries |
+| `KEEL_BIN_DIR` | `$CARGO_HOME/bin`, else `~/.cargo/bin` | Where `install.sh` puts binaries — the release installer's own default |
 | `KEEL_SKILL_DIR` | `~/.claude/skills/keel` | Where the skill and hooks are installed |
 
 After editing anything under `plugin/`, re-run `./plugin/install.sh --skill-only`. It skips the build and copies the three files. **The copies under `~/.claude` are what actually run** — a change to the repo that isn't copied across does nothing at all.

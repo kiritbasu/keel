@@ -34,9 +34,11 @@ is a real phase and not an afterthought (PRD R-2).
 ./plugin/install.sh
 ```
 
-That builds the binaries, installs them to `~/.local/bin`, creates the store at
-`~/.keel`, copies the skill and hooks to `~/.claude/skills/keel/`, and prints
-what to add to your Claude Code configuration.
+That builds the binaries, installs them to `~/.cargo/bin` — where a release
+installs too, so a dev build replaces the released one rather than shadowing it
+— creates the store at `~/.keel`, copies the skill and hooks to
+`~/.claude/skills/keel/`, and prints what to add to your Claude Code
+configuration.
 
 **After editing anything under `plugin/`, re-run it:**
 

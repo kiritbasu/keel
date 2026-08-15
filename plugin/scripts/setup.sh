@@ -39,7 +39,12 @@ set -uo pipefail
 
 REPO="${KEEL_REPO:-kiritbasu/keel}"
 PORT="${KEEL_PORT:-7654}"
-BIN_DIR="${KEEL_BIN_DIR:-$HOME/.local/bin}"
+# The release installer's own default — `CARGO_HOME`, falling back to
+# `~/.cargo/bin`. Kept identical to `plugin/install.sh` deliberately: two
+# install paths meant two copies of every binary, one shadowing the other on
+# PATH, and a daemon serving a different build from the CLI beside it
+# (KEEL-234).
+BIN_DIR="${KEEL_BIN_DIR:-${CARGO_HOME:-$HOME/.cargo}/bin}"
 KEEL_HOME_DIR="${KEEL_HOME:-$HOME/.keel}"
 DAEMON_URL="http://127.0.0.1:$PORT"
 
@@ -197,7 +202,12 @@ if [ "$DRY_RUN" = false ]; then
     # name, and this found a *different* `keel` further down the list instead.
     # An install that reports the version of a binary it did not install is
     # worse than one that fails.
-    for candidate in "${CARGO_HOME:+$CARGO_HOME/bin}" "$BIN_DIR" "$HOME/.cargo/bin" "$HOME/.local/bin"; do
+    # `~/.local/bin` was on this list until KEEL-234. It was never a place a
+    # release installs — it was where `plugin/install.sh` used to put dev
+    # builds — so searching it meant a stale development copy could be found
+    # and reported as the install. One place a release writes, one place this
+    # looks.
+    for candidate in "${CARGO_HOME:+$CARGO_HOME/bin}" "$BIN_DIR" "$HOME/.cargo/bin"; do
         [ -n "$candidate" ] || continue
         if [ -x "$candidate/keel" ] && [ -x "$candidate/keel-daemon" ]; then
             keel_bin="$candidate/keel"
@@ -206,7 +216,7 @@ if [ "$DRY_RUN" = false ]; then
         fi
     done
     [ -x "$keel_bin" ] || die "keel is not where the installer said it would be" \
-        "Looked in: $BIN_DIR, $HOME/.cargo/bin, $HOME/.local/bin"
+        "Looked in: $BIN_DIR, $HOME/.cargo/bin"
     ok "keel $("$keel_bin" --version 2>/dev/null | awk '{print $2}') at $keel_bin"
 fi
 
