@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T22:57:43Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T22:58:34Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (214)
+## Closed work (215)
 
 ### 2026-08-15
+
+- **KEEL-238** A per-session token, so a mutating endpoint knows who is calling — `done`
+
+  The daemon mints 256 bits at startup into a 0600 file and refuses any mutating request without it in `x-keel-token`. The interface receives it in the document the daemon serves — a page served by anything else cannot read that response, which is what makes DNS rebinding harmless against the API — and the CLI reads the file. The guard is a layer over a sub-router holding every mutating route, so a later endpoint is protected by where it is registered rather than by someone remembering. Reads stay open on purpose.
+
+  <sub>commit:3eeb858 · test:cargo test -p keel-daemon --test token · test:cargo test -p keel-core --lib token</sub>
 
 - **KEEL-237** Board search cannot find a task by the identifier everyone uses for it — `done`
 
@@ -808,6 +814,11 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-15 | claude | status in_progress → done |
+| 2026-08-15 | claude | evidence [] → (107 characters) |
+| 2026-08-15 | claude | close_reason none → done |
+| 2026-08-15 | claude | close_message none → (517 characters) |
+| 2026-08-15 | claude | created task “The MCP endpoint is the one writer a rebinding attack could still reach” |
 | 2026-08-15 | claude | status todo → in_progress |
 | 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
 | 2026-08-15 | claude | claimed_at none → 2026-08-15T22:35:41.344447Z |
@@ -1003,11 +1014,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | close_reason none → done |
 | 2026-08-15 | claude | close_message none → (425 characters) |
 | 2026-08-15 | claude | created task “Two tests read the machine instead of the code, and the first real CI run found both” |
-| 2026-08-15 | claude | created task “A task can be created directly in a terminal status, skipping the rule that guards closing one” |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → (83 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (587 characters) |
 
-*Showing the 200 most recent of 1635 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1640 changes. Use `keel_activity` for the rest.*
 
