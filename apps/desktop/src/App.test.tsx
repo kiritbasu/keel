@@ -8,7 +8,14 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 
 /** Handles onto the live feed, so a test can drop and restore it. */
 const feedHooks: {
@@ -30,7 +37,15 @@ vi.mock("./lib/api", () => {
     },
     api: {
       projects: async () => ({
-        projects: [{ id: "prj_1", type: "project", name: "Keel", slug: "keel", audit: {} }],
+        projects: [
+          {
+            id: "prj_1",
+            type: "project",
+            name: "Keel",
+            slug: "keel",
+            audit: {},
+          },
+        ],
       }),
       context: async () => ({
         project: {
@@ -63,11 +78,21 @@ vi.mock("./lib/api", () => {
       ready: async () => ({ ready: [], total: 0, truncated: false }),
       notes: async () => ({ notes: [], total: 0 }),
       noteCounts: async () => ({ counts: {}, total: 0 }),
-      activity: async () => ({ events: [], total: 0, truncated: false, cursor: null }),
+      activity: async () => ({
+        events: [],
+        total: 0,
+        truncated: false,
+        cursor: null,
+      }),
       document: async () => ({ revisions: [], document: null, diff: null }),
       graph: async () => ({ neighbours: [] }),
       search: async () => ({ hits: [], items: [], total: 0, truncated: false }),
-      health: async () => ({ status: "ok", protocol: "", version: "", projects: 1 }),
+      health: async () => ({
+        status: "ok",
+        protocol: "",
+        version: "",
+        projects: 1,
+      }),
     },
   };
 });
@@ -94,14 +119,18 @@ describe("the command palette key", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
 
     fireEvent.keyDown(window, { key: "k", metaKey: true });
-    expect(screen.getByRole("dialog", { name: "Command palette" })).toBeTruthy();
+    expect(
+      screen.getByRole("dialog", { name: "Command palette" }),
+    ).toBeTruthy();
   });
 
   it("opens on Ctrl-K too, for anyone not on a Mac", async () => {
     render(<App />);
     await settle();
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
-    expect(screen.getByRole("dialog", { name: "Command palette" })).toBeTruthy();
+    expect(
+      screen.getByRole("dialog", { name: "Command palette" }),
+    ).toBeTruthy();
   });
 
   it("closes on Escape", async () => {
@@ -124,6 +153,54 @@ describe("the command palette key", () => {
     fireEvent.keyDown(window, { key: "3", metaKey: true });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(window.location.hash).toBe("#/");
+  });
+});
+
+describe("the shortcut hint in the rail", () => {
+  /**
+   * A bare right-aligned digit beside a nav label means a count — that is the
+   * convention everywhere else, and a faint monospace style does not overturn
+   * it. It was read that way and reported as a bug against a brand new install:
+   * "All projects 6, Search 7, What changed 8" on an empty store reads as data
+   * appearing from nowhere. Every digit was wrong as a count, too — the rail
+   * said "Ready 2" against 21 ready tasks.
+   */
+  it("cannot be mistaken for a count", async () => {
+    render(<App />);
+    await settle();
+    const hints = [...document.querySelectorAll("a kbd")].map(
+      (k) => k.textContent,
+    );
+    expect(hints.length).toBeGreaterThan(0);
+    for (const hint of hints) {
+      expect(hint).not.toMatch(/^\s*\d+\s*$/);
+    }
+  });
+
+  /** The key itself is still there — this is a disambiguation, not a removal. */
+  it("still names the key it presses", async () => {
+    render(<App />);
+    await settle();
+    const hints = [...document.querySelectorAll("a kbd")].map(
+      (k) => k.textContent,
+    );
+    expect(hints).toContain("\u00b77");
+  });
+
+  /**
+   * Decoration to a screen reader: the label already names the destination,
+   * and "middle dot seven" read after it is noise.
+   */
+  it("is hidden from assistive technology", async () => {
+    render(<App />);
+    await settle();
+    // Scoped to the rail. Other hints exist — `⌘K` in the header, `K`/`J` on
+    // the task screen — and they are not this.
+    const railHints = document.querySelectorAll("a kbd");
+    expect(railHints.length).toBeGreaterThan(0);
+    for (const kbd of railHints) {
+      expect(kbd.getAttribute("aria-hidden")).toBe("true");
+    }
   });
 });
 
@@ -151,7 +228,9 @@ describe("navigation keys", () => {
     render(<App />);
     await settle();
     fireEvent.keyDown(window, { key: "3" });
-    await waitFor(() => expect(window.location.hash).toBe("#/projects/keel/board"));
+    await waitFor(() =>
+      expect(window.location.hash).toBe("#/projects/keel/board"),
+    );
   });
 
   // This used to do nothing, and that was the bug rather than the safeguard.
@@ -161,7 +240,9 @@ describe("navigation keys", () => {
     render(<App />);
     await settle();
     fireEvent.keyDown(window, { key: "3" });
-    await waitFor(() => expect(window.location.hash).toBe("#/projects/keel/board"));
+    await waitFor(() =>
+      expect(window.location.hash).toBe("#/projects/keel/board"),
+    );
   });
 
   // Failure case: this is the bug that put a stray "6" in the search box.
@@ -182,7 +263,11 @@ describe("addresses", () => {
     window.location.hash = "#/projects/keel/board";
     render(<App />);
     await settle();
-    await waitFor(() => expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Tasks"));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+        "Tasks",
+      ),
+    );
   });
 
   // Failure case: an address that names a project-scoped screen without a
@@ -225,12 +310,12 @@ describe("the rail, with the project first", () => {
     render(<App />);
     await settle();
     expect(window.location.hash).toBe("#/");
-    expect(screen.getByRole("link", { name: /Board/ }).getAttribute("href")).toBe(
-      "#/projects/keel/board",
-    );
-    expect(screen.getByRole("link", { name: /Library/ }).getAttribute("href")).toBe(
-      "#/projects/keel/documents",
-    );
+    expect(
+      screen.getByRole("link", { name: /Board/ }).getAttribute("href"),
+    ).toBe("#/projects/keel/board");
+    expect(
+      screen.getByRole("link", { name: /Library/ }).getAttribute("href"),
+    ).toBe("#/projects/keel/documents");
   });
 
   it("names the project you are in, as one row rather than one per project", async () => {
@@ -244,9 +329,9 @@ describe("the rail, with the project first", () => {
   it("keeps Roadmap with the project, though the router does not demand one", async () => {
     render(<App />);
     await settle();
-    expect(screen.getByRole("link", { name: /Roadmap/ }).getAttribute("href")).toBe(
-      "#/projects/keel/roadmap",
-    );
+    expect(
+      screen.getByRole("link", { name: /Roadmap/ }).getAttribute("href"),
+    ).toBe("#/projects/keel/roadmap");
   });
 });
 

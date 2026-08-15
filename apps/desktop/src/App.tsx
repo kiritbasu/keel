@@ -107,7 +107,30 @@ function NavLink({
       )}
     >
       {item.label}
-      <kbd className="font-mono text-micro text-ink-faint">{item.key}</kbd>
+      {/* The dot is load-bearing, not decoration.
+       *
+       * A bare right-aligned digit beside a navigation label means a count —
+       * that is the convention in every mail client, chat app and issue
+       * tracker, and a faint monospace style does not overturn it. It was read
+       * that way and reported as a bug: a brand new install with an empty store
+       * showed "All projects 6, Search 7, What changed 8", which reads as data
+       * appearing from nowhere.
+       *
+       * Every digit was wrong as a count. The rail said "Ready 2" against 21
+       * ready tasks and "Board 3" against a board of 219, and nobody had
+       * noticed because nobody had read them as counts.
+       *
+       * A leading `·` costs one character and cannot be a quantity. It also
+       * matches the header, which already writes its shortcut as `Jump to… ⌘K`,
+       * so the vocabulary was on the screen already. (KEEL-223.)
+       */}
+      <kbd
+        className="font-mono text-micro text-ink-faint"
+        aria-hidden="true"
+        title={`Press ${item.key}`}
+      >
+        ·{item.key}
+      </kbd>
     </a>
   );
 }
@@ -245,7 +268,8 @@ export function App() {
   // system's shortcuts alone while letting ours through.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const isPaletteKey = (e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "k";
+      const isPaletteKey =
+        (e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "k";
       if (isPaletteKey) {
         e.preventDefault();
         setPaletteOpen((open) => !open);
@@ -260,7 +284,10 @@ export function App() {
 
       if (e.key === "/") {
         e.preventDefault();
-        navigate({ screen: "search", ...(route.project ? { project: route.project } : {}) });
+        navigate({
+          screen: "search",
+          ...(route.project ? { project: route.project } : {}),
+        });
         return;
       }
 
@@ -325,14 +352,18 @@ export function App() {
     <div className="flex h-full">
       <nav className="flex w-52 shrink-0 flex-col border-r border-border-subtle bg-surface-sunken">
         <div className="px-4 py-4">
-          <div className="text-heading font-semibold tracking-tight text-brand">Keel</div>
+          <div className="text-heading font-semibold tracking-tight text-brand">
+            Keel
+          </div>
           <div className="text-micro text-ink-faint">the project spine</div>
         </div>
 
         {/* The project first, because five of the eight screens below are
             about one and choosing it used to be the last thing on the rail. */}
         <div className="flex items-center gap-1.5 px-2 pb-2">
-          {activeProject && <ProjectSwitcher projects={projects} current={activeProject} />}
+          {activeProject && (
+            <ProjectSwitcher projects={projects} current={activeProject} />
+          )}
           <Button
             size="sm"
             variant="ghost"
@@ -348,7 +379,12 @@ export function App() {
         <div className="px-2">
           {activeProject &&
             PROJECT_SCREENS.map((s) => (
-              <NavLink key={s.id} item={s} route={route} project={activeProject} />
+              <NavLink
+                key={s.id}
+                item={s}
+                route={route}
+                project={activeProject}
+              />
             ))}
 
           {activeProject && <hr className="mx-2.5 my-2 border-border-subtle" />}
