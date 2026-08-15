@@ -862,13 +862,13 @@ fn truncate(text: &str, max: usize) -> String {
 
 /// Render a JSON value for an event summary, without the quotes a raw
 /// `to_string` would add around every string.
-fn render(v: &serde_json::Value) -> String {
-    match v {
-        serde_json::Value::String(s) => s.clone(),
-        serde_json::Value::Null => "none".to_owned(),
-        other => other.to_string(),
-    }
-}
+/// How a field's old and new values appear in an event summary.
+///
+/// The rule lives in [`crate::event::render_field_value`] because the changelog
+/// renderer applies it a second time, to events written before it existed. One
+/// definition, two call sites — a rule that exists twice is a rule that will
+/// differ once.
+use crate::event::render_field_value as render;
 
 /// What a create turns out to be, once the store has been consulted.
 ///
@@ -1163,8 +1163,8 @@ impl EntityStore for Store {
             let summary = format!(
                 "{} {} → {}",
                 change.field,
-                render(&change.before),
-                render(&change.after)
+                render(&change.field, &change.before),
+                render(&change.field, &change.after)
             );
             append_event_inner(
                 &tx,

@@ -14,6 +14,10 @@
 set -uo pipefail
 
 KEEL="${KEEL:-./target/release/keel}"
+# Derived, not written down. The `cwd` probe below needs a real path that
+# `keel_context` will match against a project's `root_path`, and hardcoding one
+# put this machine's username into a file that is going public.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 STORE=/tmp/keel-det/store
 WORK=/tmp/keel-det
 N="${N:-100}"
@@ -123,7 +127,7 @@ probe "tools-list"          tools_list
 
 echo "HTTP"
 probe "api-health"          http_get /api/health
-probe "api-context"         http_get "/api/context?cwd=/Users/h8hcn/development/keel&depth=brief"
+probe "api-context"         http_get "/api/context?cwd=$REPO_ROOT&depth=brief"
 probe "api-activity"        http_get "/api/activity?limit=20"
 
 echo "Generated markdown"

@@ -383,7 +383,14 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
                 "| {} | {} | {} |",
                 e.created_at.format("%Y-%m-%d"),
                 e.actor,
-                e.summary.replace('|', "\\|")
+                // `publishable_summary`, never `summary`. This file is
+                // committed, and the stored summary of any event written before
+                // KEEL-215 still holds the whole prose value that changed —
+                // including, in the case that found this, a value somebody had
+                // just edited out. Events are immutable, so recomputing at
+                // render time is the only thing that covers the ones already in
+                // the log.
+                e.publishable_summary().replace('|', "\\|")
             )?;
         }
         writeln!(out)?;

@@ -46,7 +46,10 @@ env:
 jobs:
   build:
     name: build ${{ matrix.target }}
-    runs-on: ${{ matrix.runner }}
+    # `fromJSON` because one leg needs a label *list* and the other a single
+    # label, and `runs-on` will not take a bare string where an array is meant.
+    # Carrying both as JSON in the matrix is the documented way to mix them.
+    runs-on: ${{ fromJSON(matrix.runner) }}
     strategy:
       # One platform failing should not hide the result on the other two. A
       # release is all-or-nothing, but the diagnosis is much cheaper when every
@@ -54,24 +57,36 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # **macOS builds run on macOS runners and are never cross-compiled.**
-          # On Apple Silicon an executable must carry at least an ad-hoc
-          # signature or the kernel kills the process at exec. Native macOS
-          # toolchains add one at link time; a binary cross-compiled from Linux
+          # **macOS builds are linked by Apple's toolchain and never
+          # cross-compiled from Linux.** On Apple Silicon an executable must
+          # carry at least an ad-hoc signature or the kernel kills the process
+          # at exec. Apple's linker adds one; a binary cross-compiled from Linux
           # does not carry one and dies on every M-series Mac. The failure looks
           # exactly like a corrupt download — no diagnostic, no signature
           # message, just a killed process — so it would be blamed on the
           # installer or the network long before anyone suspected the linker.
-          # macOS runners are free for public repositories (§2).
+          #
+          # Both macOS targets build on **one self-hosted Apple Silicon Mac**
+          # (B-72). The requirement is Apple's linker, not GitHub's hardware,
+          # and `--target=x86_64-apple-darwin` on an arm64 host still links with
+          # `cc` and still gets the ad-hoc signature. §10 had already planned
+          # this shape for when GitHub retires the Intel runners in August 2027;
+          # the repository staying private brought it forward, because hosted
+          # macOS minutes are billed at ten times the Linux rate there and the
+          # alternative was publishing the repository to get them free.
+          #
+          # Labels are the three a macOS arm64 runner assigns itself on
+          # registration, so there is nothing to remember to set. **A job with
+          # no matching runner queues; it does not fail.** A sleeping Mac looks
+          # like a run that never starts.
           - target: aarch64-apple-darwin
-            runner: macos-14
-          # Intel macOS, on an Intel runner. The same rule applies for the same
-          # reason. Diary item from §10: GitHub retires the macOS Intel runners
-          # in August 2027, at which point this target either moves to an
-          # arm64 macOS runner with `--target=x86_64-apple-darwin` — still
-          # Apple's linker, so still ad-hoc signed — or is dropped.
+            runner: '["self-hosted", "macOS", "ARM64"]'
           - target: x86_64-apple-darwin
-            runner: macos-13
+            runner: '["self-hosted", "macOS", "ARM64"]'
+          # Linux stays hosted. It is billed at the base rate, and a second
+          # machine is worth more than a saved minute here — this is the only
+          # leg of the release that runs anywhere other than one Mac.
+          #
           # Not `ubuntu-latest`. The glibc a binary is linked against is a floor,
           # not a preference: built on a newer image, it refuses to start on
           # anything older, and §12 tier 2 exists precisely because CI has never
@@ -79,16 +94,36 @@ jobs:
           # low and makes it a deliberate choice rather than a side effect of
           # whichever image GitHub promoted this month.
           - target: x86_64-unknown-linux-gnu
-            runner: ubuntu-22.04
+            runner: '"ubuntu-22.04"'
     steps:
       - uses: actions/checkout@v4
 
+      # A self-hosted runner keeps its working directory between jobs, so
+      # `target/distrib` still holds whatever the previous target produced.
+      # `upload-artifact` globs that directory, so without this each macOS job
+      # would upload the other one's archives too. Harmless when the contents
+      # agree and quietly wrong when they do not — a re-run after a failed
+      # build would ship a stale archive alongside a fresh one.
+      #
+      # `checkout` cleans tracked files; `target/` is ignored, so it does not.
+      - name: Clear the previous run's artifacts
+        shell: bash
+        run: rm -rf target/distrib
+
+      # `rust-toolchain.toml` pins the version, so rustup installs it on demand
+      # and this only has to add the target. On the self-hosted runner that is
+      # a no-op after the first release.
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
+      # Hosted runners start empty and need the cache. The self-hosted one
+      # keeps `target/` between runs, so restoring a cache over the top buys
+      # nothing and spends GitHub's cache storage on gigabytes it already has
+      # on disk.
       - uses: Swatinem/rust-cache@v2
+        if: runner.environment == 'github-hosted'
         with:
           key: ${{ matrix.target }}
 
@@ -120,22 +155,35 @@ jobs:
 
       # --- The binaries ------------------------------------------------------
 
+      # Two ways in, chosen by what kind of machine this is.
+      #
+      # A hosted runner is a throwaway VM, so piping the upstream installer into
+      # `sh` costs nothing that matters and takes seconds. A self-hosted runner
+      # is somebody's actual Mac, and running an unreviewed downloaded script on
+      # it every release is a different proposition — the more so because that
+      # script is the one whose checksum verification this repository patches
+      # (see `scripts/patch-installer.sh`). There, `cargo install --locked` goes
+      # through crates.io with a lockfile instead, and re-running it when the
+      # version already matches is a no-op rather than a rebuild.
       - name: Install dist
         shell: bash
         run: |
           set -euo pipefail
-          # UNCERTAIN: the release asset is believed to still be named
-          # `cargo-dist-installer.sh` even though the tool renamed itself to
-          # `dist`. If a release fails here with a 404, check the asset names on
-          # the `v${DIST_VERSION}` release and correct this line — do not paper
-          # over it by falling back to `cargo install`, which compiles dist from
-          # source on four runners.
-          #
-          # `--proto '=https' --tlsv1.2` stop a redirect downgrading the
-          # transfer to plaintext; `-f` makes curl fail on an HTTP error instead
-          # of piping an error page into sh.
-          curl --proto '=https' --tlsv1.2 -LsSf \
-            "https://github.com/axodotdev/cargo-dist/releases/download/v${DIST_VERSION}/cargo-dist-installer.sh" | sh
+          if [ "$(dist --version 2>/dev/null | awk '{print $2}')" = "$DIST_VERSION" ]; then
+            echo "dist $DIST_VERSION already present"
+          elif [ "$RUNNER_ENVIRONMENT" = "self-hosted" ]; then
+            cargo install cargo-dist --version "$DIST_VERSION" --locked
+          else
+            # `--proto '=https' --tlsv1.2` stop a redirect downgrading the
+            # transfer to plaintext; `-f` makes curl fail on an HTTP error
+            # instead of piping an error page into sh.
+            #
+            # The asset is still named `cargo-dist-installer.sh` at 0.32.0
+            # despite the tool having renamed itself to `dist` — checked against
+            # the release, not assumed. A 404 here means that changed.
+            curl --proto '=https' --tlsv1.2 -LsSf \
+              "https://github.com/axodotdev/cargo-dist/releases/download/v${DIST_VERSION}/cargo-dist-installer.sh" | sh
+          fi
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Build the artifacts for this target

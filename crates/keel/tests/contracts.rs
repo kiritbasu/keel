@@ -335,6 +335,7 @@ fn generated_description(root: &Path) -> String {
                 .lines()
                 .filter(|l| !l.contains("keel:generated"))
                 .map(redact_ids)
+                .map(|l| redact_dates(&l))
                 .collect::<Vec<_>>()
                 .join("\n");
             let relative = path
@@ -347,6 +348,61 @@ fn generated_description(root: &Path) -> String {
     }
     lines.sort();
     lines.join("\n") + "\n"
+}
+
+/// Replace every calendar date with a placeholder.
+///
+/// The same argument as [`redact_ids`], and it was found the same way — by the
+/// check failing for a reason that had nothing to do with the code.
+///
+/// `fixture::load` dates its corpus relative to `Utc::now()`:
+/// `d.decided_at = Some(now - Duration::days(30))`, and a dozen others like it.
+/// So a decision rendered today says `**Decided:** 2026-07-16` and the same
+/// decision rendered tomorrow says `2026-07-17`. Every file carrying a date
+/// changes hash once a day, for ever, with nothing in the tree having moved.
+///
+/// **This made the gate fail every day from the day it landed** (KEEL-197, and
+/// it was recorded on 2026-08-14; the first run on 2026-08-15 failed). That is
+/// the worse half. The documented remedy is `UPDATE_CONTRACTS=1` followed by
+/// "read the diff before committing it — that diff is the release diff", and a
+/// diff that is *always* noise teaches whoever meets it to re-record without
+/// reading. A real breaking change would then land inside a diff nobody looks
+/// at any more, which is precisely the failure this file exists to prevent.
+///
+/// The dates are data; the contract is the layout — so the value is hidden and
+/// the surrounding text is not. A change to how a date is *rendered* still
+/// shows, because `**Decided:** ` shows.
+///
+/// Deliberately narrow: `YYYY-MM-DD` with four-digit years only. It leaves
+/// version numbers, durations, and anything else that merely contains digits
+/// alone.
+fn redact_dates(line: &str) -> String {
+    let chars: Vec<char> = line.chars().collect();
+    let mut out = String::with_capacity(line.len());
+    let mut i = 0;
+    while i < chars.len() {
+        let looks_like_date = i + 10 <= chars.len()
+            && chars[i..i + 4].iter().all(char::is_ascii_digit)
+            && chars[i + 4] == '-'
+            && chars[i + 5..i + 7].iter().all(char::is_ascii_digit)
+            && chars[i + 7] == '-'
+            && chars[i + 8..i + 10].iter().all(char::is_ascii_digit);
+        // Not the tail of something longer — a hash, or an id that survived
+        // redaction — and not the head of a longer number either.
+        let starts_a_word = i == 0 || !chars[i - 1].is_ascii_alphanumeric();
+        // `get`, not indexing: this is evaluated whether or not `looks_like_date`
+        // held, so `i + 10` is routinely past the end.
+        let ends_cleanly = chars.get(i + 10).is_none_or(|c| !c.is_ascii_digit());
+
+        if looks_like_date && starts_a_word && ends_cleanly {
+            out.push_str("<date>");
+            i += 10;
+        } else {
+            out.push(chars[i]);
+            i += 1;
+        }
+    }
+    out
 }
 
 /// Replace every Keel id with a placeholder.
@@ -435,4 +491,61 @@ fn the_same_state_produces_the_same_description_every_time() {
     let tools: Vec<String> = (0..3).map(|_| tools_description()).collect();
     assert_eq!(tools[0], tools[1], "the tool description is not stable");
     assert_eq!(tools[1], tools[2], "the tool description is not stable");
+}
+
+/// The date redaction, on its own.
+///
+/// It exists because the gate failed for a calendar reason rather than a code
+/// one, so what it has to guarantee is that the same corpus rendered on two
+/// different days hashes the same. These are the cases that guarantee rests on.
+#[test]
+fn a_date_is_hidden_but_the_line_around_it_is_not() {
+    assert_eq!(
+        redact_dates("**Decided:** 2026-07-16"),
+        "**Decided:** <date>",
+        "the value goes, the label stays — a change to how a date is rendered \
+         must still show up in the diff"
+    );
+    assert_eq!(
+        redact_dates("shipped 2026-01-02 and again 2026-12-31"),
+        "shipped <date> and again <date>",
+        "every date on the line, not just the first"
+    );
+}
+
+/// The property the whole thing is for: two days, one hash.
+#[test]
+fn the_same_line_a_day_apart_redacts_identically() {
+    assert_eq!(
+        redact_dates("**Decided:** 2026-07-16"),
+        redact_dates("**Decided:** 2026-07-17"),
+        "this is the failure that made the gate cry wolf every single day"
+    );
+}
+
+/// Narrow on purpose. Anything that merely contains digits is left alone,
+/// because a redaction that swallows real content hides the changes the gate
+/// exists to show.
+#[test]
+fn things_that_are_not_dates_are_left_alone() {
+    for untouched in [
+        "version 0.1.0",
+        "90 days",
+        "12345-67-89",      // five-digit year
+        "2026-07-160",      // a trailing digit, so not a bare date
+        "a18802b4a2da5999", // a content hash
+    ] {
+        assert_eq!(
+            redact_dates(untouched),
+            untouched,
+            "{untouched} is not a date and must survive untouched"
+        );
+    }
+
+    // And the other direction, so the rule above cannot be satisfied by a
+    // redactor that simply never fires.
+    assert!(
+        redact_dates("protocol 2026-07-28 is current").contains("<date>"),
+        "a real date in ordinary prose is still a date"
+    );
 }

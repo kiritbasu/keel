@@ -21,19 +21,44 @@ env:
 
 jobs:
   check:
-    name: fmt · clippy · test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    name: fmt · clippy · test (${{ matrix.name }})
+    runs-on: ${{ fromJSON(matrix.runner) }}
     strategy:
       # Both finish. A failure on one platform should not hide the result on
       # the other, which is the whole reason for testing two.
       fail-fast: false
       matrix:
-        # Linux is not decoration. This is a local-first SQLite tool, and the
-        # two things most likely to differ between platforms are the two it
-        # depends on most: file locking, and path handling. The path-traversal
-        # finding that produced `safe_path` was in exactly that area, and it
-        # was only ever exercised on macOS.
-        os: [ubuntu-latest, macos-latest]
+        include:
+          # Linux is not decoration. This is a local-first SQLite tool, and the
+          # two things most likely to differ between platforms are the two it
+          # depends on most: file locking, and path handling. The path-traversal
+          # finding that produced `safe_path` was in exactly that area, and it
+          # was only ever exercised on macOS.
+          #
+          # Hosted, and it stays hosted: it is billed at the base rate, and it
+          # is the only check in this repository that runs on a machine nobody
+          # develops on.
+          - name: linux
+            runner: '"ubuntu-latest"'
+          # macOS moved to the self-hosted runner with the release build (B-72),
+          # for the same reason: hosted macOS minutes are billed at ten times
+          # the Linux rate on a private repository, and CI runs on every push.
+          #
+          # **A job with no runner queues rather than failing.** If this leg
+          # sits at "waiting for a runner", the Mac is asleep.
+          - name: macos
+            runner: '["self-hosted", "macOS", "ARM64"]'
+    env:
+      # The suite now runs on a machine with a real store and a live daemon on
+      # it, which the hosted runners never had. Anything that reaches for the
+      # default home would find `~/.keel` — KEEL-186 is that exact class of bug,
+      # and a test suite is the worst place to discover another one.
+      #
+      # Pointing the whole job at a scratch home costs nothing on a hosted
+      # runner, where it is a directory that did not exist either way, and on
+      # the self-hosted one it is the difference between a test run and an
+      # incident.
+      KEEL_HOME: ${{ github.workspace }}/.ci-keel-home
     steps:
       - uses: actions/checkout@v4
 
@@ -42,10 +67,11 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      # Dependencies dominate a cold build; the workspace's own crates are
-      # quick. Caching the registry and target directory keeps a run to the
-      # part that actually changed.
+      # Dependencies dominate a cold build on a hosted runner; the workspace's
+      # own crates are quick. The self-hosted runner keeps `target/` between
+      # runs, so a cache there would download gigabytes it already has.
       - uses: Swatinem/rust-cache@v2
+        if: runner.environment == 'github-hosted'
 
       - name: Format
         run: cargo fmt --all --check
