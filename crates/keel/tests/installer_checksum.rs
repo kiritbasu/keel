@@ -42,21 +42,62 @@ fn fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/dist-installer-checksum.sh")
 }
 
-/// Run `verify_checksum` from `script` against `payload` and `digest`, with
-/// nothing but `/usr/bin` and `/bin` on the path.
+/// The path `scripts/verify-release-tier1.sh` installs under.
+///
+/// On macOS this has `shasum` and no `sha256sum` — `/sbin/sha256sum` exists on
+/// current macOS but `/sbin` is not here, which is the whole defect. On Linux
+/// it has `sha256sum` from coreutils. Both are real user environments and the
+/// patched script has to work on both.
+const TIER_ONE_PATH: &str = "PATH=/usr/bin:/bin";
+
+/// Run `verify_checksum` from `script` against `payload` and `digest`.
 ///
 /// `env -i` rather than `Command::env_clear`, because the point is to reproduce
 /// exactly the environment `verify-release-tier1.sh` uses.
-fn verify(script: &Path, payload: &Path, digest: &str) -> Output {
+fn verify_on(path: &str, script: &Path, payload: &Path, digest: &str) -> Output {
     Command::new("/usr/bin/env")
         .arg("-i")
-        .arg("PATH=/usr/bin:/bin")
+        .arg(path)
         .arg("/bin/sh")
         .arg(script)
         .arg(payload)
         .arg(digest)
         .output()
         .expect("the checksum harness runs")
+}
+
+fn verify(script: &Path, payload: &Path, digest: &str) -> Output {
+    verify_on(TIER_ONE_PATH, script, payload, digest)
+}
+
+/// A `PATH=` argument naming a directory that holds only the tools listed.
+///
+/// Needed because "no digest tool available" is a *platform* fact otherwise:
+/// macOS reaches it with the ordinary tier-1 path and Linux never does, since
+/// coreutils puts `sha256sum` in `/usr/bin`. A test that only holds on one of
+/// them is not testing the behaviour, it is testing the runner — which is
+/// exactly how the first CI run under the self-hosted runners found this,
+/// green on macOS and red on Linux.
+///
+/// Symlinks rather than copies, so this stays cheap and so the tools are the
+/// real ones.
+fn path_containing(dir: &Path, tools: &[&str]) -> String {
+    let bin = dir.join("bin");
+    std::fs::create_dir_all(&bin).expect("a scratch bin directory");
+    for tool in tools {
+        let located = Command::new("/bin/sh")
+            .arg("-c")
+            .arg(format!("command -v {tool}"))
+            .output()
+            .expect("look up a tool");
+        let real = String::from_utf8_lossy(&located.stdout).trim().to_owned();
+        assert!(
+            !real.is_empty(),
+            "{tool} is needed by the installer's checksum path and is not on this machine"
+        );
+        std::os::unix::fs::symlink(&real, bin.join(tool)).expect("symlink the tool");
+    }
+    format!("PATH={}", bin.display())
 }
 
 /// Copy the fixture into `dir` so a test can patch it without touching the
@@ -86,25 +127,56 @@ fn payload(dir: &Path, bytes: &[u8]) -> (PathBuf, String) {
 
 /// The bug, pinned. Not a demonstration for its own sake: this is the test that
 /// tells a future session the patch is still needed.
+///
+/// Run against a path with `awk` and deliberately no digest tool, so it asserts
+/// the *behaviour* rather than whichever runner it happens to be on.
 #[test]
 fn the_unpatched_installer_waves_a_corrupted_file_through() {
     let dir = tempfile::tempdir().expect("a temporary directory");
     let script = staged(dir.path());
     let (path, _) = payload(dir.path(), b"the archive we asked for\n");
+    let toolless = path_containing(dir.path(), &["awk"]);
 
     let wrong = "0".repeat(64);
-    let output = verify(&script, &path, &wrong);
+    let output = verify_on(&toolless, &script, &path, &wrong);
 
     assert!(
         output.status.success(),
         "this test exists to record that the generated installer accepts a file whose \
-         checksum is wrong. If it has started refusing, dist has fixed this upstream and \
-         scripts/patch-installer.sh should be deleted rather than kept passing."
+         checksum is wrong when it cannot find a digest tool. If it has started refusing, \
+         dist has fixed this upstream and scripts/patch-installer.sh should be deleted \
+         rather than kept passing."
     );
     let said = String::from_utf8_lossy(&output.stdout);
     assert!(
         said.contains("skipping sha256 checksum verification"),
         "and it should say why it let it through: {said}"
+    );
+}
+
+/// The branch the patch adds that upstream does not have: no digest tool is a
+/// refusal, not a pass.
+#[test]
+fn the_patched_installer_refuses_when_it_has_no_way_to_check() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let script = staged(dir.path());
+    assert!(patch(&script).status.success());
+    let (path, digest) = payload(dir.path(), b"the archive we asked for\n");
+    let toolless = path_containing(dir.path(), &["awk"]);
+
+    // The *correct* digest, so the only reason to refuse is that it cannot
+    // check — not that the bytes are wrong.
+    let output = verify_on(&toolless, &script, &path, &digest);
+
+    assert!(
+        !output.status.success(),
+        "a checksum that cannot be computed has established nothing, and installing \
+         anyway is what this whole patch is about"
+    );
+    let complaint = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        complaint.contains("neither 'sha256sum' nor 'shasum'"),
+        "and it must name what is missing: {complaint}"
     );
 }
 

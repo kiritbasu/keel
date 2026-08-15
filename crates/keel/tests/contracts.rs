@@ -232,6 +232,23 @@ fn help_for(exe: &str, args: &[&str]) -> String {
     let output = std::process::Command::new(exe)
         .args(args)
         .arg("--help")
+        // Cleared, because `clap` prints an env-backed argument as
+        // `[env: KEEL_HOME=<the value right now>]` — the *current* value, not
+        // just the name. Inheriting the environment therefore records the
+        // machine into the contract, and the contract is meant to be the CLI's
+        // shape.
+        //
+        // It is not hypothetical and it is not only about CI. Anyone with
+        // `KEEL_HOME`, `KEEL_BIND` or `KEEL_DAEMON_URL` exported — which is a
+        // reasonable thing for someone running two stores to have — would have
+        // failed this test with a diff that looked like a CLI change. It was
+        // found when CI set `KEEL_HOME` to a scratch directory to keep the test
+        // suite away from the real store, and every leg went red on `cli.txt`.
+        //
+        // `PATH` is put back because the process still has to be found and
+        // linked; nothing else is needed to print help.
+        .env_clear()
+        .env("PATH", std::env::var("PATH").unwrap_or_default())
         .output()
         .expect("run the built keel binary");
     assert!(
