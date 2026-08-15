@@ -254,7 +254,26 @@ jobs:
           set -euo pipefail
           ./scripts/patch-installer.sh target/distrib/*.sh
 
+      # Skipped while the repository is private, because GitHub will not do it:
+      #
+      #   Failed to persist attestation: Feature not available for user-owned
+      #   private repositories. To enable this feature, please make this
+      #   repository public.
+      #
+      # That is a straight consequence of B-72, which chose private, and it was
+      # not anticipated there — attestations and privacy are simply not both
+      # available on a user-owned repository. When the repository goes public
+      # this starts working again with no change here.
+      #
+      # Conditional rather than deleted, and conditional rather than
+      # `continue-on-error`. Deleting it would lose provenance silently the day
+      # the repository goes public; `continue-on-error` would print a red X on
+      # every release for a thing that cannot work, which is how people learn to
+      # ignore red. The release notes say provenance is absent, so the gap is
+      # stated where somebody downloading the artifact would see it rather than
+      # only in a workflow log.
       - name: Attest build provenance
+        if: ${{ !github.event.repository.private }}
         uses: actions/attest-build-provenance@v2
         with:
           # The archives and the installer — the two things a user actually
@@ -290,6 +309,27 @@ jobs:
           if [ "${#files[@]}" -eq 0 ]; then
             echo "no artifacts in target/distrib — refusing to create an empty release" >&2
             exit 1
+          fi
+
+          # Say what this release does *not* carry, on the release itself.
+          #
+          # A missing guarantee that is only missing in a workflow log is a
+          # guarantee people assume they have. Whoever downloads this should be
+          # able to see that `gh attestation verify` will not recognise these
+          # files, and why, without going looking for it.
+          #
+          # `--notes` prepends to `--generate-notes` rather than replacing it,
+          # so the generated changelog still appears underneath. Built with
+          # printf rather than a heredoc: a heredoc terminator inside a YAML
+          # block scalar has to sit at column zero, which is a rule that quietly
+          # stops holding the first time somebody re-indents this step.
+          if [ "${{ github.event.repository.private }}" = "true" ]; then
+            args+=(--notes "$(printf '%s\n' \
+              '> **No build provenance on this release.** GitHub does not offer artifact' \
+              '> attestations for user-owned private repositories, so `gh attestation verify`' \
+              '> will not recognise these files. The checksums embedded in the installer are' \
+              '> still verified on download. Attestations resume on their own if this' \
+              '> repository is ever made public.')")
           fi
 
           gh release create "$tag" "${args[@]}" "${files[@]}"
