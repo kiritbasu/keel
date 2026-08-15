@@ -7,24 +7,6 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
-### 0.1.2's published installer still verifies nothing. Re-cut, replace the asset, or leave it?
-
-`que_01M03H6Z6CHRC9NHBGKXT5RK2K` · question · open · severity medium
-
-KEEL-228 fixes every release from here on. It does nothing about the one already published.
-
-`https://github.com/kiritbasu/keel/releases/latest/download/keel-installer.sh` is still 0.1.2's, still has no checksum in it, and is what the install line in the README and the docs points at. Anyone who runs it between now and the next release downloads and installs unverified, exactly as KB did.
-
-The options, and what each costs:
-
-1. **Cut 0.1.3 with the fix.** The honest one. The next release's installer carries the digests, `latest` moves, and the check in CI proves it before anything is published. Costs a release cycle on the self-hosted runner, and there is nothing else waiting to go out with it.
-2. **Replace the `keel-installer.sh` asset on the 0.1.2 release.** Fast. Also means the release's artifacts are no longer the ones the workflow produced, which is precisely the property `gh attestation verify` exists to speak about — and 0.1.2 was cut while the repository was private, so it has no attestation to contradict. Quietly rewriting a published release is a habit worth not starting.
-3. **Leave it, and let 0.1.3 fix it whenever it goes.** One user, who already knows. The exposure is real but small.
-
-**Recommended: 1.** The fix is in and tested, the release path now proves itself, and cutting 0.1.3 is the only option that leaves the published artifacts matching the workflow that made them. It also exercises the new check for real, which is worth having before a release anyone else depends on.
-
-This needs KB either way: publishing is outward-facing and re-cutting a release is not a decision to take on somebody's behalf.
-
 ### Should Keel write a CLAUDE.md into a user's repository, and on whose say-so?
 
 `que_01M032CNQT67QRCD9RTJAWY4HZ` · question · open · severity medium
@@ -229,6 +211,24 @@ It grows forever. Keep everything, which is probably fine for a decade at this w
 ## Settled
 
 *Decided, with the reasoning. Do not re-litigate these.*
+
+### 0.1.2's published installer still verifies nothing. Re-cut, replace the asset, or leave it?
+
+`que_01M03H6Z6CHRC9NHBGKXT5RK2K` · question · answered · severity medium
+
+KEEL-228 fixes every release from here on. It does nothing about the one already published.
+
+`https://github.com/kiritbasu/keel/releases/latest/download/keel-installer.sh` is still 0.1.2's, still has no checksum in it, and is what the install line in the README and the docs points at. Anyone who runs it between now and the next release downloads and installs unverified, exactly as KB did.
+
+The options, and what each costs:
+
+1. **Cut 0.1.3 with the fix.** The honest one. The next release's installer carries the digests, `latest` moves, and the check in CI proves it before anything is published. Costs a release cycle on the self-hosted runner, and there is nothing else waiting to go out with it.
+2. **Replace the `keel-installer.sh` asset on the 0.1.2 release.** Fast. Also means the release's artifacts are no longer the ones the workflow produced, which is precisely the property `gh attestation verify` exists to speak about — and 0.1.2 was cut while the repository was private, so it has no attestation to contradict. Quietly rewriting a published release is a habit worth not starting.
+3. **Leave it, and let 0.1.3 fix it whenever it goes.** One user, who already knows. The exposure is real but small.
+
+**Recommended: 1.** The fix is in and tested, the release path now proves itself, and cutting 0.1.3 is the only option that leaves the published artifacts matching the workflow that made them. It also exercises the new check for real, which is worth having before a release anyone else depends on.
+
+This needs KB either way: publishing is outward-facing and re-cutting a release is not a decision to take on somebody's behalf.
 
 ### ONNX Runtime blocks two of the three release targets. Which platforms does 0.1.0 actually support?
 
