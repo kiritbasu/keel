@@ -1,6 +1,6 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T21:33:28Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T21:33:44Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -784,6 +784,7 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-15 | claude | status open → answered |
 | 2026-08-15 | claude | status in_progress → done |
 | 2026-08-15 | claude | evidence [] → ["doc:spc_01KZKSME2TCPVARX9M04836XD6","doc:tsk_01M03NFEJ3XY8P0R74AH4NCSE2"] |
 | 2026-08-15 | claude | close_reason none → done |
@@ -983,7 +984,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-14 | claude | close_reason none → done |
 | 2026-08-14 | claude | close_message none → (419 characters) |
 | 2026-08-14 | claude | status in_progress → done |
-| 2026-08-14 | claude | evidence [] → (88 characters) |
 
-*Showing the 200 most recent of 1591 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1592 changes. Use `keel_activity` for the rest.*
 
