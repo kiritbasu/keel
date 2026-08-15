@@ -52,6 +52,42 @@ async function get<T>(
   return (body?.data ?? body) as T;
 }
 
+/**
+ * The only POST this client makes, and it is deliberate that there is one.
+ *
+ * The interface is a read surface: hard constraint 7 gives it no write
+ * endpoints, and B-75 amends that for exactly one thing — asking the daemon to
+ * apply an update it has already fetched, verified and staged. If a second
+ * caller ever appears here, that is the constraint moving again and it needs
+ * its own decision, not a reuse of this helper.
+ */
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const url = new URL(`${BASE}${path}`, window.location.origin);
+
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(
+      "Cannot reach the Keel daemon. Start it with `keel-daemon` and try again.",
+      0,
+    );
+  }
+
+  const parsed = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new ApiError(
+      parsed?.error?.message ?? `Request failed (${response.status})`,
+      response.status,
+    );
+  }
+  return (parsed?.data ?? parsed) as T;
+}
+
 // --- Shapes the daemon returns ------------------------------------------
 
 export interface Audit {
@@ -254,7 +290,26 @@ export const api = {
        */
       home?: string;
       schema?: number;
+      /**
+       * The version downloaded, verified and waiting, or null.
+       *
+       * The daemon checks on its own schedule and stages what is safe, but
+       * applies nothing — a restart is agreed to, not arranged (KEEL-225). This
+       * field is how the interface knows there is something to offer, and it
+       * costs no extra request because health is already fetched.
+       */
+      staged_version?: string | null;
     }>("/api/health"),
+
+  /**
+   * Apply the staged update and restart the daemon into it.
+   *
+   * The one write the interface is allowed (B-75, amending hard constraint 7).
+   * It sends no body: the daemon applies what it already staged, so there is no
+   * version to choose and nothing for a caller to point elsewhere.
+   */
+  applyUpdate: () =>
+    post<{ applied: string; restarting: boolean }>("/api/update/apply", {}),
 
   /** The digest. No `project` gives the cross-project roll-up. */
   context: (project?: string) =>

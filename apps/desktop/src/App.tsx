@@ -24,6 +24,7 @@ import { Button, Menu, MenuItem, cx } from "./components/ui";
 import { defaultProject, rememberProject } from "./lib/lastProject";
 import { CommandPalette } from "./components/CommandPalette";
 import { ThemeControl } from "./components/ThemeControl";
+import { VersionFooter } from "./components/VersionFooter";
 import { HomeScreen } from "./screens/Home";
 import { ProjectScreen } from "./screens/Project";
 import { RoadmapScreen } from "./screens/Roadmap";
@@ -206,6 +207,20 @@ export function App() {
       .then((r) => setProjects(r.projects ?? []))
       .catch(() => setProjects([]))
       .finally(() => setProjectsLoaded(true));
+  }, [generation]);
+
+  // Health, for the version in the footer and whether an update is waiting.
+  // Failing quietly is right here: this is a caption on the rail, and a daemon
+  // that cannot answer already shows up as the live-feed warning below it.
+  const [health, setHealth] = useState<{
+    version?: string;
+    staged_version?: string | null;
+  } | null>(null);
+  useEffect(() => {
+    api
+      .health()
+      .then(setHealth)
+      .catch(() => setHealth(null));
   }, [generation]);
 
   // `refresh` on every connect as well as every change, so a daemon restart
@@ -423,6 +438,11 @@ export function App() {
               Live updates disconnected — this page may be out of date.
             </p>
           )}
+          <VersionFooter
+            version={health?.version}
+            stagedVersion={health?.staged_version}
+            onApplied={refresh}
+          />
           <div className="mt-cosy">
             <ThemeControl />
           </div>
