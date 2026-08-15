@@ -6,9 +6,8 @@
 # billed at ten times the Linux rate, and the alternative — making the
 # repository public to get them free — publishes an event to every follower and
 # has no undo. What §2 actually requires is Apple's linker, not GitHub's
-# hardware, so one Apple Silicon Mac covers both macOS targets:
-# an Apple Silicon Mac links with Apple's `cc`, which carries the ad-hoc
-# signature that stops the kernel killing the process at exec.
+# hardware: an Apple Silicon Mac links with Apple's `cc`, which carries the
+# ad-hoc signature that stops the kernel killing the process at exec.
 #
 # Linux stays on GitHub's hosted runners. This only replaces the macOS half.
 #
@@ -96,7 +95,6 @@ esac
 command -v rustup >/dev/null || die "rustup is not installed — the runner needs the Rust toolchain"
 say "rustup $(rustup --version 2>/dev/null | head -1 | awk '{print $2}')"
 
-# Both macOS targets are built here, and the x86_64 one needs its std.
 # Only the arm64 target. Intel macOS was dropped from the release when 0.1.0
 # was cut: `ort-sys` has no prebuilt ONNX Runtime for it, so the binary cannot
 # link at all. Adding the target here would install a std nothing builds
