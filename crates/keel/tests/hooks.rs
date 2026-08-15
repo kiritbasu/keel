@@ -381,12 +381,19 @@ fn run_shim(event: &str, keel_bin: &str, payload: &str, tmpdir: &std::path::Path
         .stderr(Stdio::piped())
         .spawn()
         .expect("the shim runs");
-    child
+    // The write is allowed to fail, and that is not laziness.
+    //
+    // When there is no binary to hand off to, the shim prints its one sentence
+    // and exits without ever reading stdin — so the payload lands in a pipe
+    // whose reader is already gone and the write gets EPIPE. Nothing is wrong:
+    // a hook is not obliged to read its input, and Claude Code does not require
+    // it to. macOS hid this because the pipe buffer swallowed the write before
+    // the child exited; the Linux leg of CI failed on it immediately.
+    let _ = child
         .stdin
         .take()
-        .unwrap()
-        .write_all(payload.as_bytes())
-        .unwrap();
+        .expect("stdin was piped")
+        .write_all(payload.as_bytes());
     let output = child.wait_with_output().unwrap();
     (
         String::from_utf8_lossy(&output.stdout).into_owned(),
