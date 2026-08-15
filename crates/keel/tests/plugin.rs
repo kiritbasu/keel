@@ -165,3 +165,54 @@ fn is_executable(path: &Path) -> bool {
 fn is_executable(_path: &Path) -> bool {
     true
 }
+
+/// Every tool the daemon offers is named in the skill.
+///
+/// This exists because the skill went stale in exactly the way nothing else
+/// would catch. Its table was headed "The nine tools", listed ten, and omitted
+/// `keel_claim`, `keel_close` and `keel_ready` — the three work verbs that
+/// raised the cap to thirteen. So on every project except this repository,
+/// which has its own standing instructions, a session had nothing telling it to
+/// claim a task, and tasks sat in `todo` while the work was being done. The
+/// board was wrong and nothing failed.
+///
+/// The skill is prose read by a model, so there is no compiler to notice. This
+/// is the compiler.
+#[test]
+fn the_skill_names_every_tool_the_daemon_offers() {
+    let skill = std::fs::read_to_string(root().join("plugin/skills/keel/SKILL.md"))
+        .expect("the keel skill is readable");
+
+    let missing: Vec<&str> = keel_mcp::tools::all()
+        .iter()
+        .map(|tool| tool.name)
+        .filter(|name| !skill.contains(name))
+        .collect();
+
+    assert!(
+        missing.is_empty(),
+        "plugin/skills/keel/SKILL.md never mentions {missing:?}. A tool a model is never told \
+         about is a tool it does not call — which is how claiming went unmentioned for three \
+         releases. Add it to the table and say when to reach for it."
+    );
+}
+
+/// The skill does not put a count in a heading.
+///
+/// "The nine tools" outlived two additions. A number in prose has to be
+/// remembered by whoever adds the eleventh, and it was not, twice.
+#[test]
+fn the_skill_does_not_count_the_tools_in_a_heading() {
+    let skill = std::fs::read_to_string(root().join("plugin/skills/keel/SKILL.md"))
+        .expect("the keel skill is readable");
+
+    for line in skill.lines().filter(|l| l.starts_with('#')) {
+        for word in ["nine", "ten", "eleven", "twelve", "thirteen", "fourteen"] {
+            assert!(
+                !line.to_lowercase().contains(word),
+                "heading {line:?} counts the tools. The count belongs in `tools::all()`, where \
+                 adding one keeps it right; in a heading it goes stale silently."
+            );
+        }
+    }
+}

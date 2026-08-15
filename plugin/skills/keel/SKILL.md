@@ -1,6 +1,6 @@
 ---
 name: keel
-description: Use for any conversation about an ongoing software project — specs, decisions, tasks, roadmap, bugs, customer feedback, open questions, what shipped. Read from Keel at the start of such a conversation and write to it whenever something is decided, planned, learned, or asked and left unanswered. Triggers on "what's the state of", "what did we decide about", "add a task", "we should", "let's go with", "I spoke to a customer", "why did we", "what's blocking", or any mention of a project by name.
+description: Use for any conversation about an ongoing software project — specs, decisions, tasks, roadmap, bugs, customer feedback, open questions, what shipped — and for any session that is about to *do* some of that work. Read from Keel at the start of such a conversation, claim a task before starting it, and write to it whenever something is decided, planned, learned, or asked and left unanswered. Triggers on "what's the state of", "what did we decide about", "add a task", "we should", "let's go with", "I spoke to a customer", "why did we", "what's blocking", "let's build", "start on", "work on", "implement", "what should I pick up", or any mention of a project by name.
 ---
 
 # Keel
@@ -40,6 +40,44 @@ trimmed something you need. Pass `cwd` when you do.
 If the digest said no project matches this directory, read
 "Before creating a project" below — the short version is that you create the
 first one and say so.
+
+---
+
+## Claim the task before you do the work
+
+`keel_claim` it *before* you start, not when you finish. One call, and it is
+the only way a human watching can see what is happening **now** rather than
+only what has already landed.
+
+This is the single most-skipped thing in Keel, and it has been measured twice.
+The first time: across sixty-six tasks, the number of transitions into
+`in_progress` before work began was **zero** — which is why claiming stopped
+being something to remember and became a tool. The second time, on a fresh
+project in August 2026, a session was told to build an application, worked for
+hours, and left every task in `todo`. Both times the work was fine and the
+board was a lie.
+
+So:
+
+- **`keel_ready` is what to ask when the choice is open.** "Build the app" is
+  not a task; it is a request to work through several. Ask what to pick up and
+  it answers with the ranking Keel actually computes — by what a task unblocks
+  before its priority — rather than whatever the digest happened to show you.
+  It costs a fraction of a full digest and takes filters: unclaimed, by label,
+  by milestone.
+- **`keel_claim` before the first edit.** Doing several tasks in a row means
+  claiming each one as you reach it, not claiming nothing because there were
+  many. If a claim is refused, another session holds it — that is the tool
+  working.
+- **`keel_close` when it is genuinely done**, with a reason, a message and at
+  least one piece of evidence. Never delete a task and never leave one
+  `in_progress` across sessions without a note saying where it got to.
+- **Found something on the way?** `keel_note` it on the task. A status is a
+  colour; the note is what the next session actually needs.
+
+If you do nothing else from this file, do this. Everything below is about
+recording what you learned; this is about the work being visible while it is
+still happening.
 
 ---
 
@@ -283,11 +321,18 @@ trivial ones.
 
 ---
 
-## The nine tools
+## The tools
+
+Counted in the title until this table was wrong twice — it said nine while
+listing ten, and omitted three others entirely. The number is in
+`tools::all()`, where it cannot go stale.
 
 | Tool | Reach for it when |
 |---|---|
 | `keel_context` | starting any project conversation — **first**, always |
+| `keel_ready` | "what should I work on" — the ranking, not a guess |
+| `keel_claim` | **before** starting a task, every time |
+| `keel_close` | it is finished — with a reason, a message and evidence |
 | `keel_search` | "what do we know about X", "has this come up before" |
 | `keel_get` | you have an id, or you want the graph around something |
 | `keel_projects` | before creating a project; resolving a name |
