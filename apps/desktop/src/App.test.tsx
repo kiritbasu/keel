@@ -168,12 +168,32 @@ describe("the shortcut hint in the rail", () => {
   it("cannot be mistaken for a count", async () => {
     render(<App />);
     await settle();
+    const hints = [...document.querySelectorAll("a kbd")];
+    expect(hints.length).toBeGreaterThan(0);
+    // Drawn as a key rather than spelled as one. The first fix here was a
+    // leading `·`, which could not be a quantity but was read as unclear — the
+    // first person to see it expected `⌘`, because `Jump to… ⌘K` in the header
+    // was the only shortcut vocabulary on screen. `⌘` would be a lie: the
+    // handler ignores modified keypresses on purpose, since ⌘1–⌘9 belong to the
+    // browser. So the digit is bare again and a border carries the meaning.
+    for (const hint of hints) {
+      expect(hint.className).toMatch(/\bborder\b/);
+    }
+  });
+
+  /**
+   * The rail's digits are unmodified keypresses, so nothing in it may print a
+   * modifier. Advertising `⌘1` would send somebody to a different browser tab.
+   */
+  it("never claims a modifier it does not handle", async () => {
+    render(<App />);
+    await settle();
     const hints = [...document.querySelectorAll("a kbd")].map(
-      (k) => k.textContent,
+      (k) => k.textContent ?? "",
     );
     expect(hints.length).toBeGreaterThan(0);
     for (const hint of hints) {
-      expect(hint).not.toMatch(/^\s*\d+\s*$/);
+      expect(hint).not.toMatch(/[⌘⌃⌥]/);
     }
   });
 
@@ -184,7 +204,7 @@ describe("the shortcut hint in the rail", () => {
     const hints = [...document.querySelectorAll("a kbd")].map(
       (k) => k.textContent,
     );
-    expect(hints).toContain("\u00b77");
+    expect(hints).toContain("7");
   });
 
   /**

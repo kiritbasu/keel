@@ -107,29 +107,39 @@ function NavLink({
       )}
     >
       {item.label}
-      {/* The dot is load-bearing, not decoration.
+      {/* A keycap, because the digit has to say "a key" and not "how many".
        *
        * A bare right-aligned digit beside a navigation label means a count —
        * that is the convention in every mail client, chat app and issue
        * tracker, and a faint monospace style does not overturn it. It was read
        * that way and reported as a bug: a brand new install with an empty store
        * showed "All projects 6, Search 7, What changed 8", which reads as data
-       * appearing from nowhere.
+       * appearing from nowhere. Every digit was also wrong as a count — "Ready
+       * 2" against 21 ready tasks (KEEL-223).
        *
-       * Every digit was wrong as a count. The rail said "Ready 2" against 21
-       * ready tasks and "Board 3" against a board of 219, and nobody had
-       * noticed because nobody had read them as counts.
+       * The first fix was a leading `·`, which cannot be a quantity and so did
+       * solve that. It was then read as unclear by the first person to see it,
+       * who expected `⌘` — because the header next to it writes `Jump to… ⌘K`
+       * and that was the only shortcut vocabulary on screen.
        *
-       * A leading `·` costs one character and cannot be a quantity. It also
-       * matches the header, which already writes its shortcut as `Jump to… ⌘K`,
-       * so the vocabulary was on the screen already. (KEEL-223.)
+       * **`⌘` would be a lie.** These are bare keypresses: the handler below
+       * returns early on `metaKey || ctrlKey || altKey`, deliberately, because
+       * ⌘1–⌘9 are the browser's tab shortcuts and this app does not claim
+       * them. Printing `⌘1` would advertise a combination that switches the
+       * user's tab.
+       *
+       * So: no prefix character at all, and a border instead. A boxed glyph is
+       * the standard way to draw a key, it cannot be read as a quantity, and it
+       * claims no modifier — which is the distinction the rail actually needed
+       * to draw, between "a key" and "a number", rather than between itself and
+       * the ⌘K beside it.
        */}
       <kbd
-        className="font-mono text-micro text-ink-faint"
+        className="rounded border border-border-subtle px-1 font-mono text-micro text-ink-faint"
         aria-hidden="true"
         title={`Press ${item.key}`}
       >
-        ·{item.key}
+        {item.key}
       </kbd>
     </a>
   );
