@@ -64,6 +64,30 @@ It binds `127.0.0.1:7654` and stays there. Add `--embeddings` to enable semantic
 search; the first run downloads the model, and search works without it in the
 meantime.
 
+Nothing supervises it. There is no launchd job and no `keel restart` — if it
+stops, start it again the same way.
+
+## Updating
+
+```bash
+keel update
+```
+
+It fetches the latest release, checks its SHA-256 against the release manifest,
+replaces both binaries, and then asks the running daemon to restart into the new
+version — reporting which version came back rather than assuming. `--check` says
+what would happen and changes nothing; `--rollback` puts the previous binaries
+back, one generation only.
+
+Two things it will not do on its own:
+
+- **Cross a schema version.** A release that changes the store's shape stops and
+  tells you what to run, because a migration rewrites your data and `--rollback`
+  puts binaries back, not rows.
+- **Update a daemon installed somewhere else.** It writes beside the `keel` you
+  ran, so a daemon started from a different directory is untouched. It says so
+  when that happens, rather than reporting a restart that changed nothing.
+
 ---
 
 ## Phase 2's exit criterion, and how to run it

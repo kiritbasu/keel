@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-15T20:45:01.716011+00:00",
+  "generated_at": "2026-08-15T21:02:59.088139+00:00",
   "files": [
     {
       "path": ".keel/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/the-daemon-restarts-itself-for-the-cli-too-and-the-update-says-which-version-came-back.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M03KQE9V0G9VSZMPKTWHB171",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "52af5866cf0f27e74c436761f8697980bb02aeb713b8d2f0772f0ab305ec5341"
         }
       ]
     },
