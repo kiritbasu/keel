@@ -264,7 +264,7 @@ pub fn verify(path: &Path, artifact: &str, manifest: &ReleaseManifest) -> Result
 }
 
 /// Where the running executables live.
-fn install_dir() -> Result<PathBuf> {
+pub fn install_dir() -> Result<PathBuf> {
     let exe = std::env::current_exe().context("finding the running executable's own path")?;
     let dir = exe
         .parent()
@@ -313,6 +313,151 @@ pub fn install_from(unpacked: &Path, into: &Path) -> Result<()> {
         make_executable(&live)?;
     }
     Ok(())
+}
+
+/// Put the new binaries beside the current ones without taking effect.
+///
+/// The daemon's route, and the reason it differs from [`install_from`]: a
+/// daemon replacing its own executable and then carrying on is running code
+/// from a file that no longer exists at that path, so anything it re-reads at
+/// runtime — and any crash handler that re-execs — sees a version it never
+/// started. Staging keeps the swap to one moment, at a startup, where there is
+/// no half-updated process to reason about.
+///
+/// Written to a scratch name and renamed into place, so a `.staged` file is
+/// always complete. A partial one is what a `SIGKILL` mid-copy would otherwise
+/// leave, and [`apply_staged`] cannot tell a truncated binary from a whole one.
+pub fn stage(unpacked: &Path, into: &Path, version: &str) -> Result<()> {
+    for name in BINARIES {
+        if !unpacked.join(name).is_file() {
+            bail!(
+                "the release archive does not contain {name}. Refusing to stage a partial \
+                 release — {} and {} have to move together.",
+                BINARIES[0],
+                BINARIES[1]
+            );
+        }
+    }
+
+    for name in BINARIES {
+        let staged = into.join(format!("{name}.staged"));
+        let partial = into.join(format!("{name}.staged.partial"));
+        std::fs::copy(unpacked.join(name), &partial)
+            .with_context(|| format!("staging {name} to {}", partial.display()))?;
+        make_executable(&partial)?;
+        std::fs::rename(&partial, &staged)
+            .with_context(|| format!("putting {} in place", staged.display()))?;
+    }
+
+    // Last, and only once both binaries are whole. `apply_staged` keys off this
+    // file, so writing it earlier would advertise an update that is still being
+    // copied.
+    std::fs::write(into.join(STAGED_VERSION), version)
+        .with_context(|| format!("recording the staged version in {}", into.display()))?;
+    Ok(())
+}
+
+/// The file naming what has been staged. Its presence is the signal.
+const STAGED_VERSION: &str = ".keel-staged-version";
+
+/// Swap in a staged release, if there is one. Returns the version applied.
+///
+/// Called at startup, before anything is served. Renaming over a running
+/// executable is safe on Unix — the process holds its own inode — but this runs
+/// early precisely so that nothing has happened yet that a version change could
+/// be inconsistent with.
+///
+/// Leaves the previous binaries as `<name>.previous`, same as [`install_from`],
+/// so `keel update --rollback` undoes an unattended update exactly as it undoes
+/// a deliberate one.
+pub fn apply_staged(dir: &Path) -> Result<Option<String>> {
+    let marker = dir.join(STAGED_VERSION);
+    if !marker.is_file() {
+        return Ok(None);
+    }
+
+    // A marker without both binaries beside it means a staging run died between
+    // the two. Clear it rather than half-applying: the next check will stage
+    // again, and the alternative is a daemon that fails to start for good.
+    for name in BINARIES {
+        if !dir.join(format!("{name}.staged")).is_file() {
+            let _ = std::fs::remove_file(&marker);
+            bail!(
+                "a staged update was recorded but {name}.staged is missing, so it was discarded \
+                 rather than applied in half. The next check will stage it again."
+            );
+        }
+    }
+
+    let version = std::fs::read_to_string(&marker)
+        .with_context(|| format!("reading {}", marker.display()))?
+        .trim()
+        .to_owned();
+
+    for name in BINARIES {
+        let live = dir.join(name);
+        let staged = dir.join(format!("{name}.staged"));
+        let kept = dir.join(format!("{name}.previous"));
+
+        if live.exists() {
+            std::fs::rename(&live, &kept)
+                .with_context(|| format!("keeping the current {name} as {}", kept.display()))?;
+        }
+        std::fs::rename(&staged, &live)
+            .with_context(|| format!("applying the staged {name} to {}", live.display()))?;
+        make_executable(&live)?;
+    }
+
+    std::fs::remove_file(&marker)
+        .with_context(|| format!("clearing {} after applying it", marker.display()))?;
+    Ok(Some(version))
+}
+
+/// Whether the unattended check may run at all.
+///
+/// `KEEL_AUTO_UPDATE=0` turns it off. This is the smaller half of KEEL-204,
+/// landed here rather than after it because the alternative is shipping a
+/// daily outbound request from a local-first tool with no way to stop it —
+/// which is the thing KEEL-204 exists to avoid, not a detail of how it is
+/// announced. The prompt at setup time and `keel doctor` reporting it are
+/// still that task's.
+///
+/// Anything other than `0` is on, including nonsense, because a typo in this
+/// variable should not silently disable an update path.
+pub fn auto_update_enabled() -> bool {
+    enabled_from(std::env::var("KEEL_AUTO_UPDATE").ok().as_deref())
+}
+
+/// The rule behind [`auto_update_enabled`], separated so it can be tested.
+///
+/// Setting an environment variable in a test is `unsafe` under edition 2024 and
+/// the workspace denies `unsafe_code`, so the alternative to this split is not
+/// testing the rule at all.
+fn enabled_from(value: Option<&str>) -> bool {
+    value.map(|v| v.trim() != "0").unwrap_or(true)
+}
+
+/// Look for a newer release and stage it if it is safe to apply.
+///
+/// The daemon's whole job here. Returns what it decided, so the caller can log
+/// one line rather than this crate deciding how a daemon talks.
+pub fn check_and_stage(install_dir: &Path, target: &str) -> Result<Plan> {
+    let work = tempfile::tempdir().context("making a scratch directory for the download")?;
+    let manifest = fetch_manifest(work.path())?;
+    let decision = plan(
+        env!("CARGO_PKG_VERSION"),
+        keel_core::shipped_schema_version(),
+        &manifest,
+        target,
+    )?;
+
+    if let Plan::Apply { version, artifact } = &decision {
+        let archive = download(work.path(), artifact)?;
+        verify(&archive, artifact, &manifest)?;
+        let unpacked = unpack(&archive, work.path(), target)?;
+        stage(&unpacked, install_dir, version)?;
+    }
+    Ok(decision)
 }
 
 /// Restore the binaries kept by the last [`install_from`].
@@ -390,7 +535,7 @@ pub fn unpack(archive: &Path, into: &Path, target: &str) -> Result<PathBuf> {
 }
 
 /// The triple this binary was built for, recorded by `build.rs`.
-fn target() -> Result<&'static str> {
+pub fn target() -> Result<&'static str> {
     let target = env!("KEEL_TARGET");
     if target.is_empty() {
         bail!(
@@ -712,6 +857,106 @@ mod tests {
         for name in BINARIES {
             assert_eq!(std::fs::read(live.path().join(name)).unwrap(), b"old");
         }
+    }
+
+    #[test]
+    fn staging_then_applying_swaps_and_keeps_the_previous() {
+        let fresh = tempfile::tempdir().unwrap();
+        let live = tempfile::tempdir().unwrap();
+        for name in BINARIES {
+            std::fs::write(fresh.path().join(name), b"new").unwrap();
+            std::fs::write(live.path().join(name), b"old").unwrap();
+        }
+
+        stage(fresh.path(), live.path(), "0.1.2").unwrap();
+
+        // Staging alone changes nothing that is running.
+        for name in BINARIES {
+            assert_eq!(std::fs::read(live.path().join(name)).unwrap(), b"old");
+        }
+
+        assert_eq!(apply_staged(live.path()).unwrap().as_deref(), Some("0.1.2"));
+        for name in BINARIES {
+            assert_eq!(std::fs::read(live.path().join(name)).unwrap(), b"new");
+            assert_eq!(
+                std::fs::read(live.path().join(format!("{name}.previous"))).unwrap(),
+                b"old"
+            );
+        }
+    }
+
+    /// The daemon calls this on every start, so the ordinary answer is "nothing
+    /// staged" and it has to be cheap and silent.
+    #[test]
+    fn applying_with_nothing_staged_is_a_no_op() {
+        let live = tempfile::tempdir().unwrap();
+        assert_eq!(apply_staged(live.path()).unwrap(), None);
+    }
+
+    #[test]
+    fn applying_twice_does_not_apply_the_second_time() {
+        let fresh = tempfile::tempdir().unwrap();
+        let live = tempfile::tempdir().unwrap();
+        for name in BINARIES {
+            std::fs::write(fresh.path().join(name), b"new").unwrap();
+            std::fs::write(live.path().join(name), b"old").unwrap();
+        }
+
+        stage(fresh.path(), live.path(), "0.1.2").unwrap();
+        apply_staged(live.path()).unwrap();
+        // Second start: the marker is gone, so `new` must not become `previous`.
+        assert_eq!(apply_staged(live.path()).unwrap(), None);
+        for name in BINARIES {
+            assert_eq!(
+                std::fs::read(live.path().join(format!("{name}.previous"))).unwrap(),
+                b"old"
+            );
+        }
+    }
+
+    /// A staging run killed between the two binaries. Applying half of it would
+    /// leave `keel` and `keel-daemon` at different versions, which is the exact
+    /// drift this whole task exists to prevent.
+    #[test]
+    fn a_marker_without_its_binaries_is_discarded_not_half_applied() {
+        let live = tempfile::tempdir().unwrap();
+        for name in BINARIES {
+            std::fs::write(live.path().join(name), b"old").unwrap();
+        }
+        std::fs::write(live.path().join("keel.staged"), b"new").unwrap();
+        std::fs::write(live.path().join(STAGED_VERSION), "0.1.2").unwrap();
+
+        let err = apply_staged(live.path()).unwrap_err();
+        assert!(
+            err.to_string().contains("keel-daemon.staged is missing"),
+            "unhelpful error: {err}"
+        );
+        for name in BINARIES {
+            assert_eq!(std::fs::read(live.path().join(name)).unwrap(), b"old");
+        }
+        // Cleared, so the next start is not stuck on the same failure for good.
+        assert_eq!(apply_staged(live.path()).unwrap(), None);
+    }
+
+    #[test]
+    fn a_partial_archive_stages_nothing_applicable() {
+        let fresh = tempfile::tempdir().unwrap();
+        let live = tempfile::tempdir().unwrap();
+        std::fs::write(fresh.path().join("keel"), b"new").unwrap();
+
+        assert!(stage(fresh.path(), live.path(), "0.1.2").is_err());
+        assert_eq!(apply_staged(live.path()).unwrap(), None);
+    }
+
+    #[test]
+    fn only_zero_turns_the_check_off() {
+        assert!(!enabled_from(Some("0")));
+        assert!(!enabled_from(Some(" 0 ")));
+        assert!(enabled_from(None));
+        assert!(enabled_from(Some("1")));
+        // A typo should not silently disable an update path.
+        assert!(enabled_from(Some("false")));
+        assert!(enabled_from(Some("")));
     }
 
     #[test]

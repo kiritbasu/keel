@@ -58,6 +58,9 @@ keel-embed.workspace = true
 # that a `cargo build -p keel` now builds axum and tokio, which a workspace
 # build was doing anyway.
 keel-daemon.workspace = true
+# `keel update` is a thin call into this. It lives in its own crate because the
+# daemon needs the same code and cannot depend on a binary package.
+keel-update.workspace = true
 clap = { workspace = true, features = ["env"] }
 anyhow.workspace = true
 tracing.workspace = true
@@ -66,18 +69,9 @@ tracing-subscriber.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
-# `keel update` checks what it downloaded against the checksum in the release
-# manifest. That check is the whole of the guarantee — with the repository
-# private there is no build provenance to fall back on (B-73) — so the hash is
-# computed in-process rather than by shelling out to whichever of `sha256sum`
-# or `shasum` happens to be on the path.
-sha2.workspace = true
-# `keel update` unpacks a release into a scratch directory and only moves
-# binaries into place once the checksum has passed, so a failed verification
-# leaves nothing behind to be found later and mistaken for an install.
-tempfile.workspace = true
 
 [dev-dependencies]
+tempfile.workspace = true
 # The contracts test reads the store's shape through PRAGMA and hashes the
 # generated tree. Both are test-only: the CLI itself never opens SQLite
 # directly, and keeping it that way is the point of the storage traits.

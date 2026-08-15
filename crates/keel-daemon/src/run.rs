@@ -97,6 +97,13 @@ pub async fn run() -> Result<()> {
         }
     };
 
+    // Before anything at all, because it may replace this process. A staged
+    // update is applied at startup rather than when it is downloaded: swapping
+    // the executable of a running daemon and carrying on leaves a process whose
+    // binary no longer exists at its own path, and this is the one moment where
+    // there is no half-updated state to reason about.
+    apply_staged_update();
+
     // Before the store is opened, because it costs nothing and because taking
     // the store's exclusive lock only to reject the address a moment later
     // would leave a second daemon unable to start for a reason that has nothing
@@ -225,6 +232,8 @@ pub async fn run() -> Result<()> {
     // SIGKILL — which is how an ART index ends up disagreeing with its table,
     // and how this project spent an evening chasing a store that looked
     // corrupt while `fsck` insisted it was clean.
+    spawn_update_check();
+
     let deadline = std::time::Duration::from_secs(5);
     let serving = axum::serve(listener, app).with_graceful_shutdown(shutdown());
     tokio::select! {
@@ -288,6 +297,140 @@ fn check_bind_address(bind: SocketAddr, allowed: bool) -> Result<()> {
 }
 
 /// Wait for the shutdown signal, then allow `grace` for in-flight work.
+/// Swap in a release staged by an earlier run, then restart into it.
+///
+/// Every failure here is a warning and not a refusal. The daemon's job is to
+/// serve the store; an update that cannot be applied is a reason to carry on
+/// with the version that already works, not a reason to be unavailable. The one
+/// thing it must never do is come up *half* updated, which `apply_staged`
+/// prevents by treating a marker without both binaries as something to discard.
+fn apply_staged_update() {
+    let dir = match keel_update::install_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            tracing::warn!(
+                "cannot tell where this binary is installed, so no staged update was \
+                            looked for: {e:#}"
+            );
+            return;
+        }
+    };
+
+    match keel_update::apply_staged(&dir) {
+        Ok(None) => {}
+        Ok(Some(version)) => {
+            tracing::info!(%version, "applied a staged update; restarting into it");
+            reexec();
+        }
+        Err(e) => tracing::warn!("a staged update was not applied: {e:#}"),
+    }
+}
+
+/// Replace this process with the binary now at its own path.
+///
+/// Returns only on failure. `exec` keeps the pid, which matters more than it
+/// looks: launchd and systemd are watching this process, and exiting to be
+/// restarted would work but would count as a crash against whatever restart
+/// throttling they apply.
+fn reexec() {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        let exe = match std::env::current_exe() {
+            Ok(exe) => exe,
+            Err(e) => {
+                tracing::error!(
+                    "updated, but cannot find this binary's path to restart into it: \
+                                 {e}. Running the previous version until restarted."
+                );
+                return;
+            }
+        };
+        // Only `exec` can fail here; on success this process is gone.
+        let e = std::process::Command::new(exe)
+            .args(std::env::args_os().skip(1))
+            .exec();
+        tracing::error!(
+            "updated, but could not restart into the new binary: {e}. Running the \
+                         previous version until restarted."
+        );
+    }
+    #[cfg(not(unix))]
+    tracing::info!("updated. Restart the daemon to run the new version.");
+}
+
+/// Look for a newer release on a schedule, and stage one when it is safe.
+///
+/// **This is the daemon's only outbound request.** Nothing else in this process
+/// talks to anything but the loopback address, so it is worth it being one
+/// obvious thing in one place rather than a capability spread around. It sends
+/// nothing from the store — it fetches a file and compares two numbers.
+///
+/// `KEEL_AUTO_UPDATE=0` turns it off entirely, checked once here rather than
+/// per tick so that switching it off means no task rather than a task that
+/// wakes daily to decide it has nothing to do.
+///
+/// The first check waits five minutes. Starting the daemon should not depend on
+/// the network being up, and a machine that has just booted is the case where
+/// it most often is not.
+fn spawn_update_check() {
+    if !keel_update::auto_update_enabled() {
+        tracing::info!("automatic update checks are off (KEEL_AUTO_UPDATE=0)");
+        return;
+    }
+
+    let target = match keel_update::target() {
+        Ok(target) => target,
+        Err(e) => {
+            tracing::warn!("not checking for updates: {e:#}");
+            return;
+        }
+    };
+    let dir = match keel_update::install_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            tracing::warn!("not checking for updates: {e:#}");
+            return;
+        }
+    };
+
+    tokio::spawn(async move {
+        let settle = std::time::Duration::from_secs(5 * 60);
+        let day = std::time::Duration::from_secs(24 * 60 * 60);
+        tokio::time::sleep(settle).await;
+
+        loop {
+            let dir = dir.clone();
+            // Blocking: an HTTP fetch, a hash over 11 MB, and `tar`. On the
+            // runtime's worker threads that would stall every request the
+            // daemon is meant to be answering.
+            let outcome =
+                tokio::task::spawn_blocking(move || keel_update::check_and_stage(&dir, target))
+                    .await;
+
+            match outcome {
+                Ok(Ok(keel_update::Plan::Apply { version, .. })) => tracing::info!(
+                    %version,
+                    "staged Keel {version}; it will be applied the next time the daemon starts"
+                ),
+                Ok(Ok(keel_update::Plan::NeedsAPerson { version, from, to })) => tracing::info!(
+                    %version,
+                    "Keel {version} is available but changes the store's shape (schema {from} → \
+                     {to}), so it is left for you: run `keel update` to see what it involves"
+                ),
+                Ok(Ok(_)) => tracing::debug!("no update to take"),
+                // A failed check is ordinary — a laptop asleep, no network, a
+                // release without a manifest. It says so once and tries again
+                // tomorrow rather than retrying into a log nobody can read.
+                Ok(Err(e)) => tracing::info!("update check did not complete: {e:#}"),
+                Err(e) => tracing::warn!("the update check task failed: {e}"),
+            }
+
+            tokio::time::sleep(day).await;
+        }
+    });
+}
+
 async fn expire(grace: std::time::Duration) {
     shutdown().await;
     tokio::time::sleep(grace).await;

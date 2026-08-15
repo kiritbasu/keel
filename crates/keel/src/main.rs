@@ -15,7 +15,6 @@ mod generate;
 mod hook;
 mod import;
 mod rubric;
-mod update;
 mod work;
 mod writes;
 
@@ -594,7 +593,7 @@ fn main() -> Result<()> {
         }
         Command::Fixture => run_fixture(&home, cli.force, cli.json),
         Command::ReleaseManifest => run_release_manifest(),
-        Command::Update { check, rollback } => update::run(*check, *rollback, cli.json),
+        Command::Update { check, rollback } => keel_update::run(*check, *rollback, cli.json),
         Command::Status { daemon } => run_status(&home, daemon, cli.json),
         Command::RenderStatus {
             project,

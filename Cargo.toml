@@ -10,6 +10,7 @@ members = [
     "crates/keel-core",
     "crates/keel-embed",
     "crates/keel-daemon",
+    "crates/keel-update",
     "crates/keel-mcp",
     "crates/keel",
 ]
@@ -96,6 +97,9 @@ clap = { version = "4", features = ["derive"] }
 keel-core = { path = "crates/keel-core", version = "0.1.1" }
 keel-mcp = { path = "crates/keel-mcp", version = "0.1.1" }
 keel-embed = { path = "crates/keel-embed", version = "0.1.1" }
+# Checking for and installing a newer release. Depended on by both shipped
+# binaries — see its own manifest for why it is not in `keel-core`.
+keel-update = { path = "crates/keel-update", version = "0.1.1" }
 # A library from the `keel` package's point of view: it holds the daemon, and
 # the `keel-daemon` *binary* is a shim in `keel` so that one installer ships
 # both executables. See `crates/keel/Cargo.toml`.

@@ -44,6 +44,10 @@ clap = { workspace = true, features = ["env"] }
 chrono.workspace = true
 rust-embed.workspace = true
 
+# The unattended half of the update check: the daemon looks for a newer release
+# on its own schedule and stages it, and applies a staged one at startup.
+keel-update.workspace = true
+
 [dev-dependencies]
 tempfile.workspace = true
 # The end-to-end tier drives the real binary over a socket, and a blocking
