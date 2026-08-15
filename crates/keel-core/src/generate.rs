@@ -32,7 +32,7 @@
 use crate::render_decisions;
 use crate::{
     Entity, EntityId, EntityQuery, EntityStore, EntityType, Error, Result, Store, mirror,
-    render_status,
+    render_changelog, render_status,
 };
 use std::path::{Path, PathBuf};
 
@@ -229,6 +229,31 @@ pub fn plan(store: &Store, project_id: &EntityId, repo_root: &Path) -> Result<Ge
                 content: render_status::render(store, project_id)?,
                 banner_counts: true,
             });
+
+            // The other half of the tracker. Closed work used to be rendered
+            // into the status file and grew without bound there — 87% of it, at
+            // the point somebody measured — so it has its own file now, beside
+            // the tracker at a derived path. See `render_changelog` for why the
+            // path is derived rather than a column.
+            //
+            // Same collision rule as everything else here: a document that has
+            // adopted the path owns it, and the derived file is skipped with a
+            // reason rather than clobbering prose.
+            let changelog_path = render_changelog::path_beside(status_path);
+            if adopted_paths.contains(&changelog_path) {
+                report.unrepresented.push(format!(
+                    "{changelog_path} — the changelog was not written: a document has already \
+                     adopted this path. Archive the document, or point the project's status_path \
+                     at another directory, so one thing owns the file"
+                ));
+            } else {
+                rendered.push(PlannedFile {
+                    absolute: crate::safe_path::confine(repo_root, &changelog_path)?,
+                    relative: changelog_path,
+                    content: render_changelog::render(store, project_id)?,
+                    banner_counts: true,
+                });
+            }
         }
     }
 

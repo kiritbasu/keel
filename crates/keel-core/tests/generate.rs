@@ -773,3 +773,183 @@ fn a_checked_plan_reports_without_writing() {
         "and must not have written it"
     );
 }
+
+// --- The tracker/changelog split ------------------------------------------
+//
+// Closed work used to be rendered into the tracker and grew without bound
+// there: 488 KB on Keel's own project, 87% of it finished tasks, at which point
+// the file exceeded what a reader would open and the standing contract's first
+// instruction — read the tracker — could not be carried out. The split is by
+// what the reader is asking, so these tests are about which file a row lands in
+// and about the tracker saying what it left out.
+
+/// Add one open and one closed task to a project, and return the closed one's
+/// title.
+fn one_of_each(store: &mut Store, project_id: &EntityId) -> String {
+    use keel_core::{Close, CloseReason, Task, work};
+    let prov = Provenance::anonymous(Actor::Human);
+
+    store
+        .create(
+            Task::new(project_id.clone(), "Still to do", "An open row.").into(),
+            &prov,
+        )
+        .unwrap();
+
+    let closed = store
+        .create(
+            Task::new(project_id.clone(), "Already finished", "A closed row.").into(),
+            &prov,
+        )
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+    work::close(
+        store,
+        &closed,
+        &Close {
+            reason: CloseReason::Done,
+            message: "It was done, and here is why that is known.".to_owned(),
+            evidence: vec!["commit:abc1234".to_owned()],
+            other: None,
+        },
+        &prov,
+    )
+    .unwrap();
+
+    "Already finished".to_owned()
+}
+
+#[test]
+fn closed_work_goes_to_the_changelog_and_not_the_tracker() {
+    let repo = tempfile::tempdir().unwrap();
+    let (_home, mut store, project_id, _) = fixture(repo.path(), BODY);
+    let closed_title = one_of_each(&mut store, &project_id);
+
+    generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+
+    let tracker = std::fs::read_to_string(repo.path().join("docs/STATUS.md")).unwrap();
+    let changelog = std::fs::read_to_string(repo.path().join("docs/CHANGELOG.md"))
+        .expect("the changelog is written beside the tracker");
+
+    // The Tasks section only. A closed row is still allowed to appear in the
+    // recent-changes tail — that is what the tail is for, and it is bounded.
+    // What must not be there is the row itself, with its body and its notes,
+    // which is the part that grew without bound.
+    let tasks_section = {
+        let start = tracker.find("## Tasks").expect("the tracker lists tasks");
+        let rest = &tracker[start..];
+        let end = rest.find("\n---").unwrap_or(rest.len());
+        &rest[..end]
+    };
+
+    assert!(
+        tasks_section.contains("Still to do"),
+        "open work belongs in the tracker"
+    );
+    assert!(
+        !tasks_section.contains(&closed_title),
+        "closed work must not be listed in the tracker's task section — it is the part \
+         that grows without bound, and it is what made the file too large to read: \
+         {tasks_section}"
+    );
+    assert!(
+        !tracker.contains("### done"),
+        "and the tracker should not have a done group at all"
+    );
+    assert!(
+        changelog.contains(&closed_title),
+        "and it must be in the changelog, or the split has lost it"
+    );
+    assert!(
+        changelog.contains("It was done, and here is why that is known."),
+        "with the close message, which is the part worth reading"
+    );
+    assert!(
+        changelog.contains("commit:abc1234"),
+        "and the evidence, so a claim in it can be checked"
+    );
+}
+
+/// Hard constraint 4: every list that can be cut says that it was, with a
+/// total. A tracker that quietly stopped showing closed rows would read as a
+/// project that had never finished anything.
+#[test]
+fn the_tracker_says_how_much_it_left_out() {
+    let repo = tempfile::tempdir().unwrap();
+    let (_home, mut store, project_id, _) = fixture(repo.path(), BODY);
+    one_of_each(&mut store, &project_id);
+
+    generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+    let tracker = std::fs::read_to_string(repo.path().join("docs/STATUS.md")).unwrap();
+
+    assert!(
+        tracker.contains("1 closed task(s) are not listed here"),
+        "the tracker must state the count it omitted and where it went: {tracker}"
+    );
+}
+
+/// A project with nothing closed yet gets a changelog that says so, rather than
+/// no file at all — an absent file reads as a feature that is not working.
+#[test]
+fn a_project_with_nothing_closed_still_gets_a_changelog() {
+    let repo = tempfile::tempdir().unwrap();
+    let (_home, store, project_id, _) = fixture(repo.path(), BODY);
+
+    generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+
+    let changelog = std::fs::read_to_string(repo.path().join("docs/CHANGELOG.md")).unwrap();
+    assert!(
+        changelog.contains("Nothing has closed yet"),
+        "an empty changelog should say it is empty: {changelog}"
+    );
+}
+
+/// The collision rule, same as the tracker's and the decision log's: a document
+/// that has adopted the path owns it, and the derived file is skipped with a
+/// reason rather than clobbering prose somebody wrote.
+#[test]
+fn a_document_that_adopted_the_changelog_path_keeps_it() {
+    use keel_core::{Document, Spec};
+
+    let repo = tempfile::tempdir().unwrap();
+    let (_home, mut store, project_id, _) = fixture(repo.path(), BODY);
+    let prov = Provenance::anonymous(Actor::Human);
+
+    let mut spec = Spec::new(project_id.clone(), "A hand-written changelog");
+    spec.mirror_path = Some("docs/CHANGELOG.md".to_owned());
+    let spec_id = store
+        .create(spec.into(), &prov)
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+    let doc = Document::first(
+        EntityType::Spec,
+        spec_id,
+        Some(project_id.clone()),
+        "A hand-written changelog",
+        "# Written by a person\n",
+        Actor::Human,
+        chrono::Utc::now(),
+    )
+    .unwrap();
+    store.write_revision(doc).unwrap();
+
+    let report = generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+
+    let written = std::fs::read_to_string(repo.path().join("docs/CHANGELOG.md")).unwrap();
+    assert!(
+        written.contains("Written by a person"),
+        "the document owns the path and its prose must survive: {written}"
+    );
+    assert!(
+        report
+            .unrepresented
+            .iter()
+            .any(|u| u.contains("docs/CHANGELOG.md")),
+        "and the skipped changelog must be reported, not dropped in silence: {:?}",
+        report.unrepresented
+    );
+}

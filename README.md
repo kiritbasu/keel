@@ -180,7 +180,8 @@ Point a project at your repo and Keel writes markdown into it:
 ```
 product/SPEC.md          the spec, as prose
 product/DECISIONS.md     every decision, numbered B-1, B-2…, with the reasoning
-product/STATUS.md        the tracker, rendered from the task rows
+product/STATUS.md        the tracker — open work, rendered from the task rows
+product/CHANGELOG.md     what closed, and the event log
 .keel/questions.md       open questions and settled ones, with the answers
 .keel/decisions/         one file per decision
 .keel/specs/             one file per document
@@ -277,6 +278,7 @@ All of it is in `product/`, and all of it is generated from the store:
 - `product/PRD.md` — what this is for
 - `product/SPEC.md` — how it works
 - `product/DECISIONS.md` — every decision and why
-- `product/STATUS.md` — what's done and what's next
+- `product/STATUS.md` — what's open and what's next
+- `product/CHANGELOG.md` — what has closed, with the reason and the evidence
 - `product/JOURNAL.md` — what happened, session by session
 - `product/GATE.md` — the one measurement that mattered, and why it stopped

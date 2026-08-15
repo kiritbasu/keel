@@ -20,6 +20,14 @@ use crate::{
 };
 use std::fmt::Write as _;
 
+/// How many recent changes the tracker carries before pointing at the
+/// changelog.
+///
+/// Small on purpose. This file is committed, so every row here is a line that
+/// churns in the diff of a commit that may have nothing to do with it — and the
+/// full history is one file away.
+const RECENT_SHOWN: usize = 10;
+
 /// Render a tracker for one project.
 pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
     let Some(Entity::Project(project)) = store.get(project_id)? else {
@@ -233,7 +241,23 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
         .filter(|t| matches!(t, Entity::Task(t) if blocked_ids.contains(&t.id)))
         .collect();
 
-    for status in std::iter::once(None).chain(TaskStatus::ALL.iter().map(Some)) {
+    // Open work only. Closed rows are in the changelog, and the reason is
+    // measured rather than tidy-minded: with them here this file reached 488 KB
+    // on this project, 87% of it finished work, and the standing contract's
+    // first instruction — read the tracker — was refused for exceeding the
+    // reader's size limit. A tracker nobody can open is not a tracker.
+    //
+    // The count is printed below rather than the rows being dropped quietly.
+    // Hard constraint 4: every list that can be cut says that it was, with a
+    // total.
+    let closed_count = tasks
+        .iter()
+        .filter(|t| matches!(t, Entity::Task(t) if !t.status.is_open()))
+        .count();
+
+    for status in
+        std::iter::once(None).chain(TaskStatus::ALL.iter().filter(|s| s.is_open()).map(Some))
+    {
         let group: Vec<&Entity> = match status {
             None => blocked_group.clone(),
             Some(status) => tasks
@@ -308,6 +332,15 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
         writeln!(out)?;
     }
 
+    if closed_count > 0 {
+        writeln!(
+            out,
+            "*{closed_count} closed task(s) are not listed here. They are in the changelog beside \
+             this file.*"
+        )?;
+        writeln!(out)?;
+    }
+
     // --- Open questions --------------------------------------------------
     let open_questions: Vec<&Entity> = questions
         .iter()
@@ -359,24 +392,26 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
         writeln!(out)?;
     }
 
-    // --- Changelog -------------------------------------------------------
-    // Derived from the event log rather than hand-written, which is the whole
-    // point: the log already knows what happened and who did it.
+    // --- Recently ---------------------------------------------------------
+    //
+    // A short tail, not the changelog. The full table moved to
+    // [`crate::render_changelog`] — this is the handful of lines that answer
+    // "what just happened" for somebody orienting, and it is bounded so the
+    // file stays readable and so a commit's diff of it stays about the board.
     //
     // Newest first from the engine. Reading the oldest 5,000 and reversing was
-    // right until the project's log passed 5,000, at which point the changelog
-    // would have frozen — still forty rows, still plausible, describing a week
-    // that had scrolled off the top.
+    // right until the project's log passed 5,000, at which point this would
+    // have frozen — still plausible, describing a week that had scrolled off
+    // the top.
     let events = store.recent_events(crate::store::EventScope::Project(project_id), 5_000)?;
     if !events.items.is_empty() {
         writeln!(out, "---")?;
         writeln!(out)?;
-        writeln!(out, "## Changelog")?;
+        writeln!(out, "## Recently")?;
         writeln!(out)?;
         writeln!(out, "| Date | Actor | Change |")?;
         writeln!(out, "|---|---|---|")?;
-        // Newest first, and capped — but the cap is stated, never silent.
-        let shown = 40.min(events.items.len());
+        let shown = RECENT_SHOWN.min(events.items.len());
         for e in events.items.iter().take(shown) {
             writeln!(
                 out,
@@ -397,7 +432,8 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
         if events.items.len() > shown {
             writeln!(
                 out,
-                "*Showing the {shown} most recent of {} changes. Use `keel_activity` for the rest.*",
+                "*The {shown} most recent of {} changes. The rest are in the changelog beside this \
+                 file, or from `keel_activity`.*",
                 events.items.len()
             )?;
             writeln!(out)?;
