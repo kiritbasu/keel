@@ -971,7 +971,7 @@ Install the latest release, if it cannot change the store's shape.
 
 A release that agrees with this one about the schema is interchangeable as far as your store is concerned, so it is applied without asking. One that moves the schema stops here and waits for you, because a migration rewrites data and `--rollback` puts binaries back, not rows.
 
-Fetched through `gh`, which is the only route that serves a private repository's assets (B-73), and checked against the SHA-256 in the release manifest before anything is moved into place.
+Downloaded from the latest release over plain HTTPS — no account and no token — and checked against the SHA-256 in the release manifest before anything is moved into place.
 
 Usage: keel update [OPTIONS]
 

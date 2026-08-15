@@ -81,7 +81,13 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 # Blocking HTTP for the CLI, which is synchronous and needs to talk to the
 # daemon. `reqwest` would drag a tokio runtime into a process that has no other
 # use for one.
-ureq = { version = "2", default-features = false, features = ["json"] }
+# `tls` was absent until `keel update` arrived, and correctly so: every other
+# call this crate makes is to `http://127.0.0.1:<port>`, so a TLS stack was
+# weight for nothing. The updater fetches a release over HTTPS and is the first
+# thing here to need one. Without it `ureq` compiles and fails at runtime with
+# "no TLS backend is configured", which reads like a network fault rather than a
+# missing feature — found by running the command rather than by reading this.
+ureq = { version = "2", default-features = false, features = ["json", "tls"] }
 
 # CLI
 clap = { version = "4", features = ["derive"] }

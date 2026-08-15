@@ -12,26 +12,29 @@
 //!
 //! # What "verified" means here, exactly
 //!
-//! The SHA-256 in the release manifest, and nothing else. B-73 has the full
-//! reasoning: the repository is private (B-72) and GitHub issues no build
-//! provenance for a user-owned private repository, so there is no attestation
-//! on any release that exists. The manifest is therefore the trust root, and it
-//! travels the same authenticated path as the artifact it describes. A missing
-//! manifest is a hard failure rather than a reason to skip the check.
+//! The SHA-256 in the release manifest, and — from the first release built
+//! after 2026-08-15 — nothing more yet. The manifest is the trust root, so a
+//! missing one is a hard failure rather than a reason to skip the check.
 //!
 //! That guarantee is real but narrower than provenance: it catches a corrupt,
 //! truncated or substituted artifact, and it does not independently establish
 //! that GitHub built those bytes from this commit.
 //!
-//! # Why it shells out to `gh`
+//! Provenance is now *available* — the repository went public on 2026-08-15, so
+//! `release.yml`'s attestation step stops being skipped and releases cut from
+//! here carry one. Checking it is not built yet and is the open half of B-73;
+//! until it is, a release carrying an attestation and one not carrying it are
+//! treated identically, which is the weakness worth naming rather than leaving
+//! for somebody to infer from the absence of code.
 //!
-//! KEEL-221 found by testing it that a private repository's
-//! `releases/download/…` URL returns 404 with a valid token as readily as
-//! without one — the bytes are only served from
-//! `api.github.com/repos/OWNER/REPO/releases/assets/{id}`, after looking the
-//! asset id up by name. `plugin/scripts/setup.sh` already goes through
-//! `gh release download` for that reason, and reusing it keeps credential
-//! handling out of this process entirely.
+//! # How it fetches
+//!
+//! A plain unauthenticated GET of `releases/latest/download/<name>`. That is
+//! what going public bought: no token, no `gh`, no asset-id lookup, and an
+//! install path that works for somebody who is not the author. While the
+//! repository was private that URL returned 404 with a valid token as readily
+//! as without one (KEEL-221), and the only route was `api.github.com` with an
+//! asset id — which is what B-73 first chose and what it no longer has to.
 
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
@@ -74,8 +77,8 @@ pub enum Plan {
     UpToDate,
     /// The installed version is *newer* than the published one.
     ///
-    /// Reachable in ordinary use: `gh release download` with no tag resolves to
-    /// the latest non-prerelease, so anybody running an `-rc` is ahead of it.
+    /// Reachable in ordinary use: `releases/latest` resolves to the latest
+    /// non-prerelease, so anybody running an `-rc` is ahead of it.
     /// Treated as its own outcome because applying it would be a silent
     /// downgrade, which looks exactly like a successful update.
     Ahead {
@@ -180,42 +183,40 @@ fn repo() -> String {
     std::env::var("KEEL_REPO").unwrap_or_else(|_| "kiritbasu/keel".to_owned())
 }
 
-/// Pull one asset out of the latest release.
+/// Fetch one asset from the latest release.
 ///
-/// `--pattern` is not optional even though it looks like it: with no tag
-/// argument `gh release download` refuses without one, and the refusal is an
-/// exit 1 whose message reads exactly like a permissions failure. KEEL-221 lost
-/// a debugging cycle to that.
-fn download(dir: &Path, pattern: &str) -> Result<PathBuf> {
+/// A plain unauthenticated GET, which is what the repository going public buys:
+/// `releases/latest/download/<name>` is served to anybody, so the updater needs
+/// no token, no `gh`, and no asset-id lookup. While the repository was private
+/// this same URL returned 404 with a valid token as readily as without one
+/// (KEEL-221), and the only route was the API — which is why B-73 originally
+/// shelled out and why that is no longer the trade.
+///
+/// `latest` deliberately excludes prereleases, which is what makes
+/// [`Plan::Ahead`] reachable rather than theoretical.
+fn download(dir: &Path, name: &str) -> Result<PathBuf> {
     let repo = repo();
-    let output = Command::new("gh")
-        .args(["release", "download", "--repo", &repo, "--dir"])
-        .arg(dir)
-        .args(["--pattern", pattern, "--clobber"])
-        .output()
-        .context(
-            "could not run `gh`, which is how Keel fetches a release from a private repository \
-             (B-73).\n\nInstall it and sign in:\n    brew install gh\n    gh auth login\n\nThen \
-             try again: keel update",
-        )?;
+    let url = format!("https://github.com/{repo}/releases/latest/download/{name}");
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!(
-            "`gh release download --repo {repo} --pattern {pattern}` failed:\n{}\n\nThis is also \
-             what a signed-out `gh` looks like, and what no access to {repo} looks like. Check \
-             with:\n    gh auth status\n    gh release view --repo {repo}",
-            stderr.trim()
-        );
-    }
+    let response = match ureq::get(&url).call() {
+        Ok(response) => response,
+        Err(ureq::Error::Status(404, _)) => bail!(
+            "the latest release of {repo} has no asset called {name}.\n\nA release published \
+             before the job learned to attach it looks exactly like this. Check what it \
+             carries:\n    https://github.com/{repo}/releases/latest"
+        ),
+        Err(ureq::Error::Status(code, _)) => bail!(
+            "fetching {url} returned HTTP {code}, so there is nothing to install. Nothing has \
+             been changed."
+        ),
+        Err(e) => bail!("could not reach {url}: {e}\n\nNothing has been changed."),
+    };
 
-    let path = dir.join(pattern);
-    if !path.is_file() {
-        bail!(
-            "`gh` reported success but {pattern} is not in the download directory. The release \
-             may not carry that asset — check with: gh release view --repo {repo}"
-        );
-    }
+    let path = dir.join(name);
+    let mut file = std::fs::File::create(&path)
+        .with_context(|| format!("creating {} for the download", path.display()))?;
+    std::io::copy(&mut response.into_reader(), &mut file)
+        .with_context(|| format!("writing the download to {}", path.display()))?;
     Ok(path)
 }
 
@@ -566,9 +567,9 @@ mod tests {
         );
     }
 
-    /// `gh release download` with no tag resolves to the latest *non*-prerelease,
-    /// so anybody on an rc is ahead of it. Applying that is a downgrade wearing
-    /// a successful update's clothes.
+    /// `releases/latest` resolves to the latest *non*-prerelease, so anybody on
+    /// an rc is ahead of it. Applying that is a downgrade wearing a successful
+    /// update's clothes.
     #[test]
     fn an_older_published_release_is_not_applied() {
         let m = manifest("0.1.1", 7);
