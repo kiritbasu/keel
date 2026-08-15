@@ -83,6 +83,31 @@ enum Command {
         daemon: String,
     },
 
+    /// Open the interface in a browser.
+    ///
+    /// The daemon serves the read surface itself, compiled in, so this needs no
+    /// Node and no second process — it works out where the daemon is listening
+    /// and opens that. Which matters more than it sounds: the daemon records
+    /// the address it actually bound, so a daemon told to use another port is
+    /// still found without anyone remembering the number.
+    ///
+    /// It refuses rather than opening a browser at a dead port. A tab showing
+    /// "cannot connect" is a worse answer than a sentence saying the daemon is
+    /// not running.
+    Ui {
+        /// Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the address the
+        /// running daemon recorded, then the local default.
+        #[arg(long, env = "KEEL_DAEMON_URL")]
+        daemon: Option<String>,
+
+        /// Print the address instead of opening anything.
+        ///
+        /// For a machine with no browser, and for anyone who would rather paste
+        /// it themselves.
+        #[arg(long)]
+        print: bool,
+    },
+
     /// Give every current revision that has no vector one.
     ///
     /// Embedding happens on the way into a new revision and nowhere else, so
@@ -470,6 +495,7 @@ fn main() -> Result<()> {
     match &cli.command {
         Command::Fsck { daemon } => run_fsck(&home, daemon, cli.json),
         Command::Doctor { daemon } => doctor::run(&home, daemon, cli.json),
+        Command::Ui { daemon, print } => run_ui(&home, daemon.as_deref(), *print, cli.json),
         Command::Reembed { missing } => run_reembed(&home, *missing, cli.force, cli.json),
         Command::Backup { dest } => run_backup(&home, dest.clone(), cli.json),
         Command::Restore { source, target } => run_restore(source, target, cli.json),
@@ -1524,6 +1550,75 @@ fn run_release_manifest() -> Result<()> {
         }))?
     );
     Ok(())
+}
+
+/// Open the daemon's interface in a browser.
+///
+/// The whole command is "find the daemon, check it is alive, hand the address
+/// to the platform's opener" — and each of those three is a thing that used to
+/// have to be done by hand.
+///
+/// It refuses when nothing answers, rather than opening a browser at a dead
+/// port. A tab reading "cannot connect" is indistinguishable from a broken
+/// interface, and this project has spent enough time on failures that look like
+/// something else.
+fn run_ui(home: &Path, daemon: Option<&str>, print: bool, json: bool) -> Result<()> {
+    // An explicit `--daemon` wins. Otherwise `daemon_url_for` reads the address
+    // the running daemon recorded and probes it before believing it, which is
+    // what finds a daemon on a non-default port without being told.
+    let base = match daemon {
+        Some(explicit) => explicit.trim_end_matches('/').to_owned(),
+        None => writes::daemon_url_for(home)
+            .trim_end_matches('/')
+            .to_owned(),
+    };
+
+    if writes::probe(&base) != writes::Daemon::Listening {
+        anyhow::bail!(
+            "nothing is listening at {base}, so there is no interface to open.\n\n\
+             Start the daemon and try again:\n    keel-daemon\n\n\
+             If it is running on another address, pass it: keel ui --daemon http://127.0.0.1:<port>"
+        );
+    }
+
+    if json {
+        println!("{}", serde_json::json!({ "url": base }));
+        return Ok(());
+    }
+
+    if print {
+        println!("{base}");
+        return Ok(());
+    }
+
+    // `open` on macOS, `xdg-open` on everything else. Not a crate: this is one
+    // process spawn per platform, and the alternatives pull in a dependency to
+    // do exactly this.
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
+
+    match std::process::Command::new(opener).arg(&base).status() {
+        Ok(status) if status.success() => {
+            println!("Opened {base}");
+            Ok(())
+        }
+        // A failed opener is not a failed command. The address is the useful
+        // part and the user can paste it; exiting non-zero here would fail a
+        // script over a missing `xdg-open` on a headless box.
+        Ok(status) => {
+            println!("Could not open a browser ({opener} exited {status}). The interface is at:");
+            println!("    {base}");
+            Ok(())
+        }
+        Err(e) => {
+            println!("Could not run {opener} ({e}). The interface is at:");
+            println!("    {base}");
+            Ok(())
+        }
+    }
 }
 
 fn run_status(home: &Path, daemon: &str, json: bool) -> Result<()> {

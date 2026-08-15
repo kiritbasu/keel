@@ -5,6 +5,7 @@ Usage: keel [OPTIONS] <COMMAND>
 Commands:
   fsck              Check the store's referential integrity
   doctor            Ask whether anything has quietly gone wrong
+  ui                Open the interface in a browser
   reembed           Give every current revision that has no vector one
   backup            Back up the store: one consistent snapshot, plus a manifest
   restore           Restore a backup into an empty directory
@@ -882,6 +883,46 @@ Options:
           p0, p1, p2, p3
           
           [default: p2]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== ui =====
+
+Open the interface in a browser.
+
+The daemon serves the read surface itself, compiled in, so this needs no Node and no second process — it works out where the daemon is listening and opens that. Which matters more than it sounds: the daemon records the address it actually bound, so a daemon told to use another port is still found without anyone remembering the number.
+
+It refuses rather than opening a browser at a dead port. A tab showing "cannot connect" is a worse answer than a sentence saying the daemon is not running.
+
+Usage: keel ui [OPTIONS]
+
+Options:
+      --daemon <DAEMON>
+          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the address the running daemon recorded, then the local default
+          
+          [env: KEEL_DAEMON_URL=]
+
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --print
+          Print the address instead of opening anything.
+          
+          For a machine with no browser, and for anyone who would rather paste it themselves.
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
 
   -h, --help
           Print help (see a summary with '-h')

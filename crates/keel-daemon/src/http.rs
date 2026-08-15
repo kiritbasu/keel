@@ -81,6 +81,15 @@ pub fn router(state: AppState) -> Router {
                 .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
                 .allow_headers(tower_http::cors::Any),
         )
+        // The read surface, compiled in. Last, as a fallback, so it can only
+        // ever answer paths no API route claimed — a new `/api/...` route
+        // cannot be shadowed by it, and a typo'd one still 404s as an API call
+        // rather than silently returning the app shell.
+        //
+        // Outside the CORS layer below on purpose. The page is served from the
+        // same origin it calls, so it needs no CORS headers of its own, and
+        // attaching them to HTML would only widen what another page can read.
+        .fallback(crate::site::serve)
         .layer(tower_http::trace::TraceLayer::new_for_http())
         // A cap on how much the daemon will read, and a handler that explains
         // it in the shape the caller is speaking.
