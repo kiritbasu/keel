@@ -316,47 +316,16 @@ fn apply_staged_update() {
         }
     };
 
-    match keel_update::apply_staged(&dir) {
+    match keel_update::staged_version(&dir) {
         Ok(None) => {}
-        Ok(Some(version)) => {
-            tracing::info!(%version, "applied a staged update; restarting into it");
-            reexec();
-        }
-        Err(e) => tracing::warn!("a staged update was not applied: {e:#}"),
+        Ok(Some(version)) => tracing::info!(
+            %version,
+            "Keel {version} is downloaded and waiting. It is not applied automatically — \
+             applying it restarts the daemon, and that is yours to decide. Take it with: keel \
+             update"
+        ),
+        Err(e) => tracing::warn!("could not read the staged update: {e:#}"),
     }
-}
-
-/// Replace this process with the binary now at its own path.
-///
-/// Returns only on failure. `exec` keeps the pid, which matters more than it
-/// looks: launchd and systemd are watching this process, and exiting to be
-/// restarted would work but would count as a crash against whatever restart
-/// throttling they apply.
-fn reexec() {
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        let exe = match std::env::current_exe() {
-            Ok(exe) => exe,
-            Err(e) => {
-                tracing::error!(
-                    "updated, but cannot find this binary's path to restart into it: \
-                                 {e}. Running the previous version until restarted."
-                );
-                return;
-            }
-        };
-        // Only `exec` can fail here; on success this process is gone.
-        let e = std::process::Command::new(exe)
-            .args(std::env::args_os().skip(1))
-            .exec();
-        tracing::error!(
-            "updated, but could not restart into the new binary: {e}. Running the \
-                         previous version until restarted."
-        );
-    }
-    #[cfg(not(unix))]
-    tracing::info!("updated. Restart the daemon to run the new version.");
 }
 
 /// Look for a newer release on a schedule, and stage one when it is safe.

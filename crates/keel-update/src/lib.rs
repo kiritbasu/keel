@@ -360,6 +360,24 @@ pub fn stage(unpacked: &Path, into: &Path, version: &str) -> Result<()> {
 /// The file naming what has been staged. Its presence is the signal.
 const STAGED_VERSION: &str = ".keel-staged-version";
 
+/// What is staged and waiting, if anything.
+///
+/// Reading without applying, which is the whole of the difference B-75 and
+/// KEEL-225 introduced: the daemon used to call [`apply_staged`] at startup and
+/// swap the binary under whoever was using it. Now it reports, and applying is
+/// something a person agrees to — because agreeing means the daemon restarts.
+pub fn staged_version(dir: &Path) -> Result<Option<String>> {
+    let marker = dir.join(STAGED_VERSION);
+    if !marker.is_file() {
+        return Ok(None);
+    }
+    let version = std::fs::read_to_string(&marker)
+        .with_context(|| format!("reading {}", marker.display()))?
+        .trim()
+        .to_owned();
+    Ok(Some(version))
+}
+
 /// Swap in a staged release, if there is one. Returns the version applied.
 ///
 /// Called at startup, before anything is served. Renaming over a running
