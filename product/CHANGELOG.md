@@ -1,6 +1,6 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T22:28:46Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T22:30:35Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -808,6 +808,13 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-15 | claude | “Anything the daemon serves has to be safe to render in a…” blocks “The interface can create a task, comment on one, and…” |
+| 2026-08-15 | claude | “A per-session token, so a mutating endpoint knows who is…” blocks “The interface can create a task, comment on one, and…” |
+| 2026-08-15 | claude | created task “The interface can create a task, comment on one, and archive or close a row” |
+| 2026-08-15 | claude | created task “Anything the daemon serves has to be safe to render in a browser” |
+| 2026-08-15 | claude | created task “A per-session token, so a mutating endpoint knows who is calling” |
+| 2026-08-15 | claude | revised question “How far does hard constraint 7 move, now that the app needs to write?” to v1 |
+| 2026-08-15 | claude | created question “How far does hard constraint 7 move, now that the app needs to write?” |
 | 2026-08-15 | claude | status todo → done |
 | 2026-08-15 | claude | evidence [] → ["commit:dfc39b4","test:npx vitest run src/lib/filters.test.ts"] |
 | 2026-08-15 | claude | close_reason none → done |
@@ -1001,13 +1008,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | close_message none → (292 characters) |
 | 2026-08-15 | claude | created task “The contract gate failed every day for a calendar reason, not a code one” |
 | 2026-08-15 | claude | body (1743 characters) → (1923 characters) |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_0d013ca6-a51f-4bcf-b118-1f9720d86d0e |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T01:09:14.140824Z |
-| 2026-08-15 | claude | revised decision “The repository stays private and macOS builds run on a self-hosted runner” to v1 |
-| 2026-08-15 | claude | created decision “The repository stays private and macOS builds run on a self-hosted runner” |
-| 2026-08-15 | claude | created task “The changelog reprints old field values, so nothing can ever be redacted from the mirror” |
-| 2026-08-15 | claude | body (1237 characters) → (1223 characters) |
 
-*Showing the 200 most recent of 1623 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1630 changes. Use `keel_activity` for the rest.*
 
