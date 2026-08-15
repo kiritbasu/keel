@@ -199,6 +199,39 @@ jobs:
             --target="${{ matrix.target }}" \
             --artifacts=local
 
+      # What this release promises, read out of the binary that is actually
+      # being shipped. The updater has to decide whether a candidate is safe to
+      # apply *before* downloading it, and it cannot ask the candidate — running
+      # the thing you are deciding whether to run is the whole problem (KEEL-202).
+      # `release-manifest` opens no store, so it runs on a machine with no Keel
+      # home at all, which is what this is.
+      #
+      # Extracted from the archive rather than guessed at under `target/`: the
+      # archive layout is a published contract, and its internal directory is
+      # named for the target. Checked against the real v0.1.1 asset rather than
+      # assumed — `keel-aarch64-apple-darwin/keel`.
+      #
+      # Only the host's own target can be executed here, which is why this sits
+      # in the per-target job and not in `publish`: that job runs on Linux and
+      # every artifact it holds is a macOS binary. With one macOS target on a
+      # macOS runner the condition always holds; when Linux returns, its leg
+      # writes the same file with the same contents and `download-artifact`'s
+      # merge collapses the two. The values here are target-independent —
+      # version, schema, protocol — so two legs cannot disagree about them.
+      #
+      # Checksums are deliberately absent at this stage. They belong to the
+      # release rather than to the binary, and `publish` is the only place that
+      # has every artifact in one directory.
+      - name: Record what this release promises
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          tar -xJf "target/distrib/keel-${{ matrix.target }}.tar.xz" -C "$work"
+          "$work/keel-${{ matrix.target }}/keel" release-manifest \
+            > target/distrib/keel-release.json
+          cat target/distrib/keel-release.json
+
       - uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.target }}
@@ -284,6 +317,47 @@ jobs:
           subject-path: |
             target/distrib/*.tar.*
             target/distrib/*.sh
+
+      # The manifest is the updater's trust root, so it has to carry the hash of
+      # every file this release publishes. B-73: with the repository private
+      # there is no build provenance to check, and a checksum arriving over the
+      # same authenticated path as the artifact is the whole of the guarantee.
+      #
+      # After the installer patch, not before. `patch-installer.sh` rewrites the
+      # installer's bytes, so a hash taken earlier would describe a file that no
+      # longer exists — the same ordering trap the attestation step above is
+      # careful about, and with a quieter failure, since a wrong hash here looks
+      # like a corrupt download to whoever hits it.
+      #
+      # A missing manifest fails the release. It means no build leg produced one
+      # and every updater would fall back to having nothing to compare against,
+      # which is exactly the silence this file is meant not to ship.
+      - name: Put the artifact checksums in the release manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target/distrib
+
+          if [ ! -f keel-release.json ]; then
+            echo "no keel-release.json — no build leg produced one, so this" >&2
+            echo "release would ship with nothing for the updater to verify" >&2
+            exit 1
+          fi
+
+          # Every file about to be uploaded except the manifest, which cannot
+          # state its own hash. `find` rather than a glob so the set matches the
+          # one the publish step below collects.
+          work="$(mktemp)"
+          cp keel-release.json "$work"
+          while IFS= read -r file; do
+            name="$(basename "$file")"
+            sum="$(sha256sum "$file" | awk '{print $1}')"
+            jq --arg n "$name" --arg s "$sum" '.artifacts[$n] = $s' "$work" > "$work.next"
+            mv "$work.next" "$work"
+          done < <(find . -maxdepth 1 -type f ! -name keel-release.json | sort)
+
+          mv "$work" keel-release.json
+          cat keel-release.json
 
       - name: Publish the release
         shell: bash

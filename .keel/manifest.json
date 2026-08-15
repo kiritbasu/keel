@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-15T14:57:48.381603+00:00",
+  "generated_at": "2026-08-15T15:24:05.935478+00:00",
   "files": [
     {
       "path": ".keel/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/the-updater-verifies-a-checksum-and-nothing-else-because-provenance-is-not-available-to-a-private-repository.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M02ZT12E0A8RJZ050SJPKMB3",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "d82a433f50253be254537d49abb504dad4b114ce0e406615fffe7b96045073ac"
         }
       ]
     },

@@ -15,6 +15,7 @@ Commands:
   import            Import markdown files into Keel as versioned documents
   bootstrap         Seed Keel's own project — the dogfooding switch
   release-manifest  Print what a release of this binary promises, as JSON
+  update            Install the latest release, if it cannot change the store's shape
   status            Print a one-line summary of what is in the store
   generate          Regenerate a project's repository files from Keel
   gate              Score Phase 2's exit criterion from the event log
@@ -954,6 +955,44 @@ Options:
           Print the address instead of opening anything.
           
           For a machine with no browser, and for anyone who would rather paste it themselves.
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== update =====
+
+Install the latest release, if it cannot change the store's shape.
+
+A release that agrees with this one about the schema is interchangeable as far as your store is concerned, so it is applied without asking. One that moves the schema stops here and waits for you, because a migration rewrites data and `--rollback` puts binaries back, not rows.
+
+Fetched through `gh`, which is the only route that serves a private repository's assets (B-73), and checked against the SHA-256 in the release manifest before anything is moved into place.
+
+Usage: keel update [OPTIONS]
+
+Options:
+      --check
+          Say what would happen and change nothing
+
+      --home <HOME>
+          Where the store lives. Defaults to `~/.keel`.
+          
+          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: KEEL_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --rollback
+          Put back the binaries the last update replaced.
+          
+          One generation only, and binaries only. If the update you are undoing migrated the store, this does not undo that — restore a backup.
 
       --force
           Write to the store even though a daemon appears to be running.

@@ -15,6 +15,7 @@ mod generate;
 mod hook;
 mod import;
 mod rubric;
+mod update;
 mod work;
 mod writes;
 
@@ -265,6 +266,29 @@ enum Command {
     /// Opens no store, which is the point: it is run in a release job against
     /// a freshly built binary on a machine that has no Keel home at all.
     ReleaseManifest,
+
+    /// Install the latest release, if it cannot change the store's shape.
+    ///
+    /// A release that agrees with this one about the schema is interchangeable
+    /// as far as your store is concerned, so it is applied without asking. One
+    /// that moves the schema stops here and waits for you, because a migration
+    /// rewrites data and `--rollback` puts binaries back, not rows.
+    ///
+    /// Fetched through `gh`, which is the only route that serves a private
+    /// repository's assets (B-73), and checked against the SHA-256 in the
+    /// release manifest before anything is moved into place.
+    Update {
+        /// Say what would happen and change nothing.
+        #[arg(long)]
+        check: bool,
+        /// Put back the binaries the last update replaced.
+        ///
+        /// One generation only, and binaries only. If the update you are
+        /// undoing migrated the store, this does not undo that — restore a
+        /// backup.
+        #[arg(long, conflicts_with = "check")]
+        rollback: bool,
+    },
 
     /// Print a one-line summary of what is in the store.
     Status {
@@ -570,6 +594,7 @@ fn main() -> Result<()> {
         }
         Command::Fixture => run_fixture(&home, cli.force, cli.json),
         Command::ReleaseManifest => run_release_manifest(),
+        Command::Update { check, rollback } => update::run(*check, *rollback, cli.json),
         Command::Status { daemon } => run_status(&home, daemon, cli.json),
         Command::RenderStatus {
             project,
