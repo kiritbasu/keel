@@ -1639,7 +1639,7 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1661,7 +1661,7 @@ dependencies = [
 
 [[package]]
 name = "keel-core"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "chrono",
  "insta",
@@ -1680,7 +1680,7 @@ dependencies = [
 
 [[package]]
 name = "keel-daemon"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -1707,7 +1707,7 @@ dependencies = [
 
 [[package]]
 name = "keel-embed"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "fastembed",
  "keel-core",
@@ -1717,7 +1717,7 @@ dependencies = [
 
 [[package]]
 name = "keel-mcp"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1732,7 +1732,7 @@ dependencies = [
 
 [[package]]
 name = "keel-update"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "keel-core",
