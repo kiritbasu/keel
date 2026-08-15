@@ -1,7 +1,12 @@
 # Extracted verbatim from the shell installer `dist` 0.32.0 generates for this
-# workspace — `dist build --artifacts=global`, 2026-08-14. Four functions, not
-# the whole 50 KB script, because these are the ones the checksum path is made
-# of and the rest is download and unpack.
+# workspace — `dist build --artifacts=global`, 2026-08-14. Four functions and
+# one block out of `install()`, not the whole 50 KB script, because these are
+# the ones the checksum path is made of and the rest is download and unpack.
+#
+# The block from `install()` was added on 2026-08-15: it is the guard that
+# decides whether `verify_checksum` is called at all, and the branch Keel 0.1.2
+# shipped down (KEEL-228). Its indentation is the installer's, because
+# `scripts/patch-installer.sh` matches literally.
 #
 # It is checked in so `scripts/patch-installer.sh` has something to be tested
 # against without `dist` on the machine. It is a *copy*, so it can go stale —
@@ -111,5 +116,33 @@ verify_checksum() {
     fi
 }
 
-# The harness the test drives: verify one file against one expected digest.
-verify_checksum "$1" sha256 "$2"
+# The caller, out of `install()`'s download loop. Everything between the markers
+# is the installer's own text at the installer's own indentation; the wrapper
+# exists only to give the locals it reads somewhere to come from.
+download_and_verify() {
+    local _file="$1"
+    local _artifact_name="$2"
+    local _checksum_style="$3"
+    local _checksum_value="$4"
+
+    # --- verbatim ---
+        if [ -n "${_checksum_style:-}" ]; then
+            verify_checksum "$_file" "$_checksum_style" "$_checksum_value"
+        else
+            say "no checksums to verify" 1>&2
+        fi
+    # --- end verbatim ---
+}
+
+# The harness the tests drive.
+#
+#   sh fixture.sh <file> <digest>                  verify_checksum directly
+#   sh fixture.sh <file> <digest> <name> [<style>] through the caller's guard,
+#                                                  with no style at all when it
+#                                                  is left off — which is the
+#                                                  shape 0.1.2 shipped in
+if [ "$#" -ge 3 ]; then
+    download_and_verify "$1" "$3" "${4-}" "$2"
+else
+    verify_checksum "$1" sha256 "$2"
+fi

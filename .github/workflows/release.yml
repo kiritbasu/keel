@@ -187,17 +187,39 @@ jobs:
           fi
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
+      # `--artifacts=local` is this target's binaries, archives and checksums.
+      # The installer is a global artifact and is built once, in the publish
+      # job, from all three targets' results.
+      #
+      # **The manifest this writes is how the checksum reaches the installer,
+      # and leaving it out is what shipped 0.1.2 unverified** (KEEL-228).
+      # `dist` computes an archive's digest in the job that builds the archive
+      # and records it in that job's manifest. The publish job then merges every
+      # `*dist-manifest.json` it finds in `target/distrib` and fills the digests
+      # into the installer it generates. With no manifest to merge, `dist` emits
+      # an installer with no `_checksum_style` at all — which is not an error, is
+      # not warned about, and installs anyway. The header of this file already
+      # noted that not calling `dist host` costs us "merging the per-target
+      # manifests"; this is what that cost was.
+      #
+      # Written outside `target/distrib` and copied in afterwards, deliberately.
+      # The shell creates the redirect target before `dist` runs, and `dist`
+      # reads every `*dist-manifest.json` in the dist dir on startup — pointing
+      # the redirect straight at that directory hands it an empty file to parse.
       - name: Build the artifacts for this target
         shell: bash
         run: |
           set -euo pipefail
-          # `--artifacts=local` is this target's binaries, archives and
-          # checksums. The installer is a global artifact and is built once, in
-          # the publish job, from all three targets' results.
+          work="$(mktemp -d)"
           dist build \
             --tag="${GITHUB_REF_NAME}" \
             --target="${{ matrix.target }}" \
-            --artifacts=local
+            --artifacts=local \
+            --output-format=json \
+            > "$work/dist-manifest.json"
+          cat "$work/dist-manifest.json"
+          cp "$work/dist-manifest.json" \
+            "target/distrib/${{ matrix.target }}-dist-manifest.json"
 
       # What this release promises, read out of the binary that is actually
       # being shipped. The updater has to decide whether a candidate is safe to
@@ -270,7 +292,12 @@ jobs:
           set -euo pipefail
           # Global artifacts are the shell installer and anything else that
           # spans targets. It embeds the checksums of the local artifacts, which
-          # is why this runs after the download and not in parallel with it.
+          # is why this runs after the download and not in parallel with it —
+          # and the checksums arrive in the `*-dist-manifest.json` files the
+          # build jobs wrote, which `dist` merges out of this directory on
+          # startup. Downloading the archives without their manifests produces
+          # an installer that verifies nothing, quietly. That is KEEL-228, and
+          # the step below is what now refuses to publish it.
           dist build --tag="${GITHUB_REF_NAME}" --artifacts=global
 
       # Before the attestation, deliberately: the statement has to be about the
@@ -286,6 +313,24 @@ jobs:
         run: |
           set -euo pipefail
           ./scripts/patch-installer.sh target/distrib/*.sh
+
+      # And then prove it, rather than trusting the step above to have been
+      # about the right hole.
+      #
+      # `patch-installer.sh` passed on the 0.1.2 release and the installer still
+      # shipped verifying nothing: it was fixing the digest-tool fallback while
+      # the checksum value itself was empty. So this reads the hex out of the
+      # installer, hashes the archive about to be uploaded, and compares. It
+      # cannot be satisfied by wording, and a release whose installer would
+      # print "no checksums to verify" fails here instead of on somebody's
+      # machine.
+      - name: Prove the installer carries the checksums of what it downloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          for installer in target/distrib/*installer.sh; do
+            ./scripts/check-installer-checksums.sh "$installer" target/distrib
+          done
 
       # Skipped while the repository is private, because GitHub will not do it:
       #

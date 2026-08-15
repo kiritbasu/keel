@@ -1,6 +1,10 @@
 //! The release installer must actually verify what it downloads.
 //!
-//! `dist` generates a shell installer whose sha256 path reads:
+//! `dist` generates a shell installer with three places where it reports
+//! success without having checked anything, and `scripts/patch-installer.sh`
+//! rewrites all three. These tests are what say it worked.
+//!
+//! **The digest tool.** The sha256 path reads:
 //!
 //! ```text
 //! if ! check_cmd sha256sum; then
@@ -15,14 +19,27 @@
 //! that `scripts/verify-release-tier1.sh` installs under, and older macOS has it
 //! nowhere. `/usr/bin/shasum` is present in both cases.
 //!
-//! `scripts/patch-installer.sh` rewrites that block. These tests are what say it
-//! worked, and the one that matters is
-//! [`the_unpatched_installer_waves_a_corrupted_file_through`] — it pins the bug,
-//! so if `dist` fixes this upstream that test fails and the patch can be
-//! deleted with evidence rather than on a hunch.
+//! **The no-checksum branch**, which is the one that shipped. When the
+//! installer has no digest embedded for an archive it says "no checksums to
+//! verify" and installs anyway. Keel 0.1.2's installer was in exactly that
+//! state (KEEL-228) and nobody's install was verified. Whatever the build got
+//! wrong, the installer should have refused.
+//!
+//! **An empty checksum value**, the same hole one level down.
+//!
+//! The tests that matter most are the three that pin the *unpatched*
+//! behaviour — [`the_unpatched_installer_waves_a_corrupted_file_through`],
+//! [`the_unpatched_installer_installs_with_no_checksum_at_all`] and
+//! [`the_unpatched_installer_waves_an_empty_checksum_value_through`]. If `dist`
+//! fixes any of them upstream, that test fails and the corresponding patch can
+//! be deleted with evidence rather than on a hunch.
+//!
+//! Whether the installer carries a checksum at all is a different question, and
+//! it belongs to the release rather than to the script: `installer_embedded_checksums`
+//! covers it.
 //!
 //! Everything here runs under `env -i PATH=/usr/bin:/bin`, deliberately: the
-//! whole defect is invisible on a full `PATH`.
+//! digest-tool defect is invisible on a full `PATH`.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -68,6 +85,33 @@ fn verify_on(path: &str, script: &Path, payload: &Path, digest: &str) -> Output 
 
 fn verify(script: &Path, payload: &Path, digest: &str) -> Output {
     verify_on(TIER_ONE_PATH, script, payload, digest)
+}
+
+/// Drive the *caller's* guard rather than `verify_checksum` itself — the code
+/// that decides whether any checking happens at all.
+///
+/// `style: None` is an installer with no checksum embedded for this archive,
+/// which is exactly what Keel 0.1.2 shipped.
+fn verify_arm(
+    script: &Path,
+    payload: &Path,
+    digest: &str,
+    name: &str,
+    style: Option<&str>,
+) -> Output {
+    let mut command = Command::new("/usr/bin/env");
+    command
+        .arg("-i")
+        .arg(TIER_ONE_PATH)
+        .arg("/bin/sh")
+        .arg(script)
+        .arg(payload)
+        .arg(digest)
+        .arg(name);
+    if let Some(style) = style {
+        command.arg(style);
+    }
+    command.output().expect("the checksum harness runs")
 }
 
 /// A `PATH=` argument naming a directory that holds only the tools listed.
@@ -229,6 +273,112 @@ fn the_patched_installer_refuses_a_corrupted_file() {
     );
 }
 
+/// The bug that actually shipped, pinned. Keel 0.1.2's installer embedded no
+/// checksum for its one archive, so this branch ran on every install: one line
+/// of output, then the archive unpacked unverified.
+///
+/// Like the digest-tool test above, this exists to say the patch is still
+/// needed rather than to demonstrate anything.
+#[test]
+fn the_unpatched_installer_installs_with_no_checksum_at_all() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let script = staged(dir.path());
+    let (path, digest) = payload(dir.path(), b"the archive we asked for\n");
+
+    let output = verify_arm(
+        &script,
+        &path,
+        &digest,
+        "keel-aarch64-apple-darwin.tar.xz",
+        None,
+    );
+
+    assert!(
+        output.status.success(),
+        "this test records that the generated installer proceeds when it has no checksum \
+         for the archive. If it has started refusing, dist has fixed this upstream and that \
+         part of scripts/patch-installer.sh should be deleted."
+    );
+    let said = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        said.contains("no checksums to verify"),
+        "and it should say so, in the words 0.1.2 printed: {said}"
+    );
+}
+
+/// The fix for it. An installer with nothing to check against has established
+/// nothing, and must not install.
+#[test]
+fn the_patched_installer_refuses_when_it_carries_no_checksum() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let script = staged(dir.path());
+    assert!(patch(&script).status.success());
+    let (path, digest) = payload(dir.path(), b"the archive we asked for\n");
+
+    let output = verify_arm(
+        &script,
+        &path,
+        &digest,
+        "keel-aarch64-apple-darwin.tar.xz",
+        None,
+    );
+
+    assert!(
+        !output.status.success(),
+        "an installer with no checksum in it must refuse, not announce the fact and carry on"
+    );
+    let complaint = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        complaint.contains("carries no checksum for keel-aarch64-apple-darwin.tar.xz"),
+        "and it must name the archive it cannot check: {complaint}"
+    );
+}
+
+/// The same hole one level down: a style with no value behind it returns
+/// success before the switch upstream.
+#[test]
+fn the_unpatched_installer_waves_an_empty_checksum_value_through() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let script = staged(dir.path());
+    let (path, _) = payload(dir.path(), b"the archive we asked for\n");
+
+    let output = verify_arm(
+        &script,
+        &path,
+        "",
+        "keel-aarch64-apple-darwin.tar.xz",
+        Some("sha256"),
+    );
+
+    assert!(
+        output.status.success(),
+        "this records upstream's early return on an empty checksum value"
+    );
+}
+
+#[test]
+fn the_patched_installer_refuses_an_empty_checksum_value() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let script = staged(dir.path());
+    assert!(patch(&script).status.success());
+    let (path, _) = payload(dir.path(), b"the archive we asked for\n");
+
+    let output = verify_arm(
+        &script,
+        &path,
+        "",
+        "keel-aarch64-apple-darwin.tar.xz",
+        Some("sha256"),
+    );
+
+    assert!(!output.status.success(), "an empty digest checks nothing");
+    let complaint = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        complaint.contains("no checksum was recorded for"),
+        "and it must say why: {complaint}"
+    );
+}
+
 /// Running the patch twice is a no-op, so a workflow that patches an already
 /// patched file does not mangle it.
 #[test]
@@ -240,9 +390,11 @@ fn patching_is_idempotent() {
 
     let again = patch(&script);
     assert!(again.status.success());
-    assert!(
-        String::from_utf8_lossy(&again.stdout).contains("already patched"),
-        "the second run should say it had nothing to do"
+    let said = String::from_utf8_lossy(&again.stdout);
+    assert_eq!(
+        said.matches("already has").count(),
+        3,
+        "the second run should say it had nothing to do, for each of the three blocks: {said}"
     );
     assert_eq!(
         once,

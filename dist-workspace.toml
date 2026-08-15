@@ -82,6 +82,18 @@ installers = ["shell"]
 
 # Checksums are the point of the installer's integrity check, so they are
 # explicit rather than left to a default that could move.
+#
+# **Setting this is not sufficient, and 0.1.2 is the proof.** It makes `dist`
+# write a `.sha256` file beside each archive and record the digest in the
+# manifest of the job that built it. The installer only carries that digest if
+# the job that generates the installer can find those manifests: `dist` merges
+# every `*dist-manifest.json` in `target/distrib` on startup, and fills in what
+# it finds. The release workflow wrote none, so the installer shipped with no
+# checksum in it, printed "no checksums to verify", and installed anyway — with
+# this key set the whole time (KEEL-228). The build job now writes one per
+# target, and `scripts/check-installer-checksums.sh` fails the release if the
+# installer that comes out of it does not carry the digest of the archive being
+# published.
 checksum = "sha256"
 
 # Build provenance, so a downloaded archive can be traced to the workflow run
@@ -162,10 +174,14 @@ allow-dirty = ["ci"]
 #    `crates/keel-daemon/Cargo.toml` sets `dist = false` so that a binary added
 #    back there fails the plan instead of quietly becoming a second installer.
 #
-# And the bug from §10, now patched rather than only recorded: the generated
-# installer verifies a sha256 by calling `sha256sum`, and on a machine without
-# it prints "skipping sha256 checksum verification" and returns *success*, so a
-# corrupted archive installs.
+# And the bugs from §10, now patched rather than only recorded. The generated
+# installer has three ways to report a successful verification without having
+# done one: no digest tool, no checksum embedded, and an empty checksum value.
+# `scripts/patch-installer.sh` turns all three into refusals.
+#
+# The first is the one §10 found: the installer verifies a sha256 by calling
+# `sha256sum`, and on a machine without it prints "skipping sha256 checksum
+# verification" and returns *success*, so a corrupted archive installs.
 #
 # §10 says stock macOS has no `sha256sum`. Measured 2026-08-14, that is half
 # right and the correction matters: current macOS ships `/sbin/sha256sum`, so
@@ -182,3 +198,11 @@ allow-dirty = ["ci"]
 # that fixes this upstream gets noticed instead of being papered over.
 # `crates/keel/tests/installer_checksum.rs` is the proof, including a test that
 # pins the unpatched behaviour so the patch can be deleted with evidence.
+#
+# The second is the one that actually reached a user, and it is worse: with no
+# checksum embedded at all the installer says "no checksums to verify" and
+# unpacks the archive. That branch is now a refusal too, because the installer
+# should not depend on the release having been built correctly to be safe — and
+# on 0.1.2 it was not. `crates/keel/tests/installer_embedded_checksums.rs`
+# covers the other half, the release-time check that the digest in the installer
+# is the digest of the archive being published.

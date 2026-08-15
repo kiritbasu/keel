@@ -375,6 +375,30 @@ fi
 
 MIRROR="$SCRATCH/mirror"
 archives="$LOCAL_ARCHIVES"
+
+# Read the digests out of the installer and compare them with the archives
+# before corrupting anything. The corruption check below cannot tell an
+# installer that refused from one that had nothing to refuse with — that is how
+# 0.1.2 passed both tiers with an installer that verified nothing (KEEL-228) —
+# so the reading half is what establishes there is a checksum at all.
+CHECKER="$(dirname "$0")/check-installer-checksums.sh"
+if [ ! -x "$CHECKER" ]; then
+  bad "installer carries real checksums" "cannot run $CHECKER"
+elif [ -n "$archives" ]; then
+  if "$CHECKER" "$INSTALLER" "$ARTIFACT_DIR" >"$LOGS/checksums.log" 2>&1; then
+    ok "installer carries real checksums" "each archive's sha256 is embedded and matches the file"
+  else
+    bad "installer carries real checksums" "see $LOGS/checksums.log"
+    sed -n 's/^  - /        /p' "$LOGS/checksums.log" | head -5
+  fi
+elif "$CHECKER" --embedded-only "$INSTALLER" >"$LOGS/checksums.log" 2>&1; then
+  caution "installer carries real checksums" "digests are embedded but nothing here can compare them"
+  note "pass the artifact directory to check them against the archives"
+else
+  bad "installer carries real checksums" "see $LOGS/checksums.log"
+  sed -n 's/^  - /        /p' "$LOGS/checksums.log" | head -5
+fi
+
 if [ -z "$archives" ]; then
   bad "installer refuses a corrupt archive" "no archives beside the installer to corrupt"
   note "pass the artifact directory rather than the bare installer script"
@@ -405,11 +429,19 @@ else
     if [ $corrupt_status -eq 0 ] || [ -n "$landed" ]; then
       bad "installer refuses a corrupt archive" "IT ACCEPTED IT (exit $corrupt_status)"
       note "a corrupted archive installed. This release must not ship."
-    elif grep -Eqi 'checksum|sha256|verif|mismatch|corrupt' "$LOGS/corrupt.log"; then
+    elif grep -Eq 'no checksums to verify|carries no checksum for' "$LOGS/corrupt.log"; then
+      # An installer with no checksum in it also fails on a corrupted archive —
+      # at `tar`, having checked nothing. Its log carries the word "checksum",
+      # which the old grep here scored as a pass.
+      bad "installer refuses a corrupt archive" "it had no checksum to refuse it with"
+      note "the exit code says nothing about integrity. See KEEL-228."
+      note "this release must not ship"
+    elif grep -qi 'checksum mismatch' "$LOGS/corrupt.log"; then
       ok "installer refuses a corrupt archive" "exit $corrupt_status, refused on the checksum"
     else
-      bad "installer refuses a corrupt archive" "exit $corrupt_status, but no checksum language"
+      bad "installer refuses a corrupt archive" "exit $corrupt_status, but it never said 'checksum mismatch'"
       note "it failed for some other reason, so the refusal path is unproven"
+      note "a tar error on a damaged archive is not an integrity check"
     fi
   fi
 fi

@@ -432,43 +432,44 @@ fi
 # corrupting an archive and confirming the installer refuses it, which is the
 # only evidence that means anything.
 
-# The question is not whether `sha256sum` appears — the patched installer tries
-# it first and that is correct, since it is the right tool where it exists. The
-# question is whether there is a fallback behind it. Checking for the call alone
-# warned about the *fixed* installer, which is a check that cries wolf about its
-# own fix.
+# Read by the script that knows what "verified" means, rather than by a grep for
+# hopeful words. It pulls the hex out of the installer's own case statement,
+# hashes the archive beside it, and compares — so it cannot be satisfied by
+# wording, which is exactly how the version of this check that lived here missed
+# 0.1.2 (KEEL-228).
 #
-# `skipping sha256 checksum verification` is the string that matters: it is the
-# line upstream prints on its way to returning success without checking
-# anything, and `scripts/patch-installer.sh` removes it.
-if grep -q 'skipping sha256 checksum verification' "$INSTALLER"; then
-  caution "installer verifies, or refuses" "the installer can still skip verification silently"
-  note "this is the upstream bug — run scripts/patch-installer.sh over it before shipping"
-  note "the corruption check below is what decides whether it actually matters"
-elif grep -Eq '(^|[^[:alnum:]_./-])shasum([^[:alnum:]_-]|$)' "$INSTALLER"; then
-  ok "installer verifies, or refuses" "sha256sum with a shasum fallback, and no silent skip"
-else
-  caution "installer verifies, or refuses" "no shasum fallback and no skip message — read it"
-  note "neither the upstream shape nor the patched one; the corruption check is the authority"
-fi
-
-# There must be something to verify against before a refusal can mean anything:
-# either checksum files shipped beside the archives, or hashes embedded in the
-# installer itself. Neither is a release problem in its own right.
-checksum_files="$(find "$ARTIFACT_DIR" -maxdepth 1 -type f \
-  \( -name '*.sha256' -o -name '*sha256*' -o -name '*checksum*' \) 2>/dev/null | wc -l | tr -d ' ')"
-embedded_hashes=0
-grep -Eq '[0-9a-f]{64}' "$INSTALLER" && embedded_hashes=1
-
+# The old check asked whether checksum *files* existed beside the archives. They
+# did, and the installer read none of them: `dist` embeds the digest in the
+# script, and 0.1.2's had none embedded at all.
+CHECKER="$(dirname "$0")/check-installer-checksums.sh"
 archives="$(find "$ARTIFACT_DIR" -maxdepth 1 -type f \
   \( -name '*.tar.gz' -o -name '*.tar.xz' -o -name '*.tgz' -o -name '*.zip' \) 2>/dev/null | sort)"
+
+if [ ! -x "$CHECKER" ]; then
+  bad "installer carries real checksums" "cannot run $CHECKER"
+elif [ -n "$archives" ]; then
+  if "$CHECKER" "$INSTALLER" "$ARTIFACT_DIR" >"$LOGS/checksums.log" 2>&1; then
+    ok "installer carries real checksums" "each archive's sha256 is embedded and matches the file"
+  else
+    bad "installer carries real checksums" "see $LOGS/checksums.log"
+    sed -n 's/^  - /        /p' "$LOGS/checksums.log" | head -5
+  fi
+else
+  # No archives to hash, so the digests can only be read, not confirmed. Said in
+  # those words: this is a weaker claim than the branch above and must not read
+  # like the same one.
+  if "$CHECKER" --embedded-only "$INSTALLER" >"$LOGS/checksums.log" 2>&1; then
+    caution "installer carries real checksums" "digests are embedded but nothing here can compare them"
+    note "pass the artifact directory to check them against the archives"
+  else
+    bad "installer carries real checksums" "see $LOGS/checksums.log"
+    sed -n 's/^  - /        /p' "$LOGS/checksums.log" | head -5
+  fi
+fi
 
 if [ -z "$archives" ]; then
   bad "installer refuses a corrupt archive" "no archives beside the installer to corrupt"
   note "pass the artifact directory rather than the bare installer script"
-elif [ "$checksum_files" = "0" ] && [ "$embedded_hashes" = "0" ]; then
-  bad "installer refuses a corrupt archive" "no checksum files and no embedded hashes"
-  note "there is nothing for the installer to verify against, so it cannot refuse anything"
 else
   # One mirror to damage, one control left alone. The control is what separates
   # "the installer refused the corruption" from "the installer could not fetch
@@ -528,13 +529,25 @@ else
         note "a corrupted archive installed. Checksum verification is absent or silently skipped."
         note "check $LOGS/corrupt.log for 'skipping sha256 checksum verification' — the sha256sum bug"
         note "this release must not ship"
-      elif grep -Eqi 'checksum|sha256|sha-256|verif|mismatch|corrupt' "$LOGS/corrupt.log"; then
+      elif grep -Eq 'no checksums to verify|carries no checksum for' "$LOGS/corrupt.log"; then
+        # **This branch is why 0.1.2 shipped.** The installer had no checksum at
+        # all, downloaded the corrupted archive, said so, and then failed at
+        # `tar` — a non-zero exit, and a log containing the word "checksum". The
+        # grep below matched it and scored a pass. A refusal for the wrong
+        # reason is not evidence of a working check, and "no checksums to
+        # verify" is the absence of a check rather than one deciding anything.
+        bad "installer refuses a corrupt archive" "it had no checksum to refuse it with"
+        note "the installer said 'no checksums to verify' and then failed unpacking the damage"
+        note "the exit code says nothing about integrity. See KEEL-228."
+        note "this release must not ship"
+      elif grep -qi 'checksum mismatch' "$LOGS/corrupt.log"; then
         ok "installer refuses a corrupt archive" "exit $corrupt_status, refused on the checksum"
       else
         # It failed, but nothing says it failed *because* the bytes were wrong.
         # A refusal for the wrong reason is not evidence of a working check.
-        bad "installer refuses a corrupt archive" "exit $corrupt_status, but no checksum language in the output"
+        bad "installer refuses a corrupt archive" "exit $corrupt_status, but it never said 'checksum mismatch'"
         note "it failed for some other reason, so the refusal path is still unproven"
+        note "a tar error on a damaged archive is not an integrity check"
         note "see $LOGS/corrupt.log"
       fi
     fi
