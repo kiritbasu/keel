@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-15T07:21:09.629427+00:00",
+  "generated_at": "2026-08-15T07:36:24.307317+00:00",
   "files": [
     {
       "path": ".keel/specs/keel-what-needs-to-happen.md",
@@ -820,12 +820,6 @@
       "path": ".keel/questions.md",
       "contributors": [
         {
-          "entity_id": "que_01M024PJNA73RTC9TTNCXB30CE",
-          "entity_type": "question",
-          "version": 1,
-          "hash": "a3a840b674fd985a15d0749db42f1335ef6dc399713d2e784d288ca2add2ce2d"
-        },
-        {
           "entity_id": "que_01KZTTC4VTBVG7KZ7H00RDQ4ZB",
           "entity_type": "question",
           "version": 1,
@@ -854,6 +848,12 @@
           "entity_type": "question",
           "version": 1,
           "hash": "2658bbe846f41efece327f5b14da526cabbda64653ae996e0c29a2f9fe3e8e5f"
+        },
+        {
+          "entity_id": "que_01M024PJNA73RTC9TTNCXB30CE",
+          "entity_type": "question",
+          "version": 2,
+          "hash": "76ebbedc822bef40b1e3fe56a6c5e0dcc9d6fd778216f9c4d2bf35ed21edaeca"
         },
         {
           "entity_id": "que_01M010R27R3M96XX4D93A937DH",

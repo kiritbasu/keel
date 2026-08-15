@@ -7,8 +7,8 @@
 # repository public to get them free — publishes an event to every follower and
 # has no undo. What §2 actually requires is Apple's linker, not GitHub's
 # hardware, so one Apple Silicon Mac covers both macOS targets:
-# `--target=x86_64-apple-darwin` on an arm64 host still links with `cc` and
-# still carries the ad-hoc signature that stops the kernel killing the process.
+# an Apple Silicon Mac links with Apple's `cc`, which carries the ad-hoc
+# signature that stops the kernel killing the process at exec.
 #
 # Linux stays on GitHub's hosted runners. This only replaces the macOS half.
 #
@@ -97,8 +97,12 @@ command -v rustup >/dev/null || die "rustup is not installed — the runner need
 say "rustup $(rustup --version 2>/dev/null | head -1 | awk '{print $2}')"
 
 # Both macOS targets are built here, and the x86_64 one needs its std.
-rustup target add x86_64-apple-darwin aarch64-apple-darwin >/dev/null
-say "targets aarch64-apple-darwin and x86_64-apple-darwin present"
+# Only the arm64 target. Intel macOS was dropped from the release when 0.1.0
+# was cut: `ort-sys` has no prebuilt ONNX Runtime for it, so the binary cannot
+# link at all. Adding the target here would install a std nothing builds
+# against and imply a platform that does not ship.
+rustup target add aarch64-apple-darwin >/dev/null
+say "target aarch64-apple-darwin present"
 
 if [ -d "$RUNNER_DIR" ]; then
     die "$RUNNER_DIR already exists — run '$0 --remove' first"

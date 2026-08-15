@@ -40,21 +40,41 @@ cargo-dist-version = "0.32.0"
 # into the installer.
 ci = ["github"]
 
-# Three targets, and only three.
+# One target, and the reason is measured rather than chosen.
 #
-# **No Windows, deliberately.** It has never had CI coverage and the Claude Code
+# This said three until 0.1.0 was actually cut, at which point two of them
+# failed and both failures were `ort-sys` — the ONNX Runtime binding `fastembed`
+# pulls in. `ort` does not compile ONNX Runtime, it downloads a prebuilt static
+# library, so the platforms Keel can ship to are the platforms that library is
+# built for:
+#
+#   x86_64-apple-darwin        "no prebuilt binaries available for target"
+#   x86_64-unknown-linux-gnu   needs glibc 2.38 and libstdc++ 13; the runner
+#                              has 2.35, chosen deliberately to keep the floor
+#                              low for older distributions
+#
+# So the floor decision and the dependency had already made opposite choices,
+# and nothing noticed until something linked.
+#
+# §9 came within one step of this. It records that there is no prebuilt ONNX
+# Runtime for Linux ARM and concludes "not a target, so not a problem today" —
+# the right observation about the wrong two targets.
+#
+# **Shipping one target is the honest answer, not a retreat.** It is the only
+# artifact that has ever been built and the only platform §12 tier 1 has ever
+# passed on. Advertising three and delivering one would be exactly the
+# half-wired shape this file already refuses Windows for.
+#
+# Getting the other two back is a real decision rather than a fix, because the
+# only route that reaches all three is putting embeddings behind a cargo feature
+# — which reopens a settled position. That is KB's, and it is recorded as a
+# question rather than assumed here.
+#
+# **No Windows, unchanged.** It has never had CI coverage and the Claude Code
 # hooks cannot run there, so shipping it would mean either a binary nobody has
-# ever executed or a product that looks whole and is half-wired — this project's
-# recurring failure shape. It comes back when someone asks for it, with test
-# coverage from the first commit rather than added afterwards (§10).
-#
-# Linux ARM is absent for a narrower reason: there is no prebuilt ONNX Runtime
-# for it, so `fastembed` would have to compile (§9).
-targets = [
-    "aarch64-apple-darwin",
-    "x86_64-apple-darwin",
-    "x86_64-unknown-linux-gnu",
-]
+# ever executed or a product that looks whole and is half-wired. It comes back
+# when someone asks, with test coverage from the first commit (§10).
+targets = ["aarch64-apple-darwin"]
 
 # Shell only. There is no PowerShell installer because there is no Windows
 # target, and shipping one would advertise a platform we do not build.

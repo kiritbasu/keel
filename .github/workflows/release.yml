@@ -81,20 +81,21 @@ jobs:
           # like a run that never starts.
           - target: aarch64-apple-darwin
             runner: '["self-hosted", "macOS", "ARM64"]'
-          - target: x86_64-apple-darwin
-            runner: '["self-hosted", "macOS", "ARM64"]'
-          # Linux stays hosted. It is billed at the base rate, and a second
-          # machine is worth more than a saved minute here — this is the only
-          # leg of the release that runs anywhere other than one Mac.
+          # Intel macOS and Linux were here until 0.1.0 was cut and both failed
+          # on `ort-sys`, the ONNX Runtime binding `fastembed` pulls in. `ort`
+          # downloads a prebuilt static library rather than compiling one, so
+          # ONNX decides which platforms can link: there is no Intel macOS
+          # prebuilt at all, and the Linux one wants glibc 2.38 against a
+          # runner deliberately pinned to 2.35 to keep the floor low.
           #
-          # Not `ubuntu-latest`. The glibc a binary is linked against is a floor,
-          # not a preference: built on a newer image, it refuses to start on
-          # anything older, and §12 tier 2 exists precisely because CI has never
-          # tested Linux. Building on the oldest supported image keeps that floor
-          # low and makes it a deliberate choice rather than a side effect of
-          # whichever image GitHub promoted this month.
-          - target: x86_64-unknown-linux-gnu
-            runner: '"ubuntu-22.04"'
+          # They come back when embeddings can be built out — which is a
+          # decision about the workspace's features, not a build fix, and is
+          # recorded as an open question rather than settled here.
+          #
+          # Note for whoever restores Linux: `ubuntu-22.04`, not
+          # `ubuntu-latest`. The glibc a binary links against is a floor, not a
+          # preference — built on a newer image it refuses to start on anything
+          # older, with a message that reads like a corrupt download.
     steps:
       - uses: actions/checkout@v4
 

@@ -7,40 +7,6 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
-### ONNX Runtime blocks two of the three release targets. Which platforms does 0.1.0 actually support?
-
-`que_01M024PJNA73RTC9TTNCXB30CE` · question · open · severity high
-
-**Needs KB.** It changes which machines can run Keel, so it is not a call to make while clearing a build error.
-
-The first real release ran on 2026-08-15 and one target of three came out. Both failures are `ort-sys` — the ONNX Runtime binding that `fastembed` pulls in — and they are different problems that happen to share a cause.
-
-| Target | Result |
-|---|---|
-| `aarch64-apple-darwin` | **built** |
-| `x86_64-apple-darwin` | `ort-sys@2.0.0-rc.13: no prebuilt binaries available for target` |
-| `x86_64-unknown-linux-gnu` | links against `__isoc23_strtoll` and `_M_replace_cold` — glibc 2.38 and libstdc++ 13, on a runner with glibc 2.35 |
-
-The Linux one is worth being precise about. `ort` does not compile ONNX Runtime, it downloads a prebuilt static library, and that library is built against a newer toolchain than `ubuntu-22.04` provides. The runner was chosen deliberately to keep the glibc floor low, so this is the floor decision colliding with a dependency that has already made a different one.
-
-PHASE-10 §9 anticipated exactly this shape and stopped one step short: it records that there is no prebuilt ONNX Runtime for Linux ARM and concludes "not a target, so not a problem today". Nobody checked Intel macOS, and nobody checked what glibc the Linux prebuilt wanted.
-
-## Options
-
-1. **Ship arm64 macOS only for 0.1.0.** Honest about what has actually been built and tested, unblocks a release today, and covers the machine Keel is developed on. The advertised matrix drops from three targets to one, and §12 tier 2 stays unrunnable because there is no Linux binary. *(Recommended as the immediate step.)*
-
-2. **Move Linux to `ubuntu-24.04`.** glibc 2.39, and the link would work. It raises the floor: Debian 12 ships glibc 2.36 and is current stable, so those users get a binary that will not start, with the `GLIBC_2.xx not found` message that reads like a corrupt download. Fixes nothing for Intel macOS.
-
-3. **Make embeddings a cargo feature**, so the binaries can be built without `fastembed` on platforms ONNX does not serve. This is the only option that recovers all three targets. It reopens a settled position — no workspace crate declares a feature, and Phase 9 removed the last one — but the argument is not the same: that chain existed to let someone link a system DuckDB, and changed nothing that mattered. A feature that decides whether a platform can be built at all is a different kind of thing. Needs KB, because it is a reversal.
-
-4. **Downgrade `ort`.** Might widen the prebuilt matrix and might not; `2.0.0-rc.13` is what `fastembed 5` asks for, so this probably means moving `fastembed` too, and semantic search is downstream of both.
-
-## Recommendation
-
-1 now, then 3. Cutting an arm64-only release today is truthful — it is the only artifact that exists and the only platform anything has been verified on — and it stops the release being blocked on a decision that deserves more thought than a red build. Then 3, because it is the only route that gets Intel macOS back at all, and because "keyword search works without embeddings" is already the documented degradation, which makes a build without them a supported configuration rather than a broken one.
-
-Worth noting what this does not affect: nothing about the store, the MCP surface or the daemon changes under any option. This is entirely about which machines can link the binary.
-
 ### What should Keel measure, and should it measure anything by itself?
 
 `que_01KZTTC4VTBVG7KZ7H00RDQ4ZB` · question · open · severity low
@@ -144,6 +110,42 @@ It grows forever. Keep everything, which is probably fine for a decade at this w
 ## Settled
 
 *Decided, with the reasoning. Do not re-litigate these.*
+
+### ONNX Runtime blocks two of the three release targets. Which platforms does 0.1.0 actually support?
+
+`que_01M024PJNA73RTC9TTNCXB30CE` · question · answered · severity high
+
+**Answered — option 1, arm64 macOS only for 0.1.0.** KB's call, 2026-08-15, taken the same hour the first release failed.
+
+## What was decided
+
+`dist-workspace.toml` ships one target, `aarch64-apple-darwin`. The release matrix drops to a single job on the self-hosted Mac. Intel macOS and Linux come back when embeddings can be built out, which is a separate decision and not a build fix.
+
+## What settled it
+
+The first release ran and one target of three came out. Both failures were `ort-sys`, the ONNX Runtime binding `fastembed` pulls in, and `ort` downloads a prebuilt static library rather than compiling one — so ONNX decides which platforms Keel can link on:
+
+| Target | Result |
+|---|---|
+| `aarch64-apple-darwin` | built |
+| `x86_64-apple-darwin` | no prebuilt binary exists for the target |
+| `x86_64-unknown-linux-gnu` | wants glibc 2.38 and libstdc++ 13; the runner has 2.35 |
+
+The Linux one is the sharper case. `ubuntu-22.04` was chosen deliberately to keep the glibc floor low for older distributions, so that decision and the dependency had already made opposite choices and nothing noticed until something linked.
+
+## Why one target is honest rather than a retreat
+
+It is the only artifact that has ever been built, and the only platform §12 tier 1 has ever passed on — 14 of 14, against real locally built artifacts. Advertising three and delivering one would be the half-wired shape this project already refuses Windows for.
+
+## What it costs, plainly
+
+**§12 tier 2 stays unrunnable.** There is no Linux binary, so the one platform CI has never executed a release artifact on remains untested, and KEEL-219 cannot start. That was already true; this makes it true for longer.
+
+**Anyone not on an Apple Silicon Mac cannot install Keel.** For now that is nobody, since the repository is private and there is one user.
+
+## What comes next, and it is not this question
+
+Option 3 — embeddings behind a cargo feature — is the only route that reaches all three targets, and it reopens a settled position: no workspace crate declares a feature, and Phase 9 removed the last one. The argument is genuinely different, though. That chain existed to let someone link a system DuckDB and changed nothing that mattered; a feature that decides whether a platform can be built at all is a different kind of thing, and "keyword search works without embeddings" is already the documented degradation. It needs its own task and KB's agreement, not a footnote here.
 
 ### The install path is built. Does the repository go public now, so the first release can run?
 
