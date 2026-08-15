@@ -20,10 +20,14 @@ export class ApiError extends Error {
   }
 }
 
-async function get<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+async function get<T>(
+  path: string,
+  params?: Record<string, string | number | undefined>,
+): Promise<T> {
   const url = new URL(`${BASE}${path}`, window.location.origin);
   for (const [key, value] of Object.entries(params ?? {})) {
-    if (value !== undefined && value !== "") url.searchParams.set(key, String(value));
+    if (value !== undefined && value !== "")
+      url.searchParams.set(key, String(value));
   }
 
   let response: Response;
@@ -40,7 +44,10 @@ async function get<T>(path: string, params?: Record<string, string | number | un
 
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new ApiError(body?.error?.message ?? `Request failed (${response.status})`, response.status);
+    throw new ApiError(
+      body?.error?.message ?? `Request failed (${response.status})`,
+      response.status,
+    );
   }
   return (body?.data ?? body) as T;
 }
@@ -237,10 +244,21 @@ export const api = {
       version: string;
       projects: number;
       store_busy: boolean;
+      /**
+       * Where the store is, and what shape it is in. Both are returned by the
+       * daemon and were simply missing from this type.
+       *
+       * `home` earns its place on the first run: an empty read-only screen
+       * cannot otherwise distinguish a working install from a broken one, and
+       * a path the daemon reports is a fact no broken install could produce.
+       */
+      home?: string;
+      schema?: number;
     }>("/api/health"),
 
   /** The digest. No `project` gives the cross-project roll-up. */
-  context: (project?: string) => get<Digest>("/api/context", { project, depth: "full" }),
+  context: (project?: string) =>
+    get<Digest>("/api/context", { project, depth: "full" }),
 
   projects: () => get<{ projects: Entity[] }>("/api/projects"),
 
@@ -264,10 +282,12 @@ export const api = {
     blocked?: string;
     limit?: number;
   }) =>
-    get<{ ready: NextItem[]; total: number; truncated: boolean; blocked?: string[] }>(
-      "/api/ready",
-      params,
-    ),
+    get<{
+      ready: NextItem[];
+      total: number;
+      truncated: boolean;
+      blocked?: string[];
+    }>("/api/ready", params),
 
   /**
    * A project's notes, in one call.
@@ -275,7 +295,8 @@ export const api = {
    * Fetched for the whole project rather than per card: a board showing
    * seventy tasks would otherwise open seventy requests to render a count.
    */
-  notes: (project?: string) => get<{ notes: Note[]; total: number }>("/api/notes", { project }),
+  notes: (project?: string) =>
+    get<{ notes: Note[]; total: number }>("/api/notes", { project }),
 
   /**
    * How many notes each row in a project carries, and nothing else.
@@ -299,7 +320,10 @@ export const api = {
    * dropping it rewrites the record.
    */
   notesFor: (entity: string) =>
-    get<{ notes: Note[]; total: number }>("/api/notes", { entity, all: "true" }),
+    get<{ notes: Note[]; total: number }>("/api/notes", {
+      entity,
+      all: "true",
+    }),
 
   /**
    * One row's history — every status and field change, with before and after.
@@ -323,31 +347,51 @@ export const api = {
     type?: string;
     status?: string;
     limit?: number;
-  }) => get<Page<Entity>>("/api/entities", { ...params, limit: params.limit ?? 500 }),
+  }) =>
+    get<Page<Entity>>("/api/entities", {
+      ...params,
+      limit: params.limit ?? 500,
+    }),
 
   entity: (id: string, depth = 0) =>
-    get<{ artifacts: Array<{ entity: Entity; document?: DocumentBody; neighbours?: Neighbour[] }> }>(
-      `/api/entity/${id}`,
-      { depth },
-    ),
+    get<{
+      artifacts: Array<{
+        entity: Entity;
+        document?: DocumentBody;
+        neighbours?: Neighbour[];
+      }>;
+    }>(`/api/entity/${id}`, { depth }),
 
   document: (id: string, version?: number, diffAgainst?: number) =>
-    get<{ revisions: Revision[]; document: DocumentBody | null; diff: Diff | null }>(
-      `/api/document/${id}`,
-      { version, diff_against: diffAgainst },
-    ),
+    get<{
+      revisions: Revision[];
+      document: DocumentBody | null;
+      diff: Diff | null;
+    }>(`/api/document/${id}`, { version, diff_against: diffAgainst }),
 
-  graph: (id: string, direction: "outbound" | "inbound" | "both" = "both", depth = 2) =>
+  graph: (
+    id: string,
+    direction: "outbound" | "inbound" | "both" = "both",
+    depth = 2,
+  ) =>
     get<{ neighbours: Neighbour[] }>(`/api/graph/${id}`, { direction, depth }),
 
-  search: (query: string, params?: { project?: string; types?: string; limit?: number }) =>
-    get<Page<SearchHit> & { hits: SearchHit[] }>("/api/search", { query, ...params }),
+  search: (
+    query: string,
+    params?: { project?: string; types?: string; limit?: number },
+  ) =>
+    get<Page<SearchHit> & { hits: SearchHit[] }>("/api/search", {
+      query,
+      ...params,
+    }),
 
   activity: (params?: { project?: string; limit?: number; cursor?: string }) =>
-    get<{ events: EventRow[]; total: number; truncated: boolean; cursor: string | null }>(
-      "/api/activity",
-      params,
-    ),
+    get<{
+      events: EventRow[];
+      total: number;
+      truncated: boolean;
+      cursor: string | null;
+    }>("/api/activity", params),
 
   /**
    * What changed, grouped by the session that changed it.
@@ -423,7 +467,8 @@ export function subscribe(
   onStatus("connecting");
 
   const forward = (raw: MessageEvent | Event) => {
-    const data = "data" in raw && typeof raw.data === "string" ? raw.data : null;
+    const data =
+      "data" in raw && typeof raw.data === "string" ? raw.data : null;
     let change: ChangeEvent = { kind: "entity", summary: "" };
     if (data) {
       try {
