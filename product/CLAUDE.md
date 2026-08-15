@@ -15,7 +15,7 @@ This file is loaded automatically into every Claude Code session in this repo. I
 1. Read `product/STATUS.md`. It tells you the current phase, what's in progress, and what's blocked. It is rendered from the task rows — read it, never edit it.
 2. Read `.keel/questions.md`. It has two halves and you need both. **Open** is undecided: nothing there may be built on without saying so, and anything marked `blocked` halts work that depends on it. **Settled** is decided, with the reasoning — do not re-litigate it. Both halves are generated from the question rows, so there is nothing to keep in step.
 3. `git log --oneline -15` — see what the last session actually did.
-4. State in one line what you're picking up before you touch anything, and `keel_claim` it. `keel_ready` is what to ask if the tracker leaves the choice open.
+4. State in one line what you're picking up before you touch anything, and `keel_claim` it. `keel_ready` is what to ask if the tracker leaves the choice open. **If it has no row — because it arrived as a sentence rather than out of the tracker — create one first.** That applies again every time the work changes during the session, not only at the start.
 
 **At the end of every session, without exception:**
 
@@ -76,6 +76,7 @@ KB's primary window into this project is the desktop app, with `product/STATUS.m
 
 **Rules:**
 
+- **Make the row if there isn't one.** Most work arrives as a sentence — "cut the release", "this message is confusing", "have a look at why X is slow" — not as something already filed. `keel_create` it and then `keel_claim` it, before the first edit. One line of summary is enough. Measured on 2026-08-15: a session claimed its one task at 20:02 and closed it at 20:18, then spent the next forty-four minutes cutting a release and building a feature against no row at all — four of six commits landing while the board sat idle. Every other rule here assumes the row exists; this is the one that makes it true.
 - **Claim a task before starting it**, not after: `keel_claim` over MCP, or `keel claim KEEL-42` from a terminal. That records who is on it as well as moving the status, so the app answers "what is happening right now" and not only "what has finished". This used to be an instruction you had to remember, and across sixty-six tasks the number of transitions into `in_progress` before work began was zero — which is why it is a tool now.
 - **Ask `keel_ready` what to pick up.** It is the ranking the digest carries, with a front door of its own and filters: unclaimed, by label, by milestone. Reaching for it costs a fraction of a full digest, and it orders by what a task unblocks before its priority.
 - A task is `done` only when it meets the definition of done below. Not when the code is written.
@@ -234,3 +235,4 @@ Things that look like progress and aren't:
 - Refactoring for elegance while the tracker says something is blocked.
 - Hand-editing a generated file and committing it with `--no-verify`. The pre-commit check exists to stop exactly this, the next `keel generate` reverts it, and the reasoning in it is lost.
 - Marking a task done because the code exists but the tests don't.
+- Doing an hour of work that no row describes. It is not that Keel goes unwritten — decisions and notes get recorded — it is that the one artifact a person watches stays empty while the work happens.

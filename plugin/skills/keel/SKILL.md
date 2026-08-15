@@ -43,13 +43,14 @@ first one and say so.
 
 ---
 
-## Claim the task before you do the work
+## Put the work on the board before you do it
 
-`keel_claim` it *before* you start, not when you finish. One call, and it is
-the only way a human watching can see what is happening **now** rather than
-only what has already landed.
+A row, and `keel_claim` on it *before* you start rather than when you finish.
+Two calls at most, and they are the only way a human watching can see what is
+happening **now** rather than only what has already landed.
 
-This is the single most-skipped thing in Keel, and it has been measured twice.
+This is the single most-skipped thing in Keel, and it has been measured three
+times.
 The first time: across sixty-six tasks, the number of transitions into
 `in_progress` before work began was **zero** — which is why claiming stopped
 being something to remember and became a tool. The second time, on a fresh
@@ -57,8 +58,20 @@ project in August 2026, a session was told to build an application, worked for
 hours, and left every task in `todo`. Both times the work was fine and the
 board was a lie.
 
+The third time was the one that named the gap. Every instruction here was
+followed — and it only covered work that already had a row. A request that
+arrives as a sentence has none, so there was nothing to claim and the board sat
+idle through four commits.
+
 So:
 
+- **If there is no row for what you were just asked to do, make one.** Most
+  work arrives as a sentence — "cut the release", "this message is confusing",
+  "add the export button" — not as something already filed. `keel_create` it,
+  `keel_claim` it, then start. One line of summary is enough; what a person
+  watching reads is that the row exists and who is on it, not how well it is
+  written. Every other bullet here assumes the task is already there, and this
+  is the one that makes that true.
 - **`keel_ready` is what to ask when the choice is open.** "Build the app" is
   not a task; it is a request to work through several. Ask what to pick up and
   it answers with the ranking Keel actually computes — by what a task unblocks
@@ -337,7 +350,7 @@ listing ten, and omitted three others entirely. The number is in
 | `keel_get` | you have an id, or you want the graph around something |
 | `keel_projects` | before creating a project; resolving a name |
 | `keel_activity` | "what changed since I last looked" |
-| `keel_create` | anything new |
+| `keel_create` | anything new — including the task for what you were just asked to do |
 | `keel_update` | status, priority, fields |
 | `keel_write_doc` | the prose body of a spec, decision, question or feedback |
 | `keel_link` | connecting two artifacts |
