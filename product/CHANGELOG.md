@@ -1,15 +1,33 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T21:23:10Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T21:33:28Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (207)
+## Closed work (210)
 
 ### 2026-08-15
+
+- **KEEL-232** A release is a task, so cutting one shows on the board and in the changelog — `done`
+
+  The contract now says a release is a task: created and claimed before the tag is pushed, labelled `release`, closed with the tag's commit and the published release URL as evidence. KEEL-233 is 0.1.3's row, written after the fact and saying so, so the release appears in the changelog with everything else. 0.1.2 was deliberately left alone — it was cut in an earlier session and a row for it now would be an invented record.
+
+  <sub>doc:spc_01KZKSME2TCPVARX9M04836XD6 · doc:tsk_01M03NFEJ3XY8P0R74AH4NCSE2</sub>
+
+- **KEEL-233** Release 0.1.3 — the installer verifies what it downloads — `done`
+
+  Built on the self-hosted runner and published. The release job's new step reported the digest before publishing, and it holds against the published assets: the installer's `_checksum_value` is the sha256 of the archive beside it. Tier 1 against the downloaded release was 14 passed, 0 failed, including a corrupt-archive refusal that now only passes on `checksum mismatch`.
+
+  <sub>commit:ed44e63 · url:https://github.com/kiritbasu/keel/releases/tag/v0.1.3 · test:scripts/verify-release-tier1.sh</sub>
+
+- **KEEL-231** STATUS.md renders current state, and closed work gets its own changelog — `done`
+
+  STATUS.md went from 488KB to 58KB and now carries open work only; CHANGELOG.md beside it carries the 207 closed rows with their reason, close message and evidence, plus the event table that used to sit at the bottom of the tracker. The tracker states the count it left out, so nothing is dropped silently. Its path is derived from status_path rather than being a fourth column, because a column means a schema migration and a migration is a version the updater will not apply without a person.
+
+  <sub>commit:ff1ec63 · test:cargo test -p keel-core --test generate</sub>
 
 - **KEEL-229** Work that arrives mid-session with no row never reaches the board — `done`
 
@@ -766,6 +784,23 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-15 | claude | status in_progress → done |
+| 2026-08-15 | claude | evidence [] → ["doc:spc_01KZKSME2TCPVARX9M04836XD6","doc:tsk_01M03NFEJ3XY8P0R74AH4NCSE2"] |
+| 2026-08-15 | claude | close_reason none → done |
+| 2026-08-15 | claude | close_message none → (424 characters) |
+| 2026-08-15 | claude | status todo → done |
+| 2026-08-15 | claude | evidence [] → (117 characters) |
+| 2026-08-15 | claude | close_reason none → done |
+| 2026-08-15 | claude | close_message none → (373 characters) |
+| 2026-08-15 | claude | created task “Release 0.1.3 — the installer verifies what it downloads” |
+| 2026-08-15 | claude | revised spec “Keel — standing instructions” to v11 |
+| 2026-08-15 | claude | status todo → in_progress |
+| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
+| 2026-08-15 | claude | claimed_at none → 2026-08-15T21:31:15.591549Z |
+| 2026-08-15 | claude | status in_progress → done |
+| 2026-08-15 | claude | evidence [] → ["commit:ff1ec63","test:cargo test -p keel-core --test generate"] |
+| 2026-08-15 | claude | close_reason none → done |
+| 2026-08-15 | claude | close_message none → (493 characters) |
 | 2026-08-15 | claude | status todo → in_progress |
 | 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
 | 2026-08-15 | claude | claimed_at none → 2026-08-15T21:16:35.033777Z |
@@ -949,23 +984,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-14 | claude | close_message none → (419 characters) |
 | 2026-08-14 | claude | status in_progress → done |
 | 2026-08-14 | claude | evidence [] → (88 characters) |
-| 2026-08-14 | claude | close_reason none → done |
-| 2026-08-14 | claude | close_message none → (515 characters) |
-| 2026-08-14 | claude | status todo → in_progress |
-| 2026-08-14 | claude | claimed_by none → ses_6a166d70-2c41-4dd9-9b72-c75f2dd35945 |
-| 2026-08-14 | claude | claimed_at none → 2026-08-14T19:35:31.493605Z |
-| 2026-08-14 | claude | status in_progress → done |
-| 2026-08-14 | claude | evidence [] → (88 characters) |
-| 2026-08-14 | claude | close_reason none → done |
-| 2026-08-14 | claude | close_message none → (482 characters) |
-| 2026-08-14 | claude | status todo → in_progress |
-| 2026-08-14 | claude | claimed_by none → ses_6a166d70-2c41-4dd9-9b72-c75f2dd35945 |
-| 2026-08-14 | claude | claimed_at none → 2026-08-14T19:26:43.489063Z |
-| 2026-08-14 | claude | status in_progress → done |
-| 2026-08-14 | claude | evidence [] → (83 characters) |
-| 2026-08-14 | claude | close_reason none → done |
-| 2026-08-14 | claude | close_message none → (527 characters) |
-| 2026-08-14 | claude | status todo → in_progress |
 
-*Showing the 200 most recent of 1574 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1591 changes. Use `keel_activity` for the rest.*
 

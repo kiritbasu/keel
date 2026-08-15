@@ -12,7 +12,7 @@ This file is loaded automatically into every Claude Code session in this repo. I
 
 **At the start of every session, in this order:**
 
-1. Read `product/STATUS.md`. It tells you the current phase, what's in progress, and what's blocked. It is rendered from the task rows — read it, never edit it.
+1. Read `product/STATUS.md`. It tells you the current phase, what's in progress, and what's blocked. It carries **open work only** — what has closed is in `product/CHANGELOG.md` beside it, which you read when you want history rather than orientation. Both are rendered from the rows; read them, never edit them.
 2. Read `.keel/questions.md`. It has two halves and you need both. **Open** is undecided: nothing there may be built on without saying so, and anything marked `blocked` halts work that depends on it. **Settled** is decided, with the reasoning — do not re-litigate it. Both halves are generated from the question rows, so there is nothing to keep in step.
 3. `git log --oneline -15` — see what the last session actually did.
 4. State in one line what you're picking up before you touch anything, and `keel_claim` it. `keel_ready` is what to ask if the tracker leaves the choice open. **If it has no row — because it arrived as a sentence rather than out of the tracker — create one first.** That applies again every time the work changes during the session, not only at the start.
@@ -62,6 +62,12 @@ you would have two writers against a store whose design assumes one.
 would produce. The pre-commit hook runs it for you; run it yourself if you are
 committing with `--no-verify`.
 
+**The check runs through whatever is installed.** So a change to a *renderer*
+fails it until the new binaries are on the machine — the file on disk is what
+the new code produces and the check asks the old code. That is not the hook
+being wrong; it is the hook noticing that the tree and the installed generator
+disagree. Run `./plugin/install.sh` and it passes.
+
 **One file is not generated and must not be**: the repository root's
 `CLAUDE.md`. Claude Code loads it before anything else and imports this file
 from it, so it is the bootstrap and cannot itself depend on a generation step
@@ -80,10 +86,11 @@ KB's primary window into this project is the desktop app, with `product/STATUS.m
 - **Claim a task before starting it**, not after: `keel_claim` over MCP, or `keel claim KEEL-42` from a terminal. That records who is on it as well as moving the status, so the app answers "what is happening right now" and not only "what has finished". This used to be an instruction you had to remember, and across sixty-six tasks the number of transitions into `in_progress` before work began was zero — which is why it is a tool now.
 - **Ask `keel_ready` what to pick up.** It is the ranking the digest carries, with a front door of its own and filters: unclaimed, by label, by milestone. Reaching for it costs a fraction of a full digest, and it orders by what a task unblocks before its priority.
 - A task is `done` only when it meets the definition of done below. Not when the code is written.
+- **Cutting a release is a task, like everything else.** Create it and claim it *before* the tag is pushed, label it `release`, and close it with the tag's commit and the published release URL as evidence. 0.1.2 and 0.1.3 both went out as bare commits with no row, so neither shows on the board while it is happening nor in the changelog afterwards — and the changelog is exactly where "what shipped, and when" is supposed to be answerable.
 - If a task turns out to be bigger than one task, split it and record the split. Don't silently expand scope.
 - If you're blocked, say so on the row. **`blocked` is not a status** — it is derived from the `blocks` edges, so the way to mark something blocked is to draw the edge that blocks it. Never leave something `in_progress` across sessions without a note.
 - Record what you *found* as a note on the task — `keel_note` over MCP, or `keel note add <task-id> "…"` from a terminal — not as a line in a markdown table. A status without the finding behind it is a colour, not information.
-- The changelog is derived from the event log, so it writes itself. A session that achieved nothing still leaves a trace, which was the point of insisting on the entry.
+- The changelog writes itself, from the closed rows and the event log, into `product/CHANGELOG.md`. A session that achieved nothing still leaves a trace, which was the point of insisting on the entry — and a session whose work never became a row leaves one that says nothing about the work.
 - **Never delete a task.** Close it with `keel_close` and a reason. The five reasons are `done`, `wont_do`, `duplicate`, `superseded` and `no_change`; every one needs a message, and `done` needs at least one piece of evidence — `commit:<sha>`, `pr:<url>`, `test:<command>`, `doc:<id>`, `url:<url>` or `image:<blob-id>`. `duplicate` and `superseded` name the other task and draw the edge themselves.
 
   This line used to say "mark it `dropped` with a reason". There has never been a `dropped` status, so a session following it literally got an enum rejection listing five values, none of them the word — quietly, for as long as it was written down.
@@ -98,11 +105,17 @@ asking: task rows now carry a **note stream**, so the findings that used to live
 in the tracker's Notes column live on the task itself, attributed to the session
 that learned them.
 
-Two consequences worth internalising:
+Three consequences worth internalising:
 
-- **Never hand-edit `product/STATUS.md`.** It has no stored copy at all — it is
-  a projection of rows, so there is nothing an edit could become a revision
-  *of*. The next render overwrites it.
+- **Never hand-edit `product/STATUS.md` or `product/CHANGELOG.md`.** Neither has
+  a stored copy at all — both are projections of rows, so there is nothing an
+  edit could become a revision *of*. The next render overwrites it.
+- **The tracker is open work and the changelog is closed work.** They were one
+  file until it reached 488 KB, 87% of it finished tasks, at which point the
+  ritual's first instruction could not be carried out because the file exceeded
+  what a reader would open. If you want to know what shipped, the changelog is
+  the file; the tracker will tell you how many rows it left out and where they
+  went.
 - **The narrative moved.** Session-by-session accounts — what was tried, what
   broke, what a measurement actually said — are in `product/JOURNAL.md`, which
   *is* a document and is edited like any other prose. Findings that belong to
@@ -200,7 +213,7 @@ Violating these means rework, not a refactor:
 4. **No silent truncation.** Every list that can be cut reports that it was cut, with a total.
 5. **`session_id` is caller-supplied.** The daemon never invents one.
 6. **No new artifact types** without KB's agreement. Thirteen is the ceiling.
-7. **The desktop app is read-only.** Claude and Keel are the only writers. No write endpoints on the daemon for it, no forms in it.
+7. **The desktop app is read-only.** Claude and Keel are the only writers. No write endpoints on the daemon for it, no forms in it — with the two exceptions B-75 and B-77 record, both of which only restart the daemon into a binary it already has.
 
 ---
 
