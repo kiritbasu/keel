@@ -129,6 +129,21 @@ cleanup() {
     kill "$DAEMON_PID" 2>/dev/null
     wait "$DAEMON_PID" 2>/dev/null
   fi
+
+  # Backstop, because the pid was wrong once and the consequence was a daemon
+  # left serving a store this script had just deleted. Matched on the scratch
+  # home, so it can only ever name a process this run started — the real daemon
+  # on this machine serves `~/.keel` and cannot match.
+  leaked="$(pgrep -f "keel-daemon .*$SCRATCH" 2>/dev/null || true)"
+  if [ -n "$leaked" ]; then
+    printf '  cleaning up a daemon that outlived its pid: %s\n' "$(echo "$leaked" | tr '\n' ' ')"
+    # shellcheck disable=SC2086
+    kill $leaked 2>/dev/null
+    sleep 2
+    still="$(pgrep -f "keel-daemon .*$SCRATCH" 2>/dev/null || true)"
+    # shellcheck disable=SC2086
+    [ -n "$still" ] && kill -9 $still 2>/dev/null
+  fi
   if [ "${KEEP:-0}" = "1" ]; then
     printf '\n  scratch kept at %s\n\n' "$SCRATCH"
   else
@@ -140,9 +155,42 @@ trap cleanup EXIT
 rm -rf "$SCRATCH"
 mkdir -p "$CLEAN_HOME" "$DIRTY_HOME" "$LOGS"
 
+# --- where the bytes come from ----------------------------------------------
+#
+# **Tier 1 has to be runnable before the tag, or it verifies nothing that
+# matters.** The generated installer downloads from
+# `github.com/<owner>/keel/releases/download/<version>`, so a run that only
+# works once a release exists can only ever confirm what has already shipped —
+# which is the wrong way round for a gate whose job is to stop a bad release.
+#
+# So when archives are sitting beside the installer, they are what gets
+# installed, through the generator's own `INSTALLER_DOWNLOAD_URL` and a
+# `file://` mirror. That is the mode this runs in before a release. With no
+# archives it falls through to the published release, which is the mode worth
+# running afterwards.
+#
+# The mode is printed, and it is named in the summary at the end, because "the
+# installer completes" means two different things in the two modes and a green
+# run must not be ambiguous about which one it established.
+LOCAL_ARCHIVES="$(find "$ARTIFACT_DIR" -maxdepth 1 -type f \
+  \( -name '*.tar.gz' -o -name '*.tar.xz' -o -name '*.tgz' -o -name '*.zip' \) 2>/dev/null | sort)"
+
+if [ -n "$LOCAL_ARCHIVES" ]; then
+  mkdir -p "$CONTROL"
+  cp -R "$ARTIFACT_DIR"/. "$CONTROL"/ 2>/dev/null
+  SOURCE_MODE="local artifacts"
+  SOURCE_ENV="INSTALLER_DOWNLOAD_URL=file://$CONTROL"
+else
+  SOURCE_MODE="published release"
+  # `env` takes no empty argument, so this carries a harmless assignment rather
+  # than an empty string that would be parsed as a command name.
+  SOURCE_ENV="KEEL_TIER1_SOURCE=release"
+fi
+
 printf '\n'
 printf 'Phase 10 §12 tier 1 — clean-environment release verification\n'
 printf 'installer  %s\n' "$INSTALLER"
+printf 'source     %s\n' "$SOURCE_MODE"
 printf 'scratch    %s   (HOME=%s, PATH=%s)\n' "$SCRATCH" "$CLEAN_HOME" "$CLEAN_PATH"
 printf '\n'
 
@@ -179,12 +227,13 @@ fi
 
 # --- 1. the installer runs, and puts binaries somewhere ---------------------
 
-clean_run sh "$INSTALLER" >"$LOGS/install.log" 2>&1
+env -i "HOME=$CLEAN_HOME" "PATH=$CLEAN_PATH" "$SOURCE_ENV" \
+  sh "$INSTALLER" >"$LOGS/install.log" 2>&1
 install_status=$?
 if [ $install_status -eq 0 ]; then
-  ok "installer completes" "exit 0"
+  ok "installer completes" "exit 0, from $SOURCE_MODE"
 else
-  bad "installer completes" "exit $install_status"
+  bad "installer completes" "exit $install_status, from $SOURCE_MODE"
   note "see $LOGS/install.log"
 fi
 
@@ -253,7 +302,20 @@ fi
 # --- 4. the daemon starts, answers, and stops -------------------------------
 
 if [ -n "$DAEMON_BIN" ]; then
-  clean_run "$DAEMON_BIN" --home "$KEEL_STORE" --bind "127.0.0.1:$PORT" \
+  # `env` directly, not the `clean_run` helper, and this is not style.
+  #
+  # Backgrounding a shell *function* forks a subshell, so `$!` is the
+  # subshell's pid and not the daemon's. Killing it then kills the subshell and
+  # orphans the daemon — which is exactly what happened on the first real run
+  # of this script: the check reported "still alive or still answering", and a
+  # daemon was left serving on the scratch port from a binary and a store the
+  # cleanup had already deleted. `cleanup` below says a stray daemon is the one
+  # way this script could leave the machine worse than it found it; it was
+  # right, and this line was how.
+  #
+  # `env` execs its command rather than forking, so `$!` here is the daemon.
+  env -i "HOME=$CLEAN_HOME" "PATH=$CLEAN_PATH" \
+    "$DAEMON_BIN" --home "$KEEL_STORE" --bind "127.0.0.1:$PORT" \
     >"$LOGS/daemon.log" 2>&1 &
   DAEMON_PID=$!
 
@@ -370,12 +432,24 @@ fi
 # corrupting an archive and confirming the installer refuses it, which is the
 # only evidence that means anything.
 
-if grep -Eq '(^|[^[:alnum:]_./-])sha256sum([^[:alnum:]_-]|$)' "$INSTALLER"; then
-  caution "installer avoids bare sha256sum" "the installer text calls sha256sum"
-  note "stock macOS has shasum, not sha256sum — this is the bug that silently skips verification"
+# The question is not whether `sha256sum` appears — the patched installer tries
+# it first and that is correct, since it is the right tool where it exists. The
+# question is whether there is a fallback behind it. Checking for the call alone
+# warned about the *fixed* installer, which is a check that cries wolf about its
+# own fix.
+#
+# `skipping sha256 checksum verification` is the string that matters: it is the
+# line upstream prints on its way to returning success without checking
+# anything, and `scripts/patch-installer.sh` removes it.
+if grep -q 'skipping sha256 checksum verification' "$INSTALLER"; then
+  caution "installer verifies, or refuses" "the installer can still skip verification silently"
+  note "this is the upstream bug — run scripts/patch-installer.sh over it before shipping"
   note "the corruption check below is what decides whether it actually matters"
+elif grep -Eq '(^|[^[:alnum:]_./-])shasum([^[:alnum:]_-]|$)' "$INSTALLER"; then
+  ok "installer verifies, or refuses" "sha256sum with a shasum fallback, and no silent skip"
 else
-  ok "installer avoids bare sha256sum" "no bare sha256sum call in the installer text"
+  caution "installer verifies, or refuses" "no shasum fallback and no skip message — read it"
+  note "neither the upstream shape nor the patched one; the corruption check is the authority"
 fi
 
 # There must be something to verify against before a refusal can mean anything:
@@ -396,11 +470,14 @@ elif [ "$checksum_files" = "0" ] && [ "$embedded_hashes" = "0" ]; then
   bad "installer refuses a corrupt archive" "no checksum files and no embedded hashes"
   note "there is nothing for the installer to verify against, so it cannot refuse anything"
 else
+  # One mirror to damage, one control left alone. The control is what separates
+  # "the installer refused the corruption" from "the installer could not fetch
+  # from a local mirror at all", which would otherwise look identical and would
+  # be scored as a pass.
+  #
+  # The control may already exist — it is what the install above ran from when
+  # there are local archives — so this tops it up rather than assuming.
   mkdir -p "$MIRROR" "$CONTROL"
-  # Copy twice: one mirror to damage, one control left alone. The control is
-  # what separates "the installer refused the corruption" from "the installer
-  # could not fetch from a local mirror at all", which would otherwise look
-  # identical and would be scored as a pass.
   cp -R "$ARTIFACT_DIR"/. "$MIRROR"/ 2>/dev/null
   cp -R "$ARTIFACT_DIR"/. "$CONTROL"/ 2>/dev/null
 

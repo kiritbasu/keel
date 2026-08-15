@@ -132,3 +132,17 @@ await_holding_lock = "deny"
 [profile.release]
 lto = "thin"
 codegen-units = 1
+
+# The profile `dist` builds release artifacts with, and it has to exist or the
+# release fails at the build step with `profile 'dist' is not defined` — which
+# is exactly how it was found, by running `dist build` rather than by reading
+# the configuration.
+#
+# `inherits = "release"` and nothing else, deliberately. The point of a separate
+# profile is that a shipped binary and a locally built one can be tuned apart;
+# nothing here needs them to differ yet, and a setting added now would be one
+# nobody had measured. Keeping it empty means the artifact users get is built
+# exactly the way `cargo build --release` builds it here, which is one fewer
+# difference between what was tested and what ships.
+[profile.dist]
+inherits = "release"
