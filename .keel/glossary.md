@@ -7,6 +7,15 @@
 
 **Artifact** — Any stored entity. Used generically, not as the specific `artifact` type.
 
+**Claude Code vs Claude Desktop** — Two different products, and "desktop" names both — which cost a session an incorrect answer about how Keel installs.
+
+**Claude Code** is what Keel is built for. It runs as a terminal CLI *and* as a Mac desktop app; both are Claude Code and both support plugins, hooks and slash commands. Everything Keel depends on — the marketplace entry, `/keel:setup`, the SessionStart digest, the Stop nudge — works in either. Writes from it carry surface `code`. This is 1,182 of the events in the store.
+
+**Claude Desktop** is the separate general-purpose chat client. It can reach the daemon's MCP endpoint, because the transport's `Origin` check is aimed at browsers and a native client sends none — but it has no Claude Code plugins and, decisively, no session hooks. Writes from it would carry surface `chat`, of which there are four.
+
+So "I use Claude Desktop" most likely means the Claude Code desktop app, and the way to tell is the surface on the writes rather than the words.
+
+
 **Digest** — The compact project summary returned by keel_context. Budgeted to roughly 3–4k tokens.
 
 **Era** — Which MCP revision a request belongs to. Modern is 2026-07-28; Legacy is 2025-11-25 and earlier.

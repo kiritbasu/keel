@@ -7,6 +7,34 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
+### Keel models chat and cowork surfaces it has never been used from. Support them, or say so?
+
+`que_01M02R01Z5H9MD2E596D20593C` · question · open · severity low
+
+Raised after a confusion worth recording, because the same confusion will happen again.
+
+Asked how someone would install Keel "using Claude Desktop", I answered about the general-purpose Claude chat app: no Claude Code plugins, no session hooks, so the tools without the orientation. KB's reply was that Keel has been used exclusively in "Claude Desktop" all along — and both statements were true, about different products.
+
+**Claude Code ships as a Mac desktop app as well as a terminal CLI.** Plugins, hooks and slash commands all work there; it is Claude Code with a window. **Claude Desktop** is the separate chat client. One word covers both, and this project has a `surface` enum that quietly depends on telling them apart.
+
+The store settles which has been in use: **1,182 events at surface `code`, 99 `cli`, 4 `chat`.** So the answer is Claude Code throughout, and the hooks demonstrably fire — the digest arrives at the top of every session in this repository.
+
+## The question this leaves
+
+`Surface` has five values and two of them describe places Keel has never meaningfully run. `chat` has four events, which is a rounding error and probably an experiment. `cowork` has none at all. TQ-18 said as much at the time — "Chat and Cowork have neither hook and are entirely untested" — and nothing has changed since.
+
+That is not obviously wrong. A provenance enum that anticipates a surface is cheap, and B-8 already argued for keeping `cli` because the CLI demonstrably writes. But there is a difference between *anticipating* a surface and *claiming* one, and right now nothing distinguishes them: a reader of `Surface` has no way to tell that `code` is the whole product and `cowork` is an aspiration.
+
+## Options
+
+1. **Leave the enum and document the reality** — one line on each variant saying what has actually written through it, and the count. Cheapest, and it makes the doc comment carry the same information the event log does. *(Recommended.)*
+
+2. **Support `chat` properly.** The Claude Desktop client can reach the daemon: verified, a client sending no `Origin` header passes the transport check and gets the full tool list, because the check is aimed at browsers. What it cannot have is the hooks, so orientation would depend on the model choosing to reach for the tools — the configuration TQ-19 measured at roughly 30 percent engagement and a 5 percent write rate. Worth knowing before treating it as a supported surface rather than a possible one.
+
+3. **Drop the unused variants.** Honest, and a forward-only migration for something that costs nothing to keep. Hard to justify.
+
+Recommending 1. The interesting half is not the enum, it is that "desktop" names two products and this project has now been bitten by it once. Whatever is decided, the distinction belongs somewhere a future session will read — most likely the glossary, which already earns its place on exactly this kind of ambiguity.
+
 ### What should Keel measure, and should it measure anything by itself?
 
 `que_01KZTTC4VTBVG7KZ7H00RDQ4ZB` · question · open · severity low
