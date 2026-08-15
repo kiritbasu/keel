@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T23:18:55Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T23:19:19Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (215)
+## Closed work (216)
 
 ### 2026-08-15
+
+- **KEEL-226** Make every artifact Claude mentions a link into the interface — `done`
+
+  Tool results that name one artifact now carry a `url` the daemon minted from the address it actually bound. Verified against the running daemon: `keel_ready` came back with `http://127.0.0.1:7654/#/projects/keel/tasks/KEEL-239`. Types with no screen get no field at all rather than a null, and the digest is deliberately left alone because forty rows of links would cost more than the rows. The skill now tells Claude to use the url when there is one and to say the reference plainly when there is not.
+
+  <sub>commit:d9a4252 · test:cargo test -p keel-daemon --test token · test:cargo test -p keel-mcp</sub>
 
 - **KEEL-238** A per-session token, so a mutating endpoint knows who is calling — `done`
 
@@ -814,6 +820,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-15 | claude | status in_progress → done |
+| 2026-08-15 | claude | evidence [] → (94 characters) |
+| 2026-08-15 | claude | close_reason none → done |
+| 2026-08-15 | claude | close_message none → (502 characters) |
 | 2026-08-15 | claude | status todo → in_progress |
 | 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
 | 2026-08-15 | claude | claimed_at none → 2026-08-15T23:07:03.365743Z |
@@ -1010,10 +1020,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | close_message none → (568 characters) |
 | 2026-08-15 | claude | created task “Stand up the Linux VM and run tier 2 for the first time” |
 | 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_0d013ca6-a51f-4bcf-b118-1f9720d86d0e |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T02:02:47.859794Z |
-| 2026-08-15 | claude | status todo → done |
-| 2026-08-15 | claude | evidence [] → (83 characters) |
 
-*Showing the 200 most recent of 1643 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1647 changes. Use `keel_activity` for the rest.*
 
