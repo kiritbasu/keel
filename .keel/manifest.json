@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-15T15:59:37.337291+00:00",
+  "generated_at": "2026-08-15T19:48:10.576830+00:00",
   "files": [
     {
       "path": ".keel/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/hard-constraint-7-is-amended-the-interface-may-ask-the-daemon-to-apply-an-update-it-already-staged.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M03EVSQZBVB93NR94MYNTKWB",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "1fcf548e73a27a8a4d6c3289dd636d70c9ffcb4a8e407bb7e20db6743b481782"
         }
       ]
     },
