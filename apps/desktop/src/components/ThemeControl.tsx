@@ -2,6 +2,15 @@ import { useState } from "react";
 import { cx } from "./ui";
 import { THEMES, readTheme, setTheme, type Theme } from "../lib/theme";
 
+/**
+ * The word each option would have carried, kept for the tooltip and for the
+ * accessible name.
+ *
+ * The icons replaced the words on screen, not in the markup. A glyph with no
+ * name is unreadable to a screen reader and unguessable to anyone who does not
+ * already know the convention, so `aria-label` still says "Auto" and hovering
+ * still shows the sentence.
+ */
 const LABEL: Record<Theme, string> = {
   system: "Auto",
   light: "Light",
@@ -9,9 +18,48 @@ const LABEL: Record<Theme, string> = {
 };
 
 const TITLE: Record<Theme, string> = {
-  system: "Follow the system",
-  light: "Always light",
-  dark: "Always dark",
+  system: "Auto — follow the system",
+  light: "Light — always light",
+  dark: "Dark — always dark",
+};
+
+/**
+ * Inline SVG rather than an icon dependency: three glyphs do not justify a
+ * package, and these inherit `currentColor` so the selected state keeps
+ * working without a second set of rules.
+ */
+const ICON: Record<Theme, React.ReactNode> = {
+  // Half-filled circle: the usual "follows something else" mark.
+  system: (
+    <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden="true">
+      <circle
+        cx="8"
+        cy="8"
+        r="6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path d="M8 2a6 6 0 0 0 0 12z" fill="currentColor" />
+    </svg>
+  ),
+  light: (
+    <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden="true">
+      <circle cx="8" cy="8" r="3.25" fill="currentColor" />
+      <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <path d="M8 1v1.75M8 13.25V15M1 8h1.75M13.25 8H15" />
+        <path d="M3.05 3.05l1.24 1.24M11.71 11.71l1.24 1.24M12.95 3.05l-1.24 1.24M4.29 11.71l-1.24 1.24" />
+      </g>
+    </svg>
+  ),
+  dark: (
+    <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden="true">
+      <path
+        d="M13.5 9.9A5.8 5.8 0 0 1 6.1 2.5a5.8 5.8 0 1 0 7.4 7.4z"
+        fill="currentColor"
+      />
+    </svg>
+  ),
 };
 
 /**
@@ -41,6 +89,7 @@ export function ThemeControl() {
           type="button"
           role="radio"
           aria-checked={theme === t}
+          aria-label={LABEL[t]}
           title={TITLE[t]}
           onClick={() => choose(t)}
           /* `min-h-8` — the label stays small, the target does not.
@@ -60,7 +109,7 @@ export function ThemeControl() {
               : "text-ink-faint hover:text-ink-muted",
           )}
         >
-          {LABEL[t]}
+          {ICON[t]}
         </button>
       ))}
     </div>

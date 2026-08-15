@@ -426,9 +426,6 @@ export function App() {
         )}
 
         <div className="mt-auto px-3 py-3">
-          <Button size="sm" variant="ghost" onClick={refresh}>
-            Refresh
-          </Button>
           {feed === "down" && (
             <p
               role="status"
