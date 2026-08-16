@@ -41,6 +41,27 @@ path = "src/bin/keel-daemon.rs"
 # otherwise. The opt-in is per-package and there is no workspace-level form.
 dist = true
 
+# **Every released binary is built without embeddings** (KEEL-252, and KEEL-220
+# for why it is possible at all).
+#
+# The ONNX runtime `fastembed` pulls has no prebuilt Intel macOS library and
+# wants a newer glibc than the Linux binaries are built against, so two of three
+# targets could not link while it was in the graph. This is what takes it out.
+#
+# It applies to all three rather than only the two that need it, because `dist
+# build` takes `--target` and not `--features` and `[package.metadata.dist]` is
+# per package: there is no configuration expressing "arm64 with embeddings, the
+# others without". Given a choice between three platforms with keyword search
+# and one platform that could also do semantic search, three wins — the released
+# binary already defaults `--embeddings` off, and `keel doctor` and `/api/health`
+# both say which build you have.
+#
+# What it costs is real and worth stating: no released binary can do semantic
+# search at all. It survives for anyone building from source, where the feature
+# is on by default. It comes back for everyone if the ONNX prebuilt situation
+# changes, or if someone builds the second release path route 2 describes.
+default-features = false
+
 [lints]
 workspace = true
 

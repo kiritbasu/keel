@@ -74,7 +74,22 @@ ci = ["github"]
 # hooks cannot run there, so shipping it would mean either a binary nobody has
 # ever executed or a product that looks whole and is half-wired. It comes back
 # when someone asks, with test coverage from the first commit (§10).
-targets = ["aarch64-apple-darwin"]
+# **Three again, since KEEL-252.** The `ort-sys` failures below were real and are
+# now avoided rather than worked around: `[package.metadata.dist] default-features
+# = false` in `crates/keel/Cargo.toml` takes the ONNX runtime out of the release
+# build entirely, so every one of these links. The comment above is kept because
+# it is the reason this list was ever one item, and because the constraint it
+# describes has not gone away — it is only no longer in the way.
+#
+# `x86_64-unknown-linux-gnu` builds on `ubuntu-22.04`, never `ubuntu-latest`: the
+# glibc a binary links against is a floor rather than a preference, and built on
+# a newer image it refuses to start on anything older with a message that reads
+# like a corrupt download.
+targets = [
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+  "x86_64-unknown-linux-gnu",
+]
 
 # Shell only. There is no PowerShell installer because there is no Windows
 # target, and shipping one would advertise a platform we do not build.

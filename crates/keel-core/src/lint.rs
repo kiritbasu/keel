@@ -92,6 +92,20 @@ pub const UNEXPANDED_IDENTIFIER: &str = "unexpanded_identifier";
 /// A closed task that never said why. Only rows that predate the rule.
 pub const CLOSED_WITHOUT_REASON: &str = "closed_without_reason";
 
+/// A spec, decision, question or feedback row with no prose in it at all.
+///
+/// The types with no summary column, where the document *is* the content, so a
+/// row without one records that somebody decided something and loses what.
+/// Since KEEL-171 the create path refuses it; ten rows landed before that,
+/// six of them accepted decisions, and this is what keeps them visible rather
+/// than being quietly tidied away or quietly forgotten.
+///
+/// Reported rather than repaired, deliberately. Writing the missing reasoning
+/// means a later session inferring an argument from the code and presenting it
+/// as what somebody thought — which is the one thing a decision log must not
+/// contain. The same reasoning left ninety-four task summaries unwritten.
+pub const DOCUMENT_WITHOUT_PROSE: &str = "document_without_prose";
+
 /// The identifier families this checks. The same ones `fsck` recognises, plus
 /// the readable task and requirement references that prose actually writes.
 const FAMILIES: &[&str] = &["TQ", "Q", "B", "D", "R", "REQ"];
@@ -177,12 +191,50 @@ pub fn lint(store: &Store, project_id: &EntityId, limit: Option<usize>) -> Resul
         }
     }
 
+    // The prose-bearing types, which the loop above does not reach because it
+    // asks only for tasks. A row here has no summary column to fall back on, so
+    // "no prose" means the page is empty rather than terse.
+    for entity_type in [
+        EntityType::Spec,
+        EntityType::Decision,
+        EntityType::Question,
+        EntityType::Feedback,
+    ] {
+        let page = store.list(
+            &EntityQuery::in_project(project_id.clone())
+                .of_type(entity_type)
+                .limited(10_000),
+        )?;
+        for entity in &page.items {
+            scanned += 1;
+            if entity.current_doc_version().unwrap_or(0) > 0 {
+                continue;
+            }
+            // Decisions carry a readable number like tasks do; the others are
+            // known by their title, so that is what a person is shown.
+            let reference = match entity {
+                Entity::Decision(d) => format!("{key}-B{}", d.number),
+                other => shorten(other.label(), 48),
+            };
+            findings.push(LintFinding {
+                check: DOCUMENT_WITHOUT_PROSE,
+                id: entity.id().clone(),
+                reference,
+                detail: format!(
+                    "{entity_type} with no prose — the title says something was decided and \
+                     nothing says what"
+                ),
+            });
+        }
+    }
+
     // Rules in the order a person would work through them: the field lists
     // render first, then the prose, then the historical closes.
     let order = |check: &str| match check {
         TASK_WITHOUT_SUMMARY => 0,
         UNEXPANDED_IDENTIFIER => 1,
-        _ => 2,
+        DOCUMENT_WITHOUT_PROSE => 2,
+        _ => 3,
     };
     findings.sort_by(|a, b| {
         order(a.check)

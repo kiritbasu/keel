@@ -81,21 +81,31 @@ jobs:
           # like a run that never starts.
           - target: aarch64-apple-darwin
             runner: '["self-hosted", "macOS", "ARM64"]'
-          # Intel macOS and Linux were here until 0.1.0 was cut and both failed
-          # on `ort-sys`, the ONNX Runtime binding `fastembed` pulls in. `ort`
-          # downloads a prebuilt static library rather than compiling one, so
-          # ONNX decides which platforms can link: there is no Intel macOS
-          # prebuilt at all, and the Linux one wants glibc 2.38 against a
-          # runner deliberately pinned to 2.35 to keep the floor low.
+          # Intel macOS and Linux were removed when 0.1.0 was cut, because both
+          # failed on `ort-sys` — the ONNX Runtime binding `fastembed` pulls in.
+          # `ort` downloads a prebuilt static library rather than compiling one,
+          # so ONNX decided which platforms could link: no Intel macOS prebuilt
+          # exists at all, and the Linux one wants glibc 2.38 against a runner
+          # deliberately pinned to 2.35 to keep the floor low.
           #
-          # They come back when embeddings can be built out — which is a
-          # decision about the workspace's features, not a build fix, and is
-          # recorded as an open question rather than settled here.
+          # **They are back because the dependency is gone from the release
+          # build**, not because anything about ONNX changed:
+          # `[package.metadata.dist] default-features = false` builds every
+          # target without embeddings (KEEL-220, KEEL-252). The cost is that no
+          # released binary can do semantic search; `keel doctor` says so.
           #
-          # Note for whoever restores Linux: `ubuntu-22.04`, not
-          # `ubuntu-latest`. The glibc a binary links against is a floor, not a
-          # preference — built on a newer image it refuses to start on anything
-          # older, with a message that reads like a corrupt download.
+          # Intel macOS builds on the same self-hosted Apple Silicon Mac.
+          # `--target=x86_64-apple-darwin` on an arm64 host still links with
+          # `cc` and still gets the ad-hoc signature, which is the requirement —
+          # Apple's linker, not Apple's hardware.
+          - target: x86_64-apple-darwin
+            runner: '["self-hosted", "macOS", "ARM64"]'
+          # `ubuntu-22.04`, never `ubuntu-latest`. The glibc a binary links
+          # against is a floor rather than a preference: built on a newer image
+          # it refuses to start on anything older, with a message that reads
+          # like a corrupt download.
+          - target: x86_64-unknown-linux-gnu
+            runner: '"ubuntu-22.04"'
     steps:
       - uses: actions/checkout@v4
 

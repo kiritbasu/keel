@@ -263,3 +263,59 @@ fn a_task_closed_the_new_way_is_not_a_finding() {
 
     assert_eq!(f.report(None).total, 0);
 }
+
+/// KEEL-171 closed the door; ten rows were already inside. Six of them are
+/// accepted decisions that say what was chosen and nothing about why, which is
+/// the one shape the decision log exists to prevent.
+///
+/// Reported rather than repaired, and that is the point of it being a lint: the
+/// missing prose is somebody's reasoning, and a later session writing it would
+/// be inferring an argument from the code and presenting it as what a person
+/// thought.
+#[test]
+fn a_prose_bearing_row_with_no_prose_is_reported() {
+    let mut f = setup();
+
+    // Through the store rather than the create path, because the create path
+    // refuses this now — which is exactly why the historical rows need a lint
+    // rather than a rerun.
+    let bare = keel_core::Decision::new(f.project.clone(), "Use one parser");
+    f.store
+        .create(bare.into(), &Provenance::anonymous(Actor::Claude))
+        .unwrap();
+
+    let report = f.report(None);
+    assert_eq!(report.count_of(keel_core::lint::DOCUMENT_WITHOUT_PROSE), 1);
+    let finding = report
+        .findings
+        .iter()
+        .find(|x| x.check == keel_core::lint::DOCUMENT_WITHOUT_PROSE)
+        .expect("the finding is in the list, not only in the tally");
+    assert!(
+        finding.detail.contains("nothing says what"),
+        "it has to say what is missing rather than name a field: {}",
+        finding.detail
+    );
+}
+
+/// And one that has prose is not a finding, or the rule reports the whole store
+/// and gets ignored.
+#[test]
+fn a_row_that_carries_its_reasoning_is_left_alone() {
+    let mut f = setup();
+
+    f.store
+        .create_with_document(
+            keel_core::Question::new(f.project.clone(), "Cache the digest?").into(),
+            Some("Rebuilding it costs 40ms and nothing has complained yet.".to_owned()),
+            None,
+            &Provenance::anonymous(Actor::Claude),
+        )
+        .unwrap();
+
+    assert_eq!(
+        f.report(None)
+            .count_of(keel_core::lint::DOCUMENT_WITHOUT_PROSE),
+        0
+    );
+}
