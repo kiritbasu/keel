@@ -275,7 +275,11 @@ pub fn verify(path: &Path, artifact: &str, manifest: &ReleaseManifest) -> Result
 
     let bytes = std::fs::read(path)
         .with_context(|| format!("reading {} to check its hash", path.display()))?;
-    let actual = format!("{:x}", Sha256::digest(&bytes));
+    // Not `format!("{:x}", …)`: sha2 0.11 returns a `hybrid-array` `Array`,
+    // which does not implement `LowerHex`. The encoding has to stay lowercase
+    // — the comparison below is a string comparison against a manifest written
+    // by `sha256sum`.
+    let actual = keel_core::hex::encode(&Sha256::digest(&bytes));
 
     if &actual != expected {
         bail!(
@@ -1495,5 +1499,86 @@ mod check_stamp_tests {
 
         std::fs::write(dir.path().join(LAST_CHECK), "{not json").unwrap();
         assert!(last_check(dir.path()).is_none());
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod verify_tests {
+    use super::*;
+
+    fn manifest_with(artifact: &str, digest: &str) -> ReleaseManifest {
+        let mut artifacts = BTreeMap::new();
+        artifacts.insert(artifact.to_owned(), digest.to_owned());
+        ReleaseManifest {
+            version: "0.1.0".to_owned(),
+            schema_version: keel_core::shipped_schema_version(),
+            artifacts,
+        }
+    }
+
+    /// The hex encoding moved when `sha2` 0.11 stopped implementing `LowerHex`
+    /// on its output (KEEL-254). This is the assertion that the move did not
+    /// change what a digest looks like — a manifest is written by `sha256sum`
+    /// and compared as a string, so an encoding that is correct but uppercase,
+    /// or one character short, rejects every release with a message that reads
+    /// like a corrupted download.
+    #[test]
+    fn a_matching_archive_verifies() {
+        use sha2::{Digest, Sha256};
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("keel.tar.xz");
+        std::fs::write(&file, b"the bytes of a release").unwrap();
+
+        let digest = keel_core::hex::encode(&Sha256::digest(b"the bytes of a release"));
+        assert_eq!(digest.len(), 64, "sha256 is 32 bytes, so 64 hex characters");
+        assert_eq!(digest, digest.to_lowercase());
+
+        verify(&file, "keel.tar.xz", &manifest_with("keel.tar.xz", &digest))
+            .expect("the archive matches what the manifest says");
+    }
+
+    /// The half that matters. A verifier that accepts everything passes the
+    /// test above.
+    #[test]
+    fn an_archive_that_does_not_match_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("keel.tar.xz");
+        std::fs::write(&file, b"not the bytes anyone published").unwrap();
+
+        let err = verify(
+            &file,
+            "keel.tar.xz",
+            &manifest_with("keel.tar.xz", &"a".repeat(64)),
+        )
+        .expect_err("a mismatched archive must not install");
+
+        let message = format!("{err}");
+        assert!(
+            message.contains("does not match the checksum"),
+            "the refusal says what is wrong: {message}"
+        );
+        assert!(
+            message.contains("Nothing has been installed"),
+            "and what did not happen as a result: {message}"
+        );
+    }
+
+    /// A release published before the manifest carried checksums. Refused
+    /// rather than skipped — an installer that verifies nothing and says so
+    /// quietly is the failure `scripts/patch-installer.sh` exists for.
+    #[test]
+    fn an_artifact_with_no_recorded_checksum_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("keel.tar.xz");
+        std::fs::write(&file, b"anything").unwrap();
+
+        let err = verify(
+            &file,
+            "keel.tar.xz",
+            &manifest_with("something-else.tar.xz", &"b".repeat(64)),
+        )
+        .expect_err("no checksum is not the same as a passing checksum");
+        assert!(format!("{err}").contains("nothing to verify it against"));
     }
 }

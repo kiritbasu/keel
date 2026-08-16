@@ -165,7 +165,7 @@ fn payload(dir: &Path, bytes: &[u8]) -> (PathBuf, String) {
     use sha2::{Digest, Sha256};
     let path = dir.join("payload.bin");
     std::fs::write(&path, bytes).expect("the payload is writable");
-    let digest = format!("{:x}", Sha256::digest(bytes));
+    let digest = keel_core::hex::encode(&Sha256::digest(bytes));
     (path, digest)
 }
 

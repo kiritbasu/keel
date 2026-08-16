@@ -51,17 +51,17 @@ pub fn path(home: &Path) -> PathBuf {
 /// which the secret is on disk and world-readable, and a window is all this
 /// kind of bug ever needs.
 pub fn mint(home: &Path) -> Result<String> {
-    use rand::RngCore;
-
     let mut bytes = [0u8; 32];
-    rand::rng().fill_bytes(&mut bytes);
-    let token = bytes.iter().fold(String::with_capacity(64), |mut s, b| {
-        use std::fmt::Write as _;
-        // `write!` to a String cannot fail, and the alternative is an unwrap in
-        // library code.
-        let _ = write!(s, "{b:02x}");
-        s
-    });
+    // `rand::fill` rather than `rand::rng().fill_bytes(…)`, which is what this
+    // said until rand 0.10 renamed `RngCore` to `Rng` and `Rng` to `RngExt`.
+    //
+    // **The generator is the same one**, which is the part worth checking
+    // rather than assuming: `rand::fill` draws from `rand::rng()`, still a
+    // ChaCha12 `ThreadRng`, still marked as cryptographically secure. A bump
+    // that quietly swapped in a non-CSPRNG here would produce a token that
+    // looks identical and is guessable, and nothing downstream would notice.
+    rand::fill(&mut bytes);
+    let token = crate::hex::encode(&bytes);
 
     let file = path(home);
     if let Some(parent) = file.parent() {

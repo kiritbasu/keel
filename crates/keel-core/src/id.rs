@@ -134,7 +134,11 @@ fn next_ulid() -> ulid::Ulid {
         Ok(g) => g,
         Err(poisoned) => poisoned.into_inner(),
     };
-    guard.generate().unwrap_or_else(|_| ulid::Ulid::new())
+    // `Ulid::generate()` is what `Ulid::new()` was called before ulid 3, and it
+    // does the same thing: current time, fresh randomness, no monotonicity
+    // guarantee — which is exactly what this fallback wants, since the reason
+    // it is reached is that the monotonic generator could not oblige.
+    guard.generate().unwrap_or_else(|_| ulid::Ulid::generate())
 }
 
 /// Generate a fresh prefixed identifier.
@@ -379,6 +383,41 @@ simple_id!(ChunkId, "chk", "one embedded passage of a document");
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+
+    /// The fallback nobody exercises, exercised (KEEL-254).
+    ///
+    /// `next_ulid` degrades to a non-monotonic id when the generator overflows
+    /// or its mutex is poisoned. Both are unreachable in practice, which is
+    /// exactly why the call inside was able to sit through a major version bump
+    /// that renamed it — `Ulid::new` became `Ulid::generate` in ulid 3, and
+    /// nothing would have noticed until the day the fallback was needed.
+    ///
+    /// What this asserts is the property the fallback exists for: it still
+    /// produces a usable, sortable, correctly-shaped id.
+    #[test]
+    fn the_non_monotonic_fallback_still_mints_a_real_ulid() {
+        let first = ulid::Ulid::generate();
+        let second = ulid::Ulid::generate();
+
+        assert_ne!(
+            first, second,
+            "two ids from the fallback are not the same id"
+        );
+        assert_eq!(
+            first.to_string().len(),
+            26,
+            "a ULID is 26 characters however it was minted"
+        );
+        // Time-ordered, which is the half that survives losing monotonicity:
+        // ordering within a single millisecond is what the fallback gives up,
+        // not ordering altogether.
+        assert!(
+            first.datetime() <= second.datetime(),
+            "the fallback still carries a timestamp that moves forward"
+        );
+        // And it round-trips through the parser every other id goes through.
+        assert!(ulid::Ulid::from_string(&first.to_string()).is_ok());
+    }
 
     #[test]
     fn generated_ids_carry_their_type() {

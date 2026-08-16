@@ -53,7 +53,7 @@ const ARCHIVE: &str = "keel-aarch64-apple-darwin.tar.xz";
 fn archive(dir: &Path, bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     std::fs::write(dir.join(ARCHIVE), bytes).expect("the archive is writable");
-    format!("{:x}", Sha256::digest(bytes))
+    keel_core::hex::encode(&Sha256::digest(bytes))
 }
 
 /// The shape `dist` emits, cut down to the part this script reads: one arm per

@@ -38,6 +38,7 @@ pub mod event;
 pub mod fixture;
 pub mod fsck;
 pub mod generate;
+pub mod hex;
 pub mod id;
 pub mod link;
 pub mod lint;
