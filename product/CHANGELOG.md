@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T05:00:00Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T05:15:52Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (219)
+## Closed work (220)
 
 ### 2026-08-16
+
+- **KEEL-244** The new-task dialog is the wrong width and asks too little — `done`
+
+  The dead space was a fixed-width child inside a wider panel; the child has no width of its own now and fills it. Kind, phase and labels are all there, on one row, each as a default rather than a decision — kind `task`, phase the one holding the most open work, labels offered from those already in use. Two things only visible by opening it were fixed first: the phase default picked Phase 4, open since forever with nothing happening in it, and all 64 labels rendered as 64 chips.
+
+  <sub>commit:2dc0d59 · test:npm test --prefix apps/desktop</sub>
 
 - **KEEL-240** The interface can create a task, comment on one, and archive or close a row — `done`
 
@@ -841,6 +847,16 @@ What has finished. What is happening now is in the tracker beside this file.
 | Date | Actor | Change |
 |---|---|---|
 | 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:2dc0d59","test:npm test --prefix apps/desktop"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (481 characters) |
+| 2026-08-16 | human | archived task “Check the phase and label defaults land on the row” |
+| 2026-08-16 | human | created task “Check the phase and label defaults land on the row” |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:06:37.495225Z |
+| 2026-08-16 | claude | created task “The new-task dialog is the wrong width and asks too little” |
+| 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → (144 characters) |
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (588 characters) |
@@ -1030,16 +1046,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | created task “There is no way to uninstall Keel, and the install receipt is a single global file” |
 | 2026-08-15 | claude | created term “Claude Code vs Claude Desktop” |
 | 2026-08-15 | claude | revised question “Keel models chat and cowork surfaces it has never been used from. Support them, or say so?” to v1 |
-| 2026-08-15 | claude | created question “Keel models chat and cowork surfaces it has never been used from. Support them, or say so?” |
-| 2026-08-15 | claude | created task “Run the install flow end to end on a second Mac” |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → (133 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (943 characters) |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → (133 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (559 characters) |
 
-*Showing the 200 most recent of 1677 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1687 changes. Use `keel_activity` for the rest.*
 
