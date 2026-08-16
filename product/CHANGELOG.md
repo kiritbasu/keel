@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T11:58:47Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T12:12:24Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (237)
+## Closed work (238)
 
 ### 2026-08-16
+
+- **KEEL-258** There is no way to ask for an update check, so finding out means waiting up to an hour — `done`
+
+  `POST /api/update/check` and a "Check for updates" button in the footer. Same token as apply, on `spawn_blocking`, stamping the check so `last_checked_at` has one answer whoever asked. The outcome is named — `up_to_date`, `staged`, `needs_a_person`, `ahead`, `failed` — so the interface renders each case without parsing prose, and a check that finds nothing is now visibly different from a check that never ran. Refused when `KEEL_AUTO_UPDATE=0`, because `keel doctor` prints "Keel makes no network requests at all" and a button that fired one anyway would make that false. Verified against a real daemon: 401 without the token, `up_to_date` with it, the stamp appearing in health afterwards, and a 400 with its reason when checks are off.
+
+  <sub>commit:0550eb2 · test:cargo test -p keel-daemon --test health · test:npx vitest run src/components/VersionFooter.test.tsx</sub>
 
 - **KEEL-256** Cut v0.1.5 — three platforms, and the first release whose binaries cannot do semantic search — `done`
 
@@ -944,6 +950,14 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (125 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (740 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T12:05:54.529130Z |
+| 2026-08-16 | claude | created task “There is no way to ask for an update check, so finding out means waiting up to an hour” |
 | 2026-08-16 | claude | created task “Release notes generate themselves from pull requests, and this project does not use pull requests” |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → (143 characters) |
@@ -1136,14 +1150,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | close_reason none → done |
 | 2026-08-15 | claude | close_message none → (517 characters) |
 | 2026-08-15 | claude | created task “The MCP endpoint is the one writer a rebinding attack could still reach” |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T22:35:41.344447Z |
-| 2026-08-15 | claude | created task “Hard constraint 7 says the opposite of where the product is going” |
-| 2026-08-15 | claude | status open → answered |
-| 2026-08-15 | claude | “Anything the daemon serves has to be safe to render in a…” blocks “The interface can create a task, comment on one, and…” |
-| 2026-08-15 | claude | “A per-session token, so a mutating endpoint knows who is…” blocks “The interface can create a task, comment on one, and…” |
-| 2026-08-15 | claude | created task “The interface can create a task, comment on one, and archive or close a row” |
 
-*Showing the 200 most recent of 1827 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1835 changes. Use `keel_activity` for the rest.*
 
