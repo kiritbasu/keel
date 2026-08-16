@@ -91,6 +91,14 @@ pub fn router(state: AppState) -> Router {
         // is at this process's own path, and cannot cause anything to be
         // downloaded or installed.
         .route("/api/update/restart", post(api_update_restart))
+        // What a person does in the interface (B-78, KEEL-240). Every one of
+        // these goes through keel-core's write path and is attributed to a
+        // human on the `ui` surface. There is deliberately no endpoint that
+        // takes a document body: that is the line the constraint draws.
+        .route("/api/tasks", post(api_create_task))
+        .route("/api/entity/{id}/notes", post(api_add_note))
+        .route("/api/entity/{id}/archive", post(api_archive))
+        .route("/api/tasks/{id}/close", post(api_close_task))
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
             require_token,
@@ -618,6 +626,210 @@ async fn api_update_restart() -> Response {
         crate::run::reexec();
     });
     Json(json!({ "restarting": true, "was": was })).into_response()
+}
+
+// --- What a person does in the interface ------------------------------------
+//
+// Hard constraint 7, as rewritten by B-78: the interface writes what a person
+// *does* — create a task, comment on one, archive a row, close one — and never
+// what a person *reasons*. There is no endpoint here that takes a document
+// body, and that absence is the constraint rather than an oversight.
+//
+// Every one of these is behind the token, so the daemon knows the caller is a
+// page it served rather than any page the browser has open. That is what makes
+// the attribution below honest.
+
+/// How a write from the interface is attributed.
+///
+/// `actor: human` because a person clicked something, and `surface: ui` because
+/// that is where. Neither is taken from the request body: an actor a caller can
+/// name is an actor a caller can lie about, and the whole reason this is
+/// trustworthy is that the transport already established who is asking.
+///
+/// **No session id.** Hard constraint 5 says the daemon never invents one, and
+/// there is no conversation behind a button — so the write is attributed to a
+/// person on a surface, with the honest absence of a session rather than a
+/// plausible-looking string.
+fn person_at_the_interface() -> keel_core::Provenance {
+    keel_core::Provenance {
+        actor: keel_core::Actor::Human,
+        session_id: None,
+        surface: Some(keel_core::Surface::Ui),
+    }
+}
+
+/// Create a task.
+async fn api_create_task(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
+    use keel_core::{Entity, EntityStore, Task};
+
+    let Some(project) = body.get("project").and_then(Value::as_str) else {
+        return bad_request("`project` is required — the project id, slug or name");
+    };
+    let title = body
+        .get("title")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let summary = body
+        .get("summary")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if title.trim().is_empty() {
+        return bad_request("`title` is required");
+    }
+
+    let mut store = state.store();
+    let project_id = match keel_mcp::resolve_project(&store, project) {
+        Ok(id) => id,
+        Err(e) => return api_error(StatusCode::BAD_REQUEST, e.code, e.message),
+    };
+
+    let mut task = Task::new(project_id, title.trim(), summary.trim());
+    if let Some(priority) = body.get("priority").and_then(Value::as_str) {
+        match keel_core::TaskPriority::parse(priority) {
+            Ok(p) => task.priority = p,
+            Err(e) => return bad_request(&e.to_string()),
+        }
+    }
+
+    match store.create(Entity::Task(task), &person_at_the_interface()) {
+        Ok(created) => Json(json!({
+            "data": keel_mcp::entity_json(&created.entity),
+            "created": created.created,
+        }))
+        .into_response(),
+        Err(e) => internal_error(&format!("the task was not created: {e}")),
+    }
+}
+
+/// Add a note to a row — the comment KB asked for.
+async fn api_add_note(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> Response {
+    use keel_core::{EntityId, EntityStore, NewNote};
+
+    let text = body.get("body").and_then(Value::as_str).unwrap_or_default();
+    if text.trim().is_empty() {
+        return bad_request("`body` is required — a note with nothing in it says nothing");
+    }
+
+    let entity_id = match EntityId::parse(&id) {
+        Ok(id) => id,
+        Err(e) => return api_error(StatusCode::BAD_REQUEST, codes::INVALID_PARAMS, e),
+    };
+
+    let mut store = state.store();
+    let note = NewNote::new(entity_id, text.trim(), keel_core::Actor::Human);
+    match store.add_note(note, &person_at_the_interface()) {
+        Ok(note) => Json(json!({ "data": note })).into_response(),
+        Err(e) => internal_error(&format!("the note was not added: {e}")),
+    }
+}
+
+/// Archive a row.
+///
+/// Named for what it does. The affordance may say Delete, because that is the
+/// word for what somebody means, but hard constraint 3 is soft delete only —
+/// the row stays readable and stays in the history, and an endpoint called
+/// `delete` would be the first step towards somebody making that true.
+async fn api_archive(State(state): State<AppState>, Path(id): Path<String>) -> Response {
+    use keel_core::{EntityId, EntityStore};
+
+    let entity_id = match EntityId::parse(&id) {
+        Ok(id) => id,
+        Err(e) => return api_error(StatusCode::BAD_REQUEST, codes::INVALID_PARAMS, e),
+    };
+
+    let mut store = state.store();
+    // Archive whatever version is current rather than one the page was holding.
+    // A stale version here would mean "somebody edited the title while you were
+    // deciding", which is not a reason to refuse an archive — and the interface
+    // has no way to resolve that conflict anyway.
+    let current = match store.get(&entity_id) {
+        Ok(Some(entity)) => entity.audit().version,
+        Ok(None) => {
+            return api_error(
+                StatusCode::NOT_FOUND,
+                codes::INVALID_PARAMS,
+                format!("no artifact with id {id}"),
+            );
+        }
+        Err(e) => return internal_error(&format!("could not read {id}: {e}")),
+    };
+
+    match store.archive(&entity_id, current, &person_at_the_interface()) {
+        Ok(entity) => Json(json!({ "data": keel_mcp::entity_json(&entity) })).into_response(),
+        Err(e) => internal_error(&format!("it was not archived: {e}")),
+    }
+}
+
+/// Close a task, with the reason, the message and the evidence the storage
+/// layer requires.
+///
+/// The requirement is not relaxed for the interface. A close with no reason is
+/// a colour change, and the check lives under both surfaces precisely so that
+/// neither can be the easy way round it — which means the form has to ask.
+async fn api_close_task(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> Response {
+    use keel_core::{Close, CloseReason, EntityId, work};
+
+    let entity_id = match EntityId::parse(&id) {
+        Ok(id) => id,
+        Err(e) => return api_error(StatusCode::BAD_REQUEST, codes::INVALID_PARAMS, e),
+    };
+
+    let reason = match CloseReason::parse(body.get("reason").and_then(Value::as_str).unwrap_or(""))
+    {
+        Ok(reason) => reason,
+        Err(e) => return bad_request(&e.to_string()),
+    };
+    let message = body
+        .get("message")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_owned();
+    let evidence: Vec<String> = body
+        .get("evidence")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    let other = match body.get("other").and_then(Value::as_str) {
+        Some(raw) => match EntityId::parse(raw) {
+            Ok(id) => Some(id),
+            Err(e) => return api_error(StatusCode::BAD_REQUEST, codes::INVALID_PARAMS, e),
+        },
+        None => None,
+    };
+
+    let mut store = state.store();
+    let close = Close {
+        reason,
+        message,
+        evidence,
+        other,
+    };
+    match work::close(&mut *store, &entity_id, &close, &person_at_the_interface()) {
+        Ok(closed) => Json(json!({
+            "data": keel_mcp::entity_json(&keel_core::Entity::Task(closed.task)),
+        }))
+        .into_response(),
+        // The storage layer's refusals are the interesting ones here — no
+        // reason, no message, no evidence — and they are written to be read by
+        // whoever has to fix the form, so they are passed through rather than
+        // flattened.
+        Err(e) => api_error(StatusCode::BAD_REQUEST, codes::INVALID_PARAMS, e),
+    }
 }
 
 /// Turn a tool call into an HTTP response, for the REST surface.

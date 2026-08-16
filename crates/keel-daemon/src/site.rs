@@ -103,6 +103,24 @@ pub async fn serve(
     let path = uri.path().trim_start_matches('/');
     let path = if path.is_empty() { "index.html" } else { path };
 
+    // An API path that reached the fallback is one no route claimed, and
+    // answering it with the app shell is worse than useless: a client that
+    // mistyped an endpoint, or posted to one that does not exist, gets HTML and
+    // a 200 and has to work out from the body that nothing happened.
+    //
+    // The router's comment beside this fallback has always claimed a typo'd
+    // API route "still 404s as an API call rather than silently returning the
+    // app shell". It did not, until KEEL-240 wrote a test that assumed the
+    // comment was true and found out.
+    if path == "api" || path.starts_with("api/") {
+        return (
+            StatusCode::NOT_FOUND,
+            [(header::CONTENT_TYPE, "application/json")],
+            format!("{{\"error\":{{\"code\":-32601,\"message\":\"no API endpoint at /{path}\"}}}}"),
+        )
+            .into_response();
+    }
+
     if let Some(file) = Site::get(path) {
         return respond(path, file, state.token());
     }
