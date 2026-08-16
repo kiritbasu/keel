@@ -413,7 +413,7 @@ fn a_task_cannot_be_given_an_image_by_path_either() {
 /// from rather than leaving somebody to guess.
 #[test]
 fn a_picture_from_somewhere_private_is_refused_and_the_refusal_says_where_to_put_it() {
-    let (mut store, d, _root) = store();
+    let (mut store, d, root) = store();
 
     // Outside the project's root and outside any of the approved folders,
     // which is exactly where a path suggested by untrusted text would point.
@@ -436,8 +436,34 @@ fn a_picture_from_somewhere_private_is_refused_and_the_refusal_says_where_to_put
         err.message
     );
     assert!(
-        err.message.contains("Desktop") && err.message.contains("base64"),
-        "and name both the folders it will read and the way round it: {}",
+        err.message.contains("base64"),
+        "and name the way round it: {}",
+        err.message
+    );
+
+    // It has to name the folders it *will* read, and this asserts that against
+    // the project's own checkout rather than against `Desktop`.
+    //
+    // Asserting on `Desktop` made this test depend on the machine it ran on.
+    // `image_roots::roots` drops a folder that does not exist — deliberately,
+    // because offering somebody a directory they do not have is a worse answer
+    // than a shorter list — and a Linux CI runner has no Desktop, Downloads or
+    // Pictures. So the assertion passed on every Mac and failed on Linux, which
+    // is precisely the platform difference the Linux leg exists to find, and it
+    // found a test rather than a bug.
+    //
+    // That the list names the home folders when they exist is covered in
+    // `image_roots`' own unit tests, where the home is constructed rather than
+    // inherited from whoever is running the suite.
+    let allowed = root
+        .canonicalize()
+        .expect("the project checkout exists")
+        .display()
+        .to_string();
+    assert!(
+        err.message.contains(&allowed),
+        "and name a folder it will read — the project's own checkout is one on every \
+         platform: {}",
         err.message
     );
 }
