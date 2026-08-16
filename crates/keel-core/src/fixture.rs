@@ -16,10 +16,10 @@
 //! exercised with one.
 
 use crate::{
-    Actor, ArtifactKind, DecisionStatus, DesignState, Document, EntityId, EntityStore, EntityType,
-    EnvironmentStatus, FeedbackKind, MetricDirection, MilestoneKind, MilestoneStatus, NewLink,
-    ProjectStatus, Provenance, QuestionKind, QuestionStatus, Relation, Result, RiskSeverity,
-    Sentiment, SpecKind, SpecStatus, Surface, TaskKind, TaskPriority, TaskStatus,
+    Actor, ArtifactKind, CloseReason, DecisionStatus, DesignState, Document, EntityId, EntityStore,
+    EntityType, EnvironmentStatus, FeedbackKind, MetricDirection, MilestoneKind, MilestoneStatus,
+    NewLink, ProjectStatus, Provenance, QuestionKind, QuestionStatus, Relation, Result,
+    RiskSeverity, Sentiment, SpecKind, SpecStatus, Surface, TaskKind, TaskPriority, TaskStatus,
 };
 use crate::{
     Artifact, Decision, Design, DocumentStore, Entity, Environment, Feedback, Metric,
@@ -868,9 +868,25 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
         t.kind = kind;
         t.labels = labels.iter().map(|l| (*l).to_owned()).collect();
         t.milestone_id = milestone_ids.get(milestone_idx).map(|(_, id)| id.clone());
-        if status == TaskStatus::Done {
+        // The store holds a create into a terminal status to the same rule as a
+        // close (KEEL-217), so a closed fixture row carries what a real one
+        // does: a reason, a message, and evidence where the reason demands it.
+        // `wont_do` is here as well as `done` because a fixture that only
+        // exercised one of the two terminal statuses would leave the other
+        // untested by the demo store every screen is developed against.
+        if status.is_terminal() {
             t.closed_at = Some(now - Duration::days(7));
+            t.close_message = Some(body.to_owned());
+        }
+        if status == TaskStatus::Done {
             t.external_refs = vec![format!("https://github.com/kb/{}/pull/42", "keel")];
+            // The pull request it already invents is the evidence; inventing a
+            // commit sha beside it would be a second fiction for no gain.
+            t.close_reason = Some(CloseReason::Done);
+            t.evidence = vec![format!("pr:https://github.com/kb/{}/pull/42", "keel")];
+        }
+        if status == TaskStatus::WontDo {
+            t.close_reason = Some(CloseReason::WontDo);
         }
         let prov = if kind == TaskKind::Bug {
             &human

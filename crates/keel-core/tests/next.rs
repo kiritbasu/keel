@@ -8,8 +8,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use keel_core::{
-    Actor, Entity, EntityId, EntityStore, NewLink, Project, Provenance, Question, Relation, Store,
-    Task, TaskPriority, TaskStatus, next,
+    Actor, CloseReason, Entity, EntityId, EntityStore, NewLink, Project, Provenance, Question,
+    Relation, Store, Task, TaskPriority, TaskStatus, next,
 };
 
 struct Fixture {
@@ -46,6 +46,18 @@ impl Fixture {
         );
         t.priority = priority;
         t.status = status;
+        // A row that starts life closed has to say why, on this path as much
+        // as on the transition (KEEL-217). These tests care only that closed
+        // work is not offered as something to pick up, so the closing fields
+        // are filled in rather than varied.
+        if status.is_terminal() {
+            t.close_reason = Some(match status {
+                TaskStatus::Done => CloseReason::Done,
+                _ => CloseReason::WontDo,
+            });
+            t.close_message = Some("Closed before this test looked at it.".to_owned());
+            t.evidence = vec!["commit:abc1234".to_owned()];
+        }
         self.store
             .create(t.into(), &Provenance::anonymous(Actor::Human))
             .unwrap()

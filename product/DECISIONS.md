@@ -89,6 +89,7 @@ Every decision made while building, with the reasoning and what was rejected. In
 | B-76 | [An installer with no checksum in it refuses to install, and the release proves the checksum is there](#b-76) | `accepted` |
 | B-77 | [The daemon restarts itself for the CLI too, and the update says which version came back](#b-77) | `accepted` |
 | B-78 | [Hard constraint 7 is rewritten: the interface writes what a person does, and Claude keeps the reasoning](#b-78) | `accepted` |
+| B-79 | [A create into a terminal status is held to the closing rule, not refused](#b-79) | `accepted` |
 
 ## Reversals
 
@@ -1261,7 +1262,18 @@ The CLI now has one `run_tool` rather than a copy per command, and the unwrap si
 
 `proposed` · `dec_01KZSQJ05N4TSXDETPAZKD685F`
 
-*No reasoning recorded.*
+**Reconstructed on 2026-08-16 from the code that implements it, and it should be read as that.** This row landed with a title and no body — the create path allowed it, which is the bug KEEL-171 has now closed. The title names three things; what follows is what each of them turned out to mean, read out of `crates/keel-core/src/store/`. The session's own argument is gone.
+
+The problem: creating a design with a caption and a screenshot was four store calls orchestrated from `keel-mcp` over untyped JSON — insert the row, write the first revision, store the blob, then update the row a second time to record which blob it was. A crash anywhere in that sequence left an entity with no body, or a blob nothing points at. `fsck` had no blob check, so an orphaned blob was invisible and therefore unreclaimable for ever.
+
+The three parts:
+
+- **`&Connection` primitives.** The steps a write is made of — `insert_created`, `append_event_inner`, `write_revision_in`, `insert_blob_in` — each take a connection or a transaction rather than opening their own. That is what lets them compose inside one transaction instead of being four transactions in a row.
+- **Transaction-of-one.** Every write path opens a transaction even when it has a single statement, so the row and the events describing it land together. An update that lands its version bump and loses its events is worse than one that fails: the optimistic-concurrency check accepts the next write happily, so nothing ever notices the hole.
+- **One typed composite on `Store`.** `create_with_document(entity, body, image, provenance)` replaces the orchestration. The blob id is minted before the row is inserted, so the row carries `blob_id` from the start and the second `update` round-trip disappears entirely — the correctness fix is also a simplification.
+
+Still `proposed` rather than `accepted`, which is a status nobody moved rather than a decision anybody reversed: the code has been in place since Phase 11.
+
 
 ### B-54 — The fixture corpus stays compiled in, ungated
 
@@ -1912,5 +1924,21 @@ When authoring does arrive, the question to answer first is not "can we build a 
 #### The test that keeps it honest
 
 An endpoint that accepts a document revision is on the wrong side of the line. That is checkable, and it is what to look for when reviewing a change that claims to be within this.
+
+
+### B-79 — A create into a terminal status is held to the closing rule, not refused
+
+`accepted` · `dec_01M04J2FKE9S4F3H7HDFRKM1NB`
+
+A task that arrives already closed — `keel_create(status: "done")` — now has to carry what a close carries: a reason, a message, and evidence when the reason is `done`. The alternative was to refuse a terminal create outright, which is what KEEL-217 recommended when it was filed.
+
+Refusing was rejected for a plain reason: it would have made things illegal that this repository already does and has nowhere else to do. `keel bootstrap` transcribes Phases 0–3 as rows that were finished before Keel existed; `keel fixture` seeds a demo corpus with `done` and `wont_do` rows; adopting a finished backlog is the same shape and is the whole of the `keel-adopt` flow. The argument on the row was that back-filling is what `keel import` is for — but `keel import` writes document revisions, not task rows, so it cannot back-fill a closed task at all. A rule whose escape hatch does not exist is a rule that gets `--force`d, or worked around.
+
+Two things follow, and both are in the code:
+
+- `closed_at` is stamped on the way in **unless the caller supplied one**. A backfill knows the real date and the store does not; overwriting it with `now` would date the whole of Phases 0–3 to the afternoon someone ran the import.
+- A claim is released on a terminal create, the same as on the transition, so the two doors cannot disagree about what a closed row looks like.
+
+The cost, accepted: a legacy-shaped row — terminal, no reason — can no longer be constructed through any door. Two tests needed one and now build it by closing properly and stripping the field afterwards. That is the same shape `lint.rs` already used for a row with no summary, and the lint that reports the hundred and ten real ones is unaffected.
 
 

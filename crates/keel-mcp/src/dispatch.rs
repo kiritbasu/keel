@@ -212,7 +212,19 @@ fn opt_bool(args: &Value, field: &str) -> bool {
 
 /// Read an optional timestamp argument.
 fn opt_time(args: &Value, field: &str) -> Result<Option<chrono::DateTime<chrono::Utc>>, RpcError> {
-    match args.get(field).and_then(Value::as_str) {
+    parse_time(args.get(field).and_then(Value::as_str), field)
+}
+
+/// Parse a timestamp that has already been found, wherever it was found.
+///
+/// Split from [`opt_time`] so a caller that looked somewhere other than the top
+/// level gets the same error text. Two spellings of "that is not a timestamp"
+/// is two chances for one of them to be less useful than the other.
+fn parse_time(
+    raw: Option<&str>,
+    field: &str,
+) -> Result<Option<chrono::DateTime<chrono::Utc>>, RpcError> {
+    match raw {
         None => Ok(None),
         Some(raw) => chrono::DateTime::parse_from_rfc3339(raw)
             .map(|t| Some(t.with_timezone(&chrono::Utc)))
@@ -223,6 +235,40 @@ fn opt_time(args: &Value, field: &str) -> Result<Option<chrono::DateTime<chrono:
                     "an RFC 3339 timestamp such as 2026-08-09T14:22:01Z",
                 )
             }),
+    }
+}
+
+/// Read an argument from the top level, or from `fields` if it is there
+/// instead.
+///
+/// `keel_create` documents `fields` as "any other column on the type", and for
+/// three columns that was not true: a metric observation's `metric_id`, `value`
+/// and `observed_at` are read by the constructor from the top level, and are
+/// not in the published schema. A caller following the tool's own description
+/// put them in `fields` and got "argument `metric_id`: missing or not a string"
+/// — so recording a measurement was the one write the surface could not
+/// actually do, and the metrics page went stale for want of it (KEEL-172).
+///
+/// Looking in both places rather than moving the read is deliberate. The
+/// top-level form is what the CLI and the existing tests send, and a fix that
+/// swapped one undiscoverable spelling for another would have been the same bug
+/// pointing the other way.
+fn arg_or_field<'a>(args: &'a Value, field: &str) -> Option<&'a Value> {
+    args.get(field)
+        .or_else(|| args.get("fields").and_then(|f| f.get(field)))
+}
+
+/// The arguments a type's constructor takes for itself, which must not then be
+/// re-applied as if they were ordinary columns.
+///
+/// Only metric observations have any. `metric_id` is immutable — an observation
+/// belongs to the metric it was recorded against — so handing it to
+/// `apply_changes` after the constructor already consumed it turns a working
+/// call into "the metric_id is set at creation", which is true and unhelpful.
+fn consumed_by_constructor(entity_type: EntityType) -> &'static [&'static str] {
+    match entity_type {
+        EntityType::MetricObservation => &["metric_id", "value", "observed_at"],
+        _ => &[],
     }
 }
 
@@ -1217,8 +1263,12 @@ fn keel_create(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     // Extra columns, applied through the same validated path an update uses,
     // so `fields: {status: "dun"}` produces the same helpful error either way.
     if let Some(Value::Object(fields)) = args.get("fields") {
+        let consumed = consumed_by_constructor(entity_type);
         let mut cleaned = Map::new();
         for (k, v) in fields {
+            if consumed.contains(&k.as_str()) {
+                continue;
+            }
             cleaned.insert(k.clone(), v.clone());
         }
         keel_core::store::apply_changes(&mut entity, &cleaned)
@@ -1420,14 +1470,29 @@ fn build_entity(
         EntityType::Environment => Environment::new(need_project()?, need_title()?).into(),
         EntityType::Metric => Metric::new(need_project()?, need_title()?).into(),
         EntityType::MetricObservation => {
-            let metric_raw = req_str(args, "metric_id")?;
-            let metric_id = EntityId::parse_as(&metric_raw, EntityType::Metric)
+            // All three read from the top level *or* from `fields`, because the
+            // schema promises `fields` takes any other column and these are the
+            // three it did not (KEEL-172).
+            let metric_raw = arg_or_field(args, "metric_id")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    bad_arg(
+                        "metric_id",
+                        "missing or not a string",
+                        "the `mtr_…` id of the metric being measured — `keel_search` with \
+                         type `metric` will find it",
+                    )
+                })?;
+            let metric_id = EntityId::parse_as(metric_raw, EntityType::Metric)
                 .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
-            let value = args
-                .get("value")
+            let value = arg_or_field(args, "value")
                 .and_then(Value::as_f64)
                 .ok_or_else(|| bad_arg("value", "missing", "the measured number"))?;
-            let observed_at = opt_time(args, "observed_at")?.unwrap_or_else(chrono::Utc::now);
+            let observed_at = parse_time(
+                arg_or_field(args, "observed_at").and_then(Value::as_str),
+                "observed_at",
+            )?
+            .unwrap_or_else(chrono::Utc::now);
             MetricObservation::new(metric_id, need_project()?, value, observed_at).into()
         }
         EntityType::Artifact => Artifact::new(need_project()?, need_title()?).into(),

@@ -436,3 +436,43 @@ fn close_without_a_daemon_reports_the_reference_it_closed() {
         "the raw id being echoed means the renderer fell back to its argument: {out}"
     );
 }
+
+/// KEEL-137. A read that falls back to the store because no daemon answered
+/// must not *make* the store on its way past.
+///
+/// `Store::open` creates and migrates when the file is absent, which is right
+/// for the two commands asked to produce a store and wrong for a read. The
+/// visible failure was the second half: an empty store answers "no project
+/// matches keel. Expected: one of: " — blaming the project name, with the empty
+/// list as the only clue that there was nothing to match against.
+#[test]
+fn a_read_against_a_home_with_no_store_says_so_and_creates_nothing() {
+    let home = tempfile::tempdir().unwrap();
+    let store = home.path().join("keel.sqlite");
+
+    let out = keel(home.path(), &["ready", "keel", "--daemon", NO_DAEMON])
+        .expect_failure("a read cannot answer from a store that does not exist");
+
+    assert!(
+        out.contains("no Keel store"),
+        "the error must name the missing store rather than the project: {out}"
+    );
+    assert!(
+        out.contains(&store.display().to_string()),
+        "and say which path it looked at: {out}"
+    );
+    assert!(out.contains("keel bootstrap"), "and how to make one: {out}");
+    assert!(
+        !store.exists(),
+        "a read must leave no store behind in a directory nobody asked it to write to"
+    );
+}
+
+/// The other half, which is what stops the fix from being a regression: the two
+/// commands whose job is to make a store still make one.
+#[test]
+fn the_commands_that_are_asked_to_make_a_store_still_do() {
+    let home = tempfile::tempdir().unwrap();
+    keel(home.path(), &["--force", "fixture"]).expect_ok("fixture makes a store");
+    assert!(home.path().join("keel.sqlite").exists());
+}

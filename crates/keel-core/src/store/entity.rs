@@ -307,7 +307,27 @@ fn validate_entity(entity: &Entity) -> Result<()> {
 /// falls through the hole that leaves.
 fn validate_on_create(entity: &Entity) -> Result<()> {
     match entity {
-        Entity::Task(t) => t.validate_summary(),
+        Entity::Task(t) => {
+            t.validate_summary()?;
+            // The same rule the update path enforces on the transition into a
+            // terminal status, applied here because a create *is not* a
+            // transition and so slipped past it. KEEL-216 was filed with
+            // `status: done` and landed closed with no reason, no message, no
+            // evidence and no `closed_at` — a row that reads as finished and
+            // says nothing about why, which is precisely what the rule exists
+            // to prevent.
+            //
+            // Holding a create to the rule rather than refusing one outright
+            // keeps the two backfills in this repository legal: `keel
+            // bootstrap` and `keel fixture` both seed rows that were already
+            // closed when they were written, and adopting a finished backlog
+            // is the same shape. What they now have to supply is what any
+            // other close supplies.
+            if t.status.is_terminal() {
+                t.validate_close()?;
+            }
+            Ok(())
+        }
         _ => Ok(()),
     }
 }
@@ -970,6 +990,20 @@ impl Store {
             self.check_task_parent(t)?;
         }
 
+        // A row that arrives closed gets the same two stamps the update path
+        // applies on the way in, or a create is a second definition of what a
+        // closed task looks like. `closed_at` matters most: without it the row
+        // is invisible to everything asking what was closed and when, which is
+        // the changelog and every "what shipped this week" query. A caller
+        // supplying its own — a backfill, which knows the real date — keeps it.
+        if let Entity::Task(t) = &mut entity
+            && t.status.is_terminal()
+        {
+            t.closed_at = t.closed_at.or(Some(now));
+            t.claimed_by = None;
+            t.claimed_at = None;
+        }
+
         *entity.audit_mut() = Audit::new(provenance, now);
         Ok(Prepared::Fresh(entity))
     }
@@ -1103,10 +1137,7 @@ impl EntityStore for Store {
         if let Entity::Task(task) = &mut entity
             && applied.iter().any(|c| c.field == "status")
         {
-            let terminal = matches!(
-                task.status,
-                crate::TaskStatus::Done | crate::TaskStatus::WontDo
-            );
+            let terminal = task.status.is_terminal();
             if !changes.contains_key("closed_at") {
                 task.closed_at = match (terminal, task.closed_at) {
                     (true, None) => Some(Utc::now()),

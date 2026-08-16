@@ -25,6 +25,9 @@ workspace = true
 # For `shipped_schema_version`, which is the number the whole decision turns on.
 keel-core.workspace = true
 anyhow.workspace = true
+# Only to stamp when a check ran. `chrono` and never `jiff`, and never both
+# (B-1) — the workspace has one time library and this is it.
+chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 ureq.workspace = true

@@ -380,6 +380,26 @@ export const api = {
       release_notes?: string;
       /** The same for the staged version, or null when nothing is staged. */
       staged_release_notes?: string | null;
+      /**
+       * Whether update checking is happening, and when it last did.
+       *
+       * `staged_version: null` says only that nothing is waiting, and that
+       * reads as "you are current" whether the daemon checked an hour ago, has
+       * been failing since March, or has checks switched off. This separates
+       * the three.
+       *
+       * **Absent, not null, on a daemon older than the updater** — which is
+       * every install before 0.1.2, the population that most needs telling it
+       * is behind. The interface reads the absence as the answer, so no
+       * outbound request and no known-latest comparison is involved.
+       */
+      update_check?: {
+        enabled?: boolean;
+        last_checked_at?: string | null;
+        last_error?: string | null;
+      };
+      /** The path of the running binary, for a machine with more than one. */
+      executable?: string | null;
     }>("/api/health"),
 
   /**

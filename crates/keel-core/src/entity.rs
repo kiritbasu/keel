@@ -193,6 +193,27 @@ impl EntityType {
         )
     }
 
+    /// Whether the document *is* the row's content, so creating one without
+    /// prose produces something empty rather than something terse.
+    ///
+    /// A subset of [`has_document`](Self::has_document), and the difference is
+    /// the point. A task with no body still says something — its summary is
+    /// required, and its status, priority and labels are content. A spec, a
+    /// decision or a question has no such column: the document is the whole of
+    /// what it holds, so a row with a title and nothing else records that
+    /// somebody decided something and loses what it was. Three landed in this
+    /// store that way (KEEL-171), and a decision log that says what was chosen
+    /// and nothing about why is the one shape it exists to prevent.
+    ///
+    /// `Feedback` is in: what a customer said is the artifact. `Design` is out:
+    /// its content is the image, and a caption is a caption.
+    pub const fn needs_prose(self) -> bool {
+        matches!(
+            self,
+            EntityType::Spec | EntityType::Decision | EntityType::Question | EntityType::Feedback
+        )
+    }
+
     /// Whether rows of this type carry a `project_id`, and whether it may be
     /// null.
     ///

@@ -237,3 +237,43 @@ async fn health_reports_whether_an_update_is_staged() {
     );
     drop(state);
 }
+
+/// KEEL-227. `staged_version: null` says only "nothing is waiting", and that
+/// reads as "you are current" whether the daemon checked an hour ago, has been
+/// failing quietly for a month, or has checks switched off entirely. Three
+/// states, one appearance — and the further behind you are, the less it says.
+#[tokio::test]
+async fn health_says_whether_update_checking_is_happening_at_all() {
+    let (base, state, _home) = daemon().await;
+
+    let body = health(&base).await;
+    let check = body
+        .get("update_check")
+        .expect("health has to carry the state of checking, not only its result");
+
+    // Present from this version on. Its *absence* is what tells the interface
+    // it is talking to a daemon older than the updater, which is the whole
+    // mechanism — no outbound request, no known-latest to compare against.
+    assert!(
+        check.get("enabled").is_some(),
+        "whether checks are on is a state a person chose and should see: {body}"
+    );
+    assert!(
+        check.get("last_checked_at").is_some(),
+        "the field is always there, null when no check has completed: {body}"
+    );
+    assert!(
+        check["last_checked_at"].is_null(),
+        "no check has run in this test: {body}"
+    );
+
+    // Which binary, not only which version. Two installs with the one on your
+    // PATH not being the one you updated is the case this exists for.
+    assert!(
+        body["executable"]
+            .as_str()
+            .is_some_and(|p| p.contains("keel")),
+        "health should name the binary it is running: {body}"
+    );
+    drop(state);
+}

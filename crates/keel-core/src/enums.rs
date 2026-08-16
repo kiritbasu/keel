@@ -279,6 +279,18 @@ impl TaskStatus {
     pub const fn is_open(self) -> bool {
         !matches!(self, TaskStatus::Done | TaskStatus::WontDo)
     }
+
+    /// Whether reaching this status means the task has stopped.
+    ///
+    /// The inverse of [`is_open`](Self::is_open), named separately because the
+    /// write path asks the question in this direction: every route into a
+    /// terminal status owes a reason, a message and — for `done` — evidence,
+    /// and the store had spelled the same `matches!` out by hand at each one.
+    /// Two hand-written copies of a rule are two chances for it to differ, and
+    /// the create path differing from the update path is what KEEL-217 was.
+    pub const fn is_terminal(self) -> bool {
+        !self.is_open()
+    }
 }
 
 string_enum! {

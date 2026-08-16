@@ -77,6 +77,34 @@ impl Fixture {
             .update(id, version, &map, &Provenance::anonymous(Actor::Human))
     }
 
+    /// A row in the state the rules would now refuse: terminal, with no reason.
+    ///
+    /// Closed properly and then stripped, because since KEEL-217 neither door
+    /// into a terminal status will accept one — which is the point. The check
+    /// sits on the transition, so blanking the field afterwards is what a
+    /// hundred and seven rows that predate the rule look like from here.
+    fn legacy_closed_task(&mut self, title: &str) -> EntityId {
+        let id = self.task(title);
+        close(
+            &mut self.store,
+            &id,
+            &Close {
+                reason: CloseReason::Done,
+                message: "A reason that is about to be removed.".to_owned(),
+                evidence: vec!["commit:abc1234".to_owned()],
+                other: None,
+            },
+            &session("ses_alpha"),
+        )
+        .unwrap();
+        self.update(
+            &id,
+            serde_json::json!({"close_reason": null, "close_message": null, "evidence": []}),
+        )
+        .unwrap();
+        id
+    }
+
     /// Backdate a claim so it reads as abandoned, without waiting three days.
     fn backdate_claim(&mut self, id: &EntityId, days: i64) {
         let when = chrono::Utc::now() - chrono::TimeDelta::days(days);
@@ -509,21 +537,139 @@ fn no_change_closes_with_a_message_and_no_evidence() {
 #[test]
 fn a_task_closed_before_the_rule_existed_can_still_be_edited() {
     let mut f = setup();
-    let mut old = Task::new(
-        f.project.clone(),
-        "Closed in the old world",
-        "A row that reached done before a reason was required.",
-    );
-    old.status = keel_core::TaskStatus::Done;
-    let id = f
-        .store
-        .create(old.into(), &Provenance::anonymous(Actor::Human))
-        .unwrap()
-        .entity
-        .id()
-        .clone();
+    let id = f.legacy_closed_task("Closed in the old world");
 
     f.update(&id, serde_json::json!({"priority": "p0"}))
         .expect("a hundred and seven rows are in this state and none of them may be frozen");
     assert!(f.read(&id).close_reason.is_none());
+}
+
+// --- Closing on the way in -----------------------------------------------
+//
+// KEEL-217. The rule above is enforced on the *transition* into a terminal
+// status, and a create is not a transition — so `keel_create(status: "done")`
+// went straight past it. KEEL-216 landed that way: done, with no reason, no
+// message, no evidence and no `closed_at`, which is a row that reads as
+// finished and says nothing about why.
+
+#[test]
+fn a_task_cannot_be_created_already_done_with_nothing_said() {
+    let mut f = setup();
+    let mut born_closed = Task::new(
+        f.project.clone(),
+        "Finished before it was filed",
+        "A row that tries to arrive closed without saying why.",
+    );
+    born_closed.status = keel_core::TaskStatus::Done;
+
+    let err = f
+        .store
+        .create(born_closed.into(), &Provenance::anonymous(Actor::Human))
+        .expect_err("a create into a terminal status is held to the same rule as a close");
+    let message = err.to_string();
+    assert!(
+        message.contains("without saying why"),
+        "the refusal says what was missing and how to supply it. Got: {message}"
+    );
+
+    assert_eq!(
+        f.store
+            .list(
+                &keel_core::EntityQuery::in_project(f.project.clone())
+                    .of_type(keel_core::EntityType::Task)
+            )
+            .unwrap()
+            .items
+            .len(),
+        0,
+        "a refused create leaves no row behind"
+    );
+}
+
+#[test]
+fn a_task_created_done_needs_evidence_like_any_other_close() {
+    let mut f = setup();
+    let mut no_evidence = Task::new(
+        f.project.clone(),
+        "Says why, shows nothing",
+        "A row that arrives closed with a reason and a message but nothing to show.",
+    );
+    no_evidence.status = keel_core::TaskStatus::Done;
+    no_evidence.close_reason = Some(CloseReason::Done);
+    no_evidence.close_message = Some("Shipped it, honestly.".to_owned());
+
+    let err = f
+        .store
+        .create(no_evidence.into(), &Provenance::anonymous(Actor::Human))
+        .expect_err("`done` needs evidence wherever the row reaches it");
+    assert!(
+        err.to_string().contains("nothing to show for it"),
+        "got: {err}"
+    );
+}
+
+// The permissive half of the fix: backfilling a closed row stays possible,
+// which is what `keel bootstrap`, `keel fixture` and adopting a finished
+// backlog all do. What it costs is what any other close costs.
+#[test]
+fn a_backfilled_close_is_accepted_and_keeps_the_date_it_supplied() {
+    let mut f = setup();
+    let when = chrono::Utc::now() - chrono::TimeDelta::days(30);
+    let mut backfilled = Task::new(
+        f.project.clone(),
+        "Done last month, filed today",
+        "A row imported from a backlog that was already finished.",
+    );
+    backfilled.status = keel_core::TaskStatus::Done;
+    backfilled.close_reason = Some(CloseReason::Done);
+    backfilled.close_message = Some("Landed before this store existed.".to_owned());
+    backfilled.evidence = vec!["commit:abc1234".to_owned()];
+    backfilled.closed_at = Some(when);
+    backfilled.claimed_by = Some("ses_ghost".to_owned());
+
+    let created = f
+        .store
+        .create(backfilled.into(), &Provenance::anonymous(Actor::Human))
+        .unwrap();
+    let Entity::Task(task) = created.entity else {
+        panic!("a task went in")
+    };
+
+    assert_eq!(
+        task.closed_at,
+        Some(when),
+        "a backfill knows the real date and the store must not overwrite it with now"
+    );
+    assert_eq!(
+        task.claimed_by, None,
+        "a finished task is not being worked on, on this path as much as on the other one"
+    );
+}
+
+// The stamp itself, which is the half of KEEL-216 nothing would have noticed:
+// a closed row with no `closed_at` is invisible to the changelog and to every
+// question that asks what was closed and when.
+#[test]
+fn a_close_on_the_way_in_is_stamped_with_a_time() {
+    let mut f = setup();
+    let mut arriving_closed = Task::new(
+        f.project.clone(),
+        "Wont do, and said so at birth",
+        "A row filed only to record that it is deliberately not being done.",
+    );
+    arriving_closed.status = keel_core::TaskStatus::WontDo;
+    arriving_closed.close_reason = Some(CloseReason::WontDo);
+    arriving_closed.close_message = Some("Filed for the record, not for the doing.".to_owned());
+
+    let created = f
+        .store
+        .create(arriving_closed.into(), &Provenance::anonymous(Actor::Human))
+        .unwrap();
+    let Entity::Task(task) = created.entity else {
+        panic!("a task went in")
+    };
+    assert!(
+        task.closed_at.is_some(),
+        "a row that arrives terminal is stamped, or nothing can ask when it closed"
+    );
 }

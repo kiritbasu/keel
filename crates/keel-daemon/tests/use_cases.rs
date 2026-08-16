@@ -483,7 +483,11 @@ async fn the_digest_never_truncates_questions_or_terms() {
             args(json!({
                 "type": "question", "project": project_id,
                 "title": format!("Open question number {i} that is deliberately quite long so \
-                                  that sixty of them comfortably exceed any sane digest budget")
+                                  that sixty of them comfortably exceed any sane digest budget"),
+                // Prose-bearing types arrive with prose (KEEL-171). This test
+                // is about a digest that has to leave things out, so the sixty
+                // rows only need to be real rows.
+                "body": format!("The reasoning behind open question number {i}."),
             })),
         )
         .await;
@@ -1246,7 +1250,10 @@ async fn seed(d: &Daemon) -> String {
         "keel_create",
         args(json!({
             "type": "question", "project": project_id,
-            "title": "Does a downgrade take effect immediately or at period end?"
+            "title": "Does a downgrade take effect immediately or at period end?",
+            // Prose-bearing types arrive with prose (KEEL-171).
+            "body": "Immediately is what people expect and at period end is what the \
+                     invoice can express. Nobody has decided."
         })),
     )
     .await;

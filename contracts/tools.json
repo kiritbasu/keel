@@ -289,7 +289,7 @@
           },
           "fields": {
             "additionalProperties": true,
-            "description": "Any other column on the type: status, kind, priority, labels, target_date, severity, sentiment, url, and so on. Invalid values are rejected with the list of valid ones.",
+            "description": "Any other column on the type: status, kind, priority, labels, target_date, severity, sentiment, url, and so on. Invalid values are rejected with the list of valid ones.\n\nA `metric_observation` is recorded here too: `metric_id` (the `mtr_…` being measured), `value`, and an optional `observed_at`.",
             "type": "object"
           },
           "idempotency_key": {

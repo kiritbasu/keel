@@ -924,7 +924,8 @@ fn run_import(
 }
 
 fn run_bootstrap(home: &Path, repo: Option<String>, only: bool, json: bool) -> Result<()> {
-    let mut store = open(home)?;
+    // One of the two commands that may make a store rather than find one.
+    let mut store = create_or_open(home)?;
     let summary = bootstrap::run(&mut store, repo)?;
 
     let archived = if only {
@@ -1205,12 +1206,41 @@ fn resolve_home(explicit: Option<PathBuf>) -> Result<PathBuf> {
     Ok(home.join(".keel"))
 }
 
-/// Open the store under a home directory.
+/// Open a store that is already there.
 ///
 /// `home` is the directory; the store is one file inside it. Every caller goes
 /// through `store_path` rather than joining a filename, because a surface that
 /// picks the wrong name gets a brand-new empty store instead of an error.
-fn open(home: &Path) -> Result<Store> {
+///
+/// **The existence check is the point.** `Store::open` creates and migrates when
+/// the file is absent, which is right for the two commands whose job is to make
+/// a store and wrong for everything else. A read that fell back to the store
+/// because no daemon answered used to leave an empty `keel.sqlite` behind in a
+/// directory nobody asked it to write to, and then report `no project matches
+/// keel. Expected: one of: ` — blaming the project name for a store that does
+/// not exist. The empty list was the only tell (KEEL-137).
+pub(crate) fn open(home: &Path) -> Result<Store> {
+    let path = keel_core::store_path(home);
+    if !path.exists() {
+        bail!(
+            "there is no Keel store at {}.\n\n\
+             Nothing was created: a command that reads does not get to make one, or a mistyped \
+             --home silently becomes an empty store that answers every question with \"nothing \
+             here\".\n\n\
+             `keel bootstrap` makes a store for this project, `keel fixture` fills one with demo \
+             data, and --home points at a different one.",
+            path.display()
+        );
+    }
+    Store::open(&path).with_context(|| format!("open the store at {}", path.display()))
+}
+
+/// Open the store under a home directory, making one if there is none.
+///
+/// The other half of [`open`], for the commands that are *asked* to produce a
+/// store. Separate rather than a boolean argument, so that a call site creating
+/// a store says so where it is read.
+fn create_or_open(home: &Path) -> Result<Store> {
     let path = keel_core::store_path(home);
     Store::open(&path).with_context(|| format!("open the store at {}", path.display()))
 }

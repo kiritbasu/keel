@@ -23,6 +23,19 @@
 #   4. Installs a service so the daemon comes back after a reboot.
 #   5. Starts it, and waits until it actually answers.
 #
+# ## What leaves your machine
+#
+# One thing: an hourly GET of the latest release manifest, so the daemon can
+# tell you a new version exists. It sends nothing from your store — not a
+# project name, not a count, not an identifier. `--no-update-check` turns it off
+# at install time, `KEEL_AUTO_UPDATE=0` turns it off afterwards, and `keel
+# doctor` reports which it is and when the last check ran.
+#
+# Said out loud in the output rather than left here, because a tool whose pitch
+# is that your project's history stays on your machine has to be the one that
+# mentions its own network request. Finding it yourself, later, is the version
+# of this that costs trust (KEEL-204).
+#
 # ## The port is fixed, deliberately
 #
 # An earlier plan had this resolve a collision by moving to the next free port
@@ -51,12 +64,17 @@ DAEMON_URL="http://127.0.0.1:$PORT"
 DRY_RUN=false
 EMBEDDINGS=false
 INSTALL_SERVICE=true
+# The one thing Keel does that leaves this machine, and the one thing somebody
+# installing a local-first tool would want to be asked about. On by default and
+# off with a flag, disclosed either way — see "What leaves your machine" below.
+UPDATE_CHECK=true
 
 for arg in "$@"; do
     case "$arg" in
         --dry-run)     DRY_RUN=true ;;
         --embeddings)  EMBEDDINGS=true ;;
         --no-service)  INSTALL_SERVICE=false ;;
+        --no-update-check) UPDATE_CHECK=false ;;
         -h|--help)     sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *)             echo "setup: unknown argument: $arg" >&2; exit 2 ;;
     esac
@@ -285,6 +303,11 @@ fi
 
 install_launchd() {
     local plist="$HOME/Library/LaunchAgents/sh.keel.daemon.plist"
+    # Written into the service's own environment, not a shell profile: the
+    # daemon is started by launchd at login and never reads one.
+    local update_env=""
+    [ "$UPDATE_CHECK" = false ] && update_env="
+        <key>KEEL_AUTO_UPDATE</key><string>0</string>"
     local args="<string>$daemon_bin</string>"
     [ "$EMBEDDINGS" = true ] && args="$args
         <string>--embeddings</string>"
@@ -308,7 +331,7 @@ install_launchd() {
     <key>EnvironmentVariables</key>
     <dict>
         <key>KEEL_HOME</key><string>$KEEL_HOME_DIR</string>
-        <key>KEEL_BIND</key><string>127.0.0.1:$PORT</string>
+        <key>KEEL_BIND</key><string>127.0.0.1:$PORT</string>$update_env
     </dict>
 </dict>
 </plist>
@@ -320,6 +343,8 @@ PLIST
 
 install_systemd() {
     local unit="$HOME/.config/systemd/user/keel.service"
+    local update_env=""
+    [ "$UPDATE_CHECK" = false ] && update_env="Environment=KEEL_AUTO_UPDATE=0"
     local exec="$daemon_bin"
     [ "$EMBEDDINGS" = true ] && exec="$exec --embeddings"
 
@@ -332,6 +357,7 @@ After=network.target
 [Service]
 Environment=KEEL_HOME=$KEEL_HOME_DIR
 Environment=KEEL_BIND=127.0.0.1:$PORT
+$update_env
 ExecStart=$exec
 Restart=always
 RestartSec=2
@@ -374,7 +400,10 @@ else
     if [ "$INSTALL_SERVICE" = false ]; then
         embed_flag=""
         [ "$EMBEDDINGS" = true ] && embed_flag="--embeddings"
-        KEEL_HOME="$KEEL_HOME_DIR" nohup "$daemon_bin" --bind "127.0.0.1:$PORT" $embed_flag \
+        auto_update=1
+        [ "$UPDATE_CHECK" = false ] && auto_update=0
+        KEEL_HOME="$KEEL_HOME_DIR" KEEL_AUTO_UPDATE="$auto_update" \
+            nohup "$daemon_bin" --bind "127.0.0.1:$PORT" $embed_flag \
             >>"$KEEL_HOME_DIR/daemon.log" 2>&1 &
     fi
 
@@ -401,8 +430,23 @@ step "Done"
 printf '  Store      %s\n' "$KEEL_HOME_DIR"
 printf '  Daemon     %s\n' "$DAEMON_URL"
 printf '  Interface  keel ui\n'
-printf '  Embeddings %s\n\n' \
+printf '  Embeddings %s\n' \
     "$([ "$EMBEDDINGS" = true ] && echo "on" || echo "off — keyword search works either way")"
+printf '  Updates    %s\n\n' \
+    "$([ "$UPDATE_CHECK" = true ] \
+        && echo "checks hourly for a new release — see below" \
+        || echo "off — Keel makes no network requests at all")"
+
+# Said plainly, every install, whichever way it is set. A tool whose pitch is
+# that your project stays on your machine has to be the one that mentions its
+# own network request; discovering it later is the version that costs trust.
+if [ "$UPDATE_CHECK" = true ]; then
+    printf '  \033[1mWhat leaves your machine:\033[0m one hourly request, fetching the latest\n'
+    printf '  release manifest so Keel can tell you a new version exists. It sends\n'
+    printf '  nothing from your store — no project names, no counts, no identifier.\n'
+    printf '  Turn it off with KEEL_AUTO_UPDATE=0, or re-run this with\n'
+    printf '  --no-update-check. `keel doctor` says which it is and when it last ran.\n\n'
+fi
 # `printf`, not a heredoc: a heredoc does not interpret escapes, so the bold
 # sequence printed literally as \033[1m — in the one line that most needs to be
 # read, which is a fair demonstration of why the dry run exists.

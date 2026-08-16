@@ -361,9 +361,9 @@ fn run_write(home: &Path, daemon: &str, tool: &str, args: &Value) -> Result<Valu
 /// Safe only because we got here by failing to reach a daemon, which is the one
 /// condition under which nothing else is writing.
 fn directly(home: &Path, f: impl FnOnce(Store) -> Result<Value>) -> Result<Value> {
-    let path = keel_core::store_path(home);
-    let store =
-        Store::open(&path).with_context(|| format!("open the store at {}", path.display()))?;
+    // Not `Store::open`, which would create one. A read that fell back because
+    // no daemon answered must not leave an empty store behind (KEEL-137).
+    let store = crate::open(home)?;
     f(store)
 }
 

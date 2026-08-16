@@ -369,6 +369,9 @@ pub fn examine(home: &Path, daemon: &str) -> Result<Report> {
     // --- The repository beside the store ---------------------------------
     checks.extend(mirror_drift(&store)?);
 
+    // --- The one thing that leaves this machine ---------------------------
+    checks.push(update_check());
+
     // --- Backups ----------------------------------------------------------
     checks.push(backup_age(home));
 
@@ -505,6 +508,56 @@ fn mirror_drift(store: &Store) -> Result<Vec<Check>> {
         }
     }
     Ok(out)
+}
+
+/// Whether Keel is calling out, and when it last did.
+///
+/// The one outbound request this product makes, reported as a check rather than
+/// left in the source. The pitch is that your project's history lives on your
+/// machine, and an undisclosed network request undermines that claim whether or
+/// not it carries anything — so "is this thing phoning home?" should be a
+/// command with an answer, not a reading of the code (KEEL-204).
+///
+/// It says what the request *is*, in the detail line, because the honest answer
+/// is narrower and better than a reassurance: a plain GET of a release manifest,
+/// with nothing from the store attached.
+///
+/// Never a problem, at either setting. Checking is not a fault and switching it
+/// off is a choice somebody made; a doctor that scolds you for your own
+/// configuration is a doctor people stop running.
+fn update_check() -> Check {
+    if !keel_update::auto_update_enabled() {
+        return Check::ok(
+            "update_check",
+            "off (KEEL_AUTO_UPDATE=0) — Keel makes no network requests at all",
+        );
+    }
+
+    let last = keel_update::install_dir()
+        .ok()
+        .and_then(|dir| keel_update::last_check(&dir));
+
+    let detail = match last {
+        Some(stamp) if stamp.error.is_none() => format!(
+            "on — fetches the release manifest hourly, sending nothing from the store. \
+             Last checked {}",
+            stamp.at
+        ),
+        Some(stamp) => format!(
+            "on — last check at {} did not complete: {}",
+            stamp.at,
+            stamp.error.unwrap_or_default()
+        ),
+        // No stamp is the ordinary state for a daemon that has not been up an
+        // hour, and also what a daemon too old to record one looks like. Both
+        // mean the same thing to a reader: nothing here can tell you the check
+        // is working.
+        None => "on — fetches the release manifest hourly, sending nothing from the store. \
+                 No completed check on record"
+            .to_owned(),
+    };
+
+    Check::ok("update_check", detail)
 }
 
 /// When the most recent backup was taken.
@@ -685,7 +738,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let home = dir.path().join("Dropbox").join(".keel");
         std::fs::create_dir_all(&home).unwrap();
-        let _ = crate::open(&home).unwrap();
+        let _ = crate::create_or_open(&home).unwrap();
 
         let report = examine(&home, NO_DAEMON).unwrap();
         let location = find(&report, "location");
@@ -708,7 +761,7 @@ mod tests {
     fn an_ordinary_home_reports_its_location_as_fine() {
         let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
-        let _ = crate::open(dir.path()).unwrap();
+        let _ = crate::create_or_open(dir.path()).unwrap();
 
         let report = examine(dir.path(), NO_DAEMON).unwrap();
         assert_eq!(find(&report, "location").level, Level::Ok);
@@ -762,7 +815,7 @@ mod tests {
     fn a_fresh_store_has_no_problems() {
         let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
-        let _ = crate::open(dir.path()).unwrap();
+        let _ = crate::create_or_open(dir.path()).unwrap();
 
         let report = examine(dir.path(), NO_DAEMON).unwrap();
         assert!(
@@ -775,6 +828,18 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert_eq!(find(&report, "schema").level, Level::Ok);
+        // KEEL-204. The one request Keel makes should be answerable with a
+        // command rather than by reading the source, and reporting it is not
+        // the same as complaining about it — a doctor that scolds you for your
+        // own configuration is a doctor people stop running.
+        let network = find(&report, "update_check");
+        assert_eq!(network.level, Level::Ok);
+        assert!(
+            network.detail.contains("sending nothing from the store")
+                || network.detail.contains("no network requests at all"),
+            "the check should say what the request carries, not only that it happens: {}",
+            network.detail
+        );
         assert_eq!(find(&report, "page_integrity").level, Level::Ok);
         assert_eq!(find(&report, "fsck").level, Level::Ok);
         assert_eq!(
@@ -792,7 +857,7 @@ mod tests {
         use keel_core::{Actor, EntityStore, Project, Provenance, Spec};
 
         let dir = tempfile::tempdir().unwrap();
-        let mut store = crate::open(dir.path()).unwrap();
+        let mut store = crate::create_or_open(dir.path()).unwrap();
         let prov = Provenance::anonymous(Actor::Claude);
         let project = store
             .create(Project::new("demo", "Demo").into(), &prov)
@@ -831,7 +896,7 @@ mod tests {
     fn a_coherent_passage_index_reports_itself_coherent() {
         let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
-        let mut store = crate::open(dir.path()).unwrap();
+        let mut store = crate::create_or_open(dir.path()).unwrap();
         store.set_embedder(std::sync::Arc::new(keel_core::HashEmbedder::new()));
         let id = seed_spec(&mut store, "Coherent", "Prose that gets passages.\n");
         assert!(id.as_str().starts_with("spc_"));
@@ -848,7 +913,7 @@ mod tests {
     fn a_passage_left_behind_by_an_edit_is_reported() {
         let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
-        let mut store = crate::open(dir.path()).unwrap();
+        let mut store = crate::create_or_open(dir.path()).unwrap();
         store.set_embedder(std::sync::Arc::new(keel_core::HashEmbedder::new()));
         let id = seed_spec(&mut store, "Edited", "The original prose.\n");
 
@@ -921,7 +986,7 @@ mod tests {
         use keel_core::{Actor, EntityStore, Project, Provenance, Spec};
 
         let dir = tempfile::tempdir().unwrap();
-        let mut store = crate::open(dir.path()).unwrap();
+        let mut store = crate::create_or_open(dir.path()).unwrap();
         let prov = Provenance::anonymous(Actor::Claude);
         let project = store
             .create(Project::new("demo", "Demo").into(), &prov)
@@ -962,7 +1027,7 @@ mod tests {
         // gets a future one in its own store.
         let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
-        let store = crate::open(dir.path()).unwrap();
+        let store = crate::create_or_open(dir.path()).unwrap();
 
         // A ULID whose timestamp is an hour ahead. Written directly, because
         // the generator takes its stamp from the clock and there is no way to

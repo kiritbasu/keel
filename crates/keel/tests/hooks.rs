@@ -501,3 +501,197 @@ fn a_binary_too_old_to_know_hook_is_silent_rather_than_blocking() {
         );
     }
 }
+
+// --- The pre-commit hook -------------------------------------------------
+//
+// `scripts/pre-commit` is the mechanism that stops a hand-edited generated file
+// being committed, and it was the second hook in this repository that nothing
+// had ever run. KEEL-136 is what that cost: it asked `keel generate --check`
+// about the project's *recorded* checkout rather than the tree being committed,
+// so from a git worktree it reported drift that was not there and — the half
+// that matters — compared a hand edit against a copy of the file that nobody
+// had touched. A check that can pass for the wrong tree is the failure this
+// hook exists to replace.
+
+/// Somewhere to run a hook that is not this repository.
+struct Sandbox {
+    dir: tempfile::TempDir,
+    /// Where the stub `keel` writes the arguments it was called with.
+    argv: std::path::PathBuf,
+    /// The directory holding the stub, which is the whole of `PATH`.
+    bin: std::path::PathBuf,
+}
+
+/// A git repository with one commit, a stub `keel` on `PATH`, and nothing else.
+///
+/// The stub is the point: the hook's job is to ask the right question, and a
+/// real binary would answer a question about a store that has nothing to do
+/// with this test. Recording argv makes "which tree did it check" assertable.
+fn sandbox(check_exit: i32, drift: &str) -> Sandbox {
+    let dir = scratch();
+    let bin = dir.path().join("bin");
+    let argv = dir.path().join("argv.txt");
+    std::fs::create_dir_all(&bin).unwrap();
+
+    let stub = bin.join("keel");
+    std::fs::write(
+        &stub,
+        format!(
+            "#!/bin/sh\n\
+             if [ \"$1\" = generate ] && [ \"$2\" = --help ]; then exit 0; fi\n\
+             printf '%s\\n' \"$@\" > {argv}\n\
+             printf '%s\\n' '{drift}'\n\
+             exit {check_exit}\n",
+            argv = argv.display(),
+        ),
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    Sandbox { dir, argv, bin }
+}
+
+fn git(cwd: &std::path::Path, args: &[&str]) {
+    let out = Command::new("git")
+        .current_dir(cwd)
+        .args(args)
+        .env("GIT_AUTHOR_NAME", "T")
+        .env("GIT_AUTHOR_EMAIL", "t@example.com")
+        .env("GIT_COMMITTER_NAME", "T")
+        .env("GIT_COMMITTER_EMAIL", "t@example.com")
+        .output()
+        .expect("git runs");
+    assert!(
+        out.status.success(),
+        "git {args:?} failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+/// Stage a generated file, so the hook has something to check.
+fn stage_a_generated_file(tree: &std::path::Path, text: &str) {
+    std::fs::create_dir_all(tree.join("product")).unwrap();
+    std::fs::write(tree.join("product/STATUS.md"), text).unwrap();
+    git(tree, &["add", "product/STATUS.md"]);
+}
+
+/// Run `scripts/pre-commit` in `cwd`, with only the stub on `PATH`.
+fn run_pre_commit(sandbox: &Sandbox, cwd: &std::path::Path) -> (String, i32) {
+    let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../scripts/pre-commit")
+        .canonicalize()
+        .expect("the hook is in the repository");
+    let out = Command::new("bash")
+        .arg(&script)
+        .current_dir(cwd)
+        .env("PATH", format!("{}:/usr/bin:/bin", sandbox.bin.display()))
+        .output()
+        .expect("bash runs");
+    (
+        format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        ),
+        out.status.code().unwrap_or(-1),
+    )
+}
+
+/// The arguments the stub was handed, one per line.
+fn recorded(sandbox: &Sandbox) -> Vec<String> {
+    std::fs::read_to_string(&sandbox.argv)
+        .expect("the hook called keel at all")
+        .lines()
+        .map(str::to_owned)
+        .collect()
+}
+
+/// KEEL-136. The tree being committed is a worktree, and that is the tree the
+/// check has to read — not the checkout Keel has on file.
+#[test]
+fn the_pre_commit_check_reads_the_worktree_it_is_committing_from() {
+    let sandbox = sandbox(0, "");
+    let main = sandbox.dir.path().join("main");
+    std::fs::create_dir_all(&main).unwrap();
+    git(&main, &["init", "-q", "-b", "main"]);
+    std::fs::write(main.join("README.md"), "hello\n").unwrap();
+    git(&main, &["add", "README.md"]);
+    git(&main, &["commit", "-qm", "first"]);
+
+    let side = sandbox.dir.path().join("side");
+    git(
+        &main,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            side.to_str().unwrap(),
+            "-b",
+            "side",
+        ],
+    );
+    stage_a_generated_file(&side, "a tracker rendered in the worktree\n");
+
+    let (output, code) = run_pre_commit(&sandbox, &side);
+    assert_eq!(code, 0, "a clean check permits the commit: {output}");
+
+    let args = recorded(&sandbox);
+    let repo = args
+        .iter()
+        .position(|a| a == "--repo")
+        .and_then(|i| args.get(i + 1))
+        .expect("the check is told which tree to read");
+    assert_eq!(
+        std::path::Path::new(repo).canonicalize().unwrap(),
+        side.canonicalize().unwrap(),
+        "the check must read the worktree the commit is in, not the recorded checkout. \
+         Got: {args:?}"
+    );
+}
+
+/// The failure case, which is the one the hook exists for: the check says a
+/// generated file differs, and the commit is refused with somewhere to go.
+#[test]
+fn the_pre_commit_hook_refuses_a_commit_when_a_generated_file_has_drifted() {
+    let sandbox = sandbox(1, "stale product/STATUS.md");
+    let repo = sandbox.dir.path().join("repo");
+    std::fs::create_dir_all(&repo).unwrap();
+    git(&repo, &["init", "-q", "-b", "main"]);
+    std::fs::write(repo.join("README.md"), "hello\n").unwrap();
+    git(&repo, &["add", "README.md"]);
+    git(&repo, &["commit", "-qm", "first"]);
+    stage_a_generated_file(&repo, "edited by hand\n");
+
+    let (output, code) = run_pre_commit(&sandbox, &repo);
+    assert_eq!(code, 1, "drift blocks the commit: {output}");
+    assert!(
+        output.contains("stale product/STATUS.md"),
+        "the refusal repeats what the check said: {output}"
+    );
+    assert!(
+        output.contains("--no-verify"),
+        "and says how to override it deliberately: {output}"
+    );
+}
+
+/// Nothing generated in the commit means no store round-trip, and no opinion.
+#[test]
+fn the_pre_commit_hook_ignores_a_commit_that_touches_no_generated_file() {
+    let sandbox = sandbox(1, "this must never be reached");
+    let repo = sandbox.dir.path().join("repo");
+    std::fs::create_dir_all(&repo).unwrap();
+    git(&repo, &["init", "-q", "-b", "main"]);
+    std::fs::write(repo.join("src.rs"), "fn main() {}\n").unwrap();
+    git(&repo, &["add", "src.rs"]);
+
+    let (output, code) = run_pre_commit(&sandbox, &repo);
+    assert_eq!(code, 0, "{output}");
+    assert!(
+        !sandbox.argv.exists(),
+        "the hook must not call keel at all when nothing generated is staged"
+    );
+}

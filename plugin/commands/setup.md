@@ -18,6 +18,14 @@ When it finishes, tell the user in one line that they need to **restart Claude
 Code**: MCP servers are connected at startup, so the `keel_*` tools will not
 appear in this session however well the install went.
 
+Relay the "What leaves your machine" paragraph too, rather than summarising it
+away. Keel checks hourly for a new release and that is the only request it
+makes; the person installing a local-first tool is entitled to hear about it
+from the tool rather than find it later. `--no-update-check` turns it off at
+install time and `KEEL_AUTO_UPDATE=0` afterwards — if they say they would rather
+not have it, re-run the script with that flag rather than explaining how to edit
+a service file.
+
 If the script reports that the download returned 404, relay its instructions
 verbatim. That means either no release has been published or the repository is
 private and the download needs a token — and which of the two it is is not

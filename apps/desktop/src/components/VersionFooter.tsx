@@ -21,17 +21,99 @@ import { useState } from "react";
 import { ApiError, api } from "../lib/api";
 import { Button } from "./ui";
 
+/**
+ * What the daemon says about its own update checking, or `undefined` when it is
+ * too old to say anything.
+ *
+ * The absence is load-bearing. A daemon from before the updater has no such
+ * field, and that alone establishes it is behind — no request, no comparison
+ * against a known-latest, nothing outbound.
+ */
+export type UpdateCheck = {
+  enabled?: boolean;
+  last_checked_at?: string | null;
+  last_error?: string | null;
+};
+
+/** How long a check may be silent before its silence is worth naming. */
+const STALE_AFTER_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * The one sentence to put under the version, or null when there is nothing
+ * worth saying.
+ *
+ * Exported for its tests: every branch here is a state a person has been in and
+ * could not distinguish from being current.
+ */
+export function checkStatus(
+  updateCheck: UpdateCheck | undefined,
+  knowsAboutUpdates: boolean,
+  now: number = Date.now(),
+): { text: string; tone: "faint" | "warn" } | null {
+  // Two different absences, and conflating them would put a false sentence on
+  // the screen. `staged_version` appeared with the updater in 0.1.2, so a
+  // daemon without it has no updater at all and will never find one. A daemon
+  // that has the field but no `update_check` does check — it just cannot say
+  // when, so its silence still is not evidence of being current (KEEL-227).
+  if (!knowsAboutUpdates) {
+    return {
+      text: "This daemon predates automatic updates and will never find one. Reinstall to get a version that can.",
+      tone: "warn",
+    };
+  }
+  if (!updateCheck) {
+    return {
+      text: "This daemon cannot say when it last checked for updates.",
+      tone: "faint",
+    };
+  }
+  if (updateCheck.enabled === false) {
+    return {
+      text: "Update checks are off (KEEL_AUTO_UPDATE=0).",
+      tone: "faint",
+    };
+  }
+  const at = updateCheck.last_checked_at
+    ? new Date(updateCheck.last_checked_at)
+    : null;
+  // A stamp nobody can read is treated as no stamp. Failing closed, because
+  // the alternative is a timestamp that cannot be interpreted vouching for a
+  // version by saying nothing.
+  const when = at !== null && !Number.isNaN(at.getTime()) ? at : null;
+  if (when === null) {
+    return { text: "No update check has completed yet.", tone: "faint" };
+  }
+
+  if (updateCheck.last_error) {
+    return {
+      text: `Last update check failed: ${updateCheck.last_error}`,
+      tone: "warn",
+    };
+  }
+  if (now - when.getTime() > STALE_AFTER_MS) {
+    return {
+      text: `Last checked for updates ${when.toLocaleDateString()} — nothing since.`,
+      tone: "warn",
+    };
+  }
+  return null;
+}
+
 export function VersionFooter({
   version,
   stagedVersion,
   releaseNotes,
   stagedReleaseNotes,
+  updateCheck,
+  executable,
   onApplied,
 }: {
   version: string | undefined;
   stagedVersion: string | null | undefined;
   releaseNotes?: string;
   stagedReleaseNotes?: string | null;
+  updateCheck?: UpdateCheck;
+  executable?: string | null;
   onApplied: () => void;
 }) {
   const [applying, setApplying] = useState(false);
@@ -58,9 +140,21 @@ export function VersionFooter({
 
   if (!version) return null;
 
+  // `undefined` means the daemon did not send `staged_version` at all, which
+  // only a pre-0.1.2 daemon does; `null` means it sent one and nothing is
+  // waiting. The difference is the whole of how the interface knows how far
+  // back it is talking to, without asking anything.
+  const status = checkStatus(updateCheck, stagedVersion !== undefined);
+
   return (
     <div className="mt-cosy px-2.5">
-      <p className="text-micro text-ink-faint">
+      <p
+        className="text-micro text-ink-faint"
+        // Which binary, not only which version. Two installs and the one on
+        // your PATH not being the one you updated is the case this footer
+        // exists for, and a version alone cannot tell them apart.
+        title={executable ? `Running ${executable}` : undefined}
+      >
         Keel{" "}
         {releaseNotes ? (
           // A version with no way to find out what is in it is a number. The
@@ -79,6 +173,21 @@ export function VersionFooter({
           <span className="font-mono">{version}</span>
         )}
       </p>
+
+      {/*
+        Said only when nothing is staged. An update sitting there ready is the
+        more useful thing to read, and two notices about updating at once is
+        one too many.
+      */}
+      {!stagedVersion && status && (
+        <p
+          className={`mt-cosy text-micro ${
+            status.tone === "warn" ? "text-ink-muted" : "text-ink-faint"
+          }`}
+        >
+          {status.text}
+        </p>
+      )}
 
       {stagedVersion && !applying && (
         <div className="mt-cosy">

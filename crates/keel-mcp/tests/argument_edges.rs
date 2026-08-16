@@ -204,3 +204,106 @@ fn closing_a_task_as_a_duplicate_of_a_spec_is_refused() {
     )
     .expect("a task duplicating a task is the case this exists for");
 }
+
+/// KEEL-172. `fields` is documented as "any other column on the type", and for
+/// a metric observation's three columns that was false: the constructor read
+/// them from the top level and the schema declared none of them, so a caller
+/// following the tool's own description was refused. Recording a measurement
+/// was the one write the surface could not do, which is a fair explanation for
+/// why the metrics page went stale.
+#[test]
+fn a_measurement_can_be_recorded_the_way_the_schema_says() {
+    let mut f = fixture();
+    let metric = call(
+        &mut f.store,
+        "keel_create",
+        json!({"type": "metric", "project": "edges", "title": "Unprompted writes"}),
+    )
+    .unwrap();
+    let metric_id = metric
+        .pointer("/structuredContent/entity/id")
+        .and_then(Value::as_str)
+        .unwrap()
+        .to_owned();
+
+    let recorded = call(
+        &mut f.store,
+        "keel_create",
+        json!({
+            "type": "metric_observation",
+            "project": "edges",
+            "fields": {
+                "metric_id": metric_id,
+                "value": 0.62,
+                "observed_at": "2026-08-15T09:00:00Z",
+            },
+        }),
+    )
+    .expect("`fields` has to take the three columns it says it takes");
+
+    let entity = recorded.pointer("/structuredContent/entity").unwrap();
+    assert_eq!(entity.get("metric_id"), Some(&json!(metric_id)));
+    assert_eq!(entity.get("value"), Some(&json!(0.62)));
+    assert!(
+        entity
+            .get("observed_at")
+            .and_then(Value::as_str)
+            .is_some_and(|t| t.starts_with("2026-08-15T09:00:00")),
+        "the supplied time is kept rather than replaced with now: {entity}"
+    );
+}
+
+/// And the spelling that already worked keeps working. A fix that moved the
+/// arguments rather than widening where they are looked for would have been the
+/// same bug pointing the other way — the CLI and every existing caller send
+/// them at the top level.
+#[test]
+fn a_measurement_can_still_be_recorded_from_the_top_level() {
+    let mut f = fixture();
+    let metric = call(
+        &mut f.store,
+        "keel_create",
+        json!({"type": "metric", "project": "edges", "title": "Digest size"}),
+    )
+    .unwrap();
+    let metric_id = metric
+        .pointer("/structuredContent/entity/id")
+        .and_then(Value::as_str)
+        .unwrap()
+        .to_owned();
+
+    let recorded = call(
+        &mut f.store,
+        "keel_create",
+        json!({
+            "type": "metric_observation",
+            "project": "edges",
+            "metric_id": metric_id,
+            "value": 3400.0,
+        }),
+    )
+    .expect("the top-level form is what the CLI sends");
+    assert_eq!(
+        recorded.pointer("/structuredContent/entity/value"),
+        Some(&json!(3400.0))
+    );
+}
+
+/// The failure case, and the one a model actually needs: no metric named at
+/// all. The refusal has to say where to find one, because "missing or not a
+/// string" leaves a caller guessing at a ULID it has never seen.
+#[test]
+fn recording_a_measurement_against_no_metric_says_how_to_find_one() {
+    let mut f = fixture();
+    let error = call(
+        &mut f.store,
+        "keel_create",
+        json!({"type": "metric_observation", "project": "edges", "fields": {"value": 1.0}}),
+    )
+    .expect_err("an observation of nothing is not an observation");
+    assert!(error.contains("metric_id"), "{error}");
+    assert!(
+        error.contains("keel_search"),
+        "the refusal should say how to find the metric: {error}"
+    );
+}

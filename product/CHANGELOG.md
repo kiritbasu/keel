@@ -1,15 +1,61 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T05:28:16Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T07:20:54Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (221)
+## Closed work (229)
 
 ### 2026-08-16
+
+- **KEEL-204** Tell people the update check phones home, and let them turn it off — `done`
+
+  `setup.sh` discloses the hourly release-manifest request on every install — what it fetches, that it sends nothing from the store, and both ways to turn it off — and `--no-update-check` writes `KEEL_AUTO_UPDATE=0` into the service's own environment rather than a shell profile the daemon never reads. `keel doctor` reports which it is and when the last check ran. It tells rather than asks: `/keel:setup` runs through Claude Code's Bash tool with nobody on stdin, and a prompt that only fires on a TTY would be a consent path almost no install ever reaches.
+
+  <sub>commit:f268b5a · test:cargo test -p keel --bin keel doctor</sub>
+
+- **KEEL-171** A question or decision can be created with no prose in it at all — `done`
+
+  A spec, decision, question or feedback now has to arrive with prose, checked in `create_with_document` before anything is prepared or written — so a refusal cannot leave the headless row that was the second route to the same state. Design is exempt, because its content is the image. The three rows the task named have bodies, each labelled as a reconstruction with its sources. The other seven are a question rather than a chore: reconstructing an accepted decision means a machine inventing KB's reasoning, which is the thing this log exists to hold.
+
+  <sub>commit:c7f8e0f · test:cargo test -p keel-core --test composite · doc:que_01M04PW3ZCQJ37M7EC27K58HC0</sub>
+
+- **KEEL-227** A daemon too old to check for updates says nothing, which is when you most need telling — `done`
+
+  The daemon now reports the state of update checking as well as its result — whether checks are on, when one last completed, why it did not — and which binary it is running. The interface reads two different absences to tell how far back it is talking to: no `staged_version` at all means a daemon with no updater, and `staged_version` without `update_check` means one that checks but cannot say when. Nothing outbound and no known-latest comparison, so the "should the interface reach the internet" question stays unanswered and unblocked. Verified against the live daemon: the footer went from silence to a sentence.
+
+  <sub>commit:0862e71 · test:cargo test -p keel-daemon --test health · test:npx vitest run src/components/VersionFooter.test.tsx</sub>
+
+- **KEEL-137** The daemonless fallback creates an empty store instead of saying there isn't one — `done`
+
+  `open` refuses a home with no store, naming the path and the two commands that make one; `create_or_open` is the separate half for `bootstrap` and the doctor tests that build a store to examine. Two tests: a `keel ready` fallback that fails, names the path, and leaves no file behind, and `keel fixture` still making one.
+
+  <sub>commit:661a9be · test:cargo test -p keel --test verbs</sub>
+
+- **KEEL-172** keel_create cannot record a metric observation through its own schema — `done`
+
+  `metric_id`, `value` and `observed_at` are now read from `fields` as well as from the top level, and the `fields` description names them, so the path the tool documents is the path that works. `fields` no longer re-applies what the constructor already took, which would otherwise have turned a working call into an immutable-column error. Three tests: the documented form, the top-level form that already worked, and a missing metric whose refusal says to find one with `keel_search`.
+
+  <sub>commit:4e0a0ed · test:cargo test -p keel-mcp --test argument_edges</sub>
+
+- **KEEL-186** A running daemon blocks writes to stores it is not serving — `duplicate`
+
+  Already fixed. KEEL-194 was filed the next day against the same symptom and closed on 2026-08-14: `/api/health` reports the store the daemon holds, and the CLI's write guard compares stores rather than presence. Verified rather than assumed — `keel --home <scratch> fixture` with the real daemon up on 7654 seeded 99 rows and exited 0, no `--force`.
+
+- **KEEL-136** The pre-commit check reads the wrong tree from a git worktree — `done`
+
+  The hook now passes `--repo "$(git rev-parse --show-toplevel)"`, so the check reads the tree the commit is in rather than the checkout Keel has on file. Three tests run the script itself against a real git worktree with a stub `keel` on PATH recording its argv; the worktree one fails without the flag, which is what makes it a regression test rather than a description.
+
+  <sub>commit:464c883 · test:cargo test -p keel --test hooks</sub>
+
+- **KEEL-217** A task can be created directly in a terminal status, skipping the rule that guards closing one — `done`
+
+  A create into a terminal status now runs the same check a close does — reason, message, and evidence when the reason is `done` — and stamps `closed_at` and releases any claim on the way in. Held to the rule rather than refused outright, because `keel bootstrap`, `keel fixture` and adopting a finished backlog all legitimately write rows that are already closed, and `keel import` cannot do it for them. KEEL-216, the row that found this, has had its missing `closed_at` filled in.
+
+  <sub>commit:1ab66ab · test:cargo test --workspace</sub>
 
 - **KEEL-246** Labels should be found by typing, not by scanning ten chips — `done`
 
@@ -198,6 +244,12 @@ What has finished. What is happening now is in the tracker beside this file.
   Event summaries now quote a field's value only when it is short and not prose; longer or prose values are reported by size. Applied at write time so new events are clean, and again at render time through `Event::publishable_summary`, which rebuilds the line from the stored field and values — that second half is what covers the events already in the log, since they are immutable and could not otherwise be fixed. Verified end to end: the machine path that prompted this is gone from the whole tracked tree, and the changelog line now reads `body (1237 characters) → (1223 characters)`.
 
   <sub>test:cargo test -p keel-core --lib event:: · doc:dec_01M01F8R621R79SSKGCV4D4G34</sub>
+
+- **KEEL-216** The contract gate failed every day for a calendar reason, not a code one — `done`
+
+  The contract descriptions now redact bare calendar dates before hashing, the way they already redacted ids, so the demo corpus dating itself relative to today no longer changes six hashes a day. Three tests, including one asserting directly that the same line a day apart redacts identically.
+
+  <sub>test:cargo test -p keel --test contracts</sub>
 
 ### 2026-08-14
 
@@ -838,20 +890,83 @@ What has finished. What is happening now is in the tracker beside this file.
 - **KEEL-3** Domain types, ULID prefixes, the audit block — `done`
 - **KEEL-2** Verify fast-moving dependencies — `done`
 - **KEEL-1** Cargo workspace scaffold, CI, lint/fmt/deny gates — `done`
-### Before close dates were recorded
-
-- **KEEL-216** The contract gate failed every day for a calendar reason, not a code one — `done`
-
-  The contract descriptions now redact bare calendar dates before hashing, the way they already redacted ids, so the demo corpus dating itself relative to today no longer changes six hashes a day. Three tests, including one asserting directly that the same line a day apart redacts identically.
-
-  <sub>test:cargo test -p keel --test contracts</sub>
-
 ---
 
 ## Every change
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:f268b5a","test:cargo test -p keel --bin keel doctor"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (557 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T07:17:19.458565Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (103 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (552 characters) |
+| 2026-08-16 | claude | revised question “Seven rows have no reasoning in them. Reconstruct them, or leave them empty and say so?” to v1 |
+| 2026-08-16 | claude | created question “Seven rows have no reasoning in them. Reconstruct them, or leave them empty and say so?” |
+| 2026-08-16 | claude | revised decision “The write-path atomicity fix: &Connection primitives, transaction-of-one, one typed composite on Store” to v1 |
+| 2026-08-16 | claude | revised question “Does a browser-served write/intake endpoint require amending hard constraint 7?” to v1 |
+| 2026-08-16 | claude | revised question “Enforce the single-writer rule with an advisory lock file, or rely on the health probe alone?” to v1 |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T06:59:41.072209Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (125 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (617 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T06:07:45.897635Z |
+| 2026-08-16 | claude | created task “keel bootstrap is the last writer that goes round the daemon probe and the lock” |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:661a9be","test:cargo test -p keel --test verbs"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (321 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T06:03:11.044507Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:4e0a0ed","test:cargo test -p keel-mcp --test argument_edges"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (484 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:57:56.897809Z |
+| 2026-08-16 | claude | revised decision “A create into a terminal status is held to the closing rule, not refused” to v1 |
+| 2026-08-16 | claude | created decision “A create into a terminal status is held to the closing rule, not refused” |
+| 2026-08-16 | claude | status in_progress → todo |
+| 2026-08-16 | claude | claimed_by ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 → none |
+| 2026-08-16 | claude | claimed_at 2026-08-16T05:50:51.735297Z → none |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:50:51.735297Z |
+| 2026-08-16 | claude | “A running daemon blocks writes to stores it is not serving” duplicates “A write to one store is refused because a daemon is serving…” |
+| 2026-08-16 | claude | status in_progress → wont_do |
+| 2026-08-16 | claude | close_reason none → duplicate |
+| 2026-08-16 | claude | close_message none → (349 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:50:10.520067Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:464c883","test:cargo test -p keel --test hooks"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (370 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:47:10.608849Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:1ab66ab","test:cargo test --workspace"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (481 characters) |
+| 2026-08-16 | claude | closed_at none → 2026-08-15T01:28:39.706405Z |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:33:13.207755Z |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → ["commit:0b9a9f1","test:npx vitest run src/components/LabelPicker.test.tsx"] |
 | 2026-08-16 | claude | close_reason none → done |
@@ -981,77 +1096,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | revised question “STATUS.md is 87% closed tasks and too large to read. What should it be?” to v1 |
 | 2026-08-15 | claude | created question “STATUS.md is 87% closed tasks and too large to read. What should it be?” |
 | 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → ["commit:3a5efaa","doc:spc_01KZKSME2TCPVARX9M04836XD6"] |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (371 characters) |
-| 2026-08-15 | claude | revised spec “Keel — standing instructions” to v10 |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T21:09:38.827957Z |
-| 2026-08-15 | claude | “The daemon restarts itself for the CLI too, and the update…” references “keel update leaves the daemon running the old version and…” |
-| 2026-08-15 | claude | status todo → done |
-| 2026-08-15 | claude | evidence [] → (105 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (359 characters) |
-| 2026-08-15 | claude | created task “keel update leaves the daemon running the old version and tells you to fix it yourself” |
-| 2026-08-15 | claude | created task “Work that arrives mid-session with no row never reaches the board” |
-| 2026-08-15 | claude | “The daemon restarts itself for the CLI too, and the update…” references “Hard constraint 7 is amended: the interface may ask the…” |
-| 2026-08-15 | claude | revised decision “The daemon restarts itself for the CLI too, and the update says which version came back” to v1 |
-| 2026-08-15 | claude | created decision “The daemon restarts itself for the CLI too, and the update says which version came back” |
-| 2026-08-15 | claude | “An installer with no checksum in it refuses to install, and…” resolves “0.1.2's published installer still verifies nothing. Re-cut,…” |
-| 2026-08-15 | claude | status open → answered |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → (106 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (557 characters) |
-| 2026-08-15 | claude | revised question “0.1.2's published installer still verifies nothing. Re-cut, replace the asset, or leave it?” to v1 |
-| 2026-08-15 | claude | created question “0.1.2's published installer still verifies nothing. Re-cut, replace the asset, or leave it?” |
-| 2026-08-15 | claude | “An installer with no checksum in it refuses to install, and…” references “The shipped installer verifies nothing, and the check that…” |
-| 2026-08-15 | claude | “An installer with no checksum in it refuses to install, and…” references “The installer refuses a download it cannot verify, rather…” |
-| 2026-08-15 | claude | revised decision “An installer with no checksum in it refuses to install, and the release proves the checksum is there” to v1 |
-| 2026-08-15 | claude | created decision “An installer with no checksum in it refuses to install, and the release proves the checksum is there” |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T20:02:43.906223Z |
-| 2026-08-15 | claude | created task “The shipped installer verifies nothing, and the check that should have caught it passed” |
-| 2026-08-15 | claude | created task “A daemon too old to check for updates says nothing, which is when you most need telling” |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → (119 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (1654 characters) |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_834b8828-e87e-45a2-b922-dc407a2538a1 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T19:37:47.694457Z |
-| 2026-08-15 | claude | revised decision “Hard constraint 7 is amended: the interface may ask the daemon to apply an update it already staged” to v1 |
-| 2026-08-15 | claude | created decision “Hard constraint 7 is amended: the interface may ask the daemon to apply an update it already staged” |
-| 2026-08-15 | claude | created task “Make every artifact Claude mentions a link into the interface” |
-| 2026-08-15 | claude | created task “Ask before restarting into an update, and check often enough to matter” |
-| 2026-08-15 | claude | revised feedback “The rail's `·1` markers read as unclear, and ⌘ was the expected fix” to v1 |
-| 2026-08-15 | claude | created feedback “The rail's `·1` markers read as unclear, and ⌘ was the expected fix” |
-| 2026-08-15 | claude | revised question “Should Keel write a CLAUDE.md into a user's repository, and on whose say-so?” to v1 |
-| 2026-08-15 | claude | created question “Should Keel write a CLAUDE.md into a user's repository, and on whose say-so?” |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → ["commit:5401f6d","test:cargo test -p keel --test plugin"] |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (1053 characters) |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_834b8828-e87e-45a2-b922-dc407a2538a1 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T15:57:10.987375Z |
-| 2026-08-15 | claude | created task “The plugin skill never mentions claiming, so tasks stay in todo on every project but this one” |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → (119 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (1004 characters) |
-| 2026-08-15 | claude | “The repository is public, and the self-hosted runner stays…” supersedes “The repository stays private and macOS builds run on a…” |
-| 2026-08-15 | claude | revised decision “The repository is public, and the self-hosted runner stays behind an all-external-contributors approval gate” to v1 |
-| 2026-08-15 | claude | created decision “The repository is public, and the self-hosted runner stays behind an all-external-contributors approval gate” |
-| 2026-08-15 | claude | revised decision “The updater verifies a checksum and nothing else, because provenance is not available to a private repository” to v1 |
-| 2026-08-15 | claude | created decision “The updater verifies a checksum and nothing else, because provenance is not available to a private repository” |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_834b8828-e87e-45a2-b922-dc407a2538a1 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T15:09:17.202107Z |
-| 2026-08-15 | claude | revised question “Should the interface tell people an update exists, and may it ask the internet itself?” to v1 |
-| 2026-08-15 | claude | created question “Should the interface tell people an update exists, and may it ask the internet itself?” |
 
-*Showing the 200 most recent of 1695 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1766 changes. Use `keel_activity` for the rest.*
 

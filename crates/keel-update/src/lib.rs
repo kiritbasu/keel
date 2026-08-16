@@ -402,6 +402,63 @@ pub fn staged_version(dir: &Path) -> Result<Option<String>> {
     Ok(Some(version))
 }
 
+/// The file recording when a check last ran, and how it went.
+const LAST_CHECK: &str = ".keel-update-check";
+
+/// What the last update check did.
+///
+/// Nothing here is about *this* check — it is about whether checking is
+/// happening at all, which is a different question and the one nobody could
+/// answer. A version with no "checked at" beside it cannot be told apart from a
+/// version whose check has been failing quietly for a month, and both look
+/// exactly like being up to date (KEEL-227).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct LastCheck {
+    /// When the attempt finished, RFC 3339.
+    pub at: String,
+    /// Why it did not complete, or `None` if it did.
+    ///
+    /// A failed check is ordinary — a laptop asleep, no network, a release
+    /// without a manifest — so this is reported rather than raised. What it
+    /// must not do is stay invisible: an ordinary failure repeated for a month
+    /// is not ordinary any more.
+    pub error: Option<String>,
+}
+
+/// Record that a check happened, whatever came of it.
+///
+/// Written to the install directory beside the staged marker, rather than held
+/// in memory, for two reasons: the daemon that did the checking is the one
+/// process that restarts when an update is applied, and a stamp that resets on
+/// restart would read as "never checked" exactly when it had just succeeded.
+///
+/// A failure to write is not a failure to check. The caller logs and carries
+/// on: the point of the stamp is to make a quiet failure visible, and taking
+/// the daemon down over it would be a loud one.
+pub fn record_check(dir: &Path, error: Option<String>) -> Result<()> {
+    let stamp = LastCheck {
+        at: chrono::Utc::now().to_rfc3339(),
+        error,
+    };
+    let path = dir.join(LAST_CHECK);
+    std::fs::write(
+        &path,
+        serde_json::to_string(&stamp).context("serialising the update-check stamp")?,
+    )
+    .with_context(|| format!("recording the update check in {}", path.display()))?;
+    Ok(())
+}
+
+/// When a check last ran, if one ever has.
+///
+/// `None` covers both "no check has completed" and "the stamp is unreadable",
+/// which are the same thing to a reader: nothing here can vouch for the version
+/// being current.
+pub fn last_check(dir: &Path) -> Option<LastCheck> {
+    let raw = std::fs::read_to_string(dir.join(LAST_CHECK)).ok()?;
+    serde_json::from_str(&raw).ok()
+}
+
 /// Swap in a staged release, if there is one. Returns the version applied.
 ///
 /// Called at startup, before anything is served. Renaming over a running
@@ -1380,5 +1437,63 @@ mod tests {
             err.to_string().contains("no earlier version"),
             "unhelpful error: {err}"
         );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod check_stamp_tests {
+    use super::*;
+
+    /// A check that ran and found nothing still has to leave a trace, or
+    /// "nothing is staged" and "nothing has been checked in a month" are the
+    /// same sentence (KEEL-227).
+    #[test]
+    fn a_successful_check_records_when_it_happened_and_no_error() {
+        let dir = tempfile::tempdir().unwrap();
+        record_check(dir.path(), None).unwrap();
+
+        let stamp = last_check(dir.path()).expect("a check that ran is readable afterwards");
+        assert!(stamp.error.is_none());
+        assert!(
+            chrono::DateTime::parse_from_rfc3339(&stamp.at).is_ok(),
+            "the stamp is a timestamp a reader can parse: {}",
+            stamp.at
+        );
+    }
+
+    /// The failure case, and the one the field exists for: an ordinary failure
+    /// repeated for a month is not ordinary, and it used to be invisible.
+    #[test]
+    fn a_failed_check_records_why() {
+        let dir = tempfile::tempdir().unwrap();
+        record_check(dir.path(), Some("no network".to_owned())).unwrap();
+
+        assert_eq!(
+            last_check(dir.path()).unwrap().error.as_deref(),
+            Some("no network")
+        );
+    }
+
+    /// The latest attempt is what is reported, so a check that recovers stops
+    /// reporting the failure it recovered from.
+    #[test]
+    fn a_later_check_replaces_an_earlier_one() {
+        let dir = tempfile::tempdir().unwrap();
+        record_check(dir.path(), Some("no network".to_owned())).unwrap();
+        record_check(dir.path(), None).unwrap();
+
+        assert!(last_check(dir.path()).unwrap().error.is_none());
+    }
+
+    /// No stamp and an unreadable stamp are the same answer: nothing here can
+    /// vouch for the version being current.
+    #[test]
+    fn a_directory_with_no_stamp_or_a_corrupt_one_reports_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(last_check(dir.path()).is_none());
+
+        std::fs::write(dir.path().join(LAST_CHECK), "{not json").unwrap();
+        assert!(last_check(dir.path()).is_none());
     }
 }
