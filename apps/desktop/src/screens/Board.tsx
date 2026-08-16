@@ -10,7 +10,7 @@
  * app was only ever there when you did not need it.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   api,
   type Entity,
@@ -18,7 +18,8 @@ import {
   type Page as PageOf,
 } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
-import { Empty, ErrorBox, Spinner } from "../components/ui";
+import { ApiError } from "../lib/api";
+import { Button, Dialog, Empty, ErrorBox, Spinner } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
 import { FilterBar, type Facets, type View } from "../components/FilterBar";
 import { TaskBoard } from "../components/TaskBoard";
@@ -153,6 +154,8 @@ export function BoardScreen({
     };
   }, [data, milestones.data]);
 
+  const [creating, setCreating] = useState(false);
+
   const filterKey = JSON.stringify(filter);
   const groups = useMemo(() => {
     const matching = applyFilter(
@@ -212,6 +215,13 @@ export function BoardScreen({
         <span className="text-small text-ink-faint">
           {shown} of {data?.total ?? 0}
         </span>
+      }
+      actions={
+        route.project ? (
+          <Button size="sm" variant="primary" onClick={() => setCreating(true)}>
+            New task
+          </Button>
+        ) : undefined
       }
       toolbar={
         <FilterBar
@@ -324,6 +334,137 @@ export function BoardScreen({
           />
         )}
       </div>
+      {route.project && (
+        <NewTaskDialog
+          open={creating}
+          project={route.project}
+          onClose={() => setCreating(false)}
+          onCreated={reload}
+        />
+      )}
     </Page>
+  );
+}
+
+/**
+ * Making a task from the board.
+ *
+ * The one place a person is already looking at the work when they think of
+ * something else that needs doing, and until now the answer was "go and tell
+ * Claude". Capture, in the sense B-78 draws the line: a title and a sentence
+ * about what is wanted, not the reasoning behind it.
+ *
+ * The summary is asked for rather than optional-by-omission, because a row that
+ * is only a title is the kind that nobody can pick up later — and `keel_ready`
+ * ranks on what a task says about itself.
+ */
+function NewTaskDialog({
+  open,
+  project,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  project: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [summary, setSummary] = useState("");
+  const [priority, setPriority] = useState("p2");
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  async function submit() {
+    if (saving || title.trim() === "") return;
+    setSaving(true);
+    setFailed(null);
+    try {
+      await api.createTask({
+        project,
+        title: title.trim(),
+        summary: summary.trim(),
+        priority,
+      });
+      setTitle("");
+      setSummary("");
+      onClose();
+      onCreated();
+    } catch (e) {
+      setFailed(
+        e instanceof ApiError ? e.message : "The task was not created.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} label="New task">
+      <div className="w-[32rem] max-w-[90vw] space-y-3 p-4">
+        <h2 className="text-small font-semibold text-ink">New task</h2>
+
+        <label className="block space-y-1">
+          <span className="text-micro text-ink-muted">Title</span>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+            placeholder="What needs doing"
+            className="w-full rounded-md border border-border-subtle bg-surface px-3 py-2 text-small text-ink placeholder:text-ink-faint"
+          />
+        </label>
+
+        <label className="block space-y-1">
+          <span className="text-micro text-ink-muted">
+            Summary{" "}
+            <span className="text-ink-faint">
+              — what it is and when it is done
+            </span>
+          </span>
+          <textarea
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            rows={3}
+            placeholder="One or two sentences somebody could pick this up from cold."
+            className="w-full resize-y rounded-md border border-border-subtle bg-surface px-3 py-2 text-small text-ink placeholder:text-ink-faint"
+          />
+        </label>
+
+        <label className="block space-y-1">
+          <span className="text-micro text-ink-muted">Priority</span>
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+            className="rounded-md border border-border-subtle bg-surface px-2 py-1.5 text-small text-ink"
+          >
+            <option value="p0">p0</option>
+            <option value="p1">p1</option>
+            <option value="p2">p2</option>
+            <option value="p3">p3</option>
+          </select>
+        </label>
+
+        {failed && (
+          <p role="alert" className="text-micro text-bad">
+            {failed}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => void submit()}
+            disabled={saving || title.trim() === ""}
+          >
+            {saving ? "Creating…" : "Create task"}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
   );
 }
