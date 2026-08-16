@@ -86,7 +86,7 @@ fn an_escaping_status_or_decisions_path_is_refused() {
 
     for field in ["status_path", "decisions_path"] {
         let mut changes = Map::new();
-        changes.insert(field.to_owned(), json!("/tmp/keel-escape.md"));
+        changes.insert(field.to_owned(), json!("/tmp/specline-escape.md"));
         let err = store
             .update(&project, stored.audit().version, &changes, &prov())
             .expect_err("an absolute path should be refused");

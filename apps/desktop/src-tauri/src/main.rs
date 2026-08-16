@@ -61,7 +61,7 @@ fn main() {
                     // "cannot reach the daemon" message, which tells the human
                     // exactly what to do — better than refusing to start.
                     eprintln!(
-                        "keel-desktop: could not start the daemon ({e}). \
+                        "specline-desktop: could not start the daemon ({e}). \
                          Start it yourself with `specline-daemon`."
                     );
                 }

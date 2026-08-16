@@ -18,7 +18,7 @@ fuzz_target!(|data: &[u8]| {
     let Ok(relative) = std::str::from_utf8(data) else {
         return;
     };
-    let root = Path::new("/tmp/keel-fuzz-root");
+    let root = Path::new("/tmp/specline-fuzz-root");
 
     if let Ok(joined) = specline_core::safe_path::confine(root, relative) {
         assert!(

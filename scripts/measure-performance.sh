@@ -98,7 +98,7 @@ for row in "${READS[@]}"; do
   samples=""
   bytes=0
   for _ in $(seq 1 "$ROUNDS"); do
-    out=$(curl -s -o /tmp/keel-measure-body.json -w '%{time_total} %{size_download}' "$url")
+    out=$(curl -s -o /tmp/specline-measure-body.json -w '%{time_total} %{size_download}' "$url")
     samples="$samples ${out%% *}"
     bytes="${out##* }"
   done
@@ -138,4 +138,4 @@ printf 'Numbers taken against a daemon in use will be worse; the store has one\n
 printf 'writer and one lock, so a session writing while this runs shows up here.\n'
 printf '\n'
 
-rm -f /tmp/keel-measure-body.json
+rm -f /tmp/specline-measure-body.json

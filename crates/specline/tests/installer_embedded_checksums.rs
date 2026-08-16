@@ -47,7 +47,7 @@ fn check_embedded_only(installer: &Path) -> Output {
         .expect("the check script runs")
 }
 
-const ARCHIVE: &str = "keel-aarch64-apple-darwin.tar.xz";
+const ARCHIVE: &str = "specline-aarch64-apple-darwin.tar.xz";
 
 /// Write an archive of arbitrary bytes and return its real sha256.
 fn archive(dir: &Path, bytes: &[u8]) -> String {
@@ -85,7 +85,7 @@ fn installer(dir: &Path, checksum: Option<&str>) -> PathBuf {
          \x20           ;;\n\
          esac\n"
     );
-    let path = dir.join("keel-installer.sh");
+    let path = dir.join("specline-installer.sh");
     std::fs::write(&path, text).expect("the installer is writable");
     path
 }

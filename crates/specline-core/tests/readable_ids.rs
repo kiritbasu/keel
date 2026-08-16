@@ -60,7 +60,7 @@ fn task(store: &mut Store, project_id: &EntityId, title: &str) -> Task {
 fn a_key_is_derived_from_the_slug() {
     assert_eq!(derive_project_key("specline"), "SPEC");
     assert_eq!(derive_project_key("harbour"), "HARB");
-    assert_eq!(derive_project_key("keel-web"), "KEEL");
+    assert_eq!(derive_project_key("specline-web"), "SPEC");
     assert_eq!(derive_project_key("a-b-c-d-e-f"), "ABCD");
 }
 
@@ -115,7 +115,14 @@ fn a_supplied_key_is_uppercased_and_still_de_duplicated() {
 // the cause.
 #[test]
 fn a_derived_key_is_never_longer_than_the_constant_allows() {
-    for slug in ["specline", "harbour", "keel-web", "a-b-c-d-e-f", "---", ""] {
+    for slug in [
+        "specline",
+        "harbour",
+        "specline-web",
+        "a-b-c-d-e-f",
+        "---",
+        "",
+    ] {
         let key = derive_project_key(slug);
         assert!(
             !key.is_empty() && key.len() <= MAX_PROJECT_KEY,

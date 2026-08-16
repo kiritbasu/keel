@@ -6,7 +6,7 @@
 # `cargo fuzz init` does and what keeps `cargo test --workspace` on stable.
 
 [package]
-name = "keel-fuzz"
+name = "specline-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2024"

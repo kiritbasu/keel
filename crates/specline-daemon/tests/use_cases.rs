@@ -57,7 +57,7 @@ impl Daemon {
                 json!({
                     "io.modelcontextprotocol/protocolVersion": PROTOCOL_VERSION,
                     "io.modelcontextprotocol/clientInfo": {
-                        "name": "keel-test-client", "version": "0.1.0"
+                        "name": "specline-test-client", "version": "0.1.0"
                     },
                     "io.modelcontextprotocol/clientCapabilities": {}
                 }),

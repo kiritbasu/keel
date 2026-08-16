@@ -280,7 +280,7 @@ fn marker_dir() -> std::path::PathBuf {
     std::env::var_os("TMPDIR")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
-        .join("keel-stop-hook")
+        .join("specline-stop-hook")
 }
 
 /// Ask, once, whether anything from this session should have been recorded.

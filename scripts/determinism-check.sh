@@ -18,8 +18,8 @@ KEEL="${KEEL:-./target/release/keel}"
 # `specline_context` will match against a project's `root_path`, and hardcoding one
 # put this machine's username into a file that is going public.
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-STORE=/tmp/keel-det/store
-WORK=/tmp/keel-det
+STORE=/tmp/specline-det/store
+WORK=/tmp/specline-det
 N="${N:-100}"
 DAEMON="${SPECLINE_DAEMON_URL:-http://127.0.0.1:7654}"
 

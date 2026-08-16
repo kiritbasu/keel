@@ -289,7 +289,7 @@ fn the_unpatched_installer_installs_with_no_checksum_at_all() {
         &script,
         &path,
         &digest,
-        "keel-aarch64-apple-darwin.tar.xz",
+        "specline-aarch64-apple-darwin.tar.xz",
         None,
     );
 
@@ -319,7 +319,7 @@ fn the_patched_installer_refuses_when_it_carries_no_checksum() {
         &script,
         &path,
         &digest,
-        "keel-aarch64-apple-darwin.tar.xz",
+        "specline-aarch64-apple-darwin.tar.xz",
         None,
     );
 
@@ -329,7 +329,7 @@ fn the_patched_installer_refuses_when_it_carries_no_checksum() {
     );
     let complaint = String::from_utf8_lossy(&output.stderr);
     assert!(
-        complaint.contains("carries no checksum for keel-aarch64-apple-darwin.tar.xz"),
+        complaint.contains("carries no checksum for specline-aarch64-apple-darwin.tar.xz"),
         "and it must name the archive it cannot check: {complaint}"
     );
 }
@@ -346,7 +346,7 @@ fn the_unpatched_installer_waves_an_empty_checksum_value_through() {
         &script,
         &path,
         "",
-        "keel-aarch64-apple-darwin.tar.xz",
+        "specline-aarch64-apple-darwin.tar.xz",
         Some("sha256"),
     );
 
@@ -367,7 +367,7 @@ fn the_patched_installer_refuses_an_empty_checksum_value() {
         &script,
         &path,
         "",
-        "keel-aarch64-apple-darwin.tar.xz",
+        "specline-aarch64-apple-darwin.tar.xz",
         Some("sha256"),
     );
 

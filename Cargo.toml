@@ -25,7 +25,7 @@ authors = ["KB"]
 # has not said where it lives would produce a script pointing nowhere. HTTPS,
 # not SSH, for the reason in B-69 — key authentication is broken on the build
 # machine.
-repository = "https://github.com/kiritbasu/keel"
+repository = "https://github.com/kiritbasu/specline"
 license = "Apache-2.0"
 # Permissive, with the patent grant MIT lacks (B-65). The full text is in
 # `LICENSE` at the repository root; this is the metadata copy, and `cargo deny`

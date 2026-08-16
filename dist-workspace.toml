@@ -169,10 +169,10 @@ allow-dirty = ["ci"]
 #
 # 1. **Installer name, and one installer rather than two.** `dist` names an
 #    installer after the package that owns the binaries and treats every package
-#    with binaries as its own app. With `keel-cli` and `specline-daemon` as separate
+#    with binaries as its own app. With `keel-cli` and `keel-daemon` as separate
 #    packages the plan produced `keel-cli-installer.sh` *and*
-#    `specline-daemon-installer.sh` — two installers, while §1 advertises one
-#    `keel-installer.sh` and `scripts/verify-release-tier1.sh` asserts that
+#    `keel-daemon-installer.sh` — two installers, while §1 advertised one
+#    installer and `scripts/verify-release-tier1.sh` asserts that
 #    running one leaves both binaries on disk.
 #
 #    There is no setting that folds one package's binaries into another's

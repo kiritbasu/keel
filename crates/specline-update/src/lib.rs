@@ -170,9 +170,20 @@ pub fn plan(
     })
 }
 
+/// The directory `dist` puts inside an archive, and the stem of the archive
+/// itself.
+///
+/// `dist` names both after the package that owns the binaries, so this tracks
+/// `crates/specline/Cargo.toml`'s `name` and nothing else. It is a constant
+/// because the two places that need it are 450 lines apart and were the two
+/// sites a rename of the package silently missed: neither is a literal
+/// filename, so grepping for the old archive name found nothing while the
+/// updater went on asking GitHub for an artifact that no longer exists.
+const ARCHIVE_STEM: &str = "specline";
+
 /// The archive filename for a target, as `dist` names it.
 fn archive_name(target: &str) -> String {
-    format!("keel-{target}.tar.xz")
+    format!("{ARCHIVE_STEM}-{target}.tar.xz")
 }
 
 /// The repository releases come from.
@@ -180,7 +191,7 @@ fn archive_name(target: &str) -> String {
 /// Same name and same default as `plugin/scripts/setup.sh`, so a scratch
 /// install and its updates cannot end up pointed at different repositories.
 fn repo() -> String {
-    std::env::var("SPECLINE_REPO").unwrap_or_else(|_| "kiritbasu/keel".to_owned())
+    std::env::var("SPECLINE_REPO").unwrap_or_else(|_| "kiritbasu/specline".to_owned())
 }
 
 /// Where to read what a version contains.
@@ -246,7 +257,7 @@ fn download(dir: &Path, name: &str) -> Result<PathBuf> {
 
 /// Read the latest release's manifest.
 pub fn fetch_manifest(dir: &Path) -> Result<ReleaseManifest> {
-    let path = download(dir, "keel-release.json")?;
+    let path = download(dir, "specline-release.json")?;
     let raw = std::fs::read_to_string(&path)
         .with_context(|| format!("reading the release manifest at {}", path.display()))?;
     serde_json::from_str(&raw).with_context(|| {
@@ -386,7 +397,7 @@ pub fn stage(unpacked: &Path, into: &Path, version: &str) -> Result<()> {
 }
 
 /// The file naming what has been staged. Its presence is the signal.
-const STAGED_VERSION: &str = ".keel-staged-version";
+const STAGED_VERSION: &str = ".specline-staged-version";
 
 /// What is staged and waiting, if anything.
 ///
@@ -627,11 +638,11 @@ pub fn unpack(archive: &Path, into: &Path, target: &str) -> Result<PathBuf> {
         );
     }
 
-    let dir = into.join(format!("keel-{target}"));
+    let dir = into.join(format!("{ARCHIVE_STEM}-{target}"));
     if !dir.is_dir() {
         bail!(
-            "the archive did not contain the directory keel-{target}. Its layout has changed, and \
-             installing from a guess about where the binaries are is not worth doing."
+            "the archive did not contain the directory {ARCHIVE_STEM}-{target}. Its layout has \
+             changed, and installing from a guess about where the binaries are is not worth doing."
         );
     }
     Ok(dir)
@@ -1052,7 +1063,7 @@ mod tests {
     fn a_version_becomes_the_url_of_its_release() {
         assert_eq!(
             release_notes_url("0.1.3"),
-            "https://github.com/kiritbasu/keel/releases/tag/v0.1.3"
+            "https://github.com/kiritbasu/specline/releases/tag/v0.1.3"
         );
     }
 
@@ -1163,7 +1174,7 @@ mod tests {
             plan("0.1.1", 7, &m, "aarch64-apple-darwin").unwrap(),
             Plan::Apply {
                 version: "0.1.2".to_owned(),
-                artifact: "keel-aarch64-apple-darwin.tar.xz".to_owned(),
+                artifact: "specline-aarch64-apple-darwin.tar.xz".to_owned(),
             }
         );
     }
@@ -1204,7 +1215,7 @@ mod tests {
             plan("0.2.0-rc.1", 7, &m, "aarch64-apple-darwin").unwrap(),
             Plan::Apply {
                 version: "0.2.0".to_owned(),
-                artifact: "keel-aarch64-apple-darwin.tar.xz".to_owned(),
+                artifact: "specline-aarch64-apple-darwin.tar.xz".to_owned(),
             }
         );
     }
@@ -1222,10 +1233,10 @@ mod tests {
     #[test]
     fn a_missing_checksum_refuses_rather_than_skipping() {
         let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("keel-x.tar.xz");
+        let file = dir.path().join("specline-x.tar.xz");
         std::fs::write(&file, b"whatever").unwrap();
 
-        let err = verify(&file, "keel-x.tar.xz", &manifest("0.1.2", 7)).unwrap_err();
+        let err = verify(&file, "specline-x.tar.xz", &manifest("0.1.2", 7)).unwrap_err();
         assert!(
             err.to_string().contains("no checksum"),
             "unhelpful error: {err}"
@@ -1235,14 +1246,14 @@ mod tests {
     #[test]
     fn a_wrong_checksum_refuses() {
         let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("keel-x.tar.xz");
+        let file = dir.path().join("specline-x.tar.xz");
         std::fs::write(&file, b"whatever").unwrap();
 
         let mut m = manifest("0.1.2", 7);
         m.artifacts
-            .insert("keel-x.tar.xz".to_owned(), "00".repeat(32));
+            .insert("specline-x.tar.xz".to_owned(), "00".repeat(32));
 
-        let err = verify(&file, "keel-x.tar.xz", &m).unwrap_err();
+        let err = verify(&file, "specline-x.tar.xz", &m).unwrap_err();
         assert!(
             err.to_string().contains("does not match"),
             "unhelpful error: {err}"
@@ -1253,17 +1264,17 @@ mod tests {
     #[test]
     fn a_right_checksum_passes() {
         let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("keel-x.tar.xz");
+        let file = dir.path().join("specline-x.tar.xz");
         std::fs::write(&file, b"whatever").unwrap();
 
         let mut m = manifest("0.1.2", 7);
         // sha256("whatever")
         m.artifacts.insert(
-            "keel-x.tar.xz".to_owned(),
+            "specline-x.tar.xz".to_owned(),
             "85738f8f9a7f1b04b5329c590ebcb9e425925c6d0984089c43a022de4f19c281".to_owned(),
         );
 
-        verify(&file, "keel-x.tar.xz", &m).unwrap();
+        verify(&file, "specline-x.tar.xz", &m).unwrap();
     }
 
     #[test]

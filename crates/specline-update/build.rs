@@ -1,7 +1,7 @@
 //! Records the target triple this binary was built for.
 //!
 //! The updater needs it to name the release archive it should fetch —
-//! `keel-aarch64-apple-darwin.tar.xz` — and Rust has no way to ask at runtime
+//! `specline-aarch64-apple-darwin.tar.xz` — and Rust has no way to ask at runtime
 //! what it was compiled for. Cargo tells a build script, and only a build
 //! script, so this hands it forward as an environment variable that `env!`
 //! reads at compile time.

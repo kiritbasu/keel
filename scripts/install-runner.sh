@@ -38,7 +38,7 @@
 
 set -euo pipefail
 
-REPO="${SPECLINE_RUNNER_REPO:-kiritbasu/keel}"
+REPO="${SPECLINE_RUNNER_REPO:-kiritbasu/specline}"
 RUNNER_DIR="${SPECLINE_RUNNER_DIR:-$HOME/.specline-runner}"
 SERVICE=1
 

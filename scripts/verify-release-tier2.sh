@@ -10,7 +10,7 @@
 # cross-compile signature trap.
 #
 #   scripts/verify-release-tier2.sh <installer.sh | artifact-dir>
-#   scripts/verify-release-tier2.sh /vagrant/distrib /tmp/keel-tier2
+#   scripts/verify-release-tier2.sh /vagrant/distrib /tmp/specline-tier2
 #   KEEP=1 scripts/verify-release-tier2.sh …        # leave the scratch for reading
 #
 # ## Where this runs
@@ -58,7 +58,7 @@ usage() {
 case "$1" in -h|--help) usage ;; esac
 
 TARGET="$1"
-SCRATCH="${2:-/tmp/keel-tier2}"
+SCRATCH="${2:-/tmp/specline-tier2}"
 PORT="${PORT:-7699}"
 
 # The oldest glibc the release is meant to run on. `release.yml` builds Linux on
@@ -132,9 +132,9 @@ cleanup() {
   # A user unit left enabled would survive the snapshot restore in the one case
   # that matters — somebody running this outside a VM.
   if [ -n "${UNIT_INSTALLED:-}" ]; then
-    systemctl --user stop keel-tier2.service >/dev/null 2>&1
-    systemctl --user disable keel-tier2.service >/dev/null 2>&1
-    rm -f "$HOME/.config/systemd/user/keel-tier2.service"
+    systemctl --user stop specline-tier2.service >/dev/null 2>&1
+    systemctl --user disable specline-tier2.service >/dev/null 2>&1
+    rm -f "$HOME/.config/systemd/user/specline-tier2.service"
     systemctl --user daemon-reload >/dev/null 2>&1
   fi
   if [ "${KEEP:-0}" = "1" ]; then
@@ -315,7 +315,7 @@ elif ! command -v systemctl >/dev/null 2>&1 || ! systemctl --user show-environme
   note "log in properly rather than over a bare ssh exec, or enable lingering for this user"
 else
   mkdir -p "$HOME/.config/systemd/user"
-  cat > "$HOME/.config/systemd/user/keel-tier2.service" <<UNIT
+  cat > "$HOME/.config/systemd/user/specline-tier2.service" <<UNIT
 [Unit]
 Description=Specline daemon (tier 2 verification)
 
@@ -331,7 +331,7 @@ UNIT
   UNIT_INSTALLED=1
   systemctl --user daemon-reload >/dev/null 2>&1
 
-  if systemctl --user start keel-tier2.service >/dev/null 2>&1; then
+  if systemctl --user start specline-tier2.service >/dev/null 2>&1; then
     up=""
     for _ in $(seq 1 15); do
       curl -sf --max-time 2 "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1 && { up=yes; break; }
@@ -339,17 +339,17 @@ UNIT
     done
     if [ -z "$up" ]; then
       bad "systemd unit restarts the daemon" "the unit started but nothing answered"
-      systemctl --user status keel-tier2.service >"$LOGS/systemd.log" 2>&1
+      systemctl --user status specline-tier2.service >"$LOGS/systemd.log" 2>&1
       note "see $LOGS/systemd.log"
     else
-      first_pid="$(systemctl --user show -p MainPID --value keel-tier2.service 2>/dev/null)"
+      first_pid="$(systemctl --user show -p MainPID --value specline-tier2.service 2>/dev/null)"
       # SIGKILL, not TERM: the question is whether it comes back from a crash,
       # and a graceful stop is the case that already works.
       kill -9 "$first_pid" 2>/dev/null
       back=""
       for _ in $(seq 1 20); do
         sleep 1
-        second_pid="$(systemctl --user show -p MainPID --value keel-tier2.service 2>/dev/null)"
+        second_pid="$(systemctl --user show -p MainPID --value specline-tier2.service 2>/dev/null)"
         [ -n "$second_pid" ] && [ "$second_pid" != "0" ] && [ "$second_pid" != "$first_pid" ] \
           && curl -sf --max-time 2 "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1 \
           && { back=yes; break; }
@@ -358,7 +358,7 @@ UNIT
         ok "systemd unit restarts the daemon" "killed $first_pid, back as $second_pid"
       else
         bad "systemd unit restarts the daemon" "killed $first_pid and it did not come back in 20s"
-        systemctl --user status keel-tier2.service >"$LOGS/systemd.log" 2>&1
+        systemctl --user status specline-tier2.service >"$LOGS/systemd.log" 2>&1
         note "see $LOGS/systemd.log"
       fi
     fi

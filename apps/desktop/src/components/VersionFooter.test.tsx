@@ -18,8 +18,8 @@ import * as footer from "./VersionFooter";
 
 afterEach(cleanup);
 
-const NOTES = "https://github.com/kiritbasu/keel/releases/tag/v0.1.3";
-const STAGED_NOTES = "https://github.com/kiritbasu/keel/releases/tag/v0.1.4";
+const NOTES = "https://github.com/kiritbasu/specline/releases/tag/v0.1.3";
+const STAGED_NOTES = "https://github.com/kiritbasu/specline/releases/tag/v0.1.4";
 
 describe("VersionFooter", () => {
   it("links the running version to its release notes", () => {

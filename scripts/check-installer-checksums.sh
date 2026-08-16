@@ -89,7 +89,7 @@ problems = []
 
 # The generated installer destructures the selected archive in a case statement:
 #
-#     "keel-aarch64-apple-darwin.tar.xz")
+#     "specline-aarch64-apple-darwin.tar.xz")
 #         _arch="aarch64-apple-darwin"
 #         _zip_ext=".tar.xz"
 #         _checksum_style="sha256"

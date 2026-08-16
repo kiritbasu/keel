@@ -20,7 +20,7 @@
 fn main() {
     if std::env::var_os("SPECLINE_DESKTOP").is_none() {
         eprintln!(
-            "keel-desktop: the Tauri shell is suspended — work is on the web build \
+            "specline-desktop: the Tauri shell is suspended — work is on the web build \
              (`npm run dev` in apps/desktop, daemon on :7654).\n\
              Set SPECLINE_DESKTOP=1 to build it anyway, or remove the guard in \
              apps/desktop/src-tauri/build.rs to un-suspend it for good."

@@ -2041,7 +2041,7 @@ mod render_status_tests {
 
     #[test]
     fn an_exact_slug_still_resolves_when_a_similar_one_exists() {
-        let (_d, store) = store_with(&[("specline", "Specline"), ("keel-web", "Specline Web")]);
+        let (_d, store) = store_with(&[("specline", "Specline"), ("specline-web", "Specline Web")]);
         let found = resolve_project(&store, "specline").unwrap();
         assert_eq!(found.label(), "Specline");
     }

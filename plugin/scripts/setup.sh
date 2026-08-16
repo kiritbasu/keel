@@ -131,7 +131,7 @@ fi
 
 step "Installing the binaries"
 
-installer_url="https://github.com/$REPO/releases/latest/download/keel-installer.sh"
+installer_url="https://github.com/$REPO/releases/latest/download/specline-installer.sh"
 
 # **A token does not make the ordinary download URL work.**
 #
@@ -176,11 +176,11 @@ else
     install_log="$(mktemp)"
     assets="$(mktemp -d)"
 
-    if download_via_api "$assets" && [ -f "$assets/keel-installer.sh" ]; then
+    if download_via_api "$assets" && [ -f "$assets/specline-installer.sh" ]; then
         # Private or public, this route works for both, so it is tried first
         # rather than kept as a fallback — the failure it avoids is silent.
         info "fetched the release through the GitHub API"
-        if SPECLINE_DOWNLOAD_URL="file://$assets" sh "$assets/keel-installer.sh" \
+        if SPECLINE_DOWNLOAD_URL="file://$assets" sh "$assets/specline-installer.sh" \
             >>"$install_log" 2>&1
         then
             ok "binaries installed"

@@ -28,7 +28,7 @@ date -u +%Y-%m-%dT%H:%M:%SZ                       # write this down — it is t0
 
 ## The ten
 
-Scratch projects live under `$TMPDIR/keel-gate`. Recreate them with
+Scratch projects live under `$TMPDIR/specline-gate`. Recreate them with
 `scripts/gate-run.sh` if they are gone — it builds them before it runs anything.
 
 | # | Start in | Say something like |

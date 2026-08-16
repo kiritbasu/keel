@@ -1712,7 +1712,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &keel_id,
             "Screenshot: first working specline_context digest",
             ArtifactKind::Image,
-            "file:///archive/keel-context-first-run.png",
+            "file:///archive/specline-context-first-run.png",
         ),
         (
             &harbour_id,

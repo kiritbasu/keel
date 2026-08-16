@@ -11,9 +11,9 @@
 # all three away and leaves something close enough to a stranger's Mac to be
 # worth believing.
 #
-#   scripts/verify-release-tier1.sh dist/keel-installer.sh
+#   scripts/verify-release-tier1.sh dist/specline-installer.sh
 #   scripts/verify-release-tier1.sh target/distrib            # a whole artifact dir
-#   scripts/verify-release-tier1.sh dist/keel-installer.sh /tmp/somewhere-else
+#   scripts/verify-release-tier1.sh dist/specline-installer.sh /tmp/somewhere-else
 #   KEEP=1 scripts/verify-release-tier1.sh dist/…             # leave the scratch for reading
 #
 # What it covers, and what it does not: §12 is explicit that tier 1 is blind to
@@ -54,7 +54,7 @@ usage() {
 case "$1" in -h|--help) usage ;; esac
 
 TARGET="$1"
-SCRATCH="${2:-/tmp/keel-tier1}"
+SCRATCH="${2:-/tmp/specline-tier1}"
 
 # The port the scratch daemon binds. Not 7654, and this is not a preference.
 # The build machine has a daemon on 7654 serving the real store, so a health

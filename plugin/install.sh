@@ -236,8 +236,8 @@ cat <<EOF
 
   6. Load the sample corpus into a scratch store to see what it looks like:
 
-       specline --home /tmp/keel-demo fixture
-       specline --home /tmp/keel-demo render-status specline
+       specline --home /tmp/specline-demo fixture
+       specline --home /tmp/specline-demo render-status specline
 
   After editing anything under plugin/, re-run:
 

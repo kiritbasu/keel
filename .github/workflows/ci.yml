@@ -45,7 +45,7 @@ jobs:
       # Costs nothing on a hosted runner, where it is a directory that did not
       # exist either way, and on the self-hosted one it is the difference
       # between a test run and an incident.
-      SPECLINE_HOME: ${{ github.workspace }}/.ci-keel-home
+      SPECLINE_HOME: ${{ github.workspace }}/.ci-specline-home
     steps:
       # Linux is not decoration. This is a local-first SQLite tool, and the two
       # things most likely to differ between platforms are the two it depends on
@@ -94,7 +94,7 @@ jobs:
       && (github.event_name != 'pull_request'
           || github.event.pull_request.head.repo.full_name == github.repository)
     env:
-      SPECLINE_HOME: ${{ github.workspace }}/.ci-keel-home
+      SPECLINE_HOME: ${{ github.workspace }}/.ci-specline-home
     steps:
       # macOS moved to the self-hosted runner with the release build (B-72):
       # hosted macOS minutes are billed at ten times the Linux rate, and CI runs
@@ -121,7 +121,7 @@ jobs:
     name: fmt · clippy · test (no embeddings)
     runs-on: ubuntu-latest
     env:
-      SPECLINE_HOME: ${{ github.workspace }}/.ci-keel-home
+      SPECLINE_HOME: ${{ github.workspace }}/.ci-specline-home
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable

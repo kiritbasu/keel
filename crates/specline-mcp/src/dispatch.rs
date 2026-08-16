@@ -515,8 +515,8 @@ fn specline_context(store: &Store, args: &Value) -> Result<Value, RpcError> {
 ///
 /// Collapses repeated separators and drops a trailing one. Found by a gate
 /// session, which reported `matched_project: null` for a directory that plainly
-/// had a project: the caller's `cwd` contained `T//keel-gate` and the stored
-/// `root_path` contained `T/keel-gate`. A naive prefix comparison called those
+/// had a project: the caller's `cwd` contained `T//specline-gate` and the stored
+/// `root_path` contained `T/specline-gate`. A naive prefix comparison called those
 /// different directories, so the session started unoriented and said so — and
 /// the only reason anyone noticed is that it mentioned the null in its reply.
 ///
@@ -2361,7 +2361,7 @@ mod tests {
     fn an_exact_slug_beats_a_substring() {
         let mut exact = Project::new("specline", "Specline");
         exact.aliases = vec!["spine".to_owned()];
-        let partial = Project::new("keel-desktop", "Specline Desktop");
+        let partial = Project::new("specline-desktop", "Specline Desktop");
 
         assert!(match_score("specline", &exact) > match_score("specline", &partial));
         assert_eq!(match_score("spine", &exact), 110);
@@ -2429,8 +2429,8 @@ mod path_tests {
         // separator and the stored root_path did not. It started unoriented,
         // and only mentioned it in passing.
         assert_eq!(
-            normalise_path("/tmp//keel-gate"),
-            normalise_path("/tmp/keel-gate")
+            normalise_path("/tmp//specline-gate"),
+            normalise_path("/tmp/specline-gate")
         );
         assert_eq!(normalise_path("/a///b//c"), "/a/b/c");
         assert_eq!(normalise_path("/a/b/"), "/a/b");

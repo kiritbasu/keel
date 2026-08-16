@@ -1617,7 +1617,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "keel-desktop"
+name = "specline-desktop"
 version = "0.1.0"
 dependencies = [
  "serde_json",

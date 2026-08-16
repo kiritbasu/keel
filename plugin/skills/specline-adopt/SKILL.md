@@ -1,5 +1,5 @@
 ---
-name: keel-adopt
+name: specline-adopt
 description: Use when putting an existing project into Specline for the first time — a repository with history, docs, ADRs and a backlog that predate Specline. Triggers on "adopt Specline", "set Specline up for this repo", "backfill Specline", "import our docs into Specline", "start using Specline on this project", or a Specline project that exists but is empty while the repository plainly is not. Not for the everyday loop; the `specline` skill covers that.
 ---
 

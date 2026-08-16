@@ -155,7 +155,7 @@ read -r -d '' block <<'EOF' || true
         if [ -n "${_checksum_style:-}" ]; then
             verify_checksum "$_file" "$_checksum_style" "$_checksum_value"
         else
-            err "this installer carries no checksum for $_artifact_name, so there is nothing to check the download against. Refusing to install unverified bytes. That is a broken release rather than something to work around: please report it at https://github.com/kiritbasu/keel/issues"
+            err "this installer carries no checksum for $_artifact_name, so there is nothing to check the download against. Refusing to install unverified bytes. That is a broken release rather than something to work around: please report it at https://github.com/kiritbasu/specline/issues"
         fi
 EOF
 fixed+=("$block")
