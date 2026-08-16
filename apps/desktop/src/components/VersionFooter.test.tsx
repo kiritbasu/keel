@@ -9,9 +9,11 @@
  * that the absence of it degrades to plain text rather than a dead link.
  */
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { VersionFooter, checkStatus } from "./VersionFooter";
+import { api } from "../lib/api";
 
 afterEach(cleanup);
 
@@ -253,5 +255,106 @@ describe("checkStatus", () => {
       1_000_000_000_000,
     );
     expect(status).not.toBeNull();
+  });
+});
+
+/**
+ * KEEL-258. There was no way to ask, so "no update showing" and "it has not
+ * looked since the release existed" were the same picture — which is what
+ * happened the day 0.1.5 was published.
+ *
+ * These stub `api.checkForUpdate` rather than `fetch`: `post` refuses without a
+ * token taken from the document the daemon served, so a fetch-level stub never
+ * runs and every test would pass for the wrong reason.
+ */
+describe("VersionFooter — asking for a check", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function answers(body: Awaited<ReturnType<typeof api.checkForUpdate>>) {
+    vi.spyOn(api, "checkForUpdate").mockResolvedValue(body);
+  }
+
+  it("offers a check when nothing is staged", () => {
+    render(
+      <VersionFooter version="0.1.5" stagedVersion={null} onApplied={() => {}} />,
+    );
+    expect(screen.getByRole("button", { name: /check for updates/i })).toBeTruthy();
+  });
+
+  it("does not offer one when an update is already downloaded", () => {
+    render(
+      <VersionFooter version="0.1.4" stagedVersion="0.1.5" onApplied={() => {}} />,
+    );
+    // The useful button at that point is the one that takes it. A second look
+    // asks a question the daemon has already answered.
+    expect(screen.queryByRole("button", { name: /check for updates/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /restart into it/i })).toBeTruthy();
+  });
+
+  it("says so when there is nothing new, rather than staying silent", async () => {
+    answers({ outcome: "up_to_date", version: "0.1.5" });
+    render(
+      <VersionFooter version="0.1.5" stagedVersion={null} onApplied={() => {}} />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /check for updates/i }));
+
+    // The whole point: a check that found nothing has to be distinguishable
+    // from a check that never ran.
+    expect(await screen.findByText(/0\.1\.5 is the latest release/i)).toBeTruthy();
+  });
+
+  it("explains a release that cannot be applied automatically", async () => {
+    answers({
+      outcome: "needs_a_person",
+      version: "0.2.0",
+      schema_from: 4,
+      schema_to: 5,
+    });
+    render(
+      <VersionFooter version="0.1.5" stagedVersion={null} onApplied={() => {}} />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /check for updates/i }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toMatch(/0\.2\.0/);
+    expect(status.textContent).toMatch(/schema 4 → 5/);
+    expect(status.textContent).toMatch(/keel update/);
+  });
+
+  it("reports a failed check with its reason rather than as silence", async () => {
+    answers({ outcome: "failed", error: "could not reach the release manifest" });
+    render(
+      <VersionFooter version="0.1.5" stagedVersion={null} onApplied={() => {}} />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /check for updates/i }));
+
+    expect(
+      await screen.findByText(/could not reach the release manifest/i),
+    ).toBeTruthy();
+  });
+
+  it("refreshes rather than announcing it, when the check stages something", async () => {
+    answers({ outcome: "staged", version: "0.1.6" });
+    let refreshed = 0;
+    render(
+      <VersionFooter
+        version="0.1.5"
+        stagedVersion={null}
+        onApplied={() => {
+          refreshed += 1;
+        }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /check for updates/i }));
+
+    // The offer appears on the refresh. Saying it here as well would be the
+    // interface talking over itself.
+    expect(refreshed).toBe(1);
   });
 });

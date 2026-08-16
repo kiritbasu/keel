@@ -323,3 +323,27 @@ async fn a_build_without_a_model_never_reports_one_as_loaded() {
     }
     drop(state);
 }
+
+/// KEEL-258. The check a person can ask for, rather than waiting up to an hour
+/// for the timer.
+///
+/// This asserts the route exists and is guarded, not that it finds a release —
+/// the outcome depends on what is published at the moment the test runs, and a
+/// test that reaches the network is a test that fails on a train.
+#[tokio::test]
+async fn the_update_check_endpoint_exists_and_is_behind_the_token() {
+    let (base, state, _home) = daemon().await;
+
+    let unauthenticated = reqwest::Client::new()
+        .post(format!("{base}/api/update/check"))
+        .send()
+        .await
+        .expect("the route answers");
+
+    assert_eq!(
+        unauthenticated.status().as_u16(),
+        401,
+        "checking is a mutating action and sits behind the same token as applying"
+    );
+    drop(state);
+}

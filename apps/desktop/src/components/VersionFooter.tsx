@@ -118,6 +118,50 @@ export function VersionFooter({
 }) {
   const [applying, setApplying] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<string | null>(null);
+
+  async function check() {
+    setChecking(true);
+    setCheckResult(null);
+    setFailed(null);
+    try {
+      const r = await api.checkForUpdate();
+      switch (r.outcome) {
+        case "staged":
+          // Nothing to say here: the offer below appears on the refresh, and
+          // announcing it twice would be the interface talking over itself.
+          onApplied();
+          break;
+        case "up_to_date":
+          setCheckResult(`${r.version ?? version} is the latest release.`);
+          break;
+        case "ahead":
+          // Ordinary rather than exotic: anybody running a prerelease is ahead
+          // of what `releases/latest` resolves to.
+          setCheckResult(
+            `This build is ahead of the latest release (${r.published}).`,
+          );
+          break;
+        case "needs_a_person":
+          setCheckResult(
+            `${r.version} changes the store's shape (schema ${r.schema_from} → ${r.schema_to}), so it is not applied automatically. Run \`keel update\` to see what it involves.`,
+          );
+          break;
+        case "failed":
+          setCheckResult(`The check did not complete: ${r.error}`);
+          break;
+      }
+    } catch (e) {
+      setCheckResult(
+        e instanceof ApiError
+          ? e.message
+          : "The check could not be made. Nothing has changed.",
+      );
+    } finally {
+      setChecking(false);
+    }
+  }
 
   async function apply() {
     setApplying(true);
@@ -187,6 +231,28 @@ export function VersionFooter({
         >
           {status.text}
         </p>
+      )}
+
+      {/*
+        Only when nothing is staged. With an update already downloaded, the
+        useful button is the one that takes it — offering a second look at that
+        point is asking a question the daemon has already answered.
+
+        It is here at all because waiting up to an hour was the only way to find
+        out, and "I checked and there is nothing" looked identical to "I have
+        not looked since before it was published" (KEEL-258).
+      */}
+      {!stagedVersion && (
+        <div className="mt-cosy">
+          <Button size="sm" variant="ghost" onClick={check} disabled={checking}>
+            {checking ? "Checking…" : "Check for updates"}
+          </Button>
+          {checkResult && (
+            <p role="status" className="mt-cosy text-micro text-ink-muted">
+              {checkResult}
+            </p>
+          )}
+        </div>
       )}
 
       {stagedVersion && !applying && (

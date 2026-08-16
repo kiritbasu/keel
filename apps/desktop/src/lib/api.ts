@@ -412,6 +412,31 @@ export const api = {
   applyUpdate: () =>
     post<{ applied: string; restarting: boolean }>("/api/update/apply", {}),
 
+  /**
+   * Ask the daemon to look for a new release now.
+   *
+   * The same call it makes hourly, on a person's say-so instead of a timer —
+   * because there was no way to ask, and "no update showing" and "it has not
+   * looked since the release existed" were the same picture (KEEL-258).
+   *
+   * Strictly less than `applyUpdate`: this can download and stage, and cannot
+   * promote anything into place or restart anything.
+   *
+   * `outcome` is named rather than described so each case can be rendered
+   * without reading prose. `ahead` is not exotic — anybody on an `-rc` is ahead
+   * of what `releases/latest` resolves to.
+   */
+  checkForUpdate: () =>
+    post<{
+      outcome: "up_to_date" | "staged" | "needs_a_person" | "ahead" | "failed";
+      version?: string;
+      published?: string;
+      release_notes?: string;
+      schema_from?: number;
+      schema_to?: number;
+      error?: string;
+    }>("/api/update/check", {}),
+
   /** Create a task. What a person types when they think of something. */
   createTask: (task: {
     project: string;

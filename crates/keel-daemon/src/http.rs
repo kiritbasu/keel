@@ -85,6 +85,15 @@ pub fn router(state: AppState) -> Router {
         // apply what this daemon has already fetched, checksum-verified and
         // staged itself.
         .route("/api/update/apply", post(api_update_apply))
+        // Ask the daemon to look now, rather than waiting up to an hour for it
+        // to look on its own (KEEL-258). Strictly less than the endpoint above:
+        // it can download and stage, and it cannot promote anything into place
+        // or restart anything.
+        //
+        // A person asking whether there is a new version is their own action,
+        // the same class as agreeing to a restart, and it is not authoring —
+        // which is the line hard constraint 7 actually draws.
+        .route("/api/update/check", post(api_update_check))
         // The other half of `keel update`, which replaces the binaries on disk
         // from a process that does not own the daemon and so cannot restart it.
         // Same power as the endpoint above and less: it restarts into whatever
@@ -609,6 +618,103 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
         "projects": projects,
         "store_busy": busy,
     }))
+}
+
+/// Look for a new release now, and stage it if it is safe to apply.
+///
+/// The same call the hourly task makes, on a person's say-so instead of a
+/// timer. It exists because there was no way to ask: KB published 0.1.5, opened
+/// the interface and saw nothing, and the reason was that the last automatic
+/// check had run twenty-four minutes before the release existed (KEEL-258).
+///
+/// **Refused when `KEEL_AUTO_UPDATE=0`.** `keel doctor` tells that person "off
+/// — Keel makes no network requests at all", and a button that fires one anyway
+/// would make a statement we print false. Somebody who has switched automation
+/// off and wants a one-off look has `keel update` in a terminal, which is them
+/// making the request rather than the daemon making it for them.
+///
+/// The outcome is named rather than described, so the interface can render each
+/// case without parsing prose: `up_to_date`, `staged`, `needs_a_person`,
+/// `ahead`. The last is not exotic — anybody running an `-rc` is ahead of what
+/// `releases/latest` resolves to, and reporting that as "no update" would be
+/// true and useless.
+async fn api_update_check() -> Response {
+    if !keel_update::auto_update_enabled() {
+        return bad_request(
+            "update checks are switched off for this daemon (KEEL_AUTO_UPDATE=0), so it will \
+             not make the request. That setting is what `keel doctor` reports as \"Keel makes \
+             no network requests at all\", and this endpoint honouring it is what keeps that \
+             true. To look once without turning automation back on, run `keel update` — that \
+             is you making the request rather than the daemon.",
+        );
+    }
+
+    let dir = match keel_update::install_dir() {
+        Ok(dir) => dir,
+        Err(e) => return internal_error(&format!("cannot find the install directory: {e:#}")),
+    };
+    let target = match keel_update::target() {
+        Ok(t) => t,
+        Err(e) => return internal_error(&format!("cannot tell what platform this is: {e:#}")),
+    };
+
+    // Blocking: an HTTP fetch, a hash over 11 MB and `tar`. On a runtime worker
+    // that would stall every request the daemon is meant to be answering, and
+    // the interface stays live while this runs precisely so a slow network
+    // reads as a slow button rather than a hung page.
+    let stamp_dir = dir.clone();
+    let outcome =
+        tokio::task::spawn_blocking(move || keel_update::check_and_stage(&dir, target)).await;
+
+    // Stamped whichever way it went, the same as the hourly task, so "when did
+    // this last check" has one answer regardless of who asked (KEEL-227).
+    let failure = match &outcome {
+        Ok(Ok(_)) => None,
+        Ok(Err(e)) => Some(format!("{e:#}")),
+        Err(e) => Some(e.to_string()),
+    };
+    if let Err(e) = keel_update::record_check(&stamp_dir, failure) {
+        tracing::debug!("could not record the update check: {e:#}");
+    }
+
+    match outcome {
+        Ok(Ok(keel_update::Plan::UpToDate)) => Json(json!({
+            "outcome": "up_to_date",
+            "version": env!("CARGO_PKG_VERSION"),
+        }))
+        .into_response(),
+        Ok(Ok(keel_update::Plan::Ahead { published })) => Json(json!({
+            "outcome": "ahead",
+            "version": env!("CARGO_PKG_VERSION"),
+            "published": published,
+        }))
+        .into_response(),
+        Ok(Ok(keel_update::Plan::Apply { version, .. })) => {
+            tracing::info!(%version, "staged {version} on request");
+            Json(json!({
+                "outcome": "staged",
+                "version": version,
+                "release_notes": keel_update::release_notes_url(&version),
+            }))
+            .into_response()
+        }
+        Ok(Ok(keel_update::Plan::NeedsAPerson { version, from, to })) => Json(json!({
+            "outcome": "needs_a_person",
+            "version": version,
+            "schema_from": from,
+            "schema_to": to,
+            "release_notes": keel_update::release_notes_url(&version),
+        }))
+        .into_response(),
+        // A failed check is ordinary — a laptop that just woke, no network, a
+        // release without a manifest. Reported rather than raised, and with the
+        // reason attached, because "it did not work" without a cause is what
+        // sends somebody to the logs.
+        Ok(Err(e)) => {
+            Json(json!({ "outcome": "failed", "error": format!("{e:#}") })).into_response()
+        }
+        Err(e) => internal_error(&format!("the update check did not run: {e}")),
+    }
 }
 
 /// Apply the staged update and restart into it.
