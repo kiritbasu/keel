@@ -73,7 +73,7 @@ fastembed = "5"
 # Daemon
 axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
-tower-http = { version = "0.6", features = ["cors", "trace"] }
+tower-http = { version = "0.7", features = ["cors", "trace"] }
 async-stream = "0.3"
 futures-util = "0.3"
 # The read surface, compiled into the daemon so a user needs no Node and no
