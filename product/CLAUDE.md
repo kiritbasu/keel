@@ -137,6 +137,8 @@ A task is not done until all of these are true:
 - [ ] The task **closed in Keel** with `keel_close` — reason `done`, a message saying what happened, and at least one piece of evidence — plus anything learned recorded as a note on it, and `keel generate keel` run
 - [ ] Committed with a message that explains the change, not the diff
 
+**Run the gate through the pinned toolchain.** `rust-toolchain.toml` pins 1.97, and a Homebrew `cargo` on `PATH` ignores it entirely — so `cargo clippy` can be checking a different compiler from the one CI uses, and pass. That happened on 2026-08-15: a session reported clippy clean all evening against 1.91 while CI failed on a lint 1.97 has. Either put `~/.cargo/bin` ahead of Homebrew on `PATH`, or run the gate as `rustup run 1.97 cargo …`.
+
 Three of these are now enforced rather than asked for. A task cannot reach a terminal status without a reason, a message and — for `done` — evidence: the check is in the storage layer, so the CLI and MCP cannot disagree and moving the status by hand does not get round it. The rest of this list is still a list.
 
 If you can't tick all of them, the task is `in_progress`.
@@ -213,7 +215,15 @@ Violating these means rework, not a refactor:
 4. **No silent truncation.** Every list that can be cut reports that it was cut, with a total.
 5. **`session_id` is caller-supplied.** The daemon never invents one.
 6. **No new artifact types** without KB's agreement. Thirteen is the ceiling.
-7. **The desktop app is read-only.** Claude and Keel are the only writers. No write endpoints on the daemon for it, no forms in it — with the two exceptions B-75 and B-77 record, both of which only restart the daemon into a binary it already has.
+7. **The interface may write what a person *does*. Claude keeps what a person *reasons*.**
+
+   Creating a task, commenting on one, archiving or closing a row, moving a status or a priority — those are a person's own actions, and the interface performs them: through `keel-core`'s write path like everything else, attributed `actor: human`, `surface: ui`, and carrying the daemon's token, which is what makes "somebody clicked it" distinguishable from "a page did it" (KEEL-238).
+
+   **Authoring is the half it does not do.** The body of a spec, a decision or a question is written by Claude in the conversation where the thinking happened. That is not squeamishness about forms: the reasoning *is* the product. Keel exists because why-this-and-not-that is the part that normally evaporates, and a person typing into a textarea produces a tracker with an AI feature attached — which is the thing this is trying not to be.
+
+   The line, then, is **capture versus authoring**, and it is checkable: an endpoint that accepts a document revision is on the wrong side of it.
+
+   This replaces "the desktop app is read-only", which had been amended twice and was about to be a third time. KB has said authoring reaches the interface eventually (B-78), so the sentence says where this is going rather than something everyone had to read three exceptions past. When it does arrive, the question to answer first is not "can we build a form" but "what stops the reasoning becoming a field somebody fills in because the form asked".
 
 ---
 
@@ -233,6 +243,7 @@ Optimise instead for: correctness, clarity, and how pleasant the MCP surface is 
 - **Ask about**: anything touching storage format, the MCP tool surface, phase order, or the decisions in `product/SPEC.md` §13.
 - **Decide yourself about**: anything reversible — naming, internal structure, library choices within the constraints above, test approach. Record it in `product/DECISIONS.md` with one line of reasoning.
 - **Don't ask permission to do the obvious.** If a task in `product/STATUS.md` is unambiguous, do it.
+- **Ask in plain English.** A question that needs a decision should be readable by somebody who has not just spent an hour in the code: what the options are, what each one costs, what you would pick. Not a paragraph of implementation detail with a question mark on the end.
 - **Tell him when something is wrong.** If the spec is unbuildable, if a phase is misordered, if a decision turns out to be a mistake — say so plainly and early. He wants to know at the point it's cheap.
 
 ---

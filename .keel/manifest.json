@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-16T04:22:33.533691+00:00",
+  "generated_at": "2026-08-16T04:32:08.030474+00:00",
   "files": [
     {
       "path": ".keel/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/hard-constraint-7-is-rewritten-the-interface-writes-what-a-person-does-and-claude-keeps-the-reasoning.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M04DBTX99VPTD5X477XWEM9F",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "b3a3a1ba91ee97a23364be2b5448494235b2fb02866a58de02dfdf44be60e407"
         }
       ]
     },

@@ -1,6 +1,6 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T04:22:33Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T04:32:08Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -828,6 +828,12 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | revised spec “Keel — standing instructions” to v12 |
+| 2026-08-16 | claude | revised decision “Hard constraint 7 is rewritten: the interface writes what a person does, and Claude keeps the reasoning” to v1 |
+| 2026-08-16 | claude | created decision “Hard constraint 7 is rewritten: the interface writes what a person does, and Claude keeps the reasoning” |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T04:30:10.980535Z |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → (110 characters) |
 | 2026-08-16 | claude | close_reason none → done |
@@ -1022,12 +1028,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | status todo → in_progress |
 | 2026-08-15 | claude | claimed_by none → ses_0d013ca6-a51f-4bcf-b118-1f9720d86d0e |
 | 2026-08-15 | claude | claimed_at none → 2026-08-15T03:57:16.822931Z |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → ["test:cargo test -p keel-daemon --lib site::","test:cargo test --workspace"] |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (516 characters) |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_0d013ca6-a51f-4bcf-b118-1f9720d86d0e |
 
-*Showing the 200 most recent of 1654 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1660 changes. Use `keel_activity` for the rest.*
 
