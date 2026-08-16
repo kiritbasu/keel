@@ -107,7 +107,7 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             runner: '"ubuntu-22.04"'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # A self-hosted runner keeps its working directory between jobs, so
       # `target/distrib` still holds whatever the previous target produced.
@@ -149,7 +149,7 @@ jobs:
       # `npm run build` is `tsc --noEmit && vite build` — a type error fails the
       # release, which is the right moment for it to.
       - name: Install Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -264,7 +264,7 @@ jobs:
             > target/distrib/keel-release.json
           cat target/distrib/keel-release.json
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: artifacts-${{ matrix.target }}
           path: target/distrib/*
@@ -280,9 +280,9 @@ jobs:
       # `dist` reads the workspace to build the installer, so the source has to
       # be here even though nothing is compiled in this job. No Node either: the
       # embedded site is already inside the binaries downloaded below.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: artifacts-*
           merge-multiple: true
@@ -362,7 +362,7 @@ jobs:
       # only in a workflow log.
       - name: Attest build provenance
         if: ${{ !github.event.repository.private }}
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           # The archives and the installer — the two things a user actually
           # downloads, and so the two things `gh attestation verify` should be
