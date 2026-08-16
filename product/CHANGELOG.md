@@ -1,13 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-15T23:19:19Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T04:22:33Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (216)
+## Closed work (217)
+
+### 2026-08-16
+
+- **KEEL-239** Anything the daemon serves has to be safe to render in a browser — `done`
+
+  Three of the four items were already true and are recorded on the row rather than rebuilt — the CSP, nosniff, and blobs served sandboxed so an SVG is inert. The one that was not is `image_path`, which read any image anywhere on the disk: it is now confined to Desktop, Downloads, Pictures and the project's own directory, checked on the resolved path before any byte is read, so `..` and symlinks are settled as locations rather than spellings. The refusal names the folders and offers base64.
+
+  <sub>commit:2739f1f · test:cargo test -p keel-mcp --test images · test:cargo test -p keel-mcp --lib image_roots</sub>
 
 ### 2026-08-15
 
@@ -820,6 +828,13 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (110 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (493 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T04:14:19.060719Z |
 | 2026-08-15 | claude | status in_progress → done |
 | 2026-08-15 | claude | evidence [] → (94 characters) |
 | 2026-08-15 | claude | close_reason none → done |
@@ -1013,13 +1028,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | close_message none → (516 characters) |
 | 2026-08-15 | claude | status todo → in_progress |
 | 2026-08-15 | claude | claimed_by none → ses_0d013ca6-a51f-4bcf-b118-1f9720d86d0e |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T03:28:39.891704Z |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → ["commit:53ce7fc","test:./scripts/verify-release-tier1.sh target/distrib"] |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (568 characters) |
-| 2026-08-15 | claude | created task “Stand up the Linux VM and run tier 2 for the first time” |
-| 2026-08-15 | claude | status todo → in_progress |
 
-*Showing the 200 most recent of 1647 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1654 changes. Use `keel_activity` for the rest.*
 
