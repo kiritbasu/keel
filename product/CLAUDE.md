@@ -132,14 +132,21 @@ A task is not done until all of these are true:
       *(was `--all-features`; dropped 2026-08-09 because no workspace crate declared a feature it changed anything for, while it forced a second full build of the vendored DuckDB and filled the disk. See DECISIONS B-11. Since Phase 9 no workspace crate declares a feature at all — the `bundled` chain existed only to let someone link a system DuckDB instead of the vendored one — so the flag is now a no-op rather than a hazard. It stays dropped because there is nothing left for it to do.)*
 - [ ] Formatted: `cargo fmt --all --check`
 - [ ] Tests written **and** passing — including at least one failure case, not only the happy path. The one exception is a *forward-looking* test for behaviour a later phase delivers: mark it `#[ignore = "unblocks in Phase N — see STATUS.md KEEL-x"]` so CI stays green and the intent stays visible. Never `#[ignore]` a test for behaviour the current phase is supposed to deliver.
+- [ ] **Reviewed** with `/agent-skills:code-review-and-quality`, against all five axes — correctness, readability, architecture, security, performance — with every Critical and Required finding either fixed or filed as a row that names it
 - [ ] No `unwrap()`, `expect()`, or `panic!()` in library code (binaries and tests may, with a message)
 - [ ] Public items in `keel-core` have doc comments explaining *why*, not restating the signature
 - [ ] The task **closed in Keel** with `keel_close` — reason `done`, a message saying what happened, and at least one piece of evidence — plus anything learned recorded as a note on it, and `keel generate keel` run
 - [ ] Committed with a message that explains the change, not the diff
 
-**Run the gate through the pinned toolchain.** `rust-toolchain.toml` pins 1.97, and a Homebrew `cargo` on `PATH` ignores it entirely — so `cargo clippy` can be checking a different compiler from the one CI uses, and pass. That happened on 2026-08-15: a session reported clippy clean all evening against 1.91 while CI failed on a lint 1.97 has. Either put `~/.cargo/bin` ahead of Homebrew on `PATH`, or run the gate as `rustup run 1.97 cargo …`.
+**Two words, and they are not interchangeable.** *The checks* are `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo test --workspace`. *The review* is reading the code against the five axes. Do not call either of them "the gate": one word for two things that catch different failures is how a session reports that something was verified when the other half never happened.
 
-Three of these are now enforced rather than asked for. A task cannot reach a terminal status without a reason, a message and — for `done` — evidence: the check is in the storage layer, so the CLI and MCP cannot disagree and moving the status by hand does not get round it. The rest of this list is still a list.
+**Run the checks through the pinned toolchain.** `rust-toolchain.toml` pins 1.97, and a Homebrew `cargo` on `PATH` ignores it entirely — so `cargo clippy` can be checking a different compiler from the one CI uses, and pass. That happened on 2026-08-15: a session reported clippy clean all evening against 1.91 while CI failed on a lint 1.97 has. Either put `~/.cargo/bin` ahead of Homebrew on `PATH`, or run them as `rustup run 1.97 cargo …`.
+
+**Why the review is on the list rather than a good habit.** On 2026-08-16 a session ran the review over its own thirty-five commits and found three real defects — a callback that reloaded the whole page when a button only looked for an update, a progress line that cleared only because the parent happened to destroy it, and two writers racing on one staging file. `fmt`, `clippy`, the whole suite and CI were green throughout, and had been for every one of those commits. The checks tell you the code compiles and does what its tests say; they cannot tell you the tests are asking the right question. Nothing but reading finds that, and two of the three were introduced in the last hour of the session, when the work was going fastest and each change looked small.
+
+Reviewing your own work counts, and is the usual case here — there is one developer. What does not count is skipping it because the tests are green, which is the exact condition under which those three shipped.
+
+Three of these are now enforced rather than asked for. A task cannot reach a terminal status without a reason, a message and — for `done` — evidence: the check is in the storage layer, so the CLI and MCP cannot disagree and moving the status by hand does not get round it. The rest of this list, the review included, is still a list.
 
 If you can't tick all of them, the task is `in_progress`.
 
@@ -259,4 +266,5 @@ Things that look like progress and aren't:
 - Refactoring for elegance while the tracker says something is blocked.
 - Hand-editing a generated file and committing it with `--no-verify`. The pre-commit check exists to stop exactly this, the next `keel generate` reverts it, and the reasoning in it is lost.
 - Marking a task done because the code exists but the tests don't.
+- Treating a green suite as a review. They answer different questions, and the three defects that produced this line were all in code where every check passed.
 - Doing an hour of work that no row describes. It is not that Keel goes unwritten — decisions and notes get recorded — it is that the one artifact a person watches stays empty while the work happens.

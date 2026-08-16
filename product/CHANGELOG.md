@@ -1,6 +1,6 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T13:06:13Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T13:13:49Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -956,6 +956,9 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | revised decision “The review joins the definition of done, and "the gate" stops being a word” to v1 |
+| 2026-08-16 | claude | created decision “The review joins the definition of done, and "the gate" stops being a word” |
+| 2026-08-16 | claude | revised spec “Keel — standing instructions” to v13 |
 | 2026-08-16 | claude | created task “Four files are past two thousand lines, and today's work added to three of them” |
 | 2026-08-16 | claude | created task “Two update checks can stage at once, and the marker can end up describing binaries it did not come with” |
 | 2026-08-16 | human | created task “Task's in the next area are not clickable” |
@@ -1153,9 +1156,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (493 characters) |
 | 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T04:14:19.060719Z |
-| 2026-08-15 | claude | status in_progress → done |
 
-*Showing the 200 most recent of 1846 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1849 changes. Use `keel_activity` for the rest.*
 

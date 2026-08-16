@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-16T13:06:13.202821+00:00",
+  "generated_at": "2026-08-16T13:13:49.196975+00:00",
   "files": [
     {
       "path": ".keel/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/the-review-joins-the-definition-of-done-and-the-gate-stops-being-a-word.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M05B9KHR4EV9KQDT60YW929Q",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "1bee0f60e5640c25799f86a3d76f5518b87aeb3bf200f06d3bbd2e1dc79d3a2f"
         }
       ]
     },
