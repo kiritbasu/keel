@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T08:44:38Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T09:08:05Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (233)
+## Closed work (234)
 
 ### 2026-08-16
+
+- **KEEL-254** Three dependency majors need code changes: rand, ulid and sha2 — `done`
+
+  All three on current majors, each with the test its call site was missing. `rand::fill` replaces the renamed `fill_bytes` and draws from the same ChaCha12 generator, checked rather than assumed. `Ulid::generate` replaces `Ulid::new` in the fallback nothing exercises, which now has a test. `sha2`'s output lost `LowerHex`, so the three hand-rolled hex folds became one `keel_core::hex::encode` with tests for lowercase and leading zeros — the two properties a checksum comparison rests on and the compiler does not check. `verify` covers all three outcomes now, including refusing a mismatched archive. 65 suites green with embeddings, 63 without.
+
+  <sub>commit:5939ae9 · test:cargo test --workspace · test:cargo test --workspace --exclude keel-embed --no-default-features</sub>
 
 - **KEEL-249** Set the public repository up the way a public repository should be — `done`
 
@@ -920,6 +926,13 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (121 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (647 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T08:58:02.073630Z |
 | 2026-08-16 | claude | status todo → in_progress |
 | 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
 | 2026-08-16 | claude | claimed_at none → 2026-08-16T08:41:31.949942Z |
@@ -1113,13 +1126,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | created task “Release 0.1.4 — the update restarts the daemon, and the tracker is readable again” |
 | 2026-08-15 | claude | status in_progress → done |
 | 2026-08-15 | claude | evidence [] → (127 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (415 characters) |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T21:45:45.696261Z |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → ["commit:4a1b571","test:rustup run 1.97 cargo test --workspace"] |
 
-*Showing the 200 most recent of 1799 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1806 changes. Use `keel_activity` for the rest.*
 
