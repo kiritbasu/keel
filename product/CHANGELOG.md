@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T15:10:17Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T15:32:42Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (251)
+## Closed work (252)
 
 ### 2026-08-16
+
+- **KEEL-275** Prove the rename: both build configurations, fsck on the moved store, and a sweep that finds nothing left — `done`
+
+  The sweep script exists and reports nothing unexplained. It found nine misses the earlier passes could not see, all of the same shape: the old name composed at runtime or sitting behind a path separator, never a literal worth grepping for. Both clippy configurations, 1135 Rust tests, 278 interface tests, fsck clean.
+
+  <sub>commit:5423cd9 · test:scripts/check-rename.sh</sub>
 
 - **KEEL-270** Rename the plugin, the skills, the hooks and the background service — `done`
 
@@ -1028,6 +1034,16 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | created task “Import matches a file to an artifact by its heading, so a drifted title makes a duplicate” |
+| 2026-08-16 | claude | revised spec “Dependency and protocol verification — 2026-08-09 snapshot” to v3 |
+| 2026-08-16 | human | archived spec “Dependency and protocol verification — a snapshot, not a description” |
+| 2026-08-16 | human | revised spec “Dependency and protocol verification — a snapshot, not a description” to v1 |
+| 2026-08-16 | human | created spec “Dependency and protocol verification — a snapshot, not a description” |
+| 2026-08-16 | human | revised spec “Specline — Technical Specification” to v9 |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:5423cd9","test:scripts/check-rename.sh"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (317 characters) |
 | 2026-08-16 | claude | status todo → in_progress |
 | 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
 | 2026-08-16 | claude | claimed_at none → 2026-08-16T15:10:17.361755Z |
@@ -1218,16 +1234,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | close_message none → (663 characters) |
 | 2026-08-16 | claude | “Restore the Intel macOS and Linux release targets, now that…” depends on “Put embeddings behind a feature so Intel macOS and Linux…” (stored as “Put embeddings behind a feature so Intel macOS and Linux…” blocks “Restore the Intel macOS and Linux release targets, now that…”) |
 | 2026-08-16 | claude | created task “Restore the Intel macOS and Linux release targets, now that a build without embeddings exists” |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T08:01:26.964465Z |
-| 2026-08-16 | claude | created task “keel_search promises hybrid retrieval and runs keyword-only, without saying so” |
-| 2026-08-16 | claude | status todo → done |
-| 2026-08-16 | claude | evidence [] → (143 characters) |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (420 characters) |
-| 2026-08-16 | claude | created task “CI has been red on main because a test asserts the machine has a Desktop folder” |
-| 2026-08-16 | claude | status todo → done |
 
-*Showing the 200 most recent of 1974 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 1984 changes. Use `specline_activity` for the rest.*
 

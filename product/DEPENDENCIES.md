@@ -42,16 +42,16 @@ Record what was actually true when checked, with the date and the source. `produ
 | Delta | What Phase 1 must do |
 |---|---|
 | `server/discover` is a **required** RPC | Implement it. It advertises supported protocol versions, capabilities and identity. Clients may call it before anything else. |
-| Every result carries a required `resultType` field | Emit `"complete"` on all nine tools. `"input_required"` is the MRTR path and Keel never needs it. |
-| `tools/list` results require `ttlMs` and `cacheScope` | Keel's tool list is static, so a long `ttlMs` and `cacheScope: "public"` are correct and let clients stop polling. |
+| Every result carries a required `resultType` field | Emit `"complete"` on all nine tools. `"input_required"` is the MRTR path and Specline never needs it. |
+| `tools/list` results require `ttlMs` and `cacheScope` | Specline's tool list is static, so a long `ttlMs` and `cacheScope: "public"` are correct and let clients stop polling. |
 | Protocol metadata moved into `_meta` | Read `io.modelcontextprotocol/protocolVersion`, `/clientInfo`, `/clientCapabilities` from `params._meta`, and validate the version against the `MCP-Protocol-Version` header. |
 | Error codes renumbered | `HeaderMismatch` `-32020`, `MissingRequiredClientCapability` `-32021`, `UnsupportedProtocolVersion` `-32022`. The old `-3200{1,3,4}` numbers are wrong. |
 | HTTP GET/DELETE on the MCP endpoint | Return `405 Method Not Allowed`. Ignore any `Mcp-Session-Id` or `Last-Event-ID` that arrives. |
 | `Origin` validation is a MUST | Reject invalid `Origin` with HTTP 403. Cheap, and the daemon is localhost-bound anyway. |
-| Sampling, Roots and Logging are deprecated | Do not implement them. Keel needs none. |
-| SSE resumability removed | The local REST/SSE surface for the desktop app is Keel's own API, not MCP, so this constrains only the MCP endpoint. |
+| Sampling, Roots and Logging are deprecated | Do not implement them. Specline needs none. |
+| SSE resumability removed | The local REST/SSE surface for the desktop app is Specline's own API, not MCP, so this constrains only the MCP endpoint. |
 
-The nine-tool surface in §6.2 is unaffected. So is `keel_context`.
+The nine-tool surface in §6.2 is unaffected. So is `specline_context`.
 
 ---
 
@@ -60,7 +60,7 @@ The nine-tool surface in §6.2 is unaffected. So is `keel_context`.
 Kept deliberately, because a dated snapshot that is quietly corrected stops
 being a snapshot:
 
-- **The tool surface is ten, not nine.** `keel_note` earned the tenth slot after
+- **The tool surface is ten, not nine.** `specline_note` earned the tenth slot after
   the tracker moved to rows. Every "all nine tools" above should be read as "all
   tools".
 - **`lance_hybrid_search` is no longer used at all.** B-12 moved BM25 into

@@ -53,7 +53,7 @@ specline/
 │   ├── specline-daemon/    axum: MCP + local REST/SSE. Owns the write handle.
 │   ├── specline-mcp/       MCP protocol layer (could fold into daemon)
 │   ├── keel-cli/       thin client — scripting, backup, migration
-│   └── keel-github/    GitHub App webhook receiver + PR linkage
+│   └── specline-github/    GitHub App webhook receiver + PR linkage
 ├── apps/
 │   ├── desktop/        Tauri v2 shell; daemon as sidecar
 │   └── web/            same React bundle, served by daemon when remote
@@ -758,7 +758,7 @@ A GitHub App with webhooks, not polling.
 - `push` events attach commits to the linked task's timeline.
 - `deployment_status` updates the matching `environments` row.
 
-Webhook receiver is `keel-github`, a separate binary that calls the daemon's API — so it can be deployed publicly while the daemon stays local, over a tunnel.
+Webhook receiver is `specline-github`, a separate binary that calls the daemon's API — so it can be deployed publicly while the daemon stays local, over a tunnel.
 
 ---
 
