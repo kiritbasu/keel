@@ -19,7 +19,8 @@ import {
 } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
 import { ApiError } from "../lib/api";
-import { Button, Dialog, Empty, ErrorBox, Spinner, cx } from "../components/ui";
+import { Button, Dialog, Empty, ErrorBox, Spinner } from "../components/ui";
+import { LabelPicker } from "../components/LabelPicker";
 import { Page, projectCrumbs } from "../components/Page";
 import { FilterBar, type Facets, type View } from "../components/FilterBar";
 import { TaskBoard } from "../components/TaskBoard";
@@ -182,25 +183,6 @@ export function BoardScreen({
       }
     }
     return best;
-  }, [data]);
-
-  // The labels worth offering in the new-task dialog, most used first.
-  //
-  // All of them is 64 chips on this project, which is a wall rather than a
-  // choice. Ten is a picker. The dialog says how many it left out and where to
-  // get them, because a list that silently stops is the thing hard constraint 4
-  // is about.
-  const commonLabels = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const task of data?.items ?? []) {
-      for (const label of (task.labels as string[] | undefined) ?? [])
-        counts.set(label, (counts.get(label) ?? 0) + 1);
-    }
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .slice(0, 10)
-      .map(([label]) => label)
-      .sort();
   }, [data]);
 
   const [creating, setCreating] = useState(false);
@@ -388,7 +370,6 @@ export function BoardScreen({
           open={creating}
           project={route.project}
           facets={facets}
-          offeredLabels={commonLabels}
           milestoneNoun={milestoneNoun}
           activeMilestone={activeMilestone}
           onClose={() => setCreating(false)}
@@ -415,7 +396,6 @@ function NewTaskDialog({
   open,
   project,
   facets,
-  offeredLabels,
   milestoneNoun,
   activeMilestone,
   onClose,
@@ -424,8 +404,6 @@ function NewTaskDialog({
   open: boolean;
   project: string;
   facets: Facets;
-  /** The labels actually worth showing — see `commonLabels`. */
-  offeredLabels: string[];
   /** The project's own word for a milestone — "Phase" here. */
   milestoneNoun: string | undefined;
   /** The phase in flight, which is what a new task almost always belongs to. */
@@ -564,50 +542,14 @@ function NewTaskDialog({
           </label>
         </div>
 
-        {/* Labels already in use, and nothing else. A free-text box here is how
-            a label set turns into `ui`, `UI` and `ui ` inside a month — and
-            Claude can add a genuinely new one when there is a reason for it. */}
-        {offeredLabels.length > 0 && (
-          <div className="space-y-1">
-            <span className="text-micro text-ink-muted">
-              Labels
-              {facets.labels.length > offeredLabels.length && (
-                <span className="text-ink-faint">
-                  {" "}
-                  — the {offeredLabels.length} most used of{" "}
-                  {facets.labels.length}. Ask Claude for any of the others.
-                </span>
-              )}
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {offeredLabels.map((label) => {
-                const on = labels.includes(label);
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() =>
-                      setLabels((current) =>
-                        current.includes(label)
-                          ? current.filter((l) => l !== label)
-                          : [...current, label],
-                      )
-                    }
-                    className={cx(
-                      "rounded-full border px-2 py-0.5 text-micro transition-colors",
-                      on
-                        ? "border-accent/60 bg-accent/15 text-accent"
-                        : "border-border-subtle text-ink-faint hover:text-ink",
-                    )}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {/* Every label on this project, found by typing. The list is built
+            from the tasks the board loaded, and that query is scoped by
+            project — so these cannot be another project's labels. */}
+        <LabelPicker
+          available={facets.labels}
+          chosen={labels}
+          onChange={setLabels}
+        />
 
         {failed && (
           <p role="alert" className="text-micro text-bad">
