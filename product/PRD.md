@@ -2,18 +2,18 @@
      Specline is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
      An edit made here is overwritten on the next `specline generate`. -->
 
-# Keel — Product Requirements Document
+# Specline — Product Requirements Document
 
 > **Status:** Draft v1
 > **Author:** KB (with Claude)
 > **Date:** 2026-08-09
-> **Working name:** *Keel* — the structural spine a ship is built around. Placeholder; rename freely.
+> **Working name:** *Specline* — the structural spine a ship is built around. Placeholder; rename freely.
 
 ---
 
 ## 1. Summary
 
-Keel is a single, local-first store for everything that describes a software project *other than the code itself*: PRDs, specs, decisions, tasks, bugs, milestones, roadmap, design artifacts, environments, metrics, risks, and customer feedback.
+Specline is a single, local-first store for everything that describes a software project *other than the code itself*: PRDs, specs, decisions, tasks, bugs, milestones, roadmap, design artifacts, environments, metrics, risks, and customer feedback.
 
 It has two faces:
 
@@ -47,7 +47,7 @@ Existing tools each solve a slice: Linear does tasks, Notion does docs, GitHub d
 | KB | Claude, conversationally | The main way writes happen |
 | KB | Mobile (later) | Read-only status check |
 
-Keel is **single-tenant, single-human**. There is no multi-user permission model, no assignees, no team collaboration. Concurrency matters not because of many humans but because of many simultaneous agent sessions.
+Specline is **single-tenant, single-human**. There is no multi-user permission model, no assignees, no team collaboration. Concurrency matters not because of many humans but because of many simultaneous agent sessions.
 
 ---
 
@@ -64,12 +64,12 @@ Keel is **single-tenant, single-human**. There is no multi-user permission model
 
 ## 5. Non-goals
 
-- **N1.** Not a replacement for GitHub Issues as a *public* issue tracker. Keel is private.
+- **N1.** Not a replacement for GitHub Issues as a *public* issue tracker. Specline is private.
 - **N2.** No team collaboration, permissions, assignment, or multi-user auth in v1.
 - **N3.** No sprints, story points, velocity, burndown, or time tracking. Ever, ideally.
 - **N4.** Not a code host, CI system, or design tool. It references those; it doesn't replace them.
 - **N5.** Not a general-purpose wiki. Every artifact has a type and a place in the graph.
-- **N6.** No two-way sync with Linear/Jira/Notion. Keel replaces them.
+- **N6.** No two-way sync with Linear/Jira/Notion. Specline replaces them.
 
 ---
 
@@ -123,11 +123,11 @@ Thirteen artifact types, plus two connective structures (Link and Event) that ar
 
 **UC-1 — Agent orientation.** A fresh Claude session in any surface calls one tool and receives a compact digest: project summary, active milestone, open P0 tasks, recent decisions, unresolved questions, relevant glossary terms. It is now oriented without reading a single file.
 
-**UC-2 — Conversational capture.** KB is talking through an idea in Claude chat. Claude writes a PRD into Keel as a versioned document, creates the milestone, decomposes it into tasks, and records the three open questions it couldn't resolve — all without KB touching a UI.
+**UC-2 — Conversational capture.** KB is talking through an idea in Claude chat. Claude writes a PRD into Specline as a versioned document, creates the milestone, decomposes it into tasks, and records the three open questions it couldn't resolve — all without KB touching a UI.
 
-**UC-3 — Implementation handoff.** A Claude Code session in the repo asks Keel for the current spec and the tasks under the active milestone, implements one, and marks it done with a link to the PR. The task's timeline now shows the commit.
+**UC-3 — Implementation handoff.** A Claude Code session in the repo asks Specline for the current spec and the tasks under the active milestone, implements one, and marks it done with a link to the PR. The task's timeline now shows the commit.
 
-**UC-4 — Customer feedback triage.** KB is on a call and types three raw notes into Keel. A week later he asks Claude "what have customers said about onboarding?" — Claude runs a hybrid search across all feedback in all projects, clusters it, and proposes two tasks and a spec amendment.
+**UC-4 — Customer feedback triage.** KB is on a call and types three raw notes into Specline. A week later he asks Claude "what have customers said about onboarding?" — Claude runs a hybrid search across all feedback in all projects, clusters it, and proposes two tasks and a spec amendment.
 
 **UC-5 — Design–code loop.** A design artifact is attached to a spec. After implementation, a screenshot is attached as the `built` state. The UI shows them side by side, and the diff is obvious.
 
@@ -144,8 +144,8 @@ Thirteen artifact types, plus two connective structures (Link and Event) that ar
 ### Must have (v1)
 
 - **REQ-1** — All thirteen artifact types are creatable, readable, and updatable via MCP.
-- **REQ-2** — Every prose document is versioned; every version records author and timestamp, and records session ID **when the caller supplies one**. Session attribution is cooperative rather than enforced — see SPEC §6.5 and D-10 — because a stateless transport has no session to bind to. Any two versions can be fetched and diffed via MCP (`keel_get` with a `version` argument), not only in the UI.
-- **REQ-3** — A single `keel_context` call returns a project digest sized to fit comfortably in an agent's context window.
+- **REQ-2** — Every prose document is versioned; every version records author and timestamp, and records session ID **when the caller supplies one**. Session attribution is cooperative rather than enforced — see SPEC §6.5 and D-10 — because a stateless transport has no session to bind to. Any two versions can be fetched and diffed via MCP (`specline_get` with a `version` argument), not only in the UI.
+- **REQ-3** — A single `specline_context` call returns a project digest sized to fit comfortably in an agent's context window.
 - **REQ-4** — Hybrid (semantic + keyword) search spans every artifact type that carries text — prose-bearing types via the documents index, and the remainder (task, milestone, term, environment, artifact, project) via a title/body index — across all projects, with filters by project, type, and date range. Metrics and metric observations are excluded by design: they're numeric, and reaching them is a filter, not a search.
 - **REQ-5** — Typed links can be created between any two artifacts, and the graph is traversable in both directions to a configurable depth (default 6, hard cap 16).
 - **REQ-6** — Every mutation writes an event; events are queryable as "everything that changed since timestamp T."
@@ -176,7 +176,7 @@ Thirteen artifact types, plus two connective structures (Link and Event) that ar
 | Metric | Target | Why |
 |---|---|---|
 | Agent orientation cost | 1 tool call, < 4k tokens | If orienting is expensive, agents skip it |
-| Sessions where Claude writes to Keel unprompted | > 80% | Measures whether the skill actually fires |
+| Sessions where Claude writes to Specline unprompted | > 80% | Measures whether the skill actually fires |
 | Projects tracked | ≥ 5 within a month | Proves the multi-project premise |
 | Manual markdown files consulted per week | → 0 | The original complaint |
 | Duplicate/junk projects created | 0 | Tests REQ-8 |
@@ -191,7 +191,7 @@ Thirteen artifact types, plus two connective structures (Link and Event) that ar
 
 **Phase 1 — MCP daemon.** Axum server, full tool surface, hybrid search, context digest, concurrency safety. Exit: a Claude session can run UC-1 through UC-4 end to end.
 
-**Phase 2 — Claude plugin.** Skill teaching when to write, project-confirmation behaviour, hooks for the markdown mirror. Exit: Claude writes to Keel without being told to.
+**Phase 2 — Claude plugin.** Skill teaching when to write, project-confirmation behaviour, hooks for the markdown mirror. Exit: Claude writes to Specline without being told to.
 
 **Phase 3 — Desktop app.** Tauri shell, daemon as sidecar, all v1 screens. Exit: the Sunday-review use case works.
 
@@ -199,7 +199,7 @@ Thirteen artifact types, plus two connective structures (Link and Event) that ar
 
 **Phase 5 — Remote.** Deployable daemon, auth, mobile client.
 
-Phases 0–2 are the ones that matter. If Keel is useful after Phase 2 with no UI at all, the premise is validated. If it isn't, the UI won't save it.
+Phases 0–2 are the ones that matter. If Specline is useful after Phase 2 with no UI at all, the premise is validated. If it isn't, the UI won't save it.
 
 ---
 
@@ -223,10 +223,10 @@ Phases 0–2 are the ones that matter. If Keel is useful after Phase 2 with no U
 
 - **Q-1** — Should tasks auto-close on PR merge, or only *propose* closure for confirmation? Auto is convenient, but a merged PR doesn't always mean done. *Provisionally resolved: propose* (SPEC D-8); REQ-12 and SPEC §9 assume this.
 - **Q-2** — Where does the store live on disk, and does it get its own git repo for backup?
-- **Q-3** — Does the markdown mirror get committed to the project repo, or gitignored and local-only? *Provisionally resolved: commit it.* SPEC §11's recovery tier 3 assumes this; if the answer flips, that tier disappears and backup rests entirely on `~/.keel`.
+- **Q-3** — Does the markdown mirror get committed to the project repo, or gitignored and local-only? *Provisionally resolved: commit it.* SPEC §11's recovery tier 3 assumes this; if the answer flips, that tier disappears and backup rests entirely on `~/.specline`.
 - **Q-4** — Should terms be global across projects, per-project, or both with per-project override? *Provisionally resolved: both, project-first resolution* (SPEC §3.2), enforced by a unique index on `(project_id, term)`.
 - **Q-5** — What is the retention policy on the event log? It grows forever. Options: keep everything (probably fine for a decade at this write volume), or roll up events older than a year into daily summaries. This is the single canonical home for this question; the spec defers to it.
-- **Q-6** — Should Keel ingest anything automatically (commits, deploys), or only ever what an agent or human explicitly writes?
+- **Q-6** — Should Specline ingest anything automatically (commits, deploys), or only ever what an agent or human explicitly writes?
 - **Q-7** — Embedding model: local (fast, private, weaker) or hosted (better, requires network)? Affects the "runs entirely locally" goal. *Provisionally resolved local* (SPEC D-7), with the caveat that the local model is downloaded once on first run and executes through ONNX Runtime — so "no network" is true only after setup.
 - **Q-8** — Under a stateless MCP transport there is no protocol-level session. Where does `session_id` come from — client-supplied, daemon-derived from a stable client identity, or synthesised per conversation by the skill? G3 and REQ-2 depend on the answer. See SPEC §6.5.
 
@@ -234,12 +234,12 @@ Phases 0–2 are the ones that matter. If Keel is useful after Phase 2 with no U
 
 ## 13. Glossary
 
-| Term | Meaning in Keel |
+| Term | Meaning in Specline |
 |---|---|
 | **Artifact** | Any stored entity. Used generically, not as the specific `artifact` type. |
 | **Document** | The versioned prose body of a spec, decision, or feedback item. |
 | **Revision** | One immutable version of a document. |
-| **Digest** | The compact project summary returned by `keel_context`. |
+| **Digest** | The compact project summary returned by `specline_context`. |
 | **Mirror** | Generated read-only markdown written into a project repo. |
 | **Link** | A typed directed edge between two artifacts. |
 | **Event** | One record in the append-only mutation log. |

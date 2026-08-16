@@ -2,7 +2,7 @@
      Specline is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
      An edit made here is overwritten on the next `specline generate`. -->
 
-# Keel — Technical Specification
+# Specline — Technical Specification
 
 > **Status:** Draft v1
 > **Companion to:** PRD.md
@@ -20,19 +20,19 @@ One Rust workspace. One daemon that owns the data. Everything else is a client.
    Claude chat ──►│                                      │
    Cowork      ──►│   MCP  (stateless HTTP, 2026-07-28)  │
    Claude Code ──►│                                      │
-                  │            keel-daemon               │
+                  │            specline-daemon               │
    Tauri UI    ──►│   Local REST + SSE                   │
    CLI         ──►│                                      │
                   └───────────────┬──────────────────────┘
                                   │  the single write path
                   ┌───────────────▼──────────────────────┐
-                  │  keel-core                           │
+                  │  specline-core                           │
                   │  domain · validation · provenance    │
                   │  embeddings · git mirror (gix)       │
                   └───────────────┬──────────────────────┘
                                   │
                   ┌───────────────▼──────────────────────┐
-                  │   SQLite   ~/.keel/keel.sqlite       │
+                  │   SQLite   ~/.specline/specline.sqlite       │
                   │   entities · links · events · notes  │
                   │   documents (+ embeddings) · blobs   │
                   │   fts_entities (FTS5) · v_entities   │
@@ -47,11 +47,11 @@ A join from a task to the spec revision that motivated it, ranked by vector dist
 ### 1.1 Workspace layout
 
 ```
-keel/
+specline/
 ├── crates/
-│   ├── keel-core/      domain types, validation, storage, git mirror
-│   ├── keel-daemon/    axum: MCP + local REST/SSE. Owns the write handle.
-│   ├── keel-mcp/       MCP protocol layer (could fold into daemon)
+│   ├── specline-core/      domain types, validation, storage, git mirror
+│   ├── specline-daemon/    axum: MCP + local REST/SSE. Owns the write handle.
+│   ├── specline-mcp/       MCP protocol layer (could fold into daemon)
 │   ├── keel-cli/       thin client — scripting, backup, migration
 │   └── keel-github/    GitHub App webhook receiver + PR linkage
 ├── apps/
@@ -60,12 +60,12 @@ keel/
 └── plugin/             Claude Code plugin: skill, hooks, MCP config
 ```
 
-`keel-core` never opens a network socket and never knows about MCP. That boundary is what makes the CLI, the daemon, and any future surface cheap to add.
+`specline-core` never opens a network socket and never knows about MCP. That boundary is what makes the CLI, the daemon, and any future surface cheap to add.
 
 ### 1.2 Why this shape
 
 - **The storage layer needs nothing installed and nothing running.** `rusqlite` compiles the bundled SQLite amalgamation as part of the workspace build and links it statically, so there is no sidecar database process, no ORM impedance, and no cross-language marshalling on the hot path. This was the strongest argument for Rust here and it survives the change of engine. Two honest caveats: SQLite is C rather than Rust, and the embedding path in §5 pulls in ONNX Runtime through `ort`, so the stack is not FFI-free. Neither costs a process or a deployment step.
-- **The single write path is now a rule rather than a constraint.** DuckDB refused a second connection outright, so the design and the engine happened to agree. SQLite in WAL mode will let a second process open this file and write to it, and nothing will stop it. The rule stands anyway, for the reason in §7 — six of the seven steps in a Keel write have nothing to do with locking. Whether to enforce it in code is TQ-36, open.
+- **The single write path is now a rule rather than a constraint.** DuckDB refused a second connection outright, so the design and the engine happened to agree. SQLite in WAL mode will let a second process open this file and write to it, and nothing will stop it. The rule stands anyway, for the reason in §7 — six of the seven steps in a Specline write have nothing to do with locking. Whether to enforce it in code is TQ-36, open.
 - **The Tauri app can't serve Claude chat.** Building daemon-first prevents logic getting trapped in the desktop app.
 - **`gix` (gitoxide)** for git operations — pure Rust, no libgit2 linkage.
 
@@ -114,9 +114,9 @@ CREATE UNIQUE INDEX documents_version ON documents(entity_id, version);
 CREATE INDEX documents_current ON documents(entity_id, status);
 ```
 
-`embedding` is a plain blob rather than a column in a vector index, and that is deliberate. `sqlite-vec` is 0.1.9 and its author says to expect breaking changes; keeping the vectors as bytes Keel owns means replacing the vector search is a new query over the same column rather than a re-embedding run over the whole corpus. §5 has the rest of that reasoning.
+`embedding` is a plain blob rather than a column in a vector index, and that is deliberate. `sqlite-vec` is 0.1.9 and its author says to expect breaking changes; keeping the vectors as bytes Specline owns means replacing the vector search is a new query over the same column rather than a re-embedding run over the whole corpus. §5 has the rest of that reasoning.
 
-`entity_id` points at a header row in one of the thirteen entity tables. It is still not a declared foreign key — the reference is polymorphic, so there is no single table to name — but the reason has changed. It used to be unenforceable because the two rows lived in engines that could not see each other; now they live in one file and are written in one transaction, so the pairing cannot half-land in the first place. `keel-core` validates on write and `keel fsck` audits.
+`entity_id` points at a header row in one of the thirteen entity tables. It is still not a declared foreign key — the reference is polymorphic, so there is no single table to name — but the reason has changed. It used to be unenforceable because the two rows lived in engines that could not see each other; now they live in one file and are written in one transaction, so the pairing cannot half-land in the first place. `specline-core` validates on write and `specline fsck` audits.
 
 Consequences:
 
@@ -134,8 +134,8 @@ Entity headers carry `current_doc_version`; the pointer is on the row, the body 
 
 - **IDs:** ULID, prefixed by type — `prj_01H8…`, `tsk_01H8…`, `spc_01H8…`. Sortable by creation, unambiguous in agent output.
 - **Timestamps:** UTC, ISO 8601, stored as text. Once the column is text every `ORDER BY created_at` is a string comparison, and UTC ISO 8601 is the rendering that sorts lexicographically in the same order it sorts chronologically. `store/rows.rs` pins the format down to the width of the fraction, which is not cosmetic.
-- **Soft delete only.** `archived_at`. Agents make mistakes; hard deletes make them permanent. This applies to links too — `keel_link`'s remove operation sets `archived_at`, it does not `DELETE`.
-- **Referential integrity is application-level.** `links` is polymorphic across thirteen tables, and so is `documents.entity_id`, so neither can be expressed as a declared constraint. `keel-core` validates on write; `keel fsck` audits. Archive cascade is explicit: archiving a parent archives its links but never its children, and orphans surface in `fsck`. *(This bullet used to give a second reason — that `documents` lived in Lance where DuckDB could not see it. That reason is gone; the polymorphism is the whole of it now, and the class of orphan that spanned two engines cannot occur.)*
+- **Soft delete only.** `archived_at`. Agents make mistakes; hard deletes make them permanent. This applies to links too — `specline_link`'s remove operation sets `archived_at`, it does not `DELETE`.
+- **Referential integrity is application-level.** `links` is polymorphic across thirteen tables, and so is `documents.entity_id`, so neither can be expressed as a declared constraint. `specline-core` validates on write; `specline fsck` audits. Archive cascade is explicit: archiving a parent archives its links but never its children, and orphans surface in `fsck`. *(This bullet used to give a second reason — that `documents` lived in Lance where DuckDB could not see it. That reason is gone; the polymorphism is the whole of it now, and the class of orphan that spanned two engines cannot occur.)*
 - **Provenance vocabulary.** One concept, two shapes: entity tables record state (`created_by`, `updated_by`), the event log records the act (`actor`). They draw from the same value set — `human | claude | github | system` — and an entity's `updated_by` always equals the `actor` of the event that produced it.
 - **Every table carries the audit block below**, written as `<audit>` to avoid repeating it thirteen times. The one deliberate exception is `events` (§3.4), which is append-only and immutable: it has no `updated_at`, no `version`, and no `archived_at`, because none of them can ever change.
 
@@ -157,7 +157,7 @@ Entity headers carry `current_doc_version`; the pointer is on the row, the body 
 
 ### 3.2 Schema
 
-Reproduced here at spec fidelity. `crates/keel-core/src/store/schema.rs` is the authority for the exact text, including the expansion of `<audit>` and the indexes not shown.
+Reproduced here at spec fidelity. `crates/specline-core/src/store/schema.rs` is the authority for the exact text, including the expansion of `<audit>` and the indexes not shown.
 
 ```sql
 CREATE TABLE projects (
@@ -243,8 +243,8 @@ CREATE TABLE decisions (
   idempotency_key     TEXT NOT NULL,
   <audit>
 ) STRICT;
--- Immutability of accepted decisions is enforced in keel-core, not by the schema:
--- keel_update rejects content changes where status='accepted'. Supersede instead.
+-- Immutability of accepted decisions is enforced in specline-core, not by the schema:
+-- specline_update rejects content changes where status='accepted'. Supersede instead.
 
 CREATE TABLE questions (
   id                  TEXT PRIMARY KEY,
@@ -398,13 +398,13 @@ CREATE INDEX links_to   ON links(to_id);
 | `duplicates` | from **duplicates** to | task → task |
 | `informs` | from **informs** to | feedback → spec |
 
-`blocks` and `depends_on` are inverses. `keel-core` normalises on write: everything is stored as `blocks`, and a `depends_on` request is written with the endpoints swapped. Storing both directions is the single easiest way to make the graph queries silently wrong. Nothing in the schema enforces this and nothing can — both are legal values — so it is enforced on write and audited by `fsck`.
+`blocks` and `depends_on` are inverses. `specline-core` normalises on write: everything is stored as `blocks`, and a `depends_on` request is written with the endpoints swapped. Storing both directions is the single easiest way to make the graph queries silently wrong. Nothing in the schema enforces this and nothing can — both are legal values — so it is enforced on write and audited by `fsck`.
 
 ### 3.4 Events
 
 ```sql
 CREATE TABLE events (
-  seq         INTEGER PRIMARY KEY AUTOINCREMENT,  -- the cursor keel_activity pages from
+  seq         INTEGER PRIMARY KEY AUTOINCREMENT,  -- the cursor specline_activity pages from
   id          TEXT NOT NULL UNIQUE,               -- ULID
   project_id  TEXT,
   entity_type TEXT NOT NULL,
@@ -425,7 +425,7 @@ CREATE INDEX events_project ON events(project_id, seq);
 
 Append-only, never updated. "What changed since T" is a range scan on `seq`.
 
-> **Changed in Phase 9.** This used to read "because ULIDs sort chronologically, 'what changed since T' is a range scan", followed by a paragraph on why that only holds if the ULIDs are minted monotonically — a plain ULID re-randomises its low 80 bits on every call, so two ids minted inside the same millisecond sort arbitrarily, and a burst of writes inside one millisecond is what an agent doing normal work looks like. That paragraph is still true of ids in general and `keel-core` still mints every id from one process-wide monotonic generator (D-B-9). The cursor no longer rests on it: `seq` is an `AUTOINCREMENT` integer, assigned by the engine in commit order, so "catch me up" cannot skip or repeat a row even if two ids sort against each other unexpectedly.
+> **Changed in Phase 9.** This used to read "because ULIDs sort chronologically, 'what changed since T' is a range scan", followed by a paragraph on why that only holds if the ULIDs are minted monotonically — a plain ULID re-randomises its low 80 bits on every call, so two ids minted inside the same millisecond sort arbitrarily, and a burst of writes inside one millisecond is what an agent doing normal work looks like. That paragraph is still true of ids in general and `specline-core` still mints every id from one process-wide monotonic generator (D-B-9). The cursor no longer rests on it: `seq` is an `AUTOINCREMENT` integer, assigned by the engine in commit order, so "catch me up" cannot skip or repeat a row even if two ids sort against each other unexpectedly.
 
 `AUTOINCREMENT` rather than a bare `INTEGER PRIMARY KEY`, and the difference matters here. A bare rowid reuses the highest deleted value; `AUTOINCREMENT` never reuses one. Nothing is ever deleted from this table, so in principle they behave identically — but "in principle nothing deletes from here" is exactly the kind of assumption a cursor should not rest on.
 
@@ -441,7 +441,7 @@ FalkorDB is the wrong shape. There *is* a Rust rewrite of the engine underway (`
 
 Recursive CTEs over `links` handle every query the PRD asks for, in microseconds at this scale.
 
-> **Changed in Phase 9.** The blocking fact this section opened with was that **DuckPGQ was not available for DuckDB 1.5.x** — it required pinning to 1.4.4, while the Lance extension lived in 1.5.x, so you could not have both and Lance was load-bearing. That comparison is moot: neither engine is in the tree. What replaces it is not a constraint but an absence — SQLite has no property-graph extension to want, and recursive CTEs are the whole story rather than the interim one. The contingency paragraph that used to sit at the end of this section, budgeting the work to adopt SQL/PGQ if it ever shipped, is gone with it. Turso, which would have been the closest SQLite-compatible alternative, was ruled out during the survey for exactly this: `Parse error: Recursive CTEs are not yet supported`. Keel's graph cannot be expressed without them.
+> **Changed in Phase 9.** The blocking fact this section opened with was that **DuckPGQ was not available for DuckDB 1.5.x** — it required pinning to 1.4.4, while the Lance extension lived in 1.5.x, so you could not have both and Lance was load-bearing. That comparison is moot: neither engine is in the tree. What replaces it is not a constraint but an absence — SQLite has no property-graph extension to want, and recursive CTEs are the whole story rather than the interim one. The contingency paragraph that used to sit at the end of this section, budgeting the work to adopt SQL/PGQ if it ever shipped, is gone with it. Turso, which would have been the closest SQLite-compatible alternative, was ruled out during the survey for exactly this: `Parse error: Recursive CTEs are not yet supported`. Specline's graph cannot be expressed without them.
 
 **Direction matters more than depth.** `implements` runs *task → spec*, so the traceability query for "what implements this spec" traverses **inbound** edges (`to_id → from_id`), not outbound. Getting this backwards returns an empty set that looks like a legitimate "nothing links here."
 
@@ -494,13 +494,13 @@ ORDER BY depth;    -- length would otherwise return twice
 
 Note `depends_on` never appears in a traversal — §3.3 normalises it to `blocks` on write, so there is exactly one direction to reason about.
 
-`keel-core` exposes three storage traits — `EntityStore` (entities, links, events), `DocumentStore` (revisions, blobs, embeddings, search) and `GraphStore`, the last with `neighbours(id, direction, rels, depth)` so callers never hand-write traversal direction. Every one of these queries is wrong in a way that returns plausible empty results, which is the worst failure mode available; centralising them means getting it right once. The traits are named for what they hold and never for what holds it, which is why they came through the change of engine unchanged — that is the whole return on having drawn them in Phase 0.
+`specline-core` exposes three storage traits — `EntityStore` (entities, links, events), `DocumentStore` (revisions, blobs, embeddings, search) and `GraphStore`, the last with `neighbours(id, direction, rels, depth)` so callers never hand-write traversal direction. Every one of these queries is wrong in a way that returns plausible empty results, which is the worst failure mode available; centralising them means getting it right once. The traits are named for what they hold and never for what holds it, which is why they came through the change of engine unchanged — that is the whole return on having drawn them in Phase 0.
 
 ---
 
 ## 5. Search
 
-Hybrid: **BM25 over an FTS5 index, vectors through `sqlite-vec`, fused by reciprocal rank in `keel-core`.** Both halves are queries against the same database as the rows.
+Hybrid: **BM25 over an FTS5 index, vectors through `sqlite-vec`, fused by reciprocal rank in `specline-core`.** Both halves are queries against the same database as the rows.
 
 > **Corrected 2026-08-09 against running code, and kept.** This section originally delegated both halves to Lance's `lance_hybrid_search()`. That function's keyword half did not behave predictably on multi-term queries — `"onboarding metering"` matched a document containing only *metering*, while `"onboarding slow"` matched nothing despite a document containing *onboarding*. The extension documented only single-word examples and no way to build the index that would presumably fix it. The mechanism is gone, but the conclusion it reached is why this section still looks the way it does: retrieval is not built on a function whose semantics cannot be stated. See DECISIONS B-12 and TQ-10.
 
@@ -512,7 +512,7 @@ Hybrid: **BM25 over an FTS5 index, vectors through `sqlite-vec`, fused by recipr
 
 Three details that bite at runtime rather than at compile time:
 
-- **`fts_source` exists because FTS5 indexes by integer rowid and Keel's ids are ULID text.** Something has to hold the mapping. Making it a real table rather than hiding it inside the index means the index is external-content — it stores no second copy of every body — and "what is in the index" is answerable with an ordinary `SELECT` rather than only through a `MATCH`. It is also where archiving is handled: an archived row leaves `fts_source`, so it leaves the index, and no query has to remember to filter.
+- **`fts_source` exists because FTS5 indexes by integer rowid and Specline's ids are ULID text.** Something has to hold the mapping. Making it a real table rather than hiding it inside the index means the index is external-content — it stores no second copy of every body — and "what is in the index" is answerable with an ordinary `SELECT` rather than only through a `MATCH`. It is also where archiving is handled: an archived row leaves `fts_source`, so it leaves the index, and no query has to remember to filter.
 - **`MATCH` takes a query language, not a string.** A caller searching for `local-first` gets `no such column: first`, because the hyphen makes FTS5 read `first` as a column filter — an error naming a word from the user's own text and reading like a schema bug. Caller input is turned into quoted terms so that nothing a person types is ever parsed as syntax.
 - **`bm25()` returns a negative number where lower is better.** The fusion wants higher-is-better, so the score is negated on the way out. Get the sign wrong and the worst match ranks first, which looks like a plausible ordering and is completely wrong — hence a test asserting that an obviously-best row comes first, rather than one asserting a score.
 
@@ -525,13 +525,13 @@ Three details that bite at runtime rather than at compile time:
 - A `vec0` table is a second copy of every vector, and something has to keep it in step with `documents`. That something would be another trigger, and until it exists the alternative is repopulating the table at search time — which is the rebuild §5.1 exists to have deleted, wearing a different hat.
 - At this scale it buys nothing. A few thousand 384-float vectors is 1–3 ms brute force, measured, against a corpus that is one person's project memory. Scale discipline says do not add the index until a measurement asks for it.
 
-`sqlite-vec` is 0.1.9 and its author says to expect breaking changes. That is survivable precisely because the vectors are ordinary little-endian f32 blobs Keel owns rather than rows inside a proprietary index: replacing this half is a new query over the same column, not a re-embedding run over the whole corpus. If `vec_distance_cosine` disappears, the same loop in Rust over the same bytes is about fifty lines and needs no schema change.
+`sqlite-vec` is 0.1.9 and its author says to expect breaking changes. That is survivable precisely because the vectors are ordinary little-endian f32 blobs Specline owns rather than rows inside a proprietary index: replacing this half is a new query over the same column, not a re-embedding run over the whole corpus. If `vec_distance_cosine` disappears, the same loop in Rust over the same bytes is about fifty lines and needs no schema change.
 
 One sharp edge is guarded explicitly: `vec_distance_cosine` raises an error when the two vectors differ in length, and that error fails the *whole* query. A single document embedded by an older model with a different width would take out search for everything. A `length(embedding) = ?` predicate skips those rows instead, so a model change degrades recall rather than breaking search.
 
 ### 5.3 Fusion and coverage
 
-Reciprocal-rank fusion in `keel-core`, unchanged across the move — BM25 scores and cosine distances are not on comparable scales, and are not even in comparable units, so fusing on *rank* is the only defensible merge. A hit found independently by both halves is the strongest signal available.
+Reciprocal-rank fusion in `specline-core`, unchanged across the move — BM25 scores and cosine distances are not on comparable scales, and are not even in comparable units, so fusing on *rank* is the only defensible merge. A hit found independently by both halves is the strongest signal available.
 
 Each half retrieves `inner_limit` rows rather than `limit`, set to four times the caller's limit. Retrieving exactly `k` from the index and *then* filtering by project and date is a classic way to return three results when forty exist.
 
@@ -570,20 +570,20 @@ Every tool accepts three ambient arguments in addition to those listed: `session
 
 | Tool | Purpose |
 |---|---|
-| `keel_context` | **The entry point.** Compact digest for a project (or all projects). |
-| `keel_search` | Hybrid search across types and projects. |
-| `keel_get` | Fetch entities by ID, at a specific `version` if given, optionally with linked neighbours to depth N and an optional `diff_against` version. Satisfies REQ-2's diff requirement at the API layer, not only in the UI. |
-| `keel_create` | Create any entity type. Typed argument union. |
-| `keel_update` | Update with optimistic concurrency. Includes status transitions. |
-| `keel_write_doc` | Append a new revision to a prose document. |
-| `keel_link` | Create or remove typed edges. |
-| `keel_activity` | Events since a timestamp or ULID cursor. |
-| `keel_projects` | List and resolve projects — the disambiguation surface. |
+| `specline_context` | **The entry point.** Compact digest for a project (or all projects). |
+| `specline_search` | Hybrid search across types and projects. |
+| `specline_get` | Fetch entities by ID, at a specific `version` if given, optionally with linked neighbours to depth N and an optional `diff_against` version. Satisfies REQ-2's diff requirement at the API layer, not only in the UI. |
+| `specline_create` | Create any entity type. Typed argument union. |
+| `specline_update` | Update with optimistic concurrency. Includes status transitions. |
+| `specline_write_doc` | Append a new revision to a prose document. |
+| `specline_link` | Create or remove typed edges. |
+| `specline_activity` | Events since a timestamp or ULID cursor. |
+| `specline_projects` | List and resolve projects — the disambiguation surface. |
 
-### 6.3 `keel_context` — the most important tool
+### 6.3 `specline_context` — the most important tool
 
 ```
-keel_context(project?: string, depth?: 'brief'|'standard'|'full', since?: timestamp)
+specline_context(project?: string, depth?: 'brief'|'standard'|'full', since?: timestamp)
 ```
 
 Returns, budgeted to roughly 3–4k tokens at `standard`:
@@ -610,9 +610,9 @@ With no `project`, returns a cross-project roll-up: one line per project plus an
 
 ### 6.4 Project creation and disambiguation
 
-Per PRD REQ-8, `keel_create(type: 'project')` is permitted, but safety lives in the **skill**, not the API:
+Per PRD REQ-8, `specline_create(type: 'project')` is permitted, but safety lives in the **skill**, not the API:
 
-1. Before creating, the agent must call `keel_projects(query: …)`, which does fuzzy matching on name, slug, aliases, and repo URL.
+1. Before creating, the agent must call `specline_projects(query: …)`, which does fuzzy matching on name, slug, aliases, and repo URL.
 2. If any candidate scores above threshold, the tool response includes `requires_confirmation: true` with the candidates, and the skill instructs the agent to ask the human.
 3. New projects are created with `status: 'active'` and an event whose `meta` records `{"confirmed_by": "human"}`.
 4. The UI surfaces projects created in the last 7 days with fewer than 3 artifacts as "possibly accidental."
@@ -628,7 +628,7 @@ Resolution: **`session_id` is a domain concept, supplied by the caller, and the 
 - Every write tool accepts an optional `session_id` and `surface`.
 - The **skill** is responsible for generating a stable identifier once per conversation and passing it on every call. A ULID minted at first use, held in the conversation, is sufficient — it needs to be stable and unique, not meaningful.
 - If no `session_id` arrives, the daemon records `NULL` and falls back for `actor`: the authenticated client identity where auth exists (Phase 5), otherwise the transport the request arrived on — MCP defaults to `claude`, the local REST API to `human`. Crude, but it degrades provenance to "some Claude session" rather than failing the write. Losing attribution is bad; refusing the write is worse.
-- `keel_context` returns the caller's `session_id` back if one was supplied, so a long conversation can self-check that it's still threading correctly.
+- `specline_context` returns the caller's `session_id` back if one was supplied, so a long conversation can self-check that it's still threading correctly.
 - The desktop app and CLI use fixed sentinels (`ui`, `cli`).
 
 The consequence to accept: attribution is *cooperative*, not enforced. An agent that doesn't pass a session ID produces weaker provenance, and no protocol mechanism prevents that. This is the correct trade for a stateless transport, but it makes the skill (Phase 2) load-bearing for a v1 must-have — which is another reason Phase 2 isn't optional.
@@ -663,7 +663,7 @@ Every create accepts `idempotency_key`. The daemon derives a default from `hash(
 ### 7.3 Optimistic concurrency
 
 ```
-keel_update(id, version: 7, changes: {...})
+specline_update(id, version: 7, changes: {...})
   → 409 with { latest_version: 9, current_state: {...}, events_since: [...] }
     // `latest_version`, not `current_version` — the latter names the audit-block
     // concurrency counter and would collide with `current_doc_version`.
@@ -680,7 +680,7 @@ One-directional export. **The mirror is never a source of truth.** Reconciliatio
 Note the precise formulation, because §8.1 below bends it: the mirror is never *read as truth*. It can be read as *evidence that an edit was attempted*.
 
 ```
-<repo>/.keel/
+<repo>/.specline/
 ├── README.md              "generated — do not edit"
 ├── specs/<slug>.md
 ├── decisions/<slug>.md
@@ -694,8 +694,8 @@ Note the precise formulation, because §8.1 below bends it: the mirror is never 
 Each file gets a header:
 
 ```markdown
-<!-- keel:generated spec spc_01H8ABC v7 2026-08-09T14:22:01Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated spec spc_01H8ABC v7 2026-08-09T14:22:01Z
+     source of truth is Specline — edits here are not saved -->
 ```
 
 Regenerated on every relevant write, debounced ~2s. Committed or gitignored per PRD Q-3 — recommendation: **commit it**, because it doubles as a legible offline backup and puts specs into repo grep and agent context for free.
@@ -711,11 +711,11 @@ database wins unconditionally afterwards, so if the write was rejected the edit
 is discarded and the file reverts."
 
 **None of that was ever true, because the hook never ran.** It called
-`keel mirror`, a command that had been renamed to `keel generate` underneath it,
-and swallowed the failure with `|| true`. It read `KEEL_SESSION_ID`, which
+`keel mirror`, a command that had been renamed to `specline generate` underneath it,
+and swallowed the failure with `|| true`. It read `SPECLINE_SESSION_ID`, which
 nothing anywhere sets. On the machine this project is developed on it was not
 even installed — it was configured only in `plugin/hooks/hooks.json`, which
-applies when Keel is loaded as a plugin, and it never was. So every edit it
+applies when Specline is loaded as a plugin, and it never was. So every edit it
 claimed to capture was lost in silence, and the guarantee written here and in
 the plugin README was a guarantee about nothing.
 
@@ -724,14 +724,14 @@ work is worse than no mechanism, because it is relied upon: the one-directional
 rule was being softened here to make room for an exception that did not exist.
 
 What replaces it does less and says more. `scripts/pre-commit` runs
-`keel generate --check` when a commit carries a generated file, and refuses the
-commit if the file differs from what Keel would produce. It does not write to
+`specline generate --check` when a commit carries a generated file, and refuses the
+commit if the file differs from what Specline would produce. It does not write to
 the store, does not rewrite your files, and does not try to guess what you
 meant — it tells you the edit will be reverted and where to make it instead.
 It also distinguishes "the check could not run" from "the files are wrong",
 because reporting one as the other is how a green check comes to mean nothing.
 
-For a deliberate migration there is `keel import <file>`, which is a person
+For a deliberate migration there is `specline import <file>`, which is a person
 running a command, not a background mechanism. One thing to know before running
 it: SQLite will let it open the store alongside a running daemon quite happily,
 where the old engine would have refused. Stop the daemon first — the reason is
@@ -753,8 +753,8 @@ revision *of*.
 
 A GitHub App with webhooks, not polling.
 
-- `Closes KEEL-<id>` or `keel:tsk_01H8…` in a PR body creates a `resolves` link.
-- On merge: per PRD Q-1, **propose** rather than auto-close. The daemon sets `status: review` and writes an event; the next `keel_context` surfaces "3 tasks look done, confirm?" A merged PR is not always a finished task, and silent auto-close erodes trust in the status field faster than anything else.
+- `Closes KEEL-<id>` or `specline:tsk_01H8…` in a PR body creates a `resolves` link.
+- On merge: per PRD Q-1, **propose** rather than auto-close. The daemon sets `status: review` and writes an event; the next `specline_context` surfaces "3 tasks look done, confirm?" A merged PR is not always a finished task, and silent auto-close erodes trust in the status field faster than anything else.
 - `push` events attach commits to the linked task's timeline.
 - `deployment_status` updates the matching `environments` row.
 
@@ -786,26 +786,26 @@ Read and search first, per the PRD. Writing is possible but never the fast path 
 
 ## 11. Deployment, backup, security
 
-**Local (v1).** Everything under `~/.keel/`:
+**Local (v1).** Everything under `~/.specline/`:
 
 ```
-~/.keel/
-├── keel.sqlite         rows, documents, blobs, embeddings, the keyword index
-├── keel.sqlite-wal     the write-ahead log; checkpointed on shutdown
+~/.specline/
+├── specline.sqlite         rows, documents, blobs, embeddings, the keyword index
+├── specline.sqlite-wal     the write-ahead log; checkpointed on shutdown
 ├── config.toml
 ├── models/             local embedding model
-└── backups/<timestamp>/{keel.sqlite, manifest.json}
+└── backups/<timestamp>/{specline.sqlite, manifest.json}
 ```
 
-**Backup.** `~/.keel` is itself a git repo. `keel backup` runs `VACUUM INTO`, which takes a consistent snapshot of the whole database — rows, documents, blobs, vectors and the keyword index — at a single point in time, without stopping the daemon, and writes it as an ordinary SQLite file. Measured at 64 ms for a 6.9 MB database. A manifest with row counts per table is written beside it. Nightly, plus before every migration. Restore is a file copy into an empty directory, and it refuses to write over a store that already exists.
+**Backup.** `~/.specline` is itself a git repo. `specline backup` runs `VACUUM INTO`, which takes a consistent snapshot of the whole database — rows, documents, blobs, vectors and the keyword index — at a single point in time, without stopping the daemon, and writes it as an ordinary SQLite file. Measured at 64 ms for a 6.9 MB database. A manifest with row counts per table is written beside it. Nightly, plus before every migration. Restore is a file copy into an empty directory, and it refuses to write over a store that already exists.
 
 > **Replaced in Phase 9.** This used to describe two dumps: `EXPORT DATABASE` to Parquet for DuckDB, plus an explicit Lance-to-Parquet dump of the documents dataset with the embeddings included, and `restore` had to refuse a backup missing its second half — a backup that covers the rows and skips the documents is not a backup. The check worked. The flaw nobody could design away was the one no check could catch: **a write landing between the two dumps produced a backup that was internally inconsistent and passed everything**, with the rows from one instant and the documents from another. One file taken in one operation is what makes that failure mode stop existing rather than merely become rarer. The restore also stopped converting: the Parquet path had to cast embeddings back to `FLOAT[384]` on the way in, and a restore that converts is a restore that can convert wrongly.
 
 Recovery tiers, stated precisely because the third is easy to overclaim:
 
-1. **Restore from `~/.keel` git history.** Full fidelity — everything, including revision history.
+1. **Restore from `~/.specline` git history.** Full fidelity — everything, including revision history.
 2. **Restore the last snapshot from `backups/`.** A complete, valid SQLite database; putting it where the store lives is the whole operation. This tier used to depend on a separate Parquet export as an escape hatch from the storage format. It no longer does, and the reason is worth being explicit about rather than assuming: the file *is* the portable format. SQLite's on-disk format is documented and its maintainers commit to reading it indefinitely, so "the format stops being readable" is not the risk it was against two engines on their own release cadences.
-3. **Last resort: the committed `.keel/` mirrors in each repo.** These contain *only* current specs, decisions, open questions and the glossary — as readable markdown. **Tier 3 does not recover tasks, feedback, metrics, observations, design artifacts, environments, artifacts, links, notes, or the event log**, and it recovers only current revisions, not history. It is a legibility guarantee, not a backup. Tier 3 also depends on PRD Q-3 resolving in favour of committing the mirror; if that flips, this tier disappears entirely.
+3. **Last resort: the committed `.specline/` mirrors in each repo.** These contain *only* current specs, decisions, open questions and the glossary — as readable markdown. **Tier 3 does not recover tasks, feedback, metrics, observations, design artifacts, environments, artifacts, links, notes, or the event log**, and it recovers only current revisions, not history. It is a legibility guarantee, not a backup. Tier 3 also depends on PRD Q-3 resolving in favour of committing the mirror; if that flips, this tier disappears entirely.
 
 Tiers 1 and 2 are the actual backup story. Tier 3 exists so that a catastrophe leaves you with readable prose rather than nothing.
 
@@ -821,16 +821,16 @@ There is no built-in sync, and Phase 5 wants a phone to read status. Three answe
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **0 — Spine** | `keel-core` (schema, ULIDs, events, migrations, revisions, links, embeddings, hybrid search) plus the minimum of `keel-cli` needed for backup and `fsck`. Dependency verification (TQ-7) happens here, first. | All 13 entity types round-trip; event log correct; 200-entity fixture loads; graph-direction tests pass in **both** directions for every relation in §3.3; backup round-trips (back up → wipe → restore → diff clean) |
-| **1 — Daemon** | axum, 9 MCP tools, `keel_context`, concurrency safety, wiring the Phase 0 search into the tool surface | A live Claude session completes PRD UC-1 → UC-4; two concurrent sessions writing produce zero duplicates and zero lost updates |
-| **2 — Plugin** | Skill, session-ID threading (§6.5), project-confirmation, mirror hooks, install script | Across 10 unprompted sessions, Claude writes to Keel in ≥9, threads `session_id` on every write, and creates 0 duplicate projects |
+| **0 — Spine** | `specline-core` (schema, ULIDs, events, migrations, revisions, links, embeddings, hybrid search) plus the minimum of `keel-cli` needed for backup and `fsck`. Dependency verification (TQ-7) happens here, first. | All 13 entity types round-trip; event log correct; 200-entity fixture loads; graph-direction tests pass in **both** directions for every relation in §3.3; backup round-trips (back up → wipe → restore → diff clean) |
+| **1 — Daemon** | axum, 9 MCP tools, `specline_context`, concurrency safety, wiring the Phase 0 search into the tool surface | A live Claude session completes PRD UC-1 → UC-4; two concurrent sessions writing produce zero duplicates and zero lost updates |
+| **2 — Plugin** | Skill, session-ID threading (§6.5), project-confirmation, mirror hooks, install script | Across 10 unprompted sessions, Claude writes to Specline in ≥9, threads `session_id` on every write, and creates 0 duplicate projects |
 | **3 — Desktop** | Tauri shell, sidecar, screens 1–6 **and 9 (Activity)** — REQ-10 lists the activity feed as v1 | Sunday-review use case (UC-6) completes in under 30s |
 | **4 — Integrations** | GitHub App, design artifacts, metrics, screens 7–8 | PR merge proposes closure; design proposed-vs-built renders |
 | **5 — Remote** | Deployable daemon, auth, mobile client | Project status readable from phone |
 
 *(Phase 0's exit criterion used to end "…including the Lance→Parquet dump". There is one backup format now, so the clause has nothing left to name. Phases 6 onwards are planned in their own documents — `PHASE-8.md`, `PHASE-9.md`, `PHASE-10.md` — and are not folded back into this table.)*
 
-**Phase 2 is the real test.** If Keel isn't useful after Phase 2 with no UI at all, the premise is wrong and the UI won't rescue it. Build 0–2 before writing a line of the desktop app.
+**Phase 2 is the real test.** If Specline isn't useful after Phase 2 with no UI at all, the premise is wrong and the UI won't rescue it. Build 0–2 before writing a line of the desktop app.
 
 ---
 
@@ -858,14 +858,14 @@ There is no built-in sync, and Phase 5 wants a phone to read status. Three answe
 
 ## 14. Open technical questions
 
-The live register is question rows in Keel, rendered to `.keel/questions.md`. What follows is the original list; two of them were settled by Phase 9 and are marked here so the numbering stays readable.
+The live register is question rows in Specline, rendered to `.specline/questions.md`. What follows is the original list; two of them were settled by Phase 9 and are marked here so the numbering stays readable.
 
 - **TQ-1** — Do requirement anchors (`REQ-4`) get parsed out of markdown by convention, or explicitly declared in frontmatter? Parsing is friendlier to agents; declaration is more stable across revisions.
-- **TQ-2** — Should `keel_context` be cached and invalidated by event, or computed per call? Start with per-call; measure. *(Event-log retention is PRD Q-5 and lives only there.)*
+- **TQ-2** — Should `specline_context` be cached and invalidated by event, or computed per call? Start with per-call; measure. *(Event-log retention is PRD Q-5 and lives only there.)*
 - **TQ-3** — Re-embedding strategy when the model changes: background full pass, or lazy on access?
 - **TQ-4** — ~~Does `v_entities` get built now for the DuckPGQ contingency, or deferred?~~ **Settled.** The contingency it was hedging against is gone with DuckDB, but the view was built anyway and is in §3.2: resolving an id to a label without knowing its type is something every surface needs.
 - **TQ-5** — Does the mirror include tasks, or only prose? Leaning prose-only — tasks churn too much and would make repo diffs noisy. Note this constrains the dogfooding plan: if the mirror is prose-only, `product/STATUS.md` after the Phase 1 switch is produced by a dedicated `keel-cli render-status` command, not by the §8 mirror.
-- **TQ-6** — How does a design artifact's image get *into* Keel from a Claude session? Cowork can send files; Claude Code can read them; Claude chat is harder.
+- **TQ-6** — How does a design artifact's image get *into* Specline from a Claude session? Cowork can send files; Claude Code can read them; Claude chat is harder.
 - **TQ-7** — ~~Re-verify the fast-moving claims in this document before building the storage layer: the Lance DuckDB extension's availability and syntax, the current DuckDB version, Quack's status, the MCP spec version and its transport and headers, the DCR→CIMD deprecation, and `fastembed-rs`.~~ **Closed, and it earned its place twice.** The MCP half caught a real one (§6). The storage half was verified as asked and the design was built on it — and then, four phases later, replaced anyway, not because a claim had been wrong but because living with the consequences said more than verifying them could. The habit it encodes is the durable part: check the fast-moving thing against running code, not against its documentation.
 
 *Note on IDs: TQ-2 and TQ-3 were renumbered between drafts when event-log retention moved to PRD Q-5. From here on, retired TQ numbers are not reused.*

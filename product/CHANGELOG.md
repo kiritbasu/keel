@@ -1,15 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T14:48:42Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T15:01:30Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (246)
+## Closed work (248)
 
 ### 2026-08-16
+
+- **KEEL-273** Rename the GitHub repository and put the release plumbing back together — `done`
+
+  Installer, archives, release manifest and workflow follow the package name; dist plan confirms one app and one installer. The real bug was in specline-update, which composes the archive name at runtime so a literal sweep could not see it — it would have asked GitHub for an artifact that no longer exists.
+
+  <sub>commit:4141565 · test:dist plan</sub>
+
+- **KEEL-269** Rename the project row to Specline, and keep KEEL as the task-id key — `done`
+
+  Name and slug are Specline; the key stays KEEL so every existing task id resolves. Added keel as an alias. Live store relocated and regenerated: 3185 rows either side.
+
+  <sub>commit:ff4aac9 · test:specline fsck</sub>
 
 - **KEEL-267** Rename the thirteen MCP tools and the server they answer on — `done`
 
@@ -998,6 +1010,34 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | human | revised spec “Specline — Build journal” to v4 |
+| 2026-08-16 | human | revised spec “The gate — what it measured, and why it is frozen” to v5 |
+| 2026-08-16 | human | revised spec “Specline — Technical Specification” to v8 |
+| 2026-08-16 | human | revised spec “Specline — Product Requirements Document” to v2 |
+| 2026-08-16 | human | revised spec “Specline — Handoff to Claude Code” to v3 |
+| 2026-08-16 | human | revised spec “Specline — standing instructions” to v15 |
+| 2026-08-16 | claude | title Keel — Build journal → Specline — Build journal |
+| 2026-08-16 | claude | title Keel — standing instructions → Specline — standing instructions |
+| 2026-08-16 | claude | title Keel — Handoff to Claude Code → Specline — Handoff to Claude Code |
+| 2026-08-16 | claude | title Keel — Product Requirements Document → Specline — Product Requirements Document |
+| 2026-08-16 | claude | title Keel — Technical Specification → Specline — Technical Specification |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:58:10.132310Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:4141565","test:dist plan"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (305 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:49:53.421093Z |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:49:18.259339Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:ff4aac9","test:specline fsck"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (167 characters) |
 | 2026-08-16 | claude | slug keel → specline |
 | 2026-08-16 | claude | name Keel → Specline |
 | 2026-08-16 | claude | aliases ["the project spine","project spine"] → ["keel","the project spine","project spine"] |
@@ -1170,34 +1210,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | evidence [] → (103 characters) |
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (552 characters) |
-| 2026-08-16 | claude | revised question “Seven rows have no reasoning in them. Reconstruct them, or leave them empty and say so?” to v1 |
-| 2026-08-16 | claude | created question “Seven rows have no reasoning in them. Reconstruct them, or leave them empty and say so?” |
-| 2026-08-16 | claude | revised decision “The write-path atomicity fix: &Connection primitives, transaction-of-one, one typed composite on Store” to v1 |
-| 2026-08-16 | claude | revised question “Does a browser-served write/intake endpoint require amending hard constraint 7?” to v1 |
-| 2026-08-16 | claude | revised question “Enforce the single-writer rule with an advisory lock file, or rely on the health probe alone?” to v1 |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T06:59:41.072209Z |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → (125 characters) |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (617 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T06:07:45.897635Z |
-| 2026-08-16 | claude | created task “keel bootstrap is the last writer that goes round the daemon probe and the lock” |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:661a9be","test:cargo test -p keel --test verbs"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (321 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T06:03:11.044507Z |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:4e0a0ed","test:cargo test -p keel-mcp --test argument_edges"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (484 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
 
-*Showing the 200 most recent of 1927 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 1955 changes. Use `specline_activity` for the rest.*
 

@@ -1,4 +1,4 @@
-# Keel
+# Specline
 
 Local-first store for everything that describes a software project other than the code — specs, decisions, tasks, roadmap, design, feedback — with an MCP server as the primary interface and a Tauri desktop app as the read surface.
 
@@ -7,7 +7,7 @@ Local-first store for everything that describes a software project other than th
 - `product/HANDOFF.md` — read once, first session
 - `product/CLAUDE.md` — the standing contract, imported below
 - `product/STATUS.md` — the tracker; current phase and task list
-- `.keel/questions.md` — every question and risk, open and settled
+- `.specline/questions.md` — every question and risk, open and settled
 - `product/DECISIONS.md` — build-time decision log
 - `product/PRD.md` — what and why
 - `product/SPEC.md` — how
