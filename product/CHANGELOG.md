@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T04:32:08Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T04:32:45Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (217)
+## Closed work (218)
 
 ### 2026-08-16
+
+- **KEEL-241** Hard constraint 7 says the opposite of where the product is going — `done`
+
+  Constraint 7 now draws the line at capture versus authoring rather than at read-only-with-exceptions. The interface writes what a person does — create, comment, archive, close, move a status — through keel-core's write path, attributed human/ui, carrying the token. Authoring stays with Claude because the reasoning is the product, and the line is checkable: an endpoint that accepts a document revision is on the wrong side of it. B-78 records the reasoning, including that this is a stage rather than a permanent boundary.
+
+  <sub>commit:eab13ae · doc:dec_01M04DBTX99VPTD5X477XWEM9F</sub>
 
 - **KEEL-239** Anything the daemon serves has to be safe to render in a browser — `done`
 
@@ -828,6 +834,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:eab13ae","doc:dec_01M04DBTX99VPTD5X477XWEM9F"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (524 characters) |
 | 2026-08-16 | claude | revised spec “Keel — standing instructions” to v12 |
 | 2026-08-16 | claude | revised decision “Hard constraint 7 is rewritten: the interface writes what a person does, and Claude keeps the reasoning” to v1 |
 | 2026-08-16 | claude | created decision “Hard constraint 7 is rewritten: the interface writes what a person does, and Claude keeps the reasoning” |
@@ -1024,10 +1034,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | status in_progress → done |
 | 2026-08-15 | claude | evidence [] → (84 characters) |
 | 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (548 characters) |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_0d013ca6-a51f-4bcf-b118-1f9720d86d0e |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T03:57:16.822931Z |
 
-*Showing the 200 most recent of 1660 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1664 changes. Use `keel_activity` for the rest.*
 
