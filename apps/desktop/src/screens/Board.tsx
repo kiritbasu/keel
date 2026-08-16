@@ -10,7 +10,7 @@
  * app was only ever there when you did not need it.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   api,
   type Entity,
@@ -19,7 +19,7 @@ import {
 } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
 import { ApiError } from "../lib/api";
-import { Button, Dialog, Empty, ErrorBox, Spinner } from "../components/ui";
+import { Button, Dialog, Empty, ErrorBox, Spinner, cx } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
 import { FilterBar, type Facets, type View } from "../components/FilterBar";
 import { TaskBoard } from "../components/TaskBoard";
@@ -153,6 +153,55 @@ export function BoardScreen({
       })),
     };
   }, [data, milestones.data]);
+
+  // The phase in flight, for the new-task dialog to default to: the one holding
+  // the most *open* work.
+  //
+  // This was "the earliest phase still open", which sounds equivalent and is
+  // not — it picked Phase 4, open since forever and where nothing is happening.
+  // Where the open tasks are is what "in flight" actually means, and the board
+  // is already holding every task, so it costs nothing to ask.
+  //
+  // A default rather than a decision, since the select is sitting right there.
+  // What it avoids is every task created here belonging to no phase and
+  // appearing in none of the phase-scoped views (KEEL-244).
+  const activeMilestone = useMemo(() => {
+    const openTasks = new Map<string, number>();
+    for (const task of data?.items ?? []) {
+      const status = String(task.status);
+      if (status === "done" || status === "wont_do") continue;
+      const on = task.milestone_id ? String(task.milestone_id) : null;
+      if (on) openTasks.set(on, (openTasks.get(on) ?? 0) + 1);
+    }
+    let best: string | undefined;
+    let most = 0;
+    for (const [id, count] of openTasks) {
+      if (count > most) {
+        most = count;
+        best = id;
+      }
+    }
+    return best;
+  }, [data]);
+
+  // The labels worth offering in the new-task dialog, most used first.
+  //
+  // All of them is 64 chips on this project, which is a wall rather than a
+  // choice. Ten is a picker. The dialog says how many it left out and where to
+  // get them, because a list that silently stops is the thing hard constraint 4
+  // is about.
+  const commonLabels = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const task of data?.items ?? []) {
+      for (const label of (task.labels as string[] | undefined) ?? [])
+        counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 10)
+      .map(([label]) => label)
+      .sort();
+  }, [data]);
 
   const [creating, setCreating] = useState(false);
 
@@ -338,6 +387,10 @@ export function BoardScreen({
         <NewTaskDialog
           open={creating}
           project={route.project}
+          facets={facets}
+          offeredLabels={commonLabels}
+          milestoneNoun={milestoneNoun}
+          activeMilestone={activeMilestone}
           onClose={() => setCreating(false)}
           onCreated={reload}
         />
@@ -361,19 +414,40 @@ export function BoardScreen({
 function NewTaskDialog({
   open,
   project,
+  facets,
+  offeredLabels,
+  milestoneNoun,
+  activeMilestone,
   onClose,
   onCreated,
 }: {
   open: boolean;
   project: string;
+  facets: Facets;
+  /** The labels actually worth showing — see `commonLabels`. */
+  offeredLabels: string[];
+  /** The project's own word for a milestone — "Phase" here. */
+  milestoneNoun: string | undefined;
+  /** The phase in flight, which is what a new task almost always belongs to. */
+  activeMilestone: string | undefined;
   onClose: () => void;
   onCreated: () => void;
 }) {
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [priority, setPriority] = useState("p2");
+  const [kind, setKind] = useState("task");
+  const [milestone, setMilestone] = useState("");
+  const [labels, setLabels] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+
+  // Default to the phase in flight, and re-default each time it opens. A task
+  // typed here almost always belongs to the work in front of you, and the
+  // alternative is a row that appears in no phase-scoped view at all.
+  useEffect(() => {
+    if (open) setMilestone(activeMilestone ?? "");
+  }, [open, activeMilestone]);
 
   async function submit() {
     if (saving || title.trim() === "") return;
@@ -385,9 +459,13 @@ function NewTaskDialog({
         title: title.trim(),
         summary: summary.trim(),
         priority,
+        kind,
+        milestone,
+        labels,
       });
       setTitle("");
       setSummary("");
+      setLabels([]);
       onClose();
       onCreated();
     } catch (e) {
@@ -401,7 +479,10 @@ function NewTaskDialog({
 
   return (
     <Dialog open={open} onClose={onClose} label="New task">
-      <div className="w-[32rem] max-w-[90vw] space-y-3 p-4">
+      {/* No width of its own: `Dialog`'s panel is already `max-w-xl`, and a
+          narrower child inside it left a strip of dead space down the right
+          (KEEL-244). */}
+      <div className="space-y-3 p-4">
         <h2 className="text-small font-semibold text-ink">New task</h2>
 
         <label className="block space-y-1">
@@ -431,19 +512,102 @@ function NewTaskDialog({
           />
         </label>
 
-        <label className="block space-y-1">
-          <span className="text-micro text-ink-muted">Priority</span>
-          <select
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-            className="rounded-md border border-border-subtle bg-surface px-2 py-1.5 text-small text-ink"
-          >
-            <option value="p0">p0</option>
-            <option value="p1">p1</option>
-            <option value="p2">p2</option>
-            <option value="p3">p3</option>
-          </select>
-        </label>
+        {/* Three selects on one row, which is what the row is for. Each is a
+            default rather than a decision: the phase in flight, an ordinary
+            task, middling priority. Somebody who types a title and hits Create
+            gets all three without reading them. */}
+        <div className="grid grid-cols-3 gap-3">
+          <label className="block space-y-1">
+            <span className="text-micro text-ink-muted">Priority</span>
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              className="w-full rounded-md border border-border-subtle bg-surface px-2 py-1.5 text-small text-ink"
+            >
+              <option value="p0">p0</option>
+              <option value="p1">p1</option>
+              <option value="p2">p2</option>
+              <option value="p3">p3</option>
+            </select>
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-micro text-ink-muted">Kind</span>
+            <select
+              value={kind}
+              onChange={(e) => setKind(e.target.value)}
+              className="w-full rounded-md border border-border-subtle bg-surface px-2 py-1.5 text-small text-ink"
+            >
+              <option value="task">task</option>
+              <option value="bug">bug</option>
+              <option value="chore">chore</option>
+              <option value="spike">spike</option>
+            </select>
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-micro text-ink-muted">
+              {milestoneNoun ?? "Milestone"}
+            </span>
+            <select
+              value={milestone}
+              onChange={(e) => setMilestone(e.target.value)}
+              className="w-full rounded-md border border-border-subtle bg-surface px-2 py-1.5 text-small text-ink"
+            >
+              <option value="">none</option>
+              {facets.milestones.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {/* Labels already in use, and nothing else. A free-text box here is how
+            a label set turns into `ui`, `UI` and `ui ` inside a month — and
+            Claude can add a genuinely new one when there is a reason for it. */}
+        {offeredLabels.length > 0 && (
+          <div className="space-y-1">
+            <span className="text-micro text-ink-muted">
+              Labels
+              {facets.labels.length > offeredLabels.length && (
+                <span className="text-ink-faint">
+                  {" "}
+                  — the {offeredLabels.length} most used of{" "}
+                  {facets.labels.length}. Ask Claude for any of the others.
+                </span>
+              )}
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {offeredLabels.map((label) => {
+                const on = labels.includes(label);
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() =>
+                      setLabels((current) =>
+                        current.includes(label)
+                          ? current.filter((l) => l !== label)
+                          : [...current, label],
+                      )
+                    }
+                    className={cx(
+                      "rounded-full border px-2 py-0.5 text-micro transition-colors",
+                      on
+                        ? "border-accent/60 bg-accent/15 text-accent"
+                        : "border-border-subtle text-ink-faint hover:text-ink",
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {failed && (
           <p role="alert" className="text-micro text-bad">

@@ -398,6 +398,10 @@ export const api = {
     title: string;
     summary?: string;
     priority?: string;
+    kind?: string;
+    /** A milestone id. Absent means the task belongs to no phase. */
+    milestone?: string;
+    labels?: string[];
   }) => post<Entity>("/api/tasks", task),
 
   /** Add a note to a row — a comment, in the words a person would use. */

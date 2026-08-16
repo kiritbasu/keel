@@ -690,6 +690,32 @@ async fn api_create_task(State(state): State<AppState>, Json(body): Json<Value>)
             Err(e) => return bad_request(&e.to_string()),
         }
     }
+    if let Some(kind) = body.get("kind").and_then(Value::as_str) {
+        match keel_core::TaskKind::parse(kind) {
+            Ok(k) => task.kind = k,
+            Err(e) => return bad_request(&e.to_string()),
+        }
+    }
+    // The phase, when one was chosen. A row with no milestone is invisible in
+    // every phase-scoped view, which is where somebody watching a project
+    // actually looks — so this being settable at creation is the difference
+    // between a task existing and a task being seen.
+    if let Some(milestone) = body.get("milestone").and_then(Value::as_str)
+        && !milestone.is_empty()
+    {
+        match keel_core::EntityId::parse_as(milestone, keel_core::EntityType::Milestone) {
+            Ok(id) => task.milestone_id = Some(id),
+            Err(e) => return bad_request(&format!("`milestone`: {e}")),
+        }
+    }
+    if let Some(labels) = body.get("labels").and_then(Value::as_array) {
+        task.labels = labels
+            .iter()
+            .filter_map(Value::as_str)
+            .map(|l| l.trim().to_owned())
+            .filter(|l| !l.is_empty())
+            .collect();
+    }
 
     match store.create(Entity::Task(task), &person_at_the_interface()) {
         Ok(created) => Json(json!({
