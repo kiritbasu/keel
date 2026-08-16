@@ -1,6 +1,6 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T04:32:45Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T04:51:52Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -834,6 +834,9 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T04:33:01.191082Z |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → ["commit:eab13ae","doc:dec_01M04DBTX99VPTD5X477XWEM9F"] |
 | 2026-08-16 | claude | close_reason none → done |
@@ -1031,9 +1034,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | status todo → in_progress |
 | 2026-08-15 | claude | claimed_by none → ses_0d013ca6-a51f-4bcf-b118-1f9720d86d0e |
 | 2026-08-15 | claude | claimed_at none → 2026-08-15T06:37:45.699356Z |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → (84 characters) |
-| 2026-08-15 | claude | close_reason none → done |
 
-*Showing the 200 most recent of 1664 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1667 changes. Use `keel_activity` for the rest.*
 
