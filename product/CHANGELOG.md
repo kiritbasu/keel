@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T08:16:54Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T08:28:03Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (232)
+## Closed work (233)
 
 ### 2026-08-16
+
+- **KEEL-249** Set the public repository up the way a public repository should be — `done`
+
+  Landed on main and green. A fork's pull request cannot reach the self-hosted runner, and neither can Dependabot's — that second half was missed first time round and cost eleven cold builds on the laptop before it was caught. Branch protection, secret scanning, push protection, Dependabot alerts and updates, private vulnerability reporting and delete-branch-on-merge are all on and verified by reading them back. SECURITY.md, CONTRIBUTING.md, a code of conduct, CODEOWNERS, a PR template and two issue forms are in the tree; conduct reports go through GitHub rather than a personal inbox, at KB's instruction.
+
+  <sub>commit:f4a41d9 · url:https://github.com/kiritbasu/keel/actions/runs/31936141815 · doc:tsk_01M04TS1H1WTTG5MF8K7JHNBSZ</sub>
 
 - **KEEL-220** Put embeddings behind a feature so Intel macOS and Linux can be built at all — `done`
 
@@ -915,6 +921,11 @@ What has finished. What is happening now is in the tracker beside this file.
 | Date | Actor | Change |
 |---|---|---|
 | 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (120 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (610 characters) |
+| 2026-08-16 | claude | created task “Dependabot opened twelve pull requests at once, and every one queued a build on the laptop” |
+| 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → (149 characters) |
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (663 characters) |
@@ -1109,11 +1120,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | close_message none → (455 characters) |
 | 2026-08-15 | claude | status todo → in_progress |
 | 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T21:36:51.429298Z |
-| 2026-08-15 | claude | created task “The interface shows a version but gives no way to find out what is in it” |
-| 2026-08-15 | claude | created task “A dev install and a release install land in different directories, and one shadows the other” |
-| 2026-08-15 | claude | status open → answered |
-| 2026-08-15 | claude | status in_progress → done |
 
-*Showing the 200 most recent of 1790 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1795 changes. Use `keel_activity` for the rest.*
 
