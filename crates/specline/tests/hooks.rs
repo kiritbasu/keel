@@ -727,6 +727,13 @@ fn a_store_relocation_does_not_land_in_a_json_payload() {
         .args(["--json", "status"])
         .env("HOME", &fake_home)
         .env("TMPDIR", scratch.path())
+        // Constructed, not inherited. `SPECLINE_HOME` names the store
+        // explicitly, and an explicit home is deliberately never relocated —
+        // so a run with it set skips the code this test exists for and the
+        // assertions below pass on nothing. CI sets it on all three jobs, so
+        // this test went green locally and red there: the exact shape the
+        // contract warns about, a test reading the machine it runs on.
+        .env_remove("SPECLINE_HOME")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
