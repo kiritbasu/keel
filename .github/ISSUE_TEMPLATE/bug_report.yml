@@ -1,0 +1,56 @@
+name: Bug report
+description: Something behaves differently from how it reads.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If you think the problem is exploitable, stop and use the private route
+        in [SECURITY.md](../blob/main/SECURITY.md) instead.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, and what it did.
+      placeholder: |
+        keel ready keel
+        → Error: no project matches `keel`. Expected: one of:
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: keel doctor
+      description: >
+        Paste the output if the problem is with the store, the daemon or the
+        install. Read it first — it names paths on your machine.
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`keel --version`, and which binary it is if you have more than one."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - macOS (Apple silicon)
+        - macOS (Intel)
+        - Linux
+        - Other
+    validations:
+      required: true

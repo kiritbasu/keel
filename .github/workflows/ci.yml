@@ -15,6 +15,13 @@ on:
   schedule:
     - cron: "0 6 * * 0"
 
+# Read and nothing else. This matches the repository's default today, and
+# stating it here means a change to that default cannot quietly hand a token
+# with write access to every job in this file — including the ones that build a
+# pull request's code.
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
@@ -23,6 +30,27 @@ jobs:
   check:
     name: fmt · clippy · test (${{ matrix.name }})
     runs-on: ${{ fromJSON(matrix.runner) }}
+    # **A fork's pull request never reaches the self-hosted runner.**
+    #
+    # That runner is a personal laptop with the author's own files on it, and a
+    # pull request is arbitrary code — a build script, a test, a dependency's
+    # `build.rs`. While the repository was private the population able to open
+    # one was "nobody", so the matrix could name a self-hosted runner without
+    # thinking about it. It is public now and that population is "anyone".
+    #
+    # GitHub's fork-PR approval policy is set to require a click for every
+    # outside contributor, which helps and is not enough on its own: it makes a
+    # dangerous default survivable by asking a human to be careful every time,
+    # and the whole argument of this codebase is that a safety mechanism which
+    # depends on somebody remembering is not one.
+    #
+    # So a fork's PR gets the Linux leg and nothing else. macOS coverage comes
+    # from the push build once the change is on main — later than ideal, and the
+    # right trade against running a stranger's code on your own machine.
+    if: >-
+      matrix.name != 'macos'
+      || github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository
     strategy:
       # Both finish. A failure on one platform should not hide the result on
       # the other, which is the whole reason for testing two.
