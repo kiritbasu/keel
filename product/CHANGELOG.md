@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T15:32:42Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T15:41:48Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -37,9 +37,9 @@ What has finished. What is happening now is in the tracker beside this file.
 
 - **KEEL-273** Rename the GitHub repository and put the release plumbing back together — `done`
 
-  Installer, archives, release manifest and workflow follow the package name; dist plan confirms one app and one installer. The real bug was in specline-update, which composes the archive name at runtime so a literal sweep could not see it — it would have asked GitHub for an artifact that no longer exists.
+  Repository renamed in place to kiritbasu/specline; the old URL redirects and the self-hosted runner survived — CI green on all seven jobs including the macOS leg. Remote updated so the local clone does not depend on the redirect.
 
-  <sub>commit:4141565 · test:dist plan</sub>
+  <sub>commit:8bfcc62 · url:https://github.com/kiritbasu/specline/actions/runs/31956095466</sub>
 
 - **KEEL-269** Rename the project row to Specline, and keep KEEL as the task-id key — `done`
 
@@ -1034,6 +1034,8 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | evidence ["commit:4141565","test:dist plan"] → (87 characters) |
+| 2026-08-16 | claude | close_message (305 characters) → (229 characters) |
 | 2026-08-16 | claude | created task “Import matches a file to an artifact by its heading, so a drifted title makes a duplicate” |
 | 2026-08-16 | claude | revised spec “Dependency and protocol verification — 2026-08-09 snapshot” to v3 |
 | 2026-08-16 | human | archived spec “Dependency and protocol verification — a snapshot, not a description” |
@@ -1232,8 +1234,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | evidence [] → (149 characters) |
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (663 characters) |
-| 2026-08-16 | claude | “Restore the Intel macOS and Linux release targets, now that…” depends on “Put embeddings behind a feature so Intel macOS and Linux…” (stored as “Put embeddings behind a feature so Intel macOS and Linux…” blocks “Restore the Intel macOS and Linux release targets, now that…”) |
-| 2026-08-16 | claude | created task “Restore the Intel macOS and Linux release targets, now that a build without embeddings exists” |
 
-*Showing the 200 most recent of 1984 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 1986 changes. Use `specline_activity` for the rest.*
 
