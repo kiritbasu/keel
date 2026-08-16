@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZKWMSX25E73XSGB9Q9A0P5W v2 2026-08-10T18:53:24Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZKWMSX25E73XSGB9Q9A0P5W v2 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-4 — No vector or FTS index on the Lance dataset initially — brute-force scan
 
 **Status:** `accepted`  

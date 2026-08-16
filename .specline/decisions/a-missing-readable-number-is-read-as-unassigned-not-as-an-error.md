@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZPTGB10RJERCFAJR9C1R71B v1 2026-08-10T21:51:06Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZPTGB10RJERCFAJR9C1R71B v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-44 — A missing readable number is read as unassigned, not as an error
 
 **Status:** `proposed`  

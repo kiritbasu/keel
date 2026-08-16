@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZKWMTFN212CPD921AY3PX6D v2 2026-08-10T20:25:03Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZKWMTFN212CPD921AY3PX6D v2 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-7 — Build scope is Phases 0–3; git stays local; session_id is skill-minted
 
 **Status:** `accepted`  

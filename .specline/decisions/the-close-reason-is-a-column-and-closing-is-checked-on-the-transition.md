@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZS0SFC4YAGPC58TGDG677T9 v1 2026-08-11T18:19:39Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZS0SFC4YAGPC58TGDG677T9 v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-47 — The close reason is a column, and closing is checked on the transition
 
 **Status:** `accepted`  

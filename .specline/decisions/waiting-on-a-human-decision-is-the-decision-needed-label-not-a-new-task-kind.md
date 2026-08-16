@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZPFPS0KK4YE59E3A8GJQ0VW v2 2026-08-10T18:53:23Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZPFPS0KK4YE59E3A8GJQ0VW v2 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-25 — "Waiting on a human decision" is the decision-needed label, not a new task kind
 
 **Status:** `proposed`  

@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZKMPVQWSF1TN6TYEWQ3BJ61 v2 2026-08-10T18:53:24Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZKMPVQWSF1TN6TYEWQ3BJ61 v2 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-9 — ULIDs are minted from a monotonic generator
 
 **Status:** `accepted`  

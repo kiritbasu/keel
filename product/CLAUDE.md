@@ -1,6 +1,6 @@
-<!-- keel:generated spec spc_01KZKSME2TCPVARX9M04836XD6
-     Keel is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
-     An edit made here is overwritten on the next `keel generate`. -->
+<!-- specline:generated spec spc_01KZKSME2TCPVARX9M04836XD6
+     Specline is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
+     An edit made here is overwritten on the next `specline generate`. -->
 
 # Keel — standing instructions
 

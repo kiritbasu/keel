@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01M04J2FKE9S4F3H7HDFRKM1NB v1 2026-08-16T05:52:52Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01M04J2FKE9S4F3H7HDFRKM1NB v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-79 — A create into a terminal status is held to the closing rule, not refused
 
 **Status:** `accepted`  

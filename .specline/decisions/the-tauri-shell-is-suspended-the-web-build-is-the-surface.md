@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZNQR16ZJKQ5MGTSF8H0VW9C v1 2026-08-10T18:53:23Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZNQR16ZJKQ5MGTSF8H0VW9C v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-39 — The Tauri shell is suspended; the web build is the surface
 
 **Status:** `accepted`  

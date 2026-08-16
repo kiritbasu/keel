@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZN2W5BPHM5DH3PRSHW5A600 v1 2026-08-10T18:53:23Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZN2W5BPHM5DH3PRSHW5A600 v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-30 — The p0 wedge was SIGKILL mid-write, not the FTS index
 
 **Status:** `accepted`  

@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZS7XBT5GZXPG7CGYN75WWYZ v1 2026-08-11T20:59:50Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZS7XBT5GZXPG7CGYN75WWYZ v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-51 — Phase 9 runs before Phase 10, and DuckDB and Lance come out of the tree entirely
 
 **Status:** `accepted`  

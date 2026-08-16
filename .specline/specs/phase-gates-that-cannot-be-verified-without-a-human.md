@@ -1,5 +1,5 @@
-<!-- keel:generated spec spc_01KZKMPVP6MN27N10M3PPD6EVK v1 2026-08-09T18:07:39Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated spec spc_01KZKMPVP6MN27N10M3PPD6EVK v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # Phase gates that cannot be verified without a human
 
 **Status:** `draft`  

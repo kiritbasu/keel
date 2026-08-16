@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZS6ZARDDED3P4GF3X8QF9E7 v1 2026-08-11T20:07:41Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZS6ZARDDED3P4GF3X8QF9E7 v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-50 — A glossary term can declare which type it is a spelling of
 
 **Status:** `accepted`  

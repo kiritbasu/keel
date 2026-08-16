@@ -1,6 +1,6 @@
-<!-- keel:generated spec spc_01KZPDVA3THNZG533KZZ6772JX
-     Keel is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
-     An edit made here is overwritten on the next `keel generate`. -->
+<!-- specline:generated spec spc_01KZPDVA3THNZG533KZZ6772JX
+     Specline is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
+     An edit made here is overwritten on the next `specline generate`. -->
 
 # The gate — what it measured, and why it is frozen
 

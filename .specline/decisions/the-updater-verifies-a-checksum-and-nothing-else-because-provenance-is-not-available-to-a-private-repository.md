@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01M02ZT12E0A8RJZ050SJPKMB3 v1 2026-08-15T15:24:05Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01M02ZT12E0A8RJZ050SJPKMB3 v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-73 — The updater verifies a checksum and nothing else, because provenance is not available to a private repository
 
 **Status:** `accepted`  

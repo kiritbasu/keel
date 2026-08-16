@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01M010PFT9N71ZDB2EZ1BWV5Z4 v1 2026-08-14T20:52:32Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01M010PFT9N71ZDB2EZ1BWV5Z4 v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-70 — One package owns both binaries, because dist builds one installer per package
 
 **Status:** `accepted`  

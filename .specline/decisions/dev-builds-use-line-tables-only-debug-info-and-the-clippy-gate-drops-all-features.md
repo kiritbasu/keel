@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZKWMT3ZRNB06RMYBSTAKDV6 v2 2026-08-10T20:25:03Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZKWMT3ZRNB06RMYBSTAKDV6 v2 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-11 — Dev builds use line-tables-only debug info, and the clippy gate drops --all-features
 
 **Status:** `accepted`  

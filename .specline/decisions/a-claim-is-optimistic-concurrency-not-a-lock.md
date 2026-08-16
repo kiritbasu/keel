@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZS0SZ6V2YCKKGX3ANTW777B v1 2026-08-11T18:19:39Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZS0SZ6V2YCKKGX3ANTW777B v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-48 — A claim is optimistic concurrency, not a lock
 
 **Status:** `accepted`  

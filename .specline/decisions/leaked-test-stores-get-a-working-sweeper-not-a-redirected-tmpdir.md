@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZXA7K5NXDGTVTEG9G26JPBB v1 2026-08-13T10:22:25Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZXA7K5NXDGTVTEG9G26JPBB v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-58 — Leaked test stores get a working sweeper, not a redirected TMPDIR
 
 **Status:** `accepted`  

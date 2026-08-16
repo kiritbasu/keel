@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01M05D3X5QVJ0S6B4R9BY54MAK v1 2026-08-16T13:46:41Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01M05D3X5QVJ0S6B4R9BY54MAK v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-81 — Keel becomes Specline: the store migrates itself, the task key does not change, and everything else is a clean break
 
 **Status:** `accepted`  

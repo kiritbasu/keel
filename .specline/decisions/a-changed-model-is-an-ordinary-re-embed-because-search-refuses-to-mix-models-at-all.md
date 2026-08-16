@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZXMFZH4V5TDJGPN96B1WBJ2 v1 2026-08-13T13:22:02Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZXMFZH4V5TDJGPN96B1WBJ2 v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-59 — A changed model is an ordinary re-embed, because search refuses to mix models at all
 
 **Status:** `accepted`  

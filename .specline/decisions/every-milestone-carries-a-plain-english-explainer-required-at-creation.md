@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZR4KZQ8BXFXA1PRFTXEPE07 v2 2026-08-11T10:22:41Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZR4KZQ8BXFXA1PRFTXEPE07 v2 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-45 — Every milestone carries a plain-English explainer, required at creation
 
 **Status:** `accepted`  

@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZRMFKQARKG1K6NEW1MD5222 v1 2026-08-11T15:07:34Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZRMFKQARKG1K6NEW1MD5222 v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-46 — The plain-English rule covers every prose field, not just milestone summaries
 
 **Status:** `accepted`  

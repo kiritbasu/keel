@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZSQJ05N4TSXDETPAZKD685F v1 2026-08-16T07:20:54Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZSQJ05N4TSXDETPAZKD685F v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-53 — The write-path atomicity fix: &Connection primitives, transaction-of-one, one typed composite on Store
 
 **Status:** `proposed`  

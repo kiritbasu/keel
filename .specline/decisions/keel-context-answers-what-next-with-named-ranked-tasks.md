@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZPFPHCFPZ1X930DEC2ZRR7R v2 2026-08-10T18:53:23Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZPFPHCFPZ1X930DEC2ZRR7R v2 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-23 — keel_context answers "what next" with named, ranked tasks
 
 **Status:** `proposed`  

@@ -1,15 +1,51 @@
-# Keel — Changelog
+# Specline — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T13:46:41Z -->
-> **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T14:48:42Z -->
+> **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (240)
+## Closed work (246)
 
 ### 2026-08-16
+
+- **KEEL-267** Rename the thirteen MCP tools and the server they answer on — `done`
+
+  Thirteen tools, the server key, seventeen snapshots and the tool contract. Caught a base64-encoded tool name a text sweep cannot see, and stopped the sweep from rewriting the gate scorer's deliberately-old transcript fixtures.
+
+  <sub>commit:29b0ab8 · test:cargo test -p specline-mcp</sub>
+
+- **KEEL-268** Rename the .keel mirror directory, and migrate a repository that has one — `done`
+
+  The mirror is .specline/, and the nine literals are one constant — the guard on pruning was one of them, and a guard that disagrees with the writer stops pruning silently. An old .keel/ is reported, never deleted.
+
+  <sub>commit:83f7bb9 · test:cargo test -p specline-core --test generate</sub>
+
+- **KEEL-265** Move the store to ~/.specline, and migrate an existing one on first run — `done`
+
+  The store relocates itself once, refusing while the advisory lock is held, and moving the write-ahead log with the database. Verified against a copy of the live 9.2 MB store with a -wal present: identical row counts and document hashes, fsck clean. Backups accept either snapshot name, because a rename that broke the recovery path would break it at the worst moment.
+
+  <sub>commit:c51c9fd · test:cargo test -p specline-core --lib relocate</sub>
+
+- **KEEL-271** Rename the desktop app and every string a person reads on screen — `done`
+
+  Desktop app, its 278 tests and the three design files renamed. The daemon's token header and the page that reads it moved together.
+
+  <sub>commit:6c5e4ef · test:npx vitest run</sub>
+
+- **KEEL-266** Rename the 27 KEEL_ environment variables, with no fallback — `done`
+
+  All 27 environment variables renamed with no fallback, and contracts/cli.txt re-recorded through UPDATE_CONTRACTS=1.
+
+  <sub>commit:6c5e4ef · test:cargo test -p specline --test contracts</sub>
+
+- **KEEL-264** Rename the six crates and the two binaries — `done`
+
+  Six crates and both binaries renamed. Found two collisions a sweep could not see: the crate keel-update shares an underscored form with the MCP tool keel_update, and the gate scorer filtered transcripts on the product name, which would have made it blind to every session ever recorded.
+
+  <sub>commit:6c5e4ef · test:cargo test --workspace</sub>
 
 - **KEEL-263** Scope the Specline rename and file the phase — `done`
 
@@ -962,6 +998,48 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | slug keel → specline |
+| 2026-08-16 | claude | name Keel → Specline |
+| 2026-08-16 | claude | aliases ["the project spine","project spine"] → ["keel","the project spine","project spine"] |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:45:04.614988Z |
+| 2026-08-16 | claude | status todo → done |
+| 2026-08-16 | claude | evidence [] → ["commit:29b0ab8","test:cargo test -p specline-mcp"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (226 characters) |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:83f7bb9","test:cargo test -p specline-core --test generate"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (213 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:31:01.533472Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:c51c9fd","test:cargo test -p specline-core --lib relocate"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (367 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:23:22.724126Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:6c5e4ef","test:npx vitest run"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (131 characters) |
+| 2026-08-16 | claude | status todo → done |
+| 2026-08-16 | claude | evidence [] → ["commit:6c5e4ef","test:cargo test -p specline --test contracts"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (116 characters) |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:6c5e4ef","test:cargo test --workspace"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (286 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:02:24.077097Z |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:02:24.036008Z |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → (124 characters) |
 | 2026-08-16 | claude | close_reason none → done |
@@ -1120,48 +1198,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (484 characters) |
 | 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:57:56.897809Z |
-| 2026-08-16 | claude | revised decision “A create into a terminal status is held to the closing rule, not refused” to v1 |
-| 2026-08-16 | claude | created decision “A create into a terminal status is held to the closing rule, not refused” |
-| 2026-08-16 | claude | status in_progress → todo |
-| 2026-08-16 | claude | claimed_by ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 → none |
-| 2026-08-16 | claude | claimed_at 2026-08-16T05:50:51.735297Z → none |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:50:51.735297Z |
-| 2026-08-16 | claude | “A running daemon blocks writes to stores it is not serving” duplicates “A write to one store is refused because a daemon is serving…” |
-| 2026-08-16 | claude | status in_progress → wont_do |
-| 2026-08-16 | claude | close_reason none → duplicate |
-| 2026-08-16 | claude | close_message none → (349 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:50:10.520067Z |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:464c883","test:cargo test -p keel --test hooks"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (370 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:47:10.608849Z |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:1ab66ab","test:cargo test --workspace"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (481 characters) |
-| 2026-08-16 | claude | closed_at none → 2026-08-15T01:28:39.706405Z |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:33:13.207755Z |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:0b9a9f1","test:npx vitest run src/components/LabelPicker.test.tsx"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (480 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:24:44.578384Z |
-| 2026-08-16 | claude | created task “Labels should be found by typing, not by scanning ten chips” |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:2dc0d59","test:npm test --prefix apps/desktop"] |
 
-*Showing the 200 most recent of 1885 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1927 changes. Use `specline_activity` for the rest.*
 

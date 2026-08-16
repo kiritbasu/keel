@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01M010PZ4GM1Q2NS41KPJJEZAS v1 2026-08-14T20:52:32Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01M010PZ4GM1Q2NS41KPJJEZAS v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-71 — The installer refuses a download it cannot verify, rather than skipping the check
 
 **Status:** `accepted`  

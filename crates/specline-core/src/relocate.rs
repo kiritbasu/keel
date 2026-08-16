@@ -117,7 +117,10 @@ pub fn relocate(legacy_home: &Path, home: &Path) -> Result<Option<Relocated>> {
                 "something else has {} open for writing, and a store cannot be moved \
                  out from under a process that is writing to it.\n\n\
                  It is almost always the daemon. Stop it and run this again:\n\n    \
-                 specline daemon stop\n\n\
+                 pkill -f specline-daemon\n\n\
+                 If it was installed as a service, unload that too, or it will \
+                 restart before you get here:\n\n    \
+                 launchctl unload ~/Library/LaunchAgents/sh.specline.daemon.plist\n\n\
                  Nothing has been moved, so the store is exactly as it was.",
                 legacy_store.display()
             ),
@@ -351,6 +354,14 @@ mod tests {
         assert!(
             message.contains("open for writing"),
             "the refusal should say why: {message}"
+        );
+        // A remedy naming a command that does not exist is worse than none:
+        // somebody types it, gets "unrecognized subcommand", and now has two
+        // problems. This refusal originally said `specline daemon stop`, which
+        // has never been a command — found by hitting the refusal for real.
+        assert!(
+            message.contains("pkill -f specline-daemon"),
+            "the refusal must name something that actually works: {message}"
         );
         assert!(old.is_dir(), "nothing should have moved");
         assert!(!new.exists());

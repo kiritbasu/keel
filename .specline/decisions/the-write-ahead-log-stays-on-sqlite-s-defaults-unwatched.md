@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZZGS6S1DC5T05KFQY6KQCFT v1 2026-08-14T06:54:20Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZZGS6S1DC5T05KFQY6KQCFT v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-64 — The write-ahead log stays on SQLite's defaults, unwatched
 
 **Status:** `accepted`  

@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01M01F8R621R79SSKGCV4D4G34 v1 2026-08-15T01:17:34Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01M01F8R621R79SSKGCV4D4G34 v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-72 — The repository stays private and macOS builds run on a self-hosted runner
 
 **Status:** `accepted`  

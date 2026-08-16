@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZN5H4EJ905TXJA2RTS0MNKY v1 2026-08-10T18:53:23Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZN5H4EJ905TXJA2RTS0MNKY v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-32 — KB confirmed: idempotency keys stay on all thirteen tables
 
 **Status:** `accepted`  

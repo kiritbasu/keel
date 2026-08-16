@@ -1,6 +1,6 @@
-<!-- keel:generated spec spc_01KZPJXC5RG006KJANQ6G4TBQS
-     Keel is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
-     An edit made here is overwritten on the next `keel generate`. -->
+<!-- specline:generated spec spc_01KZPJXC5RG006KJANQ6G4TBQS
+     Specline is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
+     An edit made here is overwritten on the next `specline generate`. -->
 
 # Dependency and protocol verification — a snapshot, not a description
 

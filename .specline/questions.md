@@ -1,7 +1,7 @@
 # Questions and risks
 
-<!-- keel:generated questions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
-> Generated from Keel — edits here are not saved.
+<!-- specline:generated questions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
+> Generated from Specline — edits here are not saved.
 
 ## Open
 

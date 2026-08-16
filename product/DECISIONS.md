@@ -1,11 +1,11 @@
-# Keel — Decision log
+# Specline — Decision log
 
-<!-- keel:generated decisions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
+<!-- specline:generated decisions prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
 > Generated from the decision rows — edits here are not saved.
 
 Every decision made while building, with the reasoning and what was rejected. In six months nobody will remember why a library was chosen or an approach abandoned, and one line written now saves an hour of archaeology later.
 
-`B-12` is a real identifier, not a convention: it resolves to a row, `keel_get KEEL-B12` returns it, and `fsck` checks that citations of it point at something. It was prose until 2026-08-10, which is why every `B-n` citation in this repository was unverifiable until then.
+`B-12` is a real identifier, not a convention: it resolves to a row, `specline_get KEEL-B12` returns it, and `fsck` checks that citations of it point at something. It was prose until 2026-08-10, which is why every `B-n` citation in this repository was unverifiable until then.
 
 ## Index
 

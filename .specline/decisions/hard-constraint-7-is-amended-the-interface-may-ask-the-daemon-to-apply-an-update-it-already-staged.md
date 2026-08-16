@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01M03EVSQZBVB93NR94MYNTKWB v1 2026-08-15T19:48:10Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01M03EVSQZBVB93NR94MYNTKWB v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-75 — Hard constraint 7 is amended: the interface may ask the daemon to apply an update it already staged
 
 **Status:** `accepted`  

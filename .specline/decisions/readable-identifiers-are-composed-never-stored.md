@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZNW724SBG1NFAWDZ9CR66DN v1 2026-08-10T18:53:23Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZNW724SBG1NFAWDZ9CR66DN v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-40 — Readable identifiers are composed, never stored
 
 **Status:** `accepted`  

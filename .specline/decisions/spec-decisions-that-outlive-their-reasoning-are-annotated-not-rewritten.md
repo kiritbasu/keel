@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZYC1V6NV3H9EVNPVAHEECRJ v1 2026-08-13T20:12:32Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZYC1V6NV3H9EVNPVAHEECRJ v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-62 — Spec decisions that outlive their reasoning are annotated, not rewritten
 
 **Status:** `accepted`  

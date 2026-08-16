@@ -1,7 +1,7 @@
 # Glossary
 
-<!-- keel:generated glossary prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
-> Generated from Keel — edits here are not saved.
+<!-- specline:generated glossary prj_01KZKMPVHJNCCQH3JQNAXJJ03M -->
+> Generated from Specline — edits here are not saved.
 
 **Anchor** — A reference to a block inside a document, such as REQ-4, so a task can link to one requirement rather than a whole spec.
 

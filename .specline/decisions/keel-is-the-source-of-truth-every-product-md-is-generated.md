@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZKWMT9M8EJQM7TJDZH8KX22 v2 2026-08-10T18:53:24Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZKWMT9M8EJQM7TJDZH8KX22 v2 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-20 — Keel is the source of truth; every product/*.md is generated.
 
 **Status:** `accepted`  

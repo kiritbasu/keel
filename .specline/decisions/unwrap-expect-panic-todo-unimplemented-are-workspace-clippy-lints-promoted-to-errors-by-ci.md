@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZKWMSYT6WTETRJ6DF82A42E v2 2026-08-10T20:25:03Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZKWMSYT6WTETRJ6DF82A42E v2 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-5 — unwrap/expect/panic/todo/unimplemented are workspace clippy lints, promoted to errors by CI
 
 **Status:** `accepted`  

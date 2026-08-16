@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZYFS0PJY5RPXCMN15GC2AS7 v1 2026-08-13T21:19:00Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZYFS0PJY5RPXCMN15GC2AS7 v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-63 — The keel-github stub comes out of the tree; SPEC §1.1 stays as the intended layout
 
 **Status:** `accepted`  

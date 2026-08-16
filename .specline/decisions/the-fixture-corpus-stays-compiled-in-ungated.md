@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZTFE58YF4AZATMPAHDQ8R87 v1 2026-08-12T08:27:13Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZTFE58YF4AZATMPAHDQ8R87 v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-54 — The fixture corpus stays compiled in, ungated
 
 **Status:** `accepted`  

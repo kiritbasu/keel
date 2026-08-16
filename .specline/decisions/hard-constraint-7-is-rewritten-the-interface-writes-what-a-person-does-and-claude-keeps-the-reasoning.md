@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01M04DBTX99VPTD5X477XWEM9F v1 2026-08-16T04:32:08Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01M04DBTX99VPTD5X477XWEM9F v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-78 — Hard constraint 7 is rewritten: the interface writes what a person does, and Claude keeps the reasoning
 
 **Status:** `accepted`  

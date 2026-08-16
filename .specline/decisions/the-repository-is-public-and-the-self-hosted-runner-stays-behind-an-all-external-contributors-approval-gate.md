@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01M031B11Y5XFDD2QGMA3CP85V v1 2026-08-15T15:41:39Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01M031B11Y5XFDD2QGMA3CP85V v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-74 — The repository is public, and the self-hosted runner stays behind an all-external-contributors approval gate
 
 **Status:** `accepted`  

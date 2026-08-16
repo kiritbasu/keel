@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZSKKGWMG73H09G4Q20XMDSZ v1 2026-08-11T23:55:04Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZSKKGWMG73H09G4Q20XMDSZ v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-52 — Taking the payload out of a tool result is one named function, not two lines
 
 **Status:** `accepted`  

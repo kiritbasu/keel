@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZYASB3PX1BXA4Y37VP0D4XD v1 2026-08-13T19:50:55Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZYASB3PX1BXA4Y37VP0D4XD v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-61 — Explicit writes only, and adopting an existing project is a two-layer backfill
 
 **Status:** `accepted`  

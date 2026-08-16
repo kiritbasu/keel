@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZX9ZJWEGGFSPXK1MH750G94 v1 2026-08-13T10:22:25Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZX9ZJWEGGFSPXK1MH750G94 v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-57 — A phase's state is derived; only shipped, cut and paused are declared
 
 **Status:** `accepted`  

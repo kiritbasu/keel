@@ -1,5 +1,5 @@
-<!-- keel:generated spec spc_01KZYFPFNZEZT5VEZMDRTZV83N v1 2026-08-13T21:19:00Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated spec spc_01KZYFPFNZEZT5VEZMDRTZV83N v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # Keel — what needs to happen
 
 **Status:** `approved`  

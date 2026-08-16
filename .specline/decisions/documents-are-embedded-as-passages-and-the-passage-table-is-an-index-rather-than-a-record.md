@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZX83HF50F7T90B2CD1P7EZ7 v1 2026-08-13T09:57:43Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZX83HF50F7T90B2CD1P7EZ7 v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-55 — Documents are embedded as passages, and the passage table is an index rather than a record
 
 **Status:** `accepted`  

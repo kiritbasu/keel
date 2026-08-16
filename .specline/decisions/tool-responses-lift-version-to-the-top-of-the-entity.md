@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01KZKMPVSRVWSF4N42E9Y1M7A1 v2 2026-08-10T18:53:24Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01KZKMPVSRVWSF4N42E9Y1M7A1 v2 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-13 — Tool responses lift version to the top of the entity
 
 **Status:** `accepted`  

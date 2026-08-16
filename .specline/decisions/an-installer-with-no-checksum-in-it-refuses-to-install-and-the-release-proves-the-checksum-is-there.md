@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01M03H4VBXDT31B3FX5TQ9653D v1 2026-08-15T20:18:37Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01M03H4VBXDT31B3FX5TQ9653D v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-76 — An installer with no checksum in it refuses to install, and the release proves the checksum is there
 
 **Status:** `accepted`  

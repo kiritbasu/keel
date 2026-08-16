@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01M05B9KHR4EV9KQDT60YW929Q v1 2026-08-16T13:13:49Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01M05B9KHR4EV9KQDT60YW929Q v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-80 — The review joins the definition of done, and "the gate" stops being a word
 
 **Status:** `accepted`  

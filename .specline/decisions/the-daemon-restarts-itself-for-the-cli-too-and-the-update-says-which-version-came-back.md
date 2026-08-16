@@ -1,5 +1,5 @@
-<!-- keel:generated decision dec_01M03KQE9V0G9VSZMPKTWHB171 v1 2026-08-15T21:02:59Z
-     source of truth is Keel — edits here are not saved -->
+<!-- specline:generated decision dec_01M03KQE9V0G9VSZMPKTWHB171 v1 2026-08-16T14:48:42Z
+     source of truth is Specline — edits here are not saved -->
 # B-77 — The daemon restarts itself for the CLI too, and the update says which version came back
 
 **Status:** `accepted`  
