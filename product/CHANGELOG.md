@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T17:32:10Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T18:16:57Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (253)
+## Closed work (254)
 
 ### 2026-08-16
+
+- **KEEL-281** Finish the rename outside the repository: the checkout, the trust settings and the runner — `done`
+
+  Checkout moved to ~/development/specline with the project's root_path; ten references fixed in ~/.claude/settings.json, including two session hooks left pointing at scripts the rename deleted and three entries telling autoMode the repository is private when it is public; runner moved to ~/.specline-runner and re-serving, proved by a green macOS CI leg from the new root.
+
+  <sub>commit:155803e · url:https://github.com/kiritbasu/specline/actions/runs/31962080842</sub>
 
 - **KEEL-276** Cut the first Specline release and run the install flow end to end — `done`
 
@@ -1040,6 +1046,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | status todo → done |
+| 2026-08-16 | claude | evidence [] → (87 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (372 characters) |
 | 2026-08-16 | claude | created task “Finish the rename outside the repository: the checkout, the trust settings and the runner” |
 | 2026-08-16 | claude | created task “A note on a closed task never reaches the repository” |
 | 2026-08-16 | claude | root_path /Users/h8hcn/development/keel → /Users/h8hcn/development/specline |
@@ -1236,10 +1246,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → (121 characters) |
 | 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (647 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T08:58:02.073630Z |
 
-*Showing the 200 most recent of 1999 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2003 changes. Use `specline_activity` for the rest.*
 
