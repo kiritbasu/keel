@@ -51,9 +51,27 @@ newest=0
 for candidate in target/release/keel target/debug/keel "$(command -v keel 2>/dev/null || true)"; do
   [ -n "$candidate" ] && [ -x "$candidate" ] || continue
   "$candidate" generate --help >/dev/null 2>&1 || continue
-  # `stat -f %m` on BSD/macOS, `stat -c %Y` on GNU. An unreadable timestamp
-  # counts as age zero rather than aborting: a usable binary beats none.
-  mtime="$(stat -f %m "$candidate" 2>/dev/null || stat -c %Y "$candidate" 2>/dev/null || echo 0)"
+  # `stat -c %Y` on GNU, `stat -f %m` on BSD/macOS — **in that order**, and the
+  # order is the whole of it.
+  #
+  # BSD-first looks symmetrical and is not, because the two failures are not
+  # alike. BSD `stat -c` is an illegal option and exits non-zero, so the
+  # fallback fires. GNU `stat -f` is `--file-system` and `%m` is the *mount
+  # point*: it prints `/` and exits **0**, so the fallback never runs, `mtime`
+  # is a path, and `[ "/" -ge 0 ]` is an error. The loop then finds no usable
+  # binary and the hook exits 0 saying generated files were not checked.
+  #
+  # So on every Linux machine this hook has been quietly doing nothing — which
+  # is the exact failure the `PostToolUse` hook was deleted for, in the file
+  # written to replace it. Found by the tests in `crates/keel/tests/hooks.rs`
+  # the first time CI ran them on Linux.
+  #
+  # The `case` is belt and braces: anything that is not a plain number counts
+  # as age zero rather than crashing the comparison. A usable binary beats none.
+  mtime="$(stat -c %Y "$candidate" 2>/dev/null || stat -f %m "$candidate" 2>/dev/null || echo 0)"
+  case "$mtime" in
+  '' | *[!0-9]*) mtime=0 ;;
+  esac
   if [ "$mtime" -ge "$newest" ]; then
     newest="$mtime"
     keel_bin="$candidate"
