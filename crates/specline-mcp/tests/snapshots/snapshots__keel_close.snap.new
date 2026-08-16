@@ -1,5 +1,6 @@
 ---
 source: crates/specline-mcp/tests/snapshots.rs
+assertion_line: 413
 expression: result
 ---
 {

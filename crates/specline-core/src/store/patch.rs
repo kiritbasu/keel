@@ -1,6 +1,6 @@
 //! Applying caller-supplied field changes to an entity.
 //!
-//! `keel_update(id, version, changes: {...})` hands over an arbitrary JSON
+//! `specline_update(id, version, changes: {...})` hands over an arbitrary JSON
 //! object. Turning that into a validated, typed mutation for thirteen
 //! different structs is the sort of job that invites thirteen hand-written
 //! setter functions, each with its own opportunity to forget a field.
@@ -39,7 +39,7 @@ const IMMUTABLE: &[(&str, &str)] = &[
     ),
     (
         "current_doc_version",
-        "the revision pointer is advanced by keel_write_doc, not by an update",
+        "the revision pointer is advanced by specline_write_doc, not by an update",
     ),
     (
         "number",

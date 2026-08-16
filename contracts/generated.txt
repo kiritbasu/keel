@@ -4,9 +4,9 @@
 .specline/decisions/recursive-ctes-for-the-graph-not-duckpgq.md  03ed48b284b9a9ba
 .specline/decisions/soft-delete-only-links-included.md  75ae863d8fd54199
 .specline/decisions/the-daemon-owns-the-single-write-path.md  1d569ac72c5fb470
-.specline/glossary.md  23b7a30a82b39d72
+.specline/glossary.md  f12cf08633463cf8
 .specline/questions.md  49765117d73b97aa
-.specline/specs/agent-orientation-digest.md  05ef17a1185ab8c0
+.specline/specs/agent-orientation-digest.md  908c752e697dba02
 .specline/specs/mcp-tool-surface.md  4116e32aa227bbf5
 .specline/specs/specline-storage-specification.md  c443bcbb4a01e79e
 .specline/README.md  dcc9a630fa8aa311

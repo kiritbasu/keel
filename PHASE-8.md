@@ -65,7 +65,7 @@ One new value ahead of `todo`. Issues filed from the app land there; it means "a
 
 ### The tool count
 
-Ten tools becomes twelve. The standing rule says an eleventh needs an argument at least as good as the one that earned `keel_note` the tenth slot. Here it is: these three are the only actions in the product that constitute *doing the work* rather than describing it, they map to three unambiguous non-overlapping intents, and the alternative leaves "what should I do next" reachable only by paying for a full digest. **A decision for you** — it touches the tool surface.
+Ten tools becomes twelve. The standing rule says an eleventh needs an argument at least as good as the one that earned `specline_note` the tenth slot. Here it is: these three are the only actions in the product that constitute *doing the work* rather than describing it, they map to three unambiguous non-overlapping intents, and the alternative leaves "what should I do next" reachable only by paying for a full digest. **A decision for you** — it touches the tool surface.
 
 ---
 
@@ -268,11 +268,11 @@ That is backwards for this project. Phases are how the work is actually structur
 
 ## 8F — The project's own words
 
-You asked what happens if a session calls it a *milestone* when this project says *phase* — or an epic, a sprint, a release, a cycle. Today: nothing good. `keel_create(type: "phase")` fails with an enum error listing thirteen types, none of which is the word the project actually uses on every screen.
+You asked what happens if a session calls it a *milestone* when this project says *phase* — or an epic, a sprint, a release, a cycle. Today: nothing good. `specline_create(type: "phase")` fails with an enum error listing thirteen types, none of which is the word the project actually uses on every screen.
 
 Three layers fix it, and none of them adds a type.
 
-**1. A display noun, per project.** The project records what it calls a milestone — `milestone_noun: "Phase"` — and the interface, the renderer and the digest all use that word. The board says *Phase 8*, `render-status` writes *Phases*, and `keel_context` tells the session "this project calls milestones **phases**" in its first paragraph. The concept stays one thing; only the label is the project's.
+**1. A display noun, per project.** The project records what it calls a milestone — `milestone_noun: "Phase"` — and the interface, the renderer and the digest all use that word. The board says *Phase 8*, `render-status` writes *Phases*, and `specline_context` tells the session "this project calls milestones **phases**" in its first paragraph. The concept stays one thing; only the label is the project's.
 
 **2. Aliases on input.** A small resolution table applied before validation:
 
@@ -288,7 +288,7 @@ The resolution is **reported, not silent**: the response says `created milestone
 
 **The rule that keeps this safe: an alias is a spelling, not a concept.** It must never create a fourteenth type. Thirteen is the ceiling and this is precisely the pressure that would erode it — "sprint isn't quite a milestone" is how a schema grows a type it cannot later remove.
 
-**3. The glossary already does most of this and nobody wired it up.** `term` is one of the thirteen types, and glossary terms are the one thing `keel_context` is forbidden from truncating — the reasoning being that a missing term makes an agent use the wrong word for a domain concept, which is exactly this problem. So the project's vocabulary is already delivered to every session; the milestone noun should simply be seeded as a term when a project is created, and the alias table should consult the glossary before falling back to the built-in list.
+**3. The glossary already does most of this and nobody wired it up.** `term` is one of the thirteen types, and glossary terms are the one thing `specline_context` is forbidden from truncating — the reasoning being that a missing term makes an agent use the wrong word for a domain concept, which is exactly this problem. So the project's vocabulary is already delivered to every session; the milestone noun should simply be seeded as a term when a project is created, and the alias table should consult the glossary before falling back to the built-in list.
 
 That third point generalises past milestones. A project that says *customer feedback* rather than *feedback*, or *incident* rather than *question*, gets the same treatment for free.
 
@@ -304,7 +304,7 @@ The other piece of evidence points the way: when a write failed validation — t
 
 So, four layers, ordered by when they act:
 
-**1. The tool schema — this is the mechanism.** `summary` is a required property on `keel_create` for tasks. A model physically cannot complete the call without confronting it, on every surface, in every session, whether or not any skill loaded. The description carries the contract and one worked pair:
+**1. The tool schema — this is the mechanism.** `summary` is a required property on `specline_create` for tasks. A model physically cannot complete the call without confronting it, on every surface, in every session, whether or not any skill loaded. The description carries the contract and one worked pair:
 
 > One or two plain sentences a colleague could read cold, six weeks from now, without having been in this conversation. Say what is wrong or wanted, who or what it affects, and what "done" looks like.
 >
@@ -344,7 +344,7 @@ Each rejection names what was wrong and what would be valid, which is the standa
 - Search offers starter queries drawn from the project's own questions, decisions and glossary.
 - Both the board and the library have a filter box that names its scope and count.
 - Every task row shows what it is part of, and an unassigned one shows that it is unassigned.
-- `keel_create(type: "phase")` succeeds and says what this project calls those.
+- `specline_create(type: "phase")` succeeds and says what this project calls those.
 - **No task can be created without a summary** — proved by a test asserting both the CLI and MCP paths refuse, and by a session that supplies a bad one and recovers in the same turn.
 - `keel lint` reports zero unexpanded identifiers across the rows that already exist.
 

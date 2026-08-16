@@ -484,9 +484,9 @@ pub fn check_headers(
 /// MCP alone there is no session to name, and telling a client to "mint" one is
 /// what produced colliding date-based identifiers.
 pub const INSTRUCTIONS: &str = "Specline stores everything about a software project except the code. Call \
-     `keel_context` first to orient. Pass the `session_id` your host gave you on every call, so \
+     `specline_context` first to orient. Pass the `session_id` your host gave you on every call, so \
      writes are attributed to this conversation. Before creating a project, call \
-     `keel_projects` and confirm with the human.";
+     `specline_projects` and confirm with the human.";
 
 /// The `initialize` result, in the caller's own revision.
 ///
@@ -531,12 +531,12 @@ mod tests {
 
     #[test]
     fn matching_headers_pass() {
-        let r = call("keel_context");
+        let r = call("specline_context");
         assert_eq!(
             check_headers(
                 &r,
                 Some("tools/call"),
-                Some("keel_context"),
+                Some("specline_context"),
                 Some(PROTOCOL_VERSION)
             ),
             HeaderCheck::Ok(Era::Modern)
@@ -549,7 +549,7 @@ mod tests {
         // mirrored headers. B-17 served it; TQ-11 refused it and thereby
         // locked out the only client the product exists for; this restores it.
         // The refusal is the regression, not the acceptance.
-        let r = call("keel_context");
+        let r = call("specline_context");
         assert_eq!(
             check_headers(&r, None, None, Some(LEGACY_PROTOCOL_VERSION)),
             HeaderCheck::Ok(Era::Legacy),
@@ -585,11 +585,11 @@ mod tests {
 
     #[test]
     fn an_unsupported_version_lists_what_is_supported() {
-        let r = call("keel_context");
+        let r = call("specline_context");
         match check_headers(
             &r,
             Some("tools/call"),
-            Some("keel_context"),
+            Some("specline_context"),
             // 2024-11-05 is the HTTP+SSE era, which this server never spoke.
             Some("2024-11-05"),
         ) {
@@ -607,16 +607,16 @@ mod tests {
     fn a_header_that_disagrees_with_the_body_is_rejected() {
         // The security case: a load balancer routes on the header while the
         // server executes on the body.
-        let r = call("keel_create");
+        let r = call("specline_create");
         match check_headers(
             &r,
             Some("tools/call"),
-            Some("keel_context"),
+            Some("specline_context"),
             Some(PROTOCOL_VERSION),
         ) {
             HeaderCheck::Reject(e) => {
                 assert_eq!(e.code, codes::HEADER_MISMATCH);
-                assert!(e.message.contains("keel_create"), "{}", e.message);
+                assert!(e.message.contains("specline_create"), "{}", e.message);
             }
             HeaderCheck::Ok(_) => panic!("should have been rejected"),
         }
@@ -624,11 +624,11 @@ mod tests {
 
     #[test]
     fn a_method_header_that_disagrees_is_rejected() {
-        let r = call("keel_context");
+        let r = call("specline_context");
         match check_headers(
             &r,
             Some("tools/list"),
-            Some("keel_context"),
+            Some("specline_context"),
             Some(PROTOCOL_VERSION),
         ) {
             HeaderCheck::Reject(e) => assert_eq!(e.code, codes::HEADER_MISMATCH),
@@ -662,11 +662,11 @@ mod tests {
 
     #[test]
     fn a_base64_wrapped_name_is_decoded_before_comparison() {
-        // "keel_context" base64-encoded.
-        let encoded = "=?base64?a2VlbF9jb250ZXh0?=";
-        assert_eq!(decode_header_value(encoded), "keel_context");
+        // "specline_context" base64-encoded.
+        let encoded = "=?base64?c3BlY2xpbmVfY29udGV4dA==?=";
+        assert_eq!(decode_header_value(encoded), "specline_context");
 
-        let r = call("keel_context");
+        let r = call("specline_context");
         assert_eq!(
             check_headers(
                 &r,
@@ -690,7 +690,7 @@ mod tests {
 
     #[test]
     fn a_plain_value_passes_through_untouched() {
-        assert_eq!(decode_header_value("keel_search"), "keel_search");
+        assert_eq!(decode_header_value("specline_search"), "specline_search");
         // Malformed sentinel: return it verbatim rather than guessing.
         assert_eq!(decode_header_value("=?base64?!!!?="), "=?base64?!!!?=");
     }
@@ -757,7 +757,7 @@ mod tests {
         // headers exist because an intermediary may route on the header while
         // the server executes on the body, and a mismatch is a security
         // problem rather than a formatting one.
-        let c = call("keel_context");
+        let c = call("specline_context");
         assert!(matches!(
             check_headers(&c, None, None, Some(PROTOCOL_VERSION)),
             HeaderCheck::Reject(_),
@@ -810,6 +810,6 @@ mod tests {
             params: json!({}),
         };
         assert!(r.is_notification());
-        assert!(!call("keel_get").is_notification());
+        assert!(!call("specline_get").is_notification());
     }
 }

@@ -263,7 +263,7 @@ impl AppState {
     /// always did, which is no worse than before and far better than blocking
     /// here to avoid blocking later.
     pub fn embed_query(&self, tool: &str, arguments: &serde_json::Value) -> Option<Vec<f32>> {
-        if tool != "keel_search" {
+        if tool != "specline_search" {
             return None;
         }
         let text = arguments.get("query").and_then(|v| v.as_str())?;

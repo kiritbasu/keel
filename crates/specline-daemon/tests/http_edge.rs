@@ -195,7 +195,7 @@ async fn malformed_bodies_come_back_as_json_rpc_errors() {
         (
             "arguments is a string",
             json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-                   "params": {"name": "keel_search", "arguments": "query"}})
+                   "params": {"name": "specline_search", "arguments": "query"}})
             .to_string(),
         ),
     ];
@@ -280,7 +280,7 @@ async fn a_blob_is_served_with_headers_that_stop_it_executing() {
     let created: Value = client
         .post(format!("{base}/mcp"))
         .json(&json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-                      "params": {"name": "keel_create",
+                      "params": {"name": "specline_create",
                                  "arguments": {"type": "project", "title": "Blobs",
                                                "slug": "blobs"}}}))
         .send()
@@ -296,7 +296,7 @@ async fn a_blob_is_served_with_headers_that_stop_it_executing() {
     let design: Value = client
         .post(format!("{base}/mcp"))
         .json(&json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call",
-                      "params": {"name": "keel_create",
+                      "params": {"name": "specline_create",
                                  "arguments": {"type": "design", "project": "blobs",
                                                "title": "A mockup", "image": png}}}))
         .send()

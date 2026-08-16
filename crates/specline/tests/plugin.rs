@@ -170,7 +170,7 @@ fn is_executable(_path: &Path) -> bool {
 ///
 /// This exists because the skill went stale in exactly the way nothing else
 /// would catch. Its table was headed "The nine tools", listed ten, and omitted
-/// `keel_claim`, `keel_close` and `keel_ready` — the three work verbs that
+/// `specline_claim`, `specline_close` and `specline_ready` — the three work verbs that
 /// raised the cap to thirteen. So on every project except this repository,
 /// which has its own standing instructions, a session had nothing telling it to
 /// claim a task, and tasks sat in `todo` while the work was being done. The

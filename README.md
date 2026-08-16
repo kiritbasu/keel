@@ -222,7 +222,7 @@ Thirteen kinds of thing, and no more — the ceiling is deliberate, because "we 
 
 They're connected by a typed graph — a task `implements` a spec, a decision `supersedes` an earlier one, a task `blocks` another — and the graph is what makes "what's actually blocked" a query rather than a guess.
 
-The agent sees ten tools: `keel_context`, `keel_search`, `keel_get`, `keel_projects`, `keel_activity`, `keel_create`, `keel_update`, `keel_write_doc`, `keel_note`, `keel_link`. Ten rather than forty because a model picks the right tool from a short list and the wrong one from a long list.
+The agent sees ten tools: `specline_context`, `specline_search`, `specline_get`, `specline_projects`, `specline_activity`, `specline_create`, `specline_update`, `specline_write_doc`, `specline_note`, `specline_link`. Ten rather than forty because a model picks the right tool from a short list and the wrong one from a long list.
 
 ---
 

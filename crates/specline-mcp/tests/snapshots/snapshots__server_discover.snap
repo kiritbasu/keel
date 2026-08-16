@@ -9,7 +9,7 @@ expression: "specline_mcp::discover_result()"
       "listChanged": false
     }
   },
-  "instructions": "Specline stores everything about a software project except the code. Call `keel_context` first to orient. Pass the `session_id` your host gave you on every call, so writes are attributed to this conversation. Before creating a project, call `keel_projects` and confirm with the human.",
+  "instructions": "Specline stores everything about a software project except the code. Call `specline_context` first to orient. Pass the `session_id` your host gave you on every call, so writes are attributed to this conversation. Before creating a project, call `specline_projects` and confirm with the human.",
   "protocolVersions": [
     "[date]",
     "[date]"

@@ -87,7 +87,7 @@ async fn concurrent_identical_creates_produce_exactly_one_entity() {
     let (client, _dir) = start().await;
     let project = client
         .ok(
-            "keel_create",
+            "specline_create",
             json!({"type": "project", "title": "Contended"}),
         )
         .await["entity"]["id"]
@@ -104,7 +104,7 @@ async fn concurrent_identical_creates_produce_exactly_one_entity() {
         handles.push(tokio::spawn(async move {
             client
                 .ok(
-                    "keel_create",
+                    "specline_create",
                     json!({
                         "type": "task",
                         "project": project,
@@ -143,7 +143,7 @@ async fn concurrent_identical_creates_produce_exactly_one_entity() {
     // And the store agrees.
     let listed = client
         .ok(
-            "keel_search",
+            "specline_search",
             json!({"query": "rounding bug", "types": ["task"]}),
         )
         .await;
@@ -161,7 +161,7 @@ async fn concurrent_updates_lose_nothing_when_each_writer_retries() {
     let (client, _dir) = start().await;
     let project = client
         .ok(
-            "keel_create",
+            "specline_create",
             json!({"type": "project", "title": "Contended"}),
         )
         .await["entity"]["id"]
@@ -170,7 +170,7 @@ async fn concurrent_updates_lose_nothing_when_each_writer_retries() {
         .to_owned();
     let task = client
         .ok(
-            "keel_create",
+            "specline_create",
             json!({
                 "type": "task", "project": project, "title": "Accumulate labels",
                 "summary": "Two writers add labels at once. Done when neither drops the other's."
@@ -192,7 +192,7 @@ async fn concurrent_updates_lose_nothing_when_each_writer_retries() {
             // would be unwriteable without a full round trip, which is why
             // SPEC §7.3 specifies it.
             for attempt in 0..64 {
-                let current = client.ok("keel_get", json!({"ids": [task]})).await;
+                let current = client.ok("specline_get", json!({"ids": [task]})).await;
                 let entity = &current["artifacts"][0]["entity"];
                 let version = entity["version"].as_i64().unwrap();
                 let mut labels: Vec<String> = entity["labels"]
@@ -208,7 +208,7 @@ async fn concurrent_updates_lose_nothing_when_each_writer_retries() {
 
                 let (status, _) = client
                     .call(
-                        "keel_update",
+                        "specline_update",
                         json!({
                             "id": task,
                             "version": version,
@@ -238,7 +238,7 @@ async fn concurrent_updates_lose_nothing_when_each_writer_retries() {
         assert!(h.await.unwrap(), "a writer gave up after 64 attempts");
     }
 
-    let final_state = client.ok("keel_get", json!({"ids": [task]})).await;
+    let final_state = client.ok("specline_get", json!({"ids": [task]})).await;
     let labels: Vec<String> = final_state["artifacts"][0]["entity"]["labels"]
         .as_array()
         .unwrap()
@@ -282,7 +282,10 @@ async fn concurrent_writers_produce_a_gapless_event_log() {
     // ULIDs, a cursor query would silently skip rows (DECISIONS B-9).
     let (client, _dir) = start().await;
     let project = client
-        .ok("keel_create", json!({"type": "project", "title": "Busy"}))
+        .ok(
+            "specline_create",
+            json!({"type": "project", "title": "Busy"}),
+        )
         .await["entity"]["id"]
         .as_str()
         .unwrap()
@@ -296,7 +299,7 @@ async fn concurrent_writers_produce_a_gapless_event_log() {
             for j in 0..4 {
                 client
                     .ok(
-                        "keel_create",
+                        "specline_create",
                         json!({
                             "type": "task",
                             "project": project,
@@ -322,7 +325,7 @@ async fn concurrent_writers_produce_a_gapless_event_log() {
         if let (Some(c), Some(obj)) = (&cursor, args.as_object_mut()) {
             obj.insert("cursor".to_owned(), json!(c));
         }
-        let page = client.ok("keel_activity", args).await;
+        let page = client.ok("specline_activity", args).await;
         let events = page["events"].as_array().unwrap();
         if events.is_empty() {
             break;
@@ -355,14 +358,17 @@ async fn concurrent_writers_produce_a_gapless_event_log() {
 async fn concurrent_links_between_the_same_pair_produce_one_edge() {
     let (client, _dir) = start().await;
     let project = client
-        .ok("keel_create", json!({"type": "project", "title": "Linked"}))
+        .ok(
+            "specline_create",
+            json!({"type": "project", "title": "Linked"}),
+        )
         .await["entity"]["id"]
         .as_str()
         .unwrap()
         .to_owned();
     let task = client
         .ok(
-            "keel_create",
+            "specline_create",
             json!({
                 "type": "task", "project": project, "title": "Implement it",
                 "summary": "A row this test needs, so an edge has something to point at."
@@ -374,7 +380,7 @@ async fn concurrent_links_between_the_same_pair_produce_one_edge() {
         .to_owned();
     let spec = client
         .ok(
-            "keel_create",
+            "specline_create",
             json!({
                 "type": "spec",
                 "project": project,
@@ -397,7 +403,7 @@ async fn concurrent_links_between_the_same_pair_produce_one_edge() {
         handles.push(tokio::spawn(async move {
             client
                 .ok(
-                    "keel_link",
+                    "specline_link",
                     json!({"from": task, "rel": "implements", "to": spec}),
                 )
                 .await["link"]["id"]
@@ -421,7 +427,7 @@ async fn concurrent_links_between_the_same_pair_produce_one_edge() {
 
     let neighbours = client
         .ok(
-            "keel_get",
+            "specline_get",
             json!({"ids": [spec], "depth": 1, "direction": "inbound"}),
         )
         .await;

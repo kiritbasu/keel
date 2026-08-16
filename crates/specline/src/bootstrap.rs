@@ -108,7 +108,7 @@ pub fn run(store: &mut Store, repo_path: Option<String>) -> Result<Summary> {
         ),
         (
             "Phase 1 — Daemon",
-            "axum, the ten MCP tools, keel_context, concurrency safety, render-status.",
+            "axum, the ten MCP tools, specline_context, concurrency safety, render-status.",
             MilestoneStatus::Shipped,
             NaiveDate::from_ymd_opt(2026, 8, 9),
             1,
@@ -344,7 +344,7 @@ pub fn run(store: &mut Store, repo_path: Option<String>) -> Result<Summary> {
         ),
         (
             1,
-            "keel_context — the digest",
+            "specline_context — the digest",
             "3–4k tokens. Questions and glossary terms are never trimmed; everything else degrades and reports what it dropped.",
             done,
             TaskPriority::P0,
@@ -354,7 +354,7 @@ pub fn run(store: &mut Store, repo_path: Option<String>) -> Result<Summary> {
         (
             1,
             "Read tools: search, get, activity, projects",
-            "keel_get takes version and diff_against, so REQ-2's diff requirement is met at the API layer.",
+            "specline_get takes version and diff_against, so REQ-2's diff requirement is met at the API layer.",
             done,
             TaskPriority::P1,
             TaskKind::Task,
@@ -463,7 +463,7 @@ pub fn run(store: &mut Store, repo_path: Option<String>) -> Result<Summary> {
         (
             2,
             "Project-confirmation behaviour",
-            "keel_projects returns requires_confirmation on a near miss; the skill makes this the one place the agent must stop and ask.",
+            "specline_projects returns requires_confirmation on a near miss; the skill makes this the one place the agent must stop and ask.",
             done,
             TaskPriority::P0,
             TaskKind::Task,
@@ -509,7 +509,7 @@ pub fn run(store: &mut Store, repo_path: Option<String>) -> Result<Summary> {
         (
             3,
             "Screen 2 — Project dashboard",
-            "The same data keel_context gives an agent, so a human and a model cannot be looking at different summaries.",
+            "The same data specline_context gives an agent, so a human and a model cannot be looking at different summaries.",
             done,
             TaskPriority::P1,
             TaskKind::Task,
@@ -673,7 +673,7 @@ pub fn run(store: &mut Store, repo_path: Option<String>) -> Result<Summary> {
             SpecKind::Prd,
             SpecStatus::Approved,
             "See `product/PRD.md` in the repository for the full text.\n\n\
-          ## REQ-3 Agent orientation\n\nA single `keel_context` call returns a project digest \
+          ## REQ-3 Agent orientation\n\nA single `specline_context` call returns a project digest \
           sized to fit comfortably in an agent's context window.\n\n\
           ## REQ-4 Hybrid search\n\nSemantic and keyword search spans every artifact type that \
           carries text, across all projects.\n\n\
@@ -955,7 +955,7 @@ pub fn run(store: &mut Store, repo_path: Option<String>) -> Result<Summary> {
         ),
         (
             "Digest",
-            "The compact project summary returned by keel_context. Budgeted to roughly 3–4k tokens.",
+            "The compact project summary returned by specline_context. Budgeted to roughly 3–4k tokens.",
         ),
         (
             "Mirror",
@@ -1074,7 +1074,7 @@ pub fn run(store: &mut Store, repo_path: Option<String>) -> Result<Summary> {
     let edges: [Edge<'_>; 10] = [
         (
             "task",
-            "keel_context — the digest",
+            "specline_context — the digest",
             Relation::Implements,
             "spec",
             "Specline — Product Requirements Document",

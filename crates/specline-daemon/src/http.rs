@@ -16,7 +16,7 @@ use std::convert::Infallible;
 
 /// The largest request body the daemon will read.
 ///
-/// Generous, because `keel_create` carries an inline image and the tool
+/// Generous, because `specline_create` carries an inline image and the tool
 /// documents a 1 MB decoded ceiling — base64 inflates that by a third, and a
 /// limit that refuses a legitimate screenshot would be discovered by a user
 /// rather than by a test. Small enough that a runaway client cannot make the
@@ -443,7 +443,7 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
             drop(store);
             if let (Some(after_id), true) = (after.clone(), before != after) {
                 state.announce(after_id, format!("{name} completed"));
-            } else if name == "keel_note"
+            } else if name == "specline_note"
                 && let Ok(value) = &outcome
                 && !value
                     .get("isError")
@@ -458,7 +458,7 @@ async fn mcp_endpoint(State(state): State<AppState>, headers: HeaderMap, body: S
                     .pointer("/structuredContent/note/entity_id")
                     .and_then(Value::as_str)
                     .map(str::to_owned);
-                state.announce_note(entity_id, "keel_note completed");
+                state.announce_note(entity_id, "specline_note completed");
             }
             outcome
         }
@@ -1222,12 +1222,12 @@ async fn api_context(
     State(state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    let args = params_to_json("keel_context", params);
+    let args = params_to_json("specline_context", params);
     let mut store = state.store();
     as_api(specline_mcp::dispatch(
         &mut store,
         specline_mcp::ToolCall {
-            name: "keel_context",
+            name: "specline_context",
             arguments: &args,
         },
     ))
@@ -1237,12 +1237,12 @@ async fn api_projects(
     State(state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    let args = params_to_json("keel_projects", params);
+    let args = params_to_json("specline_projects", params);
     let mut store = state.store();
     as_api(specline_mcp::dispatch(
         &mut store,
         specline_mcp::ToolCall {
-            name: "keel_projects",
+            name: "specline_projects",
             arguments: &args,
         },
     ))
@@ -1252,12 +1252,12 @@ async fn api_search(
     State(state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    let args = params_to_json("keel_search", params);
+    let args = params_to_json("specline_search", params);
     let mut store = state.store();
     as_api(specline_mcp::dispatch(
         &mut store,
         specline_mcp::ToolCall {
-            name: "keel_search",
+            name: "specline_search",
             arguments: &args,
         },
     ))
@@ -1265,7 +1265,7 @@ async fn api_search(
 
 /// What can be worked on right now.
 ///
-/// The same `keel_ready` the CLI and a model call, reached the same way every
+/// The same `specline_ready` the CLI and a model call, reached the same way every
 /// other read is: through the tool, with the query string mapped by the tool's
 /// own schema. That is what makes "the app agrees with the session" a property of
 /// the code rather than a thing to keep checking — there is one ranking, and all
@@ -1294,7 +1294,7 @@ async fn api_search(
 /// So it is still the cheaper call, and it is one of four the board makes in
 /// parallel. The version with no second walk means either the daemon stops
 /// going through the tool — and the app's ranking stops being the tool's by
-/// construction — or `keel_ready` starts returning a stuck list no model asked
+/// construction — or `specline_ready` starts returning a stuck list no model asked
 /// for. Neither is worth 240 ms on a screen that loads once. If it ever is, the
 /// fix is a `blocked` field on [`specline_core::Ready`] carrying what the ranking
 /// already computed, not a second ranking here.
@@ -1302,18 +1302,18 @@ async fn api_ready(
     State(state): State<AppState>,
     Query(mut params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    // Taken out before the arguments are built: `keel_ready` has no `blocked`
+    // Taken out before the arguments are built: `specline_ready` has no `blocked`
     // in its schema, and passing an undeclared parameter through to a tool is
     // how a filter gets silently ignored.
     let want_blocked = params.remove("blocked").is_some_and(|v| v == "true");
     let project = params.get("project").cloned();
 
-    let args = params_to_json("keel_ready", params);
+    let args = params_to_json("specline_ready", params);
     let mut store = state.store();
     let mut result = specline_mcp::dispatch(
         &mut store,
         specline_mcp::ToolCall {
-            name: "keel_ready",
+            name: "specline_ready",
             arguments: &args,
         },
     );
@@ -1352,7 +1352,7 @@ async fn api_ready(
 /// One row's whole history — every field change, with its before and after.
 ///
 /// Its own endpoint rather than a parameter on `/api/activity`, because
-/// `/api/activity` *is* `keel_activity` and that tool no longer takes one
+/// `/api/activity` *is* `specline_activity` and that tool no longer takes one
 /// (TQ-24). B-15 is why this is not a contradiction: the local API has more
 /// endpoints than the tool surface has tools, since a UI knows exactly what it
 /// wants and a model chooses worse among more options.
@@ -1461,7 +1461,7 @@ async fn api_blob(State(state): State<AppState>, Path(id): Path<String>) -> Resp
 /// What changed, grouped by the conversation that changed it.
 ///
 /// Its own endpoint rather than a shape on `/api/activity`, because that URL *is*
-/// the `keel_activity` tool and this is a different question: the tool answers
+/// the `specline_activity` tool and this is a different question: the tool answers
 /// "every mutation since a cursor", paged, for a model catching up, and this
 /// answers "what did each session do", for a person who left Claude working and
 /// came back. B-15 is the rule — the local API has more endpoints than the tool
@@ -1711,12 +1711,12 @@ async fn api_activity(
     State(state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    let args = params_to_json("keel_activity", params);
+    let args = params_to_json("specline_activity", params);
     let mut store = state.store();
     as_api(specline_mcp::dispatch(
         &mut store,
         specline_mcp::ToolCall {
-            name: "keel_activity",
+            name: "specline_activity",
             arguments: &args,
         },
     ))
@@ -1757,7 +1757,7 @@ async fn api_entity(
     Path(id): Path<String>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    let mut args = params_to_json("keel_get", params);
+    let mut args = params_to_json("specline_get", params);
     if let Some(obj) = args.as_object_mut() {
         obj.insert("ids".to_owned(), json!([id]));
     }
@@ -1765,7 +1765,7 @@ async fn api_entity(
     as_api(specline_mcp::dispatch(
         &mut store,
         specline_mcp::ToolCall {
-            name: "keel_get",
+            name: "specline_get",
             arguments: &args,
         },
     ))
@@ -2137,19 +2137,19 @@ mod tests {
         params.insert("limit".to_owned(), "25".to_owned());
         params.insert("query".to_owned(), "onboarding".to_owned());
 
-        let json = params_to_json("keel_search", params);
+        let json = params_to_json("specline_search", params);
         assert_eq!(json["limit"], 25);
         assert_eq!(json["query"], "onboarding");
 
         // A boolean, from the tool that actually declares one. This assertion
-        // used to name `include_archived` on `keel_search`, which does not
+        // used to name `include_archived` on `specline_search`, which does not
         // take it — the old value-guessing conversion turned it into a boolean
         // anyway, so the test passed while describing a parameter that was
         // being silently discarded one layer down.
         let mut params = std::collections::HashMap::new();
         params.insert("include_archived".to_owned(), "true".to_owned());
         assert_eq!(
-            params_to_json("keel_projects", params)["include_archived"],
+            params_to_json("specline_projects", params)["include_archived"],
             true
         );
     }
@@ -2162,7 +2162,7 @@ mod tests {
         // worse than one that fails.
         let mut params = std::collections::HashMap::new();
         params.insert("types".to_owned(), "spec,decision".to_owned());
-        let json = params_to_json("keel_search", params);
+        let json = params_to_json("specline_search", params);
         assert_eq!(json["types"], json!(["spec", "decision"]));
     }
 
@@ -2172,7 +2172,7 @@ mod tests {
         // and `?query=404` failed with "query must be a string".
         let mut params = std::collections::HashMap::new();
         params.insert("query".to_owned(), "404".to_owned());
-        let json = params_to_json("keel_search", params);
+        let json = params_to_json("specline_search", params);
         assert_eq!(json["query"], "404");
     }
 
@@ -2181,6 +2181,6 @@ mod tests {
         // The schema says `limit` is an integer, so it must not become "25".
         let mut params = std::collections::HashMap::new();
         params.insert("limit".to_owned(), "25".to_owned());
-        assert_eq!(params_to_json("keel_search", params)["limit"], 25);
+        assert_eq!(params_to_json("specline_search", params)["limit"], 25);
     }
 }

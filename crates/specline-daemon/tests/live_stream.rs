@@ -119,7 +119,7 @@ async fn a_create_reaches_an_open_stream() {
     let created = client
         .post(format!("{base}/mcp"))
         .json(&tool_call(
-            "keel_create",
+            "specline_create",
             json!({"type": "project", "title": "Streamed", "slug": "streamed"}),
         ))
         .send()

@@ -433,7 +433,7 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
             writeln!(
                 out,
                 "*The {shown} most recent of {} changes. The rest are in the changelog beside this \
-                 file, or from `keel_activity`.*",
+                 file, or from `specline_activity`.*",
                 events.items.len()
             )?;
             writeln!(out)?;

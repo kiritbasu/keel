@@ -48,14 +48,14 @@ pub fn ready(
         args["milestone"] = json!(m);
     }
 
-    let structured = match call_daemon(daemon, "keel_ready", &args)? {
+    let structured = match call_daemon(daemon, "specline_ready", &args)? {
         Some(v) => v,
         None => directly(home, |store| {
             let mut s = store;
             specline_mcp::dispatch(
                 &mut s,
                 specline_mcp::ToolCall {
-                    name: "keel_ready",
+                    name: "specline_ready",
                     arguments: &args,
                 },
             )
@@ -235,7 +235,7 @@ pub fn claim(
         args["force"] = json!(true);
     }
 
-    let structured = run_write(home, daemon, "keel_claim", &args)?;
+    let structured = run_write(home, daemon, "specline_claim", &args)?;
 
     if json_out {
         println!("{}", serde_json::to_string_pretty(&structured)?);
@@ -289,7 +289,7 @@ pub fn close(
         args["session_id"] = json!(s);
     }
 
-    let structured = run_write(home, daemon, "keel_close", &args)?;
+    let structured = run_write(home, daemon, "specline_close", &args)?;
 
     if json_out {
         println!("{}", serde_json::to_string_pretty(&structured)?);

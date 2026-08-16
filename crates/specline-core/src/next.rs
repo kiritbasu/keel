@@ -1,7 +1,7 @@
 //! What to do next.
 //!
 //! The one question a project spine exists to answer, and until TQ-16 the one
-//! it did not. `keel_context` used to return counts and advice — "3 task(s)
+//! it did not. `specline_context` used to return counts and advice — "3 task(s)
 //! are blocked, check what is blocking them" — which restates the problem
 //! rather than answering it, and left both an agent and a human to work out
 //! the ordering themselves from a board with no ordering in it.
@@ -133,7 +133,7 @@ pub fn blocked_tasks(
         // Fail closed. `matches!(store.get(…), Ok(Some(e)) if is_live(&e))`
         // read almost identically and treated a storage error as "no live
         // blocker" — so one unreadable link row promoted a genuinely blocked
-        // task to ready, in `keel_ready` and in the module the docs call the
+        // task to ready, in `specline_ready` and in the module the docs call the
         // definition of blocked. That is the silent false-negative this
         // codebase is most afraid of: an answer that looks like work you can
         // start.

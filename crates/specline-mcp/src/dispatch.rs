@@ -241,7 +241,7 @@ fn parse_time(
 /// Read an argument from the top level, or from `fields` if it is there
 /// instead.
 ///
-/// `keel_create` documents `fields` as "any other column on the type", and for
+/// `specline_create` documents `fields` as "any other column on the type", and for
 /// three columns that was not true: a metric observation's `metric_id`, `value`
 /// and `observed_at` are read by the constructor from the top level, and are
 /// not in the published schema. A caller following the tool's own description
@@ -319,7 +319,7 @@ pub fn resolve_project(store: &Store, reference: &str) -> Result<EntityId, RpcEr
             "project",
             &format!("no project matches `{reference}`"),
             &format!(
-                "one of: {}. Call keel_projects to list them",
+                "one of: {}. Call specline_projects to list them",
                 candidates
                     .items
                     .iter()
@@ -343,7 +343,7 @@ pub fn resolve_project(store: &Store, reference: &str) -> Result<EntityId, RpcEr
 /// is the kind of inconsistency a caller discovers at the worst moment.
 ///
 /// `version` lives inside the audit block in the domain model, which is right
-/// there and wrong here: `keel_update` documents a `version` argument, and an
+/// there and wrong here: `specline_update` documents a `version` argument, and an
 /// agent that has just read an entity should be able to copy the field of that
 /// name straight across. Making it hunt inside `audit` for it is the kind of
 /// papercut that turns into a 409 and a confused retry.
@@ -404,7 +404,7 @@ pub fn dispatch(store: &mut Store, call: ToolCall<'_>) -> Result<Value, RpcError
 ///
 /// The one thing on the read path that costs real time is turning a query into
 /// a vector, and a caller that holds the store behind a lock wants that done
-/// before it takes the lock. Only `keel_search` looks at `query_vector`;
+/// before it takes the lock. Only `specline_search` looks at `query_vector`;
 /// passing one for anything else is harmless and ignored.
 ///
 /// [`dispatch`] is this with `None`, for every caller that has no lock to be
@@ -416,19 +416,19 @@ pub fn dispatch_prepared(
 ) -> Result<Value, RpcError> {
     let args = call.arguments;
     match call.name {
-        "keel_context" => keel_context(store, args),
-        "keel_search" => keel_search(store, args, query_vector),
-        "keel_get" => keel_get(store, args),
-        "keel_projects" => keel_projects(store, args),
-        "keel_activity" => keel_activity(store, args),
-        "keel_create" => keel_create(store, args),
-        "keel_update" => keel_update(store, args),
-        "keel_write_doc" => keel_write_doc(store, args),
-        "keel_link" => keel_link(store, args),
-        "keel_note" => keel_note(store, args),
-        "keel_ready" => keel_ready(store, args),
-        "keel_claim" => keel_claim(store, args),
-        "keel_close" => keel_close(store, args),
+        "specline_context" => specline_context(store, args),
+        "specline_search" => specline_search(store, args, query_vector),
+        "specline_get" => specline_get(store, args),
+        "specline_projects" => specline_projects(store, args),
+        "specline_activity" => specline_activity(store, args),
+        "specline_create" => specline_create(store, args),
+        "specline_update" => specline_update(store, args),
+        "specline_write_doc" => specline_write_doc(store, args),
+        "specline_link" => specline_link(store, args),
+        "specline_note" => specline_note(store, args),
+        "specline_ready" => specline_ready(store, args),
+        "specline_claim" => specline_claim(store, args),
+        "specline_close" => specline_close(store, args),
         // INVALID_PARAMS, not METHOD_NOT_FOUND. The JSON-RPC *method* here is
         // `tools/call` and it exists; the tool name is one of its arguments.
         // The distinction is not pedantry: METHOD_NOT_FOUND is served as HTTP
@@ -449,7 +449,7 @@ pub fn dispatch_prepared(
     }
 }
 
-fn keel_context(store: &Store, args: &Value) -> Result<Value, RpcError> {
+fn specline_context(store: &Store, args: &Value) -> Result<Value, RpcError> {
     // `cwd` resolves to a project by its recorded `root_path`, and — more
     // importantly — says plainly when nothing matches. TQ-17: nine of ten gate
     // sessions called this, saw a roll-up listing some *other* project, and
@@ -479,7 +479,7 @@ fn keel_context(store: &Store, args: &Value) -> Result<Value, RpcError> {
         // project X" first has already decided what it is looking at.
         summary = format!(
             "**No project in Specline matches `{dir}`.** If you are working on something \
-             that belongs here, create it — `keel_create(type: \"project\", title: …, \
+             that belongs here, create it — `specline_create(type: \"project\", title: …, \
              fields: {{\"root_path\": \"{dir}\"}})` — and say that you did. Creating the \
              *first* project for a directory is not the duplicate-project failure; \
              creating a second one for a project that already exists is.\n\n{summary}"
@@ -584,7 +584,7 @@ fn narrow_version(v: i64) -> i32 {
     v.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
 }
 
-fn keel_search(
+fn specline_search(
     store: &Store,
     args: &Value,
     query_vector: Option<Vec<f32>>,
@@ -644,7 +644,7 @@ fn keel_search(
     ))
 }
 
-fn keel_get(store: &Store, args: &Value) -> Result<Value, RpcError> {
+fn specline_get(store: &Store, args: &Value) -> Result<Value, RpcError> {
     let ids: Vec<String> = args
         .get("ids")
         .and_then(Value::as_array)
@@ -747,7 +747,7 @@ fn keel_get(store: &Store, args: &Value) -> Result<Value, RpcError> {
     ))
 }
 
-fn keel_projects(store: &Store, args: &Value) -> Result<Value, RpcError> {
+fn specline_projects(store: &Store, args: &Value) -> Result<Value, RpcError> {
     let include_archived = opt_bool(args, "include_archived");
     let page = store
         .list(&EntityQuery {
@@ -886,7 +886,7 @@ fn event_summary(page: &specline_core::Page<specline_core::Event>, more: &str) -
 /// wanted it. B-15 is the rule — the local API has more endpoints than the tool
 /// surface has tools, because a UI knows exactly what it wants and a model
 /// chooses worse among more options.
-fn keel_activity(store: &Store, args: &Value) -> Result<Value, RpcError> {
+fn specline_activity(store: &Store, args: &Value) -> Result<Value, RpcError> {
     let project = match opt_str(args, "project") {
         Some(p) => Some(resolve_project(store, &p)?),
         None => None,
@@ -1202,7 +1202,7 @@ fn sniff_media_type(bytes: &[u8]) -> Option<&'static str> {
     }
 }
 
-fn keel_create(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
+fn specline_create(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     let type_name = req_str(args, "type")?;
     let provenance = provenance_from(args)?;
 
@@ -1235,7 +1235,7 @@ fn keel_create(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
         return Err(bad_arg(
             "project",
             &format!("{entity_type} must belong to a project"),
-            "a project id or slug; call keel_projects to list them",
+            "a project id or slug; call specline_projects to list them",
         ));
     }
 
@@ -1480,7 +1480,7 @@ fn build_entity(
                     bad_arg(
                         "metric_id",
                         "missing or not a string",
-                        "the `mtr_…` id of the metric being measured — `keel_search` with \
+                        "the `mtr_…` id of the metric being measured — `specline_search` with \
                          type `metric` will find it",
                     )
                 })?;
@@ -1660,7 +1660,7 @@ fn predecessor_rank(store: &Store, anchor: f64) -> Result<Option<f64>, RpcError>
         .max_by(|a, b| a.total_cmp(b)))
 }
 
-fn keel_update(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
+fn specline_update(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     let raw_id = req_str(args, "id")?;
     let id = resolve_required(store, "id", &raw_id)?;
     let version = opt_i64(args, "version").ok_or_else(|| {
@@ -1709,11 +1709,11 @@ fn keel_update(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     resolve_rank_placement(store, &mut changes)?;
 
     // Attaching an image to something that already exists. TQ-33 approved this
-    // as a `keel_attach(id, path)` tool; it is a field on `keel_update` instead,
+    // as a `keel_attach(id, path)` tool; it is a field on `specline_update` instead,
     // because TQ-31 set thirteen tools as the ceiling hours earlier and the
     // standing rule is that an awkward capability is almost always a field. The
     // capability is the one KB approved and the count is the one KB set — see
-    // B-49 for the argument, and note that `keel_create` takes `image_path` too,
+    // B-49 for the argument, and note that `specline_create` takes `image_path` too,
     // so a design born with its screenshot needs no second call.
     //
     // Read before the update, so a bad path refuses the whole call rather than
@@ -1850,7 +1850,7 @@ fn keel_update(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     ))
 }
 
-fn keel_write_doc(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
+fn specline_write_doc(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     let raw_id = req_str(args, "id")?;
     let id = resolve_required(store, "id", &raw_id)?;
     let body = req_str(args, "body")?;
@@ -1871,7 +1871,7 @@ fn keel_write_doc(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
             bad_arg(
                 "id",
                 &format!("no artifact with id {id}"),
-                "an id returned by keel_create or keel_search",
+                "an id returned by specline_create or specline_search",
             )
         })?;
 
@@ -1955,7 +1955,7 @@ fn style_note(warnings: &[specline_core::Warning]) -> String {
 /// retracting are rare and the ceiling on the tool surface is real. Adding is
 /// the default and needs no flag: the common case should cost the model no
 /// decision at all.
-fn keel_note(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
+fn specline_note(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     let provenance = provenance_from(args)?;
 
     if let Some(note_id) = opt_str(args, "retract") {
@@ -2002,7 +2002,7 @@ fn keel_note(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     ))
 }
 
-fn keel_link(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
+fn specline_link(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     let from = resolve_required(store, "from", &req_str(args, "from")?)?;
     let to = resolve_required(store, "to", &req_str(args, "to")?)?;
     let rel = Relation::parse(&req_str(args, "rel")?)
@@ -2103,7 +2103,7 @@ fn opt_str_list(args: &Value, field: &str) -> Vec<String> {
     }
 }
 
-fn keel_ready(store: &Store, args: &Value) -> Result<Value, RpcError> {
+fn specline_ready(store: &Store, args: &Value) -> Result<Value, RpcError> {
     let project = resolve_project(store, &req_str(args, "project")?)?;
 
     // A milestone by name as well as by id: "what is next in Phase 8" is how the
@@ -2125,7 +2125,7 @@ fn keel_ready(store: &Store, args: &Value) -> Result<Value, RpcError> {
     let ready =
         specline_core::ready(store, &project, &filter).map_err(|e| to_rpc_error(store, e))?;
 
-    // The slug once, not once per row. `keel_ready` is what a session calls to
+    // The slug once, not once per row. `specline_ready` is what a session calls to
     // decide what to work on, so these are the references it is about to say
     // out loud — which makes them the ones most worth being clickable.
     let ready_slug = match store.get(&project) {
@@ -2135,7 +2135,7 @@ fn keel_ready(store: &Store, args: &Value) -> Result<Value, RpcError> {
 
     let summary = if ready.items.is_empty() {
         "Nothing is ready. Either everything open is blocked or waiting on a person — \
-         `keel_context` says which — or the filters are narrower than the work."
+         `specline_context` says which — or the filters are narrower than the work."
             .to_owned()
     } else {
         let mut lines = vec![format!(
@@ -2155,7 +2155,7 @@ fn keel_ready(store: &Store, args: &Value) -> Result<Value, RpcError> {
                 ready.total - ready.items.len()
             ));
         }
-        lines.push("\nClaim the one you pick with `keel_claim`.".to_owned());
+        lines.push("\nClaim the one you pick with `specline_claim`.".to_owned());
         lines.join("\n")
     };
 
@@ -2242,7 +2242,7 @@ fn resolve_milestone(store: &Store, project: &EntityId, raw: &str) -> Result<Ent
     }
 }
 
-fn keel_claim(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
+fn specline_claim(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     let id = resolve_required(store, "id", &req_str(args, "id")?)?;
     let provenance = provenance_from(args)?;
     let force = opt_bool(args, "force");
@@ -2269,7 +2269,7 @@ fn keel_claim(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     ))
 }
 
-fn keel_close(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
+fn specline_close(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     let id = resolve_required(store, "id", &req_str(args, "id")?)?;
     let reason = specline_core::CloseReason::parse(&req_str(args, "reason")?)
         .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
@@ -2318,7 +2318,7 @@ fn keel_close(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     // in a status transition can carry it.
     summary.push_str(
         "\n\nIf you found something the next session should know, put it on the row with \
-         `keel_note`.",
+         `specline_note`.",
     );
 
     Ok(tool_result(

@@ -78,7 +78,7 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
     writeln!(
         out,
         "`B-12` is a real identifier, not a convention: it resolves to a row, \
-         `keel_get KEEL-B12` returns it, and `fsck` checks that citations of it \
+         `specline_get KEEL-B12` returns it, and `fsck` checks that citations of it \
          point at something. It was prose until 2026-08-10, which is why every \
          `B-n` citation in this repository was unverifiable until then.\n"
     )?;

@@ -66,7 +66,7 @@ impl Fixture {
         id
     }
 
-    /// Apply a hand-built change, the way `keel_update` does.
+    /// Apply a hand-built change, the way `specline_update` does.
     fn set(&mut self, id: &EntityId, changes: serde_json::Value) {
         let map = changes.as_object().unwrap().clone();
         let version = match self.store.get(id).unwrap() {
@@ -245,7 +245,7 @@ fn a_task_closed_the_new_way_is_not_a_finding() {
     let mut f = setup();
     let id = f.task(
         "Finished properly",
-        "A row closed through keel_close, with everything the rule asks for.",
+        "A row closed through specline_close, with everything the rule asks for.",
         None,
     );
     specline_core::close(

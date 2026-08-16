@@ -286,7 +286,7 @@ fn validate_entity(entity: &Entity) -> Result<()> {
     match entity {
         Entity::Milestone(m) => m.validate(),
         // A project calling milestones "tasks" would make every
-        // `keel_create(type: "task")` ambiguous, and the resolution order hides
+        // `specline_create(type: "task")` ambiguous, and the resolution order hides
         // that rather than surfacing it — the canonical name wins, so the noun
         // silently does nothing. Refused where it is set instead.
         Entity::Project(p) => match p.milestone_noun.as_deref() {
@@ -1147,7 +1147,7 @@ impl EntityStore for Store {
             }
             // A finished task is not being worked on. Released here rather than
             // only in `close_task` so that every path into a terminal status
-            // agrees — otherwise a plain `keel_update(status: done)` would leave
+            // agrees — otherwise a plain `specline_update(status: done)` would leave
             // a claim standing and `specline ready --unclaimed` would keep skipping
             // work nobody is doing.
             if terminal {
@@ -1847,10 +1847,11 @@ impl EntityStore for Store {
                     "no row with id {} exists, so it cannot be annotated",
                     note.entity_id
                 ),
-                expected: "an id returned by keel_context, keel_search or keel_get — a note \
+                expected:
+                    "an id returned by specline_context, specline_search or specline_get — a note \
                            cannot outlive the row it hangs off, and nothing links to a note, \
                            so an orphaned one would never surface again"
-                    .to_owned(),
+                        .to_owned(),
             });
         };
         if archived {
@@ -2085,7 +2086,7 @@ mod tests {
         let mut term = Term::new(
             Some(project_id.clone()),
             "Digest",
-            "The compact project summary returned by keel_context",
+            "The compact project summary returned by specline_context",
         );
         term.aliases = vec!["context digest".into()];
 

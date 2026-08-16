@@ -43,7 +43,7 @@ describe("subscribe", () => {
       JSON.stringify({
         kind: "note",
         entity_id: "tsk_1",
-        summary: "keel_note completed",
+        summary: "specline_note completed",
       }),
     );
     expect(seen).toHaveLength(1);
@@ -59,7 +59,7 @@ describe("subscribe", () => {
       JSON.stringify({
         kind: "entity",
         event_id: "evt_1",
-        summary: "keel_update completed",
+        summary: "specline_update completed",
       }),
     );
     expect(seen[0]!.kind).toBe("entity");

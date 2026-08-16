@@ -48,7 +48,7 @@ fn call(store: &mut Store, args: Value) -> Result<Value, specline_mcp::protocol:
     dispatch(
         store,
         ToolCall {
-            name: "keel_create",
+            name: "specline_create",
             arguments: &args,
         },
     )
@@ -252,7 +252,7 @@ fn an_existing_design_can_be_given_an_image_afterwards() {
     let attached = dispatch(
         &mut store,
         ToolCall {
-            name: "keel_update",
+            name: "specline_update",
             arguments: &json!({
                 "id": id, "version": version,
                 "changes": { "image_path": path },

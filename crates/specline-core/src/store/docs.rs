@@ -495,7 +495,7 @@ impl Store {
     /// Append a revision, and return it with the version the store assigned.
     ///
     /// The returned version is the one that was written, not the one the
-    /// caller asked for: `keel_write_doc` reports it back, the mirror names it
+    /// caller asked for: `specline_write_doc` reports it back, the mirror names it
     /// in the generated file's banner, and a caller that trusted its own guess
     /// would be describing a revision that does not exist.
     ///
@@ -564,7 +564,7 @@ impl Store {
     /// Every revision of a document, oldest first.
     ///
     /// Oldest first because that is the order a history reads in, and because
-    /// the app's revision list and `keel_get`'s diff both index from it.
+    /// the app's revision list and `specline_get`'s diff both index from it.
     pub fn revisions(&self, entity_id: &EntityId) -> Result<Vec<Document>> {
         let mut stmt = self
             .conn
@@ -599,7 +599,7 @@ impl Store {
                     field: "version".to_owned(),
                     problem: format!("{entity_id} has no revision {v}"),
                     expected:
-                        "a revision number returned by keel_get, or omit it for the current one"
+                        "a revision number returned by specline_get, or omit it for the current one"
                             .to_owned(),
                 })
         };

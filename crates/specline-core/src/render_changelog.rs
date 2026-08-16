@@ -193,7 +193,7 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
         if events.items.len() > shown {
             writeln!(
                 out,
-                "*Showing the {shown} most recent of {} changes. Use `keel_activity` for the \
+                "*Showing the {shown} most recent of {} changes. Use `specline_activity` for the \
                  rest.*",
                 events.items.len()
             )?;

@@ -14,7 +14,7 @@
 //! - [`dispatch`] — executing a call against `specline-core`, and turning domain
 //!   errors into something a model can act on.
 //!
-//! [`context`] builds the `keel_context` digest, which is important enough to
+//! [`context`] builds the `specline_context` digest, which is important enough to
 //! live on its own.
 
 pub mod dispatch;

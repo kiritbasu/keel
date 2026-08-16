@@ -1,6 +1,6 @@
 //! What a project calls things.
 //!
-//! KEEL-116 made `keel_create(type: "phase")` work by adding a fixed list of
+//! KEEL-116 made `specline_create(type: "phase")` work by adding a fixed list of
 //! aliases in the source. That closed §8F's exit criterion and left the general
 //! problem open: every project's vocabulary had to be anticipated by whoever
 //! wrote that list, and a project saying "incident" for a task or "customer
@@ -8,7 +8,7 @@
 //!
 //! This is the general answer, and it needed no new machinery — only wiring up
 //! the type that was already there. `term` is one of the thirteen, glossary terms
-//! are the one thing `keel_context` never truncates, and the reason they are
+//! are the one thing `specline_context` never truncates, and the reason they are
 //! never truncated is *precisely* so a session uses the project's words. A term
 //! can now say which type it is a spelling of, and that declaration is consulted
 //! before the built-in list.
@@ -219,7 +219,7 @@ pub fn milestone_noun_term(project_id: &EntityId, noun: &str) -> crate::Term {
 
 /// Refuse a noun that would shadow something.
 ///
-/// A project calling milestones "tasks" would make `keel_create(type: "task")`
+/// A project calling milestones "tasks" would make `specline_create(type: "task")`
 /// ambiguous on every call, and the resolution order above hides the problem
 /// rather than surfacing it — the canonical name wins, so the project's noun
 /// would silently do nothing. Better to refuse it at the point somebody sets it.
@@ -241,7 +241,7 @@ pub fn validate_milestone_noun(noun: &str) -> Result<()> {
             "milestone_noun",
             format!("`{noun}` is already the name of another artifact type"),
             "a word that is not one of the thirteen type names — otherwise every \
-             `keel_create` naming that type would be ambiguous, and the canonical name \
+             `specline_create` naming that type would be ambiguous, and the canonical name \
              would quietly win",
         ));
     }

@@ -79,7 +79,7 @@ pub fn claim(
                 task.close_reason
                     .map_or_else(|| task.status.as_str().to_owned(), |r| r.to_string())
             ),
-            "reopen it with keel_update first if the work turned out not to be finished",
+            "reopen it with specline_update first if the work turned out not to be finished",
         ));
     }
 
@@ -106,7 +106,7 @@ pub fn claim(
                         .map_or_else(|| "an unrecorded time".to_owned(), |at| at.to_rfc3339())
                 ),
                 format!(
-                    "pick something else from keel_ready, or pass force to take it over. A \
+                    "pick something else from specline_ready, or pass force to take it over. A \
                      claim releases itself after {} days, and closing the task releases it \
                      immediately.",
                     crate::CLAIM_STALE_AFTER.num_days()

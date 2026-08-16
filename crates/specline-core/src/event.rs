@@ -125,7 +125,7 @@ impl Event {
     ///
     /// All of them are, currently. The method exists so that if a noisy class
     /// of event is ever added, filtering happens in one place rather than in
-    /// each of `keel_activity`, `keel_context` and the desktop feed.
+    /// each of `specline_activity`, `specline_context` and the desktop feed.
     pub const fn is_notable(&self) -> bool {
         true
     }

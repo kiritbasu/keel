@@ -112,7 +112,7 @@ async fn a_generate_does_not_stop_the_daemon_answering() {
         others.push(tokio::spawn(async move {
             let store_call = client
                 .post(format!("{base}/mcp"))
-                .json(&tool_call("keel_projects", json!({})))
+                .json(&tool_call("specline_projects", json!({})))
                 .send()
                 .await
                 .unwrap()

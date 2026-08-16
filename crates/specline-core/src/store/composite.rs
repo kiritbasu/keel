@@ -21,7 +21,7 @@ use chrono::Utc;
 /// The outcome of a composite create.
 ///
 /// More than [`super::Created`] because a caller that asked for a body and an
-/// image needs to know what became of them — `keel_create` reports the revision
+/// image needs to know what became of them — `specline_create` reports the revision
 /// back so an agent can cite the version it just wrote.
 #[derive(Debug, Clone)]
 pub struct CreatedComposite {
@@ -41,7 +41,7 @@ impl Store {
     /// `body` is written as revision 1 for the five types that carry prose and
     /// ignored for the eight that do not — the caller has usually already
     /// folded it into a column by then, and refusing here would make
-    /// `keel_create(type: "task", body: …)` an error for no gain.
+    /// `specline_create(type: "task", body: …)` an error for no gain.
     ///
     /// `image` is `(bytes, media_type)`. The blob id is minted before the row
     /// is inserted, so the row carries its `blob_id` from the start and there

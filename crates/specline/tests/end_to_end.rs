@@ -176,7 +176,7 @@ fn generate_runs_over_the_real_transport() {
         .send_json(rpc(
             1,
             "tools/call",
-            json!({"name": "keel_create",
+            json!({"name": "specline_create",
                    "arguments": {"type": "project", "title": "E2E", "slug": "e2e"}}),
         ))
         .expect("create a project")

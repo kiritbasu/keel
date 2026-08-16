@@ -269,7 +269,7 @@ mod tests {
         // The binary gate scored both as zero. They need opposite fixes: one is
         // an orientation problem, the other is a permission problem.
         let offered = classify(
-            &["keel_context".into()],
+            &["specline_context".into()],
             0,
             false,
             &["want me to log".into()],
@@ -287,11 +287,11 @@ mod tests {
         // been retried, the intent existed and the record did not — which is
         // behaviourally L3, not L5.
         assert_eq!(
-            classify(&["keel_create".into()], 1, false, &[], true),
+            classify(&["specline_create".into()], 1, false, &[], true),
             Level::L3OfferedNotWritten
         );
         assert_eq!(
-            classify(&["keel_create".into()], 1, true, &[], true),
+            classify(&["specline_create".into()], 1, true, &[], true),
             Level::L5WroteWell
         );
     }
@@ -556,6 +556,11 @@ mod transcript_tests {
             ],
         );
         let r = read_transcript(&p).unwrap();
+        // The transcript above is a real one, from before the rename, so the
+        // name that comes back out of it is the one that went in. Extraction
+        // reports what the session actually called, not what it would be
+        // called today — a scorer that normalised the name would be quietly
+        // rewriting the evidence.
         assert_eq!(r.keel_tools, vec!["keel_context"]);
         assert_eq!(r.offers.len(), 2, "two distinct markers in one sentence");
         assert_eq!(

@@ -8,7 +8,7 @@
 //!    real risk and must be evaluated on real queries before any UI is built.
 //!    You cannot evaluate ranking against a corpus of `task 1`, `task 2` —
 //!    every document is equidistant from every query.
-//! 2. **It is what `keel_context` gets tuned against.** REQ-3 budgets the
+//! 2. **It is what `specline_context` gets tuned against.** REQ-3 budgets the
 //!    digest to 3–4k tokens. Placeholder text compresses to nothing and would
 //!    make the budget look comfortable when it is not.
 //!
@@ -392,7 +392,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
         (
             &keel_id,
             1,
-            "keel_context digest within a 4k token budget",
+            "specline_context digest within a 4k token budget",
             "Questions and terms are never truncated; everything else degrades and reports what it dropped.",
             TaskStatus::Todo,
             TaskPriority::P0,
@@ -712,7 +712,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
         (
             &keel_id,
             1,
-            "keel_search wired to the Phase 0 hybrid implementation",
+            "specline_search wired to the Phase 0 hybrid implementation",
             "The fusion already exists; this is the tool surface over it.",
             TaskStatus::Todo,
             TaskPriority::P1,
@@ -722,7 +722,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
         (
             &keel_id,
             1,
-            "keel_get with linked neighbours and a diff_against argument",
+            "specline_get with linked neighbours and a diff_against argument",
             "REQ-2 wants diffs at the API layer, not only in the UI.",
             TaskStatus::Todo,
             TaskPriority::P1,
@@ -732,7 +732,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
         (
             &keel_id,
             1,
-            "keel_projects fuzzy matching for disambiguation",
+            "specline_projects fuzzy matching for disambiguation",
             "The defence against nine near-duplicate projects. Matches name, slug, aliases and repo URL.",
             TaskStatus::Todo,
             TaskPriority::P0,
@@ -935,7 +935,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "Agent orientation digest",
             SpecKind::DesignDoc,
             SpecStatus::Draft,
-            "# keel_context\n\nOne call, roughly 3–4k tokens, and a fresh session knows where it \
+            "# specline_context\n\nOne call, roughly 3–4k tokens, and a fresh session knows where it \
           is. Project summary, active milestone, open P0 work, recent decisions, unresolved \
           questions, glossary, live environments, and a suggested next action.\n\nIf questions \
           and terms alone exceed the budget, return them in full and set budget_exceeded rather \
@@ -1281,7 +1281,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
         (
             Some(&keel_id),
             "Digest",
-            "The compact project summary returned by keel_context. Budgeted to roughly 3–4k tokens.",
+            "The compact project summary returned by specline_context. Budgeted to roughly 3–4k tokens.",
             &["context digest"],
         ),
         (
@@ -1710,7 +1710,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
         ),
         (
             &keel_id,
-            "Screenshot: first working keel_context digest",
+            "Screenshot: first working specline_context digest",
             ArtifactKind::Image,
             "file:///archive/keel-context-first-run.png",
         ),
@@ -1823,7 +1823,10 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
     )?;
     link(
         store,
-        by_label(&task_ids, "keel_context digest within a 4k token budget")?,
+        by_label(
+            &task_ids,
+            "specline_context digest within a 4k token budget",
+        )?,
         Relation::Implements,
         by_label(&spec_ids, "MCP tool surface")?,
         Some("REQ-6"),
@@ -1832,7 +1835,10 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
     )?;
     link(
         store,
-        by_label(&task_ids, "keel_context digest within a 4k token budget")?,
+        by_label(
+            &task_ids,
+            "specline_context digest within a 4k token budget",
+        )?,
         Relation::Implements,
         by_label(&spec_ids, "Agent orientation digest")?,
         None,

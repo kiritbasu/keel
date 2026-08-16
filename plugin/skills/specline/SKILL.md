@@ -33,7 +33,7 @@ Two things follow:
 - **Use the glossary's words.** The digest carries them because a project's
   vocabulary is the cheapest thing to get wrong and the most annoying.
 
-Call `keel_context` yourself only when the conversation moves to a *different*
+Call `specline_context` yourself only when the conversation moves to a *different*
 project, or when you need `depth: "full"` because the digest reported that it
 trimmed something you need. Pass `cwd` when you do.
 
@@ -45,7 +45,7 @@ first one and say so.
 
 ## Put the work on the board before you do it
 
-A row, and `keel_claim` on it *before* you start rather than when you finish.
+A row, and `specline_claim` on it *before* you start rather than when you finish.
 Two calls at most, and they are the only way a human watching can see what is
 happening **now** rather than only what has already landed.
 
@@ -67,25 +67,25 @@ So:
 
 - **If there is no row for what you were just asked to do, make one.** Most
   work arrives as a sentence — "cut the release", "this message is confusing",
-  "add the export button" — not as something already filed. `keel_create` it,
-  `keel_claim` it, then start. One line of summary is enough; what a person
+  "add the export button" — not as something already filed. `specline_create` it,
+  `specline_claim` it, then start. One line of summary is enough; what a person
   watching reads is that the row exists and who is on it, not how well it is
   written. Every other bullet here assumes the task is already there, and this
   is the one that makes that true.
-- **`keel_ready` is what to ask when the choice is open.** "Build the app" is
+- **`specline_ready` is what to ask when the choice is open.** "Build the app" is
   not a task; it is a request to work through several. Ask what to pick up and
   it answers with the ranking Specline actually computes — by what a task unblocks
   before its priority — rather than whatever the digest happened to show you.
   It costs a fraction of a full digest and takes filters: unclaimed, by label,
   by milestone.
-- **`keel_claim` before the first edit.** Doing several tasks in a row means
+- **`specline_claim` before the first edit.** Doing several tasks in a row means
   claiming each one as you reach it, not claiming nothing because there were
   many. If a claim is refused, another session holds it — that is the tool
   working.
-- **`keel_close` when it is genuinely done**, with a reason, a message and at
+- **`specline_close` when it is genuinely done**, with a reason, a message and at
   least one piece of evidence. Never delete a task and never leave one
   `in_progress` across sessions without a note saying where it got to.
-- **Found something on the way?** `keel_note` it on the task. A status is a
+- **Found something on the way?** `specline_note` it on the task. A status is a
   colour; the note is what the next session actually needs.
 
 If you do nothing else from this file, do this. Everything below is about
@@ -107,7 +107,7 @@ which types have a screen. A link you compose from a template is wrong on both
 counts sooner than you would think, and a link that opens the wrong page is
 worse than plain text, because it reads as the interface being broken.
 
-`keel_get`, `keel_create`, `keel_claim`, `keel_close` and `keel_ready` return a
+`specline_get`, `specline_create`, `specline_claim`, `specline_close` and `specline_ready` return a
 `url` on the artifacts they name. Nothing else does: a digest listing forty rows
 would spend more tokens on links than on the rows. If there is no `url`, the
 artifact has no screen or nothing is serving the interface — say the reference
@@ -131,7 +131,7 @@ Specline accepts a write without one rather than refusing it, but the change is 
 attributed only to "some Claude session", which is nearly useless a month later
 when the human is asking why something changed.
 
-`keel_context` echoes the `session_id` back. If it comes back `null`, you are
+`specline_context` echoes the `session_id` back. If it comes back `null`, you are
 not threading it — fix that before writing anything else.
 
 If the hook did not run — no identifier appeared at the start of this
@@ -225,7 +225,7 @@ the whole point of writing it down.
 
 ## Before creating a project, ask
 
-**Always call `keel_projects` first.** It fuzzy-matches on name, slug, aliases
+**Always call `specline_projects` first.** It fuzzy-matches on name, slug, aliases
 and repository URL.
 
 If it comes back with `requires_confirmation: true` — meaning something that
@@ -254,7 +254,7 @@ what should be recorded, said so, and wrote nothing** — because there was no
 project to write into and they were waiting for permission that a working
 session never pauses to give.
 
-Pass `cwd` to `keel_context` and it will tell you outright whether any project
+Pass `cwd` to `specline_context` and it will tell you outright whether any project
 owns the directory you are in. "No project matches this directory" means create
 one. It does not mean stop.
 
@@ -300,7 +300,7 @@ Use `anchor` to link to one requirement inside a spec rather than the whole
 document:
 
 ```
-keel_link(from: task_id, rel: "implements", to: spec_id, anchor: "REQ-4")
+specline_link(from: task_id, rel: "implements", to: spec_id, anchor: "REQ-4")
 ```
 
 That is what makes "is this spec actually built?" answerable requirement by
@@ -310,7 +310,7 @@ requirement instead of as a yes/no guess.
 
 ## Updating: pass the version you read
 
-`keel_update` needs the `version` from when you read the artifact. `keel_get`
+`specline_update` needs the `version` from when you read the artifact. `specline_get`
 returns it at the top level of the entity, so it is a straight copy.
 
 If someone else changed it in between, you get a 409 carrying the current state
@@ -336,8 +336,8 @@ Most conflicts resolve themselves this way without troubling the human.
 - **Don't summarise customer feedback into the body.** Put the verbatim words
   there and your reading in the linked spec. The verbatim version is the part
   that stays useful.
-- **Don't use `keel_update` to change a document body.** That is
-  `keel_write_doc`, which versions it. `keel_update` is for the fields around
+- **Don't use `specline_update` to change a document body.** That is
+  `specline_write_doc`, which versions it. `specline_update` is for the fields around
   it: title, status, kind.
 - **Don't ask permission to write.** If something was decided, write it down.
   Writing is cheap, reversible (nothing is ever deleted), and the whole point.
@@ -363,18 +363,18 @@ listing ten, and omitted three others entirely. The number is in
 
 | Tool | Reach for it when |
 |---|---|
-| `keel_context` | starting any project conversation — **first**, always |
-| `keel_ready` | "what should I work on" — the ranking, not a guess |
-| `keel_claim` | **before** starting a task, every time |
-| `keel_close` | it is finished — with a reason, a message and evidence |
-| `keel_search` | "what do we know about X", "has this come up before" |
-| `keel_get` | you have an id, or you want the graph around something |
-| `keel_projects` | before creating a project; resolving a name |
-| `keel_activity` | "what changed since I last looked" |
-| `keel_create` | anything new — including the task for what you were just asked to do |
-| `keel_update` | status, priority, fields |
-| `keel_write_doc` | the prose body of a spec, decision, question or feedback |
-| `keel_link` | connecting two artifacts |
-| `keel_note` | you learned something — a finding, a gotcha, why it was harder than expected |
+| `specline_context` | starting any project conversation — **first**, always |
+| `specline_ready` | "what should I work on" — the ranking, not a guess |
+| `specline_claim` | **before** starting a task, every time |
+| `specline_close` | it is finished — with a reason, a message and evidence |
+| `specline_search` | "what do we know about X", "has this come up before" |
+| `specline_get` | you have an id, or you want the graph around something |
+| `specline_projects` | before creating a project; resolving a name |
+| `specline_activity` | "what changed since I last looked" |
+| `specline_create` | anything new — including the task for what you were just asked to do |
+| `specline_update` | status, priority, fields |
+| `specline_write_doc` | the prose body of a spec, decision, question or feedback |
+| `specline_link` | connecting two artifacts |
+| `specline_note` | you learned something — a finding, a gotcha, why it was harder than expected |
 
 Each tool's own description says more. Read them.

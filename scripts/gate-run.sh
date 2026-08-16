@@ -48,9 +48,9 @@ work="$run_dir/projects"
 base_port="${GATE_BASE_PORT:-7710}"
 
 tools="Read,Grep,Glob,Edit,Write,Skill"
-tools="$tools,mcp__keel__keel_context,mcp__keel__keel_create,mcp__keel__keel_update"
-tools="$tools,mcp__keel__keel_search,mcp__keel__keel_get,mcp__keel__keel_link"
-tools="$tools,mcp__keel__keel_projects,mcp__keel__keel_activity,mcp__keel__keel_write_doc"
+tools="$tools,mcp__specline__specline_context,mcp__specline__specline_create,mcp__specline__specline_update"
+tools="$tools,mcp__specline__specline_search,mcp__specline__specline_get,mcp__specline__specline_link"
+tools="$tools,mcp__specline__specline_projects,mcp__specline__specline_activity,mcp__specline__specline_write_doc"
 
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 

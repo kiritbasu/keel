@@ -86,7 +86,7 @@ fn a_version_that_cannot_be_a_version_is_refused_rather_than_wrapped() {
 
     let error = call(
         &mut f.store,
-        "keel_update",
+        "specline_update",
         json!({"id": id, "version": 4_294_967_297i64, "changes": {"priority": "p1"}}),
     )
     .expect_err("a version outside i32 must not be narrowed into a plausible one");
@@ -94,7 +94,7 @@ fn a_version_that_cannot_be_a_version_is_refused_rather_than_wrapped() {
 
     // The row is untouched, which is the part that matters: had it wrapped to
     // 1 the update would have succeeded against a stale read.
-    let after = call(&mut f.store, "keel_get", json!({"ids": [id]})).unwrap();
+    let after = call(&mut f.store, "specline_get", json!({"ids": [id]})).unwrap();
     assert_eq!(
         after.pointer("/structuredContent/artifacts/0/entity/priority"),
         Some(&json!("p2")),
@@ -121,7 +121,7 @@ fn a_rank_between_two_anchors_in_the_wrong_order_is_refused() {
     // after `third` and before `second` names an empty interval.
     let error = call(
         &mut f.store,
-        "keel_update",
+        "specline_update",
         json!({
             "id": moving,
             "version": 1,
@@ -135,7 +135,7 @@ fn a_rank_between_two_anchors_in_the_wrong_order_is_refused() {
     // silently if the check were too eager.
     call(
         &mut f.store,
-        "keel_update",
+        "specline_update",
         json!({
             "id": moving,
             "version": 1,
@@ -157,7 +157,7 @@ fn an_update_with_no_rank_arguments_is_an_ordinary_update() {
 
     let result = call(
         &mut f.store,
-        "keel_update",
+        "specline_update",
         json!({"id": id, "version": 1, "changes": {"priority": "p1"}}),
     )
     .expect("an update that says nothing about rank is just an update");
@@ -180,7 +180,7 @@ fn closing_a_task_as_a_duplicate_of_a_spec_is_refused() {
 
     let error = call(
         &mut f.store,
-        "keel_close",
+        "specline_close",
         json!({
             "id": task,
             "reason": "duplicate",
@@ -194,7 +194,7 @@ fn closing_a_task_as_a_duplicate_of_a_spec_is_refused() {
     // A real duplicate still closes.
     call(
         &mut f.store,
-        "keel_close",
+        "specline_close",
         json!({
             "id": task,
             "reason": "duplicate",
@@ -216,7 +216,7 @@ fn a_measurement_can_be_recorded_the_way_the_schema_says() {
     let mut f = fixture();
     let metric = call(
         &mut f.store,
-        "keel_create",
+        "specline_create",
         json!({"type": "metric", "project": "edges", "title": "Unprompted writes"}),
     )
     .unwrap();
@@ -228,7 +228,7 @@ fn a_measurement_can_be_recorded_the_way_the_schema_says() {
 
     let recorded = call(
         &mut f.store,
-        "keel_create",
+        "specline_create",
         json!({
             "type": "metric_observation",
             "project": "edges",
@@ -262,7 +262,7 @@ fn a_measurement_can_still_be_recorded_from_the_top_level() {
     let mut f = fixture();
     let metric = call(
         &mut f.store,
-        "keel_create",
+        "specline_create",
         json!({"type": "metric", "project": "edges", "title": "Digest size"}),
     )
     .unwrap();
@@ -274,7 +274,7 @@ fn a_measurement_can_still_be_recorded_from_the_top_level() {
 
     let recorded = call(
         &mut f.store,
-        "keel_create",
+        "specline_create",
         json!({
             "type": "metric_observation",
             "project": "edges",
@@ -297,13 +297,13 @@ fn recording_a_measurement_against_no_metric_says_how_to_find_one() {
     let mut f = fixture();
     let error = call(
         &mut f.store,
-        "keel_create",
+        "specline_create",
         json!({"type": "metric_observation", "project": "edges", "fields": {"value": 1.0}}),
     )
     .expect_err("an observation of nothing is not an observation");
     assert!(error.contains("metric_id"), "{error}");
     assert!(
-        error.contains("keel_search"),
+        error.contains("specline_search"),
         "the refusal should say how to find the metric: {error}"
     );
 }

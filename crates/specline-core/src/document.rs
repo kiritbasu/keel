@@ -109,7 +109,7 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 
 /// Content-address a body, so identical revisions can be recognised.
 ///
-/// Used to short-circuit a `keel_write_doc` that would append a revision
+/// Used to short-circuit a `specline_write_doc` that would append a revision
 /// byte-identical to the current one. That happens more than it sounds: a
 /// caller that regenerates a file and re-reads it would otherwise grow the
 /// history on every no-op save.

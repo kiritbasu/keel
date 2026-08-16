@@ -153,10 +153,10 @@ async fn a_header_that_disagrees_with_the_body_is_refused() {
         &[
             (HEADER_PROTOCOL_VERSION, PROTOCOL_VERSION),
             (HEADER_METHOD, "tools/list"),
-            (HEADER_NAME, "keel_search"),
+            (HEADER_NAME, "specline_search"),
         ],
         json!({"jsonrpc": "2.0", "id": 7, "method": "tools/call",
-               "params": {"name": "keel_projects", "arguments": {}}}),
+               "params": {"name": "specline_projects", "arguments": {}}}),
     )
     .await;
 
@@ -175,10 +175,10 @@ async fn matching_headers_are_served() {
         &[
             (HEADER_PROTOCOL_VERSION, PROTOCOL_VERSION),
             (HEADER_METHOD, "tools/call"),
-            (HEADER_NAME, "keel_projects"),
+            (HEADER_NAME, "specline_projects"),
         ],
         json!({"jsonrpc": "2.0", "id": 7, "method": "tools/call",
-               "params": {"name": "keel_projects", "arguments": {}}}),
+               "params": {"name": "specline_projects", "arguments": {}}}),
     )
     .await;
 
@@ -225,7 +225,7 @@ async fn the_error_codes_are_the_ones_the_specification_names() {
         &[],
         rpc(
             "tools/call",
-            json!({"name": "keel_search", "arguments": {}}),
+            json!({"name": "specline_search", "arguments": {}}),
         ),
     )
     .await;
@@ -278,7 +278,7 @@ async fn the_id_survives_every_path() {
         rpc("tools/teleport", json!({})),
         rpc(
             "tools/call",
-            json!({"name": "keel_search", "arguments": {}}),
+            json!({"name": "specline_search", "arguments": {}}),
         ),
         json!({"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {}}),
     ] {

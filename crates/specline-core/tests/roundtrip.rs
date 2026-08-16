@@ -75,7 +75,7 @@ fn one_of_each(project_id: &EntityId, metric_id: &EntityId) -> Vec<Entity> {
     let mut term = Term::new(
         Some(project_id.clone()),
         "Digest",
-        "The compact project summary returned by keel_context",
+        "The compact project summary returned by specline_context",
     );
     term.aliases = vec!["context digest".into()];
 
@@ -343,7 +343,12 @@ fn a_global_term_and_a_project_term_of_the_same_name_coexist() {
 
     let scoped = store
         .create(
-            Term::new(Some(project_id.clone()), "Digest", "keel_context output").into(),
+            Term::new(
+                Some(project_id.clone()),
+                "Digest",
+                "specline_context output",
+            )
+            .into(),
             &claude(),
         )
         .unwrap();
@@ -460,7 +465,7 @@ fn an_accepted_decision_can_be_corrected_and_the_change_is_recorded() {
 
 /// One row with no readable number must not make the whole table unreadable.
 ///
-/// Reported from another project on 2026-08-10: `keel_create` with
+/// Reported from another project on 2026-08-10: `specline_create` with
 /// `type: "decision"` failed reproducibly with
 /// `read column number of decisions: Invalid column type Null`.
 ///

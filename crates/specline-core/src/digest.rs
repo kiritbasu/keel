@@ -1,4 +1,4 @@
-//! `keel_context` — the digest.
+//! `specline_context` — the digest.
 //!
 //! The most important tool in the surface. G2 is "an agent can orient itself on
 //! a project in a single MCP call", and REQ-3 budgets that call to something an
@@ -315,7 +315,7 @@ impl Digest {
             out.push_str("\n---\n");
             for t in &self.truncated {
                 out.push_str(&format!(
-                    "{}: showing {} of {}. Use keel_search or keel_get for the rest.\n",
+                    "{}: showing {} of {}. Use specline_search or specline_get for the rest.\n",
                     t.section, t.shown, t.total
                 ));
             }
@@ -470,7 +470,7 @@ pub fn build(
     let mut rendered = digest.to_prose();
     if rendered.len() > depth.budget_chars() {
         // Trim in order of what an agent can most cheaply re-fetch. Recent
-        // activity first — `keel_activity` is one call away and rarely
+        // activity first — `specline_activity` is one call away and rarely
         // changes a decision.
         for section in ["recent", "specs", "decisions", "attention"] {
             if rendered.len() <= depth.budget_chars() {
@@ -870,7 +870,7 @@ impl From<crate::NextUp> for NextUpJson {
         NextUpJson {
             // Three is a deliberate cap on `ready`: a ranked list of thirty is
             // the same "you work it out" the counts were. The rest is one
-            // keel_search away, and the truncation is reported like every
+            // specline_search away, and the truncation is reported like every
             // other cut list.
             ready: n.ready.into_iter().take(3).map(Into::into).collect(),
             waiting_on_you: n.waiting_on_you.into_iter().map(Into::into).collect(),
@@ -926,7 +926,7 @@ fn rollup_suggestions(projects: &[ProjectLine]) -> Vec<String> {
         .collect();
     if !at_risk.is_empty() {
         out.push(format!(
-            "At risk: {}. Open one with keel_context(project: …).",
+            "At risk: {}. Open one with specline_context(project: …).",
             at_risk
                 .iter()
                 .map(|p| p.slug.as_str())

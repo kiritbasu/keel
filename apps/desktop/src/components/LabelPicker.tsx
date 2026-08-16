@@ -11,7 +11,7 @@
  * There is no "create «foo»" here, and that is deliberate rather than
  * unfinished. A free-text label box is how a set becomes `ui`, `UI` and `ui `
  * inside a month, and nothing downstream can tell those apart — the board's
- * facets, the filters and `keel_ready` all treat them as three labels. When
+ * facets, the filters and `specline_ready` all treat them as three labels. When
  * something genuinely needs a new one, Claude adds it in the conversation where
  * the reason for it exists, which is also where somebody will later ask what it
  * means.

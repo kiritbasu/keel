@@ -359,7 +359,7 @@ CREATE INDEX notes_project ON notes(project_id);
     ));
 
     // The event log is append-only and its ordering is a contract: `seq` is
-    // what `keel_activity` pages from, and a cursor that could see the same row
+    // what `specline_activity` pages from, and a cursor that could see the same row
     // twice or skip one would make "catch me up" quietly wrong.
     //
     // `AUTOINCREMENT` rather than a bare `INTEGER PRIMARY KEY`, and the

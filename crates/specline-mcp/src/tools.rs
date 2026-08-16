@@ -35,15 +35,15 @@ pub struct Tool {
     /// Not the same as "deletes". Nothing in Specline is ever `DELETE`d, and this
     /// used to be hardcoded `false` for every tool on that basis — but the
     /// annotation a host gates on means "may perform non-additive updates",
-    /// and `keel_update` overwrites fields and can archive a row while
-    /// `keel_link` can remove an edge. Both are non-additive whether or not
+    /// and `specline_update` overwrites fields and can archive a row while
+    /// `specline_link` can remove an edge. Both are non-additive whether or not
     /// they are recoverable.
     pub destructive: bool,
     /// Whether calling twice with the same arguments is the same as calling
     /// once.
     ///
     /// True for everything that carries an idempotency key. False for
-    /// `keel_note`, which appends: two identical calls make two notes, and a
+    /// `specline_note`, which appends: two identical calls make two notes, and a
     /// client that retries on timeout would otherwise duplicate silently.
     /// Deduplicating by body was the alternative and is worse — "retested,
     /// still flaky" is a legitimate thing to note twice a week apart.
@@ -150,31 +150,31 @@ fn relation_enum() -> Value {
 /// Order is deliberate and must not change casually: the specification asks
 /// for a deterministic `tools/list` so clients can cache it and so the list
 /// lands identically in every prompt, which is worth real money in cache hits.
-/// The order is also pedagogical — `keel_context` first because it is the
+/// The order is also pedagogical — `specline_context` first because it is the
 /// entry point, writes after reads, and the three work verbs last because they
 /// are what you reach for once you know what the project is.
 ///
 /// # Why ten and not nine
 ///
 /// Nine was the cap, and the reasoning behind it stands: more tools makes a
-/// model choose worse, not do more. `keel_note` earns the tenth slot on the
+/// model choose worse, not do more. `specline_note` earns the tenth slot on the
 /// one argument that outranks it. Every measurement this project has taken is
 /// of a single behaviour — whether a session records what it learned without
 /// being asked — and the mechanism that decides it is whether the recording
 /// action is *findable* at the moment the finding happens. A `note` parameter
-/// on `keel_update` is not findable; a tool whose name and description are
+/// on `specline_update` is not findable; a tool whose name and description are
 /// about findings is.
 ///
 /// The modelling agrees. Notes are append-only and carry no version, while
-/// `keel_update` is optimistic-concurrency and takes one. Folding them
-/// together would give `keel_update` a mode that ignores its own contract.
+/// `specline_update` is optimistic-concurrency and takes one. Folding them
+/// together would give `specline_update` a mode that ignores its own contract.
 ///
 /// # Why thirteen and not ten
 ///
 /// TQ-31, KB's call. The same argument, applied to the same evidence: what
 /// decides whether an action happens is whether it is findable at the moment
 /// of use. Claiming and closing were both already possible through
-/// `keel_update`, and both were simply not done — across sixty-six tasks the
+/// `specline_update`, and both were simply not done — across sixty-six tasks the
 /// number of transitions into `in_progress` before work began was zero.
 ///
 /// I recommended twelve, on the grounds that two ways to close a task is how
@@ -186,8 +186,8 @@ fn relation_enum() -> Value {
 /// to match a number in a spec.
 ///
 /// The cost, accepted: roughly 200 tokens per request and marginally more
-/// chance of a wrong selection on an unrelated call. `keel_update`'s
-/// description points at `keel_close` so the overlap is signposted rather than
+/// chance of a wrong selection on an unrelated call. `specline_update`'s
+/// description points at `specline_close` so the overlap is signposted rather than
 /// left to chance.
 ///
 /// **Thirteen is the new ceiling**, and it should be defended the way ten was.
@@ -195,7 +195,7 @@ fn relation_enum() -> Value {
 pub fn all() -> Vec<Tool> {
     vec![
         Tool {
-            name: "keel_context",
+            name: "specline_context",
             title: "Orient on a project",
             description:
                 "START HERE in any new conversation about a project. Returns a compact digest: \
@@ -252,7 +252,7 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
-            name: "keel_search",
+            name: "specline_search",
             title: "Search everything",
             description:
                 "Hybrid keyword and semantic search across every artifact that carries text, in \
@@ -289,12 +289,12 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
-            name: "keel_get",
+            name: "specline_get",
             title: "Fetch by id",
             description:
                 "Fetch one or more artifacts by id, optionally with their prose body, their \
                  linked neighbours, or a diff between two revisions.\n\n\
-                 Use `depth` to pull in the graph around something — `keel_get(ids: [spec_id], \
+                 Use `depth` to pull in the graph around something — `specline_get(ids: [spec_id], \
                  depth: 2)` answers 'what implements this spec, and what do those things \
                  depend on' in one call. Use `version` to read an older revision and \
                  `diff_against` to see what changed between two."
@@ -354,7 +354,7 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
-            name: "keel_projects",
+            name: "specline_projects",
             title: "List and resolve projects",
             description:
                 "List projects, or resolve a name to one. **Call this before creating a project, \
@@ -384,7 +384,7 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
-            name: "keel_activity",
+            name: "specline_activity",
             title: "What changed",
             description:
                 "Every mutation since a timestamp or an event cursor, oldest first. Use it to \
@@ -392,7 +392,7 @@ pub fn all() -> Vec<Tool> {
                  did while you were working.\n\n\
                  Pass the `cursor` from a previous response to continue exactly where you left \
                  off, with no gaps and no repeats.\n\n\
-                 For one row's own story, read its notes with `keel_get` — a note says what was \
+                 For one row's own story, read its notes with `specline_get` — a note says what was \
                  learned, where an event says only which field moved."
                     .to_owned(),
             read_only: true,
@@ -416,7 +416,7 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
-            name: "keel_create",
+            name: "specline_create",
             title: "Create an artifact",
             description:
                 "Create any of the thirteen artifact types. Returns the created artifact, so you \
@@ -425,7 +425,7 @@ pub fn all() -> Vec<Tool> {
                  returns the existing artifact with `created: false` rather than making a \
                  duplicate. Whitespace and capitalisation are normalised, so 'Add login page' \
                  and 'add  Login  Page' are one task.\n\n\
-                 Before creating a **project**, call `keel_projects` first and confirm with the \
+                 Before creating a **project**, call `specline_projects` first and confirm with the \
                  human (see that tool). Prefer consolidating into fewer, larger artifacts: a \
                  project with forty trivial tasks that should be eight is worse than useless."
                     .to_owned(),
@@ -564,12 +564,12 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
-            name: "keel_update",
+            name: "specline_update",
             title: "Update an artifact",
             description:
                 "Change fields on an existing artifact, including status transitions. Returns the \
                  updated artifact.\n\n\
-                 **Not for prose.** A document body belongs to `keel_write_doc`, which versions \
+                 **Not for prose.** A document body belongs to `specline_write_doc`, which versions \
                  it; this tool is for the fields around it — title, status, kind. Sending a body \
                  here would overwrite without a revision, and the previous author's text would \
                  be gone.\n\n\
@@ -584,7 +584,7 @@ pub fn all() -> Vec<Tool> {
                  task part of another, set `parent_id`; that is composition, and it is a different \
                  thing from `blocks`, which means \"must happen first\".\n\n\
                  **Two task transitions belong to their own tools.** Starting work is \
-                 `keel_claim`, which records who is on it; finishing is `keel_close`, which asks \
+                 `specline_claim`, which records who is on it; finishing is `specline_close`, which asks \
                  for the reason, the message and the evidence together. A `status` of `done` or \
                  `wont_do` sent here is refused without all three, so reaching for this tool to \
                  close something only costs you a round trip.\n\n\
@@ -632,17 +632,17 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
-            name: "keel_write_doc",
+            name: "specline_write_doc",
             title: "Write a document revision",
             description:
                 "Append a new revision of an artifact's prose body — for specs, decisions, \
                  questions, feedback and design captions.\n\n\
-                 Use this whenever the *content* of a document changes. Use `keel_update` \
+                 Use this whenever the *content* of a document changes. Use `specline_update` \
                  instead for the fields around it: title, status, kind. The two are separate \
                  because a body is versioned and a status is not, and conflating them would \
                  either version every status flip or lose the history of every edit.\n\n\
                  Always send the **full** body, not a patch — the revision is a snapshot. The \
-                 previous one is kept and stays readable by version, and `keel_get` will diff \
+                 previous one is kept and stays readable by version, and `specline_get` will diff \
                  any two. Writing content identical to the current revision is a no-op rather \
                  than a new version, so regenerating a document you have not changed is safe."
                     .to_owned(),
@@ -669,7 +669,7 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
-            name: "keel_note",
+            name: "specline_note",
             title: "Record what you learned about something",
             description:
                 "Append a note to any artifact — a finding, a gotcha, a measurement, a reason \
@@ -725,7 +725,7 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
-            name: "keel_link",
+            name: "specline_link",
             title: "Link two artifacts",
             description:
                 "Create or remove a typed edge. Direction matters and reads left to right: \
@@ -765,21 +765,21 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
-            name: "keel_ready",
+            name: "specline_ready",
             title: "What can be worked on right now",
             description:
                 "The answer to 'what should I do next', ranked. Open work with nothing live in \
                  its way, best first.\n\n\
-                 Call this rather than `keel_context` when the project is already familiar and \
+                 Call this rather than `specline_context` when the project is already familiar and \
                  the question is only what to pick up — the digest costs roughly 3,500 tokens \
                  and this costs a fraction of it.\n\n\
                  The order is deliberate: **what a task unblocks comes before its priority**, \
                  so a p1 that releases three other tasks ranks above a p0 that releases \
                  nothing. Each row carries the reason it is where it is.\n\n\
                  Parents are excluded, because their children are the actual work. Decisions \
-                 waiting on a human are excluded too — they are in `keel_context`'s open \
+                 waiting on a human are excluded too — they are in `specline_context`'s open \
                  questions, and nothing can start on them until someone answers.\n\n\
-                 Then `keel_claim` the one you pick, so the row says who is on it."
+                 Then `specline_claim` the one you pick, so the row says who is on it."
                     .to_owned(),
             read_only: true,
             destructive: false,
@@ -826,7 +826,7 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
-            name: "keel_claim",
+            name: "specline_claim",
             title: "Take a task, so the row says who is on it",
             description:
                 "Move a task to `in_progress` and record that this session is doing it. Call this \
@@ -865,11 +865,11 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
-            name: "keel_close",
+            name: "specline_close",
             title: "Finish a task, saying why and showing the work",
             description:
                 "Close a task with a reason, a message, and — for `done` — evidence. This is the \
-                 tool for finishing work; `keel_update` can move a status but will refuse a \
+                 tool for finishing work; `specline_update` can move a status but will refuse a \
                  terminal one without all of this, so use this instead of working around it.\n\n\
                  The five reasons:\n\
                  - `done` — finished. Needs a message and at least one piece of evidence.\n\
@@ -883,7 +883,7 @@ pub fn all() -> Vec<Tool> {
                  query rather than prose: `commit:<sha>`, `pr:<url>`, `test:<command>`, \
                  `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`. A bare sha is refused.\n\n\
                  The message is the one sentence that belongs to the transition. Anything else \
-                 you learned along the way belongs in `keel_note`, which keeps accumulating."
+                 you learned along the way belongs in `specline_note`, which keeps accumulating."
                     .to_owned(),
             read_only: false,
             destructive: true,
@@ -980,7 +980,7 @@ mod tests {
 
     #[test]
     fn there_are_exactly_thirteen_tools() {
-        // Nine was the ceiling from SPEC §6.1, ten after `keel_note`, thirteen
+        // Nine was the ceiling from SPEC §6.1, ten after `specline_note`, thirteen
         // after the three work verbs (TQ-31). Each rise needed KB's agreement
         // rather than a passing test suite, and the reasoning for the last one
         // is in the doc comment on `all()`. A fourteenth needs an argument at
@@ -998,19 +998,19 @@ mod tests {
         assert_eq!(
             names,
             vec![
-                "keel_context",
-                "keel_search",
-                "keel_get",
-                "keel_projects",
-                "keel_activity",
-                "keel_create",
-                "keel_update",
-                "keel_write_doc",
-                "keel_note",
-                "keel_link",
-                "keel_ready",
-                "keel_claim",
-                "keel_close",
+                "specline_context",
+                "specline_search",
+                "specline_get",
+                "specline_projects",
+                "specline_activity",
+                "specline_create",
+                "specline_update",
+                "specline_write_doc",
+                "specline_note",
+                "specline_link",
+                "specline_ready",
+                "specline_claim",
+                "specline_close",
             ]
         );
     }
@@ -1057,12 +1057,12 @@ mod tests {
     #[test]
     fn read_tools_are_marked_read_only() {
         let reads = [
-            "keel_context",
-            "keel_search",
-            "keel_get",
-            "keel_projects",
-            "keel_activity",
-            "keel_ready",
+            "specline_context",
+            "specline_search",
+            "specline_get",
+            "specline_projects",
+            "specline_activity",
+            "specline_ready",
         ];
         for tool in all() {
             assert_eq!(
@@ -1103,7 +1103,7 @@ mod tests {
     fn the_link_tool_teaches_direction_by_example() {
         // Direction is the most dangerous thing to get wrong, and the tool
         // description is the only documentation an agent gets.
-        let link = find("keel_link").unwrap();
+        let link = find("specline_link").unwrap();
         assert!(
             link.description.contains("implements"),
             "{}",
@@ -1116,7 +1116,7 @@ mod tests {
 
     #[test]
     fn the_context_tool_says_it_is_the_entry_point() {
-        let ctx = find("keel_context").unwrap();
+        let ctx = find("specline_context").unwrap();
         assert!(ctx.description.starts_with("START HERE"));
     }
 
@@ -1124,7 +1124,7 @@ mod tests {
     fn the_projects_tool_carries_the_disambiguation_instruction() {
         // REQ-8: safety lives in the skill and in this description, not in the
         // API, because creating a project is a legitimate thing to do.
-        let p = find("keel_projects").unwrap();
+        let p = find("specline_projects").unwrap();
         assert!(p.description.contains("before creating a project"));
         assert!(p.description.contains("ask the human"));
     }
@@ -1154,7 +1154,7 @@ mod tests {
     #[test]
     fn unknown_tools_are_not_found() {
         assert!(find("keel_delete").is_none());
-        assert!(find("keel_context").is_some());
+        assert!(find("specline_context").is_some());
     }
 
     #[test]

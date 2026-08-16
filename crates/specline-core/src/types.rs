@@ -242,7 +242,7 @@ pub struct Project {
     pub description: Option<String>,
     /// Whether it is being worked on.
     pub status: ProjectStatus,
-    /// Repository URLs. Used by `keel_projects` for disambiguation (§6.4).
+    /// Repository URLs. Used by `specline_projects` for disambiguation (§6.4).
     pub repo_urls: Vec<String>,
     /// Local checkout, which is where the markdown mirror is written.
     pub root_path: Option<String>,
@@ -268,7 +268,7 @@ pub struct Project {
     /// This one says "Phase" on every screen, and until this column existed the
     /// interface said "milestone" anyway — so the vocabulary was Specline's rather
     /// than the project's, and a session learned the project's word one rejected
-    /// `keel_create` at a time.
+    /// `specline_create` at a time.
     ///
     /// A display noun and nothing more. It never changes what is stored, which is
     /// the rule that keeps it from becoming a fourteenth type: `EntityType` still
@@ -359,7 +359,7 @@ impl Milestone {
     ///
     /// `summary` is an argument rather than a field set afterwards, and that is
     /// the whole point of the signature. It used to be settable later and
-    /// nothing on the create path set it: `keel_create` accepted a `body` for a
+    /// nothing on the create path set it: `specline_create` accepted a `body` for a
     /// milestone and dropped it on the floor, so every milestone written
     /// through the tool surface reached the roadmap as a bare name. Making it
     /// positional means the compiler finds any call site that forgets, which is
@@ -518,7 +518,7 @@ impl Task {
                 "close_reason",
                 "a task cannot become done or wont_do without saying why",
                 format!(
-                    "one of {} — use keel_close, which asks for the reason, the message and \
+                    "one of {} — use specline_close, which asks for the reason, the message and \
                      the evidence together",
                     CloseReason::options()
                 ),
@@ -1272,7 +1272,7 @@ impl Artifact {
     }
 }
 
-/// Any one of the thirteen, for the polymorphic paths: `keel_get`, search
+/// Any one of the thirteen, for the polymorphic paths: `specline_get`, search
 /// results, the event log, the fixture loader.
 ///
 /// Matching on this is always exhaustive. That is the point — a fourteenth
@@ -1583,7 +1583,7 @@ mod tests {
             Spec::new(p.clone(), "Storage spec").into(),
             Decision::new(p.clone(), "Use SQLite").into(),
             Question::new(p.clone(), "Where does the store live?").into(),
-            Term::new(Some(p.clone()), "Digest", "The keel_context summary").into(),
+            Term::new(Some(p.clone()), "Digest", "The specline_context summary").into(),
             Feedback::new(p.clone(), "Onboarding felt slow").into(),
             Design::new(p.clone(), "Home screen").into(),
             Environment::new(p.clone(), "production").into(),
@@ -1808,7 +1808,7 @@ mod tests {
         // this is where that would show up.
         for summary in [
             "Storage, schema, event log, graph, search, backup. No network, no UI.",
-            "axum, the nine MCP tools, keel_context, concurrency safety, render-status.",
+            "axum, the nine MCP tools, specline_context, concurrency safety, render-status.",
             "Deployable daemon, auth, mobile client.",
             "Make the everyday loop work: file a bug in seconds, see what's ready to \
              start, and read the board without opening every card.",

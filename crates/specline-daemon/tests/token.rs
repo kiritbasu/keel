@@ -172,7 +172,7 @@ async fn tool_results_link_into_the_interface_that_is_actually_serving() {
                 .post(format!("{at}/mcp"))
                 .json(&serde_json::json!({
                     "jsonrpc": "2.0", "id": 1, "method": "tools/call",
-                    "params": { "name": "keel_create", "arguments": arguments },
+                    "params": { "name": "specline_create", "arguments": arguments },
                 }))
                 .send()
                 .await

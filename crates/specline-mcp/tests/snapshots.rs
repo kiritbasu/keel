@@ -49,8 +49,8 @@ fn settings() -> insta::Settings {
 
 /// A store with a small, predictable project, and the ids of what is in it.
 ///
-/// The ids matter because most of the surface is addressed by one: `keel_get`,
-/// `keel_update`, `keel_link`, `keel_note`, `keel_claim` and `keel_close` all
+/// The ids matter because most of the surface is addressed by one: `specline_get`,
+/// `specline_update`, `specline_link`, `specline_note`, `specline_claim` and `specline_close` all
 /// take an id, so a fixture that threw them away is a fixture only a third of
 /// the tools can use. They are redacted out of the snapshots themselves.
 struct Seed {
@@ -133,20 +133,20 @@ fn context_digest_shape() {
     let mut seed = seeded();
     let result = call(
         &mut seed.store,
-        "keel_context",
+        "specline_context",
         json!({"project": "harbour"}),
     );
     settings().bind(|| {
-        insta::assert_json_snapshot!("keel_context", result);
+        insta::assert_json_snapshot!("specline_context", result);
     });
 }
 
 #[test]
 fn context_rollup_shape() {
     let mut seed = seeded();
-    let result = call(&mut seed.store, "keel_context", json!({}));
+    let result = call(&mut seed.store, "specline_context", json!({}));
     settings().bind(|| {
-        insta::assert_json_snapshot!("keel_context_rollup", result);
+        insta::assert_json_snapshot!("specline_context_rollup", result);
     });
 }
 
@@ -155,7 +155,7 @@ fn create_response_shape() {
     let mut seed = seeded();
     let result = call(
         &mut seed.store,
-        "keel_create",
+        "specline_create",
         json!({
             "type": "decision",
             "project": "harbour",
@@ -165,7 +165,7 @@ fn create_response_shape() {
         }),
     );
     settings().bind(|| {
-        insta::assert_json_snapshot!("keel_create", result);
+        insta::assert_json_snapshot!("specline_create", result);
     });
 }
 
@@ -174,20 +174,20 @@ fn search_response_shape() {
     let mut seed = seeded();
     let result = call(
         &mut seed.store,
-        "keel_search",
+        "specline_search",
         json!({"query": "idempotency"}),
     );
     settings().bind(|| {
-        insta::assert_json_snapshot!("keel_search", result);
+        insta::assert_json_snapshot!("specline_search", result);
     });
 }
 
 #[test]
 fn projects_response_shape() {
     let mut seed = seeded();
-    let result = call(&mut seed.store, "keel_projects", json!({}));
+    let result = call(&mut seed.store, "specline_projects", json!({}));
     settings().bind(|| {
-        insta::assert_json_snapshot!("keel_projects", result);
+        insta::assert_json_snapshot!("specline_projects", result);
     });
 }
 
@@ -198,17 +198,17 @@ fn error_shapes() {
     let mut seed = seeded();
     let cases = json!({
         "unknown_field": call(
-            &mut seed.store, "keel_update",
+            &mut seed.store, "specline_update",
             json!({"id": "tsk_01H8XK4RPVBQ2N7DZM9C3FGTWY", "version": 1,
                    "changes": {"asignee": "kb"}})
         ),
-        "missing_argument": call(&mut seed.store, "keel_search", json!({})),
+        "missing_argument": call(&mut seed.store, "specline_search", json!({})),
         "unknown_project": call(
-            &mut seed.store, "keel_context", json!({"project": "does-not-exist"})
+            &mut seed.store, "specline_context", json!({"project": "does-not-exist"})
         ),
         "unknown_tool": call(&mut seed.store, "keel_delete", json!({})),
         "bad_timestamp": call(
-            &mut seed.store, "keel_activity", json!({"since": "last tuesday"})
+            &mut seed.store, "specline_activity", json!({"since": "last tuesday"})
         ),
     });
     settings().bind(|| {
@@ -261,7 +261,7 @@ fn every_advertised_tool_is_dispatchable_and_vice_versa() {
     assert_eq!(unknown.code, specline_mcp::protocol::codes::INVALID_PARAMS);
     assert_eq!(unknown.http_status(), 400);
     assert!(
-        unknown.message.contains("keel_context"),
+        unknown.message.contains("specline_context"),
         "the error should list what does exist: {}",
         unknown.message
     );
@@ -293,10 +293,10 @@ fn get_response_shape() {
     let task = seed.task.to_string();
     let result = call(
         &mut seed.store,
-        "keel_get",
+        "specline_get",
         json!({"ids": [task], "depth": 1}),
     );
-    settings().bind(|| insta::assert_json_snapshot!("keel_get", result));
+    settings().bind(|| insta::assert_json_snapshot!("specline_get", result));
 }
 
 #[test]
@@ -305,7 +305,7 @@ fn update_response_shape() {
     let task = seed.task.to_string();
     let result = call(
         &mut seed.store,
-        "keel_update",
+        "specline_update",
         json!({
             "id": task,
             "version": 1,
@@ -313,7 +313,7 @@ fn update_response_shape() {
             "session_id": "ses_snapshot"
         }),
     );
-    settings().bind(|| insta::assert_json_snapshot!("keel_update", result));
+    settings().bind(|| insta::assert_json_snapshot!("specline_update", result));
 }
 
 #[test]
@@ -322,14 +322,14 @@ fn write_doc_response_shape() {
     let spec = seed.spec.to_string();
     let result = call(
         &mut seed.store,
-        "keel_write_doc",
+        "specline_write_doc",
         json!({
             "id": spec,
             "body": "## Metering\n\nUsage is counted hourly.\n",
             "session_id": "ses_snapshot"
         }),
     );
-    settings().bind(|| insta::assert_json_snapshot!("keel_write_doc", result));
+    settings().bind(|| insta::assert_json_snapshot!("specline_write_doc", result));
 }
 
 #[test]
@@ -338,7 +338,7 @@ fn link_response_shape() {
     let (task, spec) = (seed.task.to_string(), seed.spec.to_string());
     let result = call(
         &mut seed.store,
-        "keel_link",
+        "specline_link",
         json!({
             "from": task,
             "to": spec,
@@ -346,7 +346,7 @@ fn link_response_shape() {
             "session_id": "ses_snapshot"
         }),
     );
-    settings().bind(|| insta::assert_json_snapshot!("keel_link", result));
+    settings().bind(|| insta::assert_json_snapshot!("specline_link", result));
 }
 
 #[test]
@@ -355,14 +355,14 @@ fn note_response_shape() {
     let task = seed.task.to_string();
     let result = call(
         &mut seed.store,
-        "keel_note",
+        "specline_note",
         json!({
             "id": task,
             "body": "The duplicate rows all came from one retrying client.",
             "session_id": "ses_snapshot"
         }),
     );
-    settings().bind(|| insta::assert_json_snapshot!("keel_note", result));
+    settings().bind(|| insta::assert_json_snapshot!("specline_note", result));
 }
 
 #[test]
@@ -370,17 +370,21 @@ fn activity_response_shape() {
     let mut seed = seeded();
     let result = call(
         &mut seed.store,
-        "keel_activity",
+        "specline_activity",
         json!({"project": "harbour"}),
     );
-    settings().bind(|| insta::assert_json_snapshot!("keel_activity", result));
+    settings().bind(|| insta::assert_json_snapshot!("specline_activity", result));
 }
 
 #[test]
 fn ready_response_shape() {
     let mut seed = seeded();
-    let result = call(&mut seed.store, "keel_ready", json!({"project": "harbour"}));
-    settings().bind(|| insta::assert_json_snapshot!("keel_ready", result));
+    let result = call(
+        &mut seed.store,
+        "specline_ready",
+        json!({"project": "harbour"}),
+    );
+    settings().bind(|| insta::assert_json_snapshot!("specline_ready", result));
 }
 
 #[test]
@@ -389,10 +393,10 @@ fn claim_response_shape() {
     let task = seed.task.to_string();
     let result = call(
         &mut seed.store,
-        "keel_claim",
+        "specline_claim",
         json!({"id": task, "session_id": "ses_snapshot"}),
     );
-    settings().bind(|| insta::assert_json_snapshot!("keel_claim", result));
+    settings().bind(|| insta::assert_json_snapshot!("specline_claim", result));
 }
 
 #[test]
@@ -401,7 +405,7 @@ fn close_response_shape() {
     let task = seed.task.to_string();
     let result = call(
         &mut seed.store,
-        "keel_close",
+        "specline_close",
         json!({
             "id": task,
             "reason": "done",
@@ -410,7 +414,7 @@ fn close_response_shape() {
             "session_id": "ses_snapshot"
         }),
     );
-    settings().bind(|| insta::assert_json_snapshot!("keel_close", result));
+    settings().bind(|| insta::assert_json_snapshot!("specline_close", result));
 }
 
 /// Every advertised tool has a response snapshot.

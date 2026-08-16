@@ -869,20 +869,23 @@ fn breaking_section(acknowledgements: &[Acknowledgement]) -> String {
 
 #[test]
 fn a_breaking_change_nobody_wrote_down_fails_the_gate() {
-    let differences = vec![breaking("tools", "tool `keel_note` was removed")];
+    let differences = vec![breaking("tools", "tool `specline_note` was removed")];
     let result = gate(&differences, &[]);
 
     assert!(!result.passes());
-    assert_eq!(result.unacknowledged, vec!["tool `keel_note` was removed"]);
+    assert_eq!(
+        result.unacknowledged,
+        vec!["tool `specline_note` was removed"]
+    );
 }
 
 #[test]
 fn an_acknowledged_one_passes() {
-    let differences = vec![breaking("tools", "tool `keel_note` was removed")];
+    let differences = vec![breaking("tools", "tool `specline_note` was removed")];
     let acknowledgements = parse_acknowledgements(
-        "<!-- acknowledgements -->\n## tool `keel_note` was removed\n\
-         - migration: none — callers move to keel_update\n\
-         - tells the user: keel_note is gone; notes are a field on keel_update now.\n",
+        "<!-- acknowledgements -->\n## tool `specline_note` was removed\n\
+         - migration: none — callers move to specline_update\n\
+         - tells the user: specline_note is gone; notes are a field on specline_update now.\n",
     );
 
     assert!(gate(&differences, &acknowledgements).passes());
@@ -915,13 +918,13 @@ fn a_stale_entry_fails_too() {
 /// a problem rather than the problem.
 #[test]
 fn an_entry_missing_its_prose_fails() {
-    let differences = vec![breaking("tools", "tool `keel_note` was removed")];
+    let differences = vec![breaking("tools", "tool `specline_note` was removed")];
     let acknowledgements =
-        parse_acknowledgements("<!-- acknowledgements -->\n## tool `keel_note` was removed\n");
+        parse_acknowledgements("<!-- acknowledgements -->\n## tool `specline_note` was removed\n");
 
     let result = gate(&differences, &acknowledgements);
     assert!(!result.passes());
-    assert_eq!(result.incomplete, vec!["tool `keel_note` was removed"]);
+    assert_eq!(result.incomplete, vec!["tool `specline_note` was removed"]);
     assert!(
         result.unacknowledged.is_empty(),
         "an incomplete entry is a different complaint from a missing one"
@@ -931,14 +934,14 @@ fn an_entry_missing_its_prose_fails() {
 #[test]
 fn the_release_notes_are_built_from_the_entries() {
     let acknowledgements = parse_acknowledgements(
-        "<!-- acknowledgements -->\n## tool `keel_note` was removed\n\
-         - migration: none — callers move to keel_update\n\
-         - tells the user: keel_note is gone; notes are a field on keel_update now.\n",
+        "<!-- acknowledgements -->\n## tool `specline_note` was removed\n\
+         - migration: none — callers move to specline_update\n\
+         - tells the user: specline_note is gone; notes are a field on specline_update now.\n",
     );
 
     let notes = breaking_section(&acknowledgements);
     assert!(notes.contains("## Breaking"));
-    assert!(notes.contains("keel_note is gone"), "{notes}");
+    assert!(notes.contains("specline_note is gone"), "{notes}");
     assert!(notes.contains("Migration: none"), "{notes}");
     assert!(
         breaking_section(&[]).is_empty(),

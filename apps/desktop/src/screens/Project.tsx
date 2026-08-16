@@ -1,7 +1,7 @@
 /**
  * Screen 2 — Project dashboard.
  *
- * The digest, rendered. Deliberately the same data `keel_context` gives an
+ * The digest, rendered. Deliberately the same data `specline_context` gives an
  * agent: if a human and a model are looking at different summaries of the same
  * project, one of them is wrong and nobody knows which.
  */

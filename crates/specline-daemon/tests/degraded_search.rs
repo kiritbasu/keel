@@ -81,7 +81,7 @@ async fn a_broken_model_cache_leaves_keyword_search_working() {
     let created = client
         .post(format!("{base}/mcp"))
         .json(&tool_call(
-            "keel_create",
+            "specline_create",
             json!({"type": "project", "title": "Metering", "slug": "metering"}),
         ))
         .send()
@@ -92,7 +92,7 @@ async fn a_broken_model_cache_leaves_keyword_search_working() {
     client
         .post(format!("{base}/mcp"))
         .json(&tool_call(
-            "keel_create",
+            "specline_create",
             json!({
                 "type": "decision",
                 "project": "metering",
@@ -106,7 +106,7 @@ async fn a_broken_model_cache_leaves_keyword_search_working() {
 
     let response = client
         .post(format!("{base}/mcp"))
-        .json(&tool_call("keel_search", json!({"query": "hourly"})))
+        .json(&tool_call("specline_search", json!({"query": "hourly"})))
         .send()
         .await
         .unwrap();
@@ -145,7 +145,7 @@ async fn prose_can_still_be_written_with_no_embedder() {
     client
         .post(format!("{base}/mcp"))
         .json(&tool_call(
-            "keel_create",
+            "specline_create",
             json!({"type": "project", "title": "Offline", "slug": "offline"}),
         ))
         .send()
@@ -155,7 +155,7 @@ async fn prose_can_still_be_written_with_no_embedder() {
     let created: Value = client
         .post(format!("{base}/mcp"))
         .json(&tool_call(
-            "keel_create",
+            "specline_create",
             json!({
                 "type": "spec",
                 "project": "offline",
@@ -181,7 +181,7 @@ async fn prose_can_still_be_written_with_no_embedder() {
     let written: Value = client
         .post(format!("{base}/mcp"))
         .json(&tool_call(
-            "keel_write_doc",
+            "specline_write_doc",
             json!({"id": id, "body": "Prose written with no model anywhere.\n"}),
         ))
         .send()

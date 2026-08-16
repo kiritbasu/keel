@@ -55,7 +55,7 @@ expression: "specline_mcp::list_result()"
         },
         "type": "object"
       },
-      "name": "keel_context",
+      "name": "specline_context",
       "title": "Orient on a project"
     },
     {
@@ -132,7 +132,7 @@ expression: "specline_mcp::list_result()"
         ],
         "type": "object"
       },
-      "name": "keel_search",
+      "name": "specline_search",
       "title": "Search everything"
     },
     {
@@ -141,7 +141,7 @@ expression: "specline_mcp::list_result()"
         "idempotentHint": true,
         "readOnlyHint": true
       },
-      "description": "Fetch one or more artifacts by id, optionally with their prose body, their linked neighbours, or a diff between two revisions.\n\nUse `depth` to pull in the graph around something — `keel_get(ids: [spec_id], depth: 2)` answers 'what implements this spec, and what do those things depend on' in one call. Use `version` to read an older revision and `diff_against` to see what changed between two.",
+      "description": "Fetch one or more artifacts by id, optionally with their prose body, their linked neighbours, or a diff between two revisions.\n\nUse `depth` to pull in the graph around something — `specline_get(ids: [spec_id], depth: 2)` answers 'what implements this spec, and what do those things depend on' in one call. Use `version` to read an older revision and `diff_against` to see what changed between two.",
       "inputSchema": {
         "properties": {
           "depth": {
@@ -220,7 +220,7 @@ expression: "specline_mcp::list_result()"
         ],
         "type": "object"
       },
-      "name": "keel_get",
+      "name": "specline_get",
       "title": "Fetch by id"
     },
     {
@@ -258,7 +258,7 @@ expression: "specline_mcp::list_result()"
         },
         "type": "object"
       },
-      "name": "keel_projects",
+      "name": "specline_projects",
       "title": "List and resolve projects"
     },
     {
@@ -267,7 +267,7 @@ expression: "specline_mcp::list_result()"
         "idempotentHint": true,
         "readOnlyHint": true
       },
-      "description": "Every mutation since a timestamp or an event cursor, oldest first. Use it to catch up: 'what happened since I last looked', or to see what another session did while you were working.\n\nPass the `cursor` from a previous response to continue exactly where you left off, with no gaps and no repeats.\n\nFor one row's own story, read its notes with `keel_get` — a note says what was learned, where an event says only which field moved.",
+      "description": "Every mutation since a timestamp or an event cursor, oldest first. Use it to catch up: 'what happened since I last looked', or to see what another session did while you were working.\n\nPass the `cursor` from a previous response to continue exactly where you left off, with no gaps and no repeats.\n\nFor one row's own story, read its notes with `specline_get` — a note says what was learned, where an event says only which field moved.",
       "inputSchema": {
         "properties": {
           "cursor": {
@@ -305,7 +305,7 @@ expression: "specline_mcp::list_result()"
         },
         "type": "object"
       },
-      "name": "keel_activity",
+      "name": "specline_activity",
       "title": "What changed"
     },
     {
@@ -314,7 +314,7 @@ expression: "specline_mcp::list_result()"
         "idempotentHint": true,
         "readOnlyHint": false
       },
-      "description": "Create any of the thirteen artifact types. Returns the created artifact, so you never need to read it back.\n\nCreates are idempotent: calling twice with the same project, type and title returns the existing artifact with `created: false` rather than making a duplicate. Whitespace and capitalisation are normalised, so 'Add login page' and 'add  Login  Page' are one task.\n\nBefore creating a **project**, call `keel_projects` first and confirm with the human (see that tool). Prefer consolidating into fewer, larger artifacts: a project with forty trivial tasks that should be eight is worse than useless.",
+      "description": "Create any of the thirteen artifact types. Returns the created artifact, so you never need to read it back.\n\nCreates are idempotent: calling twice with the same project, type and title returns the existing artifact with `created: false` rather than making a duplicate. Whitespace and capitalisation are normalised, so 'Add login page' and 'add  Login  Page' are one task.\n\nBefore creating a **project**, call `specline_projects` first and confirm with the human (see that tool). Prefer consolidating into fewer, larger artifacts: a project with forty trivial tasks that should be eight is worse than useless.",
       "inputSchema": {
         "properties": {
           "body": {
@@ -406,7 +406,7 @@ expression: "specline_mcp::list_result()"
         ],
         "type": "object"
       },
-      "name": "keel_create",
+      "name": "specline_create",
       "title": "Create an artifact"
     },
     {
@@ -415,7 +415,7 @@ expression: "specline_mcp::list_result()"
         "idempotentHint": true,
         "readOnlyHint": false
       },
-      "description": "Change fields on an existing artifact, including status transitions. Returns the updated artifact.\n\n**Not for prose.** A document body belongs to `keel_write_doc`, which versions it; this tool is for the fields around it — title, status, kind. Sending a body here would overwrite without a revision, and the previous author's text would be gone.\n\nPass the `version` you read. If someone else changed it since, the call is rejected with the current state and the events that happened in between, so you can usually merge and retry without asking anyone.\n\nAn accepted decision's content is immutable — supersede it with a new decision linked by `supersedes` rather than editing it. Use `archive: true` to soft-delete; nothing in Specline is ever really deleted.\n\nTo reorder a task, put `rank_after` or `rank_before` in `changes` naming another task — `{\"rank_after\": \"KEEL-12\"}` — rather than choosing a number. To make one task part of another, set `parent_id`; that is composition, and it is a different thing from `blocks`, which means \"must happen first\".\n\n**Two task transitions belong to their own tools.** Starting work is `keel_claim`, which records who is on it; finishing is `keel_close`, which asks for the reason, the message and the evidence together. A `status` of `done` or `wont_do` sent here is refused without all three, so reaching for this tool to close something only costs you a round trip.\n\nTo attach an image to a design or artifact that already exists, put `image_path` in `changes` with an absolute path — the daemon reads the file, so the bytes never enter your context.",
+      "description": "Change fields on an existing artifact, including status transitions. Returns the updated artifact.\n\n**Not for prose.** A document body belongs to `specline_write_doc`, which versions it; this tool is for the fields around it — title, status, kind. Sending a body here would overwrite without a revision, and the previous author's text would be gone.\n\nPass the `version` you read. If someone else changed it since, the call is rejected with the current state and the events that happened in between, so you can usually merge and retry without asking anyone.\n\nAn accepted decision's content is immutable — supersede it with a new decision linked by `supersedes` rather than editing it. Use `archive: true` to soft-delete; nothing in Specline is ever really deleted.\n\nTo reorder a task, put `rank_after` or `rank_before` in `changes` naming another task — `{\"rank_after\": \"KEEL-12\"}` — rather than choosing a number. To make one task part of another, set `parent_id`; that is composition, and it is a different thing from `blocks`, which means \"must happen first\".\n\n**Two task transitions belong to their own tools.** Starting work is `specline_claim`, which records who is on it; finishing is `specline_close`, which asks for the reason, the message and the evidence together. A `status` of `done` or `wont_do` sent here is refused without all three, so reaching for this tool to close something only costs you a round trip.\n\nTo attach an image to a design or artifact that already exists, put `image_path` in `changes` with an absolute path — the daemon reads the file, so the bytes never enter your context.",
       "inputSchema": {
         "properties": {
           "archive": {
@@ -461,7 +461,7 @@ expression: "specline_mcp::list_result()"
         ],
         "type": "object"
       },
-      "name": "keel_update",
+      "name": "specline_update",
       "title": "Update an artifact"
     },
     {
@@ -470,7 +470,7 @@ expression: "specline_mcp::list_result()"
         "idempotentHint": true,
         "readOnlyHint": false
       },
-      "description": "Append a new revision of an artifact's prose body — for specs, decisions, questions, feedback and design captions.\n\nUse this whenever the *content* of a document changes. Use `keel_update` instead for the fields around it: title, status, kind. The two are separate because a body is versioned and a status is not, and conflating them would either version every status flip or lose the history of every edit.\n\nAlways send the **full** body, not a patch — the revision is a snapshot. The previous one is kept and stays readable by version, and `keel_get` will diff any two. Writing content identical to the current revision is a no-op rather than a new version, so regenerating a document you have not changed is safe.",
+      "description": "Append a new revision of an artifact's prose body — for specs, decisions, questions, feedback and design captions.\n\nUse this whenever the *content* of a document changes. Use `specline_update` instead for the fields around it: title, status, kind. The two are separate because a body is versioned and a status is not, and conflating them would either version every status flip or lose the history of every edit.\n\nAlways send the **full** body, not a patch — the revision is a snapshot. The previous one is kept and stays readable by version, and `specline_get` will diff any two. Writing content identical to the current revision is a no-op rather than a new version, so regenerating a document you have not changed is safe.",
       "inputSchema": {
         "properties": {
           "body": {
@@ -510,7 +510,7 @@ expression: "specline_mcp::list_result()"
         ],
         "type": "object"
       },
-      "name": "keel_write_doc",
+      "name": "specline_write_doc",
       "title": "Write a document revision"
     },
     {
@@ -560,7 +560,7 @@ expression: "specline_mcp::list_result()"
         ],
         "type": "object"
       },
-      "name": "keel_note",
+      "name": "specline_note",
       "title": "Record what you learned about something"
     },
     {
@@ -634,7 +634,7 @@ expression: "specline_mcp::list_result()"
         ],
         "type": "object"
       },
-      "name": "keel_link",
+      "name": "specline_link",
       "title": "Link two artifacts"
     },
     {
@@ -643,7 +643,7 @@ expression: "specline_mcp::list_result()"
         "idempotentHint": true,
         "readOnlyHint": true
       },
-      "description": "The answer to 'what should I do next', ranked. Open work with nothing live in its way, best first.\n\nCall this rather than `keel_context` when the project is already familiar and the question is only what to pick up — the digest costs roughly 3,500 tokens and this costs a fraction of it.\n\nThe order is deliberate: **what a task unblocks comes before its priority**, so a p1 that releases three other tasks ranks above a p0 that releases nothing. Each row carries the reason it is where it is.\n\nParents are excluded, because their children are the actual work. Decisions waiting on a human are excluded too — they are in `keel_context`'s open questions, and nothing can start on them until someone answers.\n\nThen `keel_claim` the one you pick, so the row says who is on it.",
+      "description": "The answer to 'what should I do next', ranked. Open work with nothing live in its way, best first.\n\nCall this rather than `specline_context` when the project is already familiar and the question is only what to pick up — the digest costs roughly 3,500 tokens and this costs a fraction of it.\n\nThe order is deliberate: **what a task unblocks comes before its priority**, so a p1 that releases three other tasks ranks above a p0 that releases nothing. Each row carries the reason it is where it is.\n\nParents are excluded, because their children are the actual work. Decisions waiting on a human are excluded too — they are in `specline_context`'s open questions, and nothing can start on them until someone answers.\n\nThen `specline_claim` the one you pick, so the row says who is on it.",
       "inputSchema": {
         "properties": {
           "labels": {
@@ -701,7 +701,7 @@ expression: "specline_mcp::list_result()"
         ],
         "type": "object"
       },
-      "name": "keel_ready",
+      "name": "specline_ready",
       "title": "What can be worked on right now"
     },
     {
@@ -747,7 +747,7 @@ expression: "specline_mcp::list_result()"
         ],
         "type": "object"
       },
-      "name": "keel_claim",
+      "name": "specline_claim",
       "title": "Take a task, so the row says who is on it"
     },
     {
@@ -756,7 +756,7 @@ expression: "specline_mcp::list_result()"
         "idempotentHint": true,
         "readOnlyHint": false
       },
-      "description": "Close a task with a reason, a message, and — for `done` — evidence. This is the tool for finishing work; `keel_update` can move a status but will refuse a terminal one without all of this, so use this instead of working around it.\n\nThe five reasons:\n- `done` — finished. Needs a message and at least one piece of evidence.\n- `wont_do` — deliberately not doing it. Needs a message.\n- `duplicate` — the same work as another task. Names it, and draws a `duplicates` edge.\n- `superseded` — replaced by another task. Names it, and draws a `supersedes` edge.\n- `no_change` — looked at it, nothing needed doing. Needs a message.\n\nEvidence is typed so that 'what shipped this week, with the commits' is a query rather than prose: `commit:<sha>`, `pr:<url>`, `test:<command>`, `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`. A bare sha is refused.\n\nThe message is the one sentence that belongs to the transition. Anything else you learned along the way belongs in `keel_note`, which keeps accumulating.",
+      "description": "Close a task with a reason, a message, and — for `done` — evidence. This is the tool for finishing work; `specline_update` can move a status but will refuse a terminal one without all of this, so use this instead of working around it.\n\nThe five reasons:\n- `done` — finished. Needs a message and at least one piece of evidence.\n- `wont_do` — deliberately not doing it. Needs a message.\n- `duplicate` — the same work as another task. Names it, and draws a `duplicates` edge.\n- `superseded` — replaced by another task. Names it, and draws a `supersedes` edge.\n- `no_change` — looked at it, nothing needed doing. Needs a message.\n\nEvidence is typed so that 'what shipped this week, with the commits' is a query rather than prose: `commit:<sha>`, `pr:<url>`, `test:<command>`, `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`. A bare sha is refused.\n\nThe message is the one sentence that belongs to the transition. Anything else you learned along the way belongs in `specline_note`, which keeps accumulating.",
       "inputSchema": {
         "properties": {
           "evidence": {
@@ -816,7 +816,7 @@ expression: "specline_mcp::list_result()"
         ],
         "type": "object"
       },
-      "name": "keel_close",
+      "name": "specline_close",
       "title": "Finish a task, saying why and showing the work"
     }
   ],

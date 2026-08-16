@@ -56,7 +56,7 @@ specline gate --since <t0>
 ```
 
 Six sessions in `tideline` and four in `pellet`, so if the
-`keel_projects`-first instruction is not firing, duplicates show up as
+`specline_projects`-first instruction is not firing, duplicates show up as
 "Tideline / tideline app" or similar. That is the failure the PRD calls the most
 damaging, because it quietly ruins the cross-project view.
 

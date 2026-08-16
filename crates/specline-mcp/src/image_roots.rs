@@ -1,6 +1,6 @@
 //! Which folders an image may be read from.
 //!
-//! `keel_create` can take a path to a picture on the machine rather than base64
+//! `specline_create` can take a path to a picture on the machine rather than base64
 //! through the tool call, because a retina screenshot costs 350,000 output
 //! tokens as base64 and nothing at all as a path (TQ-33). The bytes never enter
 //! model context.

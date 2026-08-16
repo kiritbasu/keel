@@ -1093,7 +1093,7 @@ pub struct Neighbour {
     /// rendered or reasoned about without a second round of lookups, and every
     /// caller was doing that round differently — the document reader showed
     /// bare ULIDs where a title belonged, and an agent walking the graph had to
-    /// follow every hop with a `keel_get` to learn what it had found. Empty
+    /// follow every hop with a `specline_get` to learn what it had found. Empty
     /// only if the edge points at a row that no longer resolves, which `fsck`
     /// reports as a dangling link.
     pub label: String,

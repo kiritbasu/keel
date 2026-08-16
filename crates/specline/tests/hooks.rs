@@ -99,7 +99,7 @@ fn scratch() -> tempfile::TempDir {
 }
 
 const MATCHED: &str = r#"{"summary":"Specline (specline)\nstatus: active\n\n## Next\n- do the thing","data":{"project":{"slug":"specline"}}}"#;
-const UNMATCHED: &str = r#"{"summary":"keel_context matched nothing for this checkout\n\nAcme Corp\n\nWidgets Ltd","data":{"project":null}}"#;
+const UNMATCHED: &str = r#"{"summary":"specline_context matched nothing for this checkout\n\nAcme Corp\n\nWidgets Ltd","data":{"project":null}}"#;
 const NO_EVENTS: &str = r#"{"data":{"events":[]}}"#;
 const WROTE: &str = r#"{"data":{"events":[{"session_id":"ses_abc123"}]}}"#;
 

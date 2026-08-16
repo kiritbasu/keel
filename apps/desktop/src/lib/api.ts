@@ -485,7 +485,7 @@ export const api = {
   /**
    * What can be worked on right now, ranked.
    *
-   * The same `keel_ready` a session calls, not a second ranking computed here.
+   * The same `specline_ready` a session calls, not a second ranking computed here.
    * That is the point of the endpoint existing at all — an app that ordered the
    * work differently from the tool would make "what next" a question with two
    * answers.
@@ -551,7 +551,7 @@ export const api = {
    * The event log has always held this and nothing has ever shown it.
    *
    * Its own endpoint rather than `/api/activity?entity=`, because that route is
-   * the `keel_activity` tool and the tool no longer takes an entity (TQ-24).
+   * the `specline_activity` tool and the tool no longer takes an entity (TQ-24).
    * B-15 is the rule this follows: the local API has more endpoints than the
    * tool surface has tools, since a UI knows what it wants and a model chooses
    * worse among more options.
@@ -617,7 +617,7 @@ export const api = {
    * What changed, grouped by the session that changed it.
    *
    * Its own endpoint rather than a shape on `/api/activity`, because that URL is
-   * the `keel_activity` tool and this is a different question: the tool pages
+   * the `specline_activity` tool and this is a different question: the tool pages
    * every mutation from a cursor for a model catching up, and this answers "what
    * did each session do" for a person who left Claude working.
    *

@@ -13,7 +13,7 @@
 //!
 //! # Notes leave no event, and that is the whole cost of this
 //!
-//! TQ-29 established it: `keel_note` writes no row in `events`, which is why the
+//! TQ-29 established it: `specline_note` writes no row in `events`, which is why the
 //! daemon announces notes under their own kind. So a per-session change count
 //! built from the event log alone silently misses every note — and a note is
 //! where a session records what it *found*, which is the part most worth

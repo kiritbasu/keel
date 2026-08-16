@@ -273,7 +273,7 @@ string_enum! {
 impl TaskStatus {
     /// Whether a task in this status still needs attention.
     ///
-    /// Used by `keel_context`'s "attention" section and by the blocker
+    /// Used by `specline_context`'s "attention" section and by the blocker
     /// traversal, both of which should ignore work that is finished or
     /// abandoned.
     pub const fn is_open(self) -> bool {
@@ -368,7 +368,7 @@ string_enum! {
 }
 
 impl TaskPriority {
-    /// Whether this priority is surfaced in `keel_context`'s attention list.
+    /// Whether this priority is surfaced in `specline_context`'s attention list.
     pub const fn is_urgent(self) -> bool {
         matches!(self, TaskPriority::P0 | TaskPriority::P1)
     }
@@ -454,7 +454,7 @@ string_enum! {
 }
 
 impl QuestionStatus {
-    /// Whether this item still belongs in `keel_context`'s never-truncated
+    /// Whether this item still belongs in `specline_context`'s never-truncated
     /// open-questions list.
     ///
     /// SPEC §6.3 declares questions unbounded because a *missing* open

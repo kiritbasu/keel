@@ -15,7 +15,7 @@ set -uo pipefail
 
 KEEL="${KEEL:-./target/release/keel}"
 # Derived, not written down. The `cwd` probe below needs a real path that
-# `keel_context` will match against a project's `root_path`, and hardcoding one
+# `specline_context` will match against a project's `root_path`, and hardcoding one
 # put this machine's username into a file that is going public.
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 STORE=/tmp/keel-det/store

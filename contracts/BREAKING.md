@@ -21,9 +21,9 @@ Copy each `BREAKING` line **exactly** as printed, and write the two fields
 underneath it:
 
 ```markdown
-## tool `keel_note` was removed
-- migration: none — callers move to `keel_update` with a `notes` field
-- tells the user: `keel_note` is gone. Notes are a field on `keel_update` now.
+## tool `specline_note` was removed
+- migration: none — callers move to `specline_update` with a `notes` field
+- tells the user: `specline_note` is gone. Notes are a field on `specline_update` now.
 ```
 
 The heading has to match the classifier's sentence word for word. That is

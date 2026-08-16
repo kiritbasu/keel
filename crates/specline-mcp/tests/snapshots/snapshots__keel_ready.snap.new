@@ -1,0 +1,28 @@
+---
+source: crates/specline-mcp/tests/snapshots.rs
+assertion_line: 383
+expression: result
+---
+{
+  "content": [
+    {
+      "text": "1 ready, best first:\n- **HARB-1** Dedupe usage events by idempotency key — nothing is blocking it · p2\n\nClaim the one you pick with `keel_claim`.",
+      "type": "text"
+    }
+  ],
+  "isError": false,
+  "structuredContent": {
+    "ready": [
+      {
+        "id": "[id]",
+        "priority": "p2",
+        "reference": "HARB-1",
+        "title": "Dedupe usage events by idempotency key",
+        "unblocks": 0,
+        "why": "nothing is blocking it · p2"
+      }
+    ],
+    "total": 1,
+    "truncated": false
+  }
+}

@@ -152,7 +152,7 @@ session, so this is not something the agent can run for you.
 | Claude reads but never writes | The skill's triggers are too narrow, or the "write when something becomes true" table is not landing. |
 | Writes appear, but `session_id` is null | The skill is being read but the threading instruction is being skipped. Move it earlier. |
 | Forty tasks where eight would do | The consolidation section is losing to the model's instinct to be helpful. Strengthen it. |
-| A second project for something that exists | The `keel_projects`-first instruction is not firing. This is the most damaging one — it quietly ruins the cross-project view. |
+| A second project for something that exists | The `specline_projects`-first instruction is not firing. This is the most damaging one — it quietly ruins the cross-project view. |
 
 Each of those is a fix to `SKILL.md`, not to the daemon. Change the wording, run
 another ten sessions.

@@ -151,8 +151,8 @@ async fn tools_list_returns_thirteen_tools_with_cache_hints() {
     // reason belongs in tools.rs next to the last one.
     let tools = body["result"]["tools"].as_array().unwrap();
     assert_eq!(tools.len(), 13);
-    assert!(tools.iter().any(|t| t["name"] == "keel_note"));
-    for verb in ["keel_ready", "keel_claim", "keel_close"] {
+    assert!(tools.iter().any(|t| t["name"] == "specline_note"));
+    for verb in ["specline_ready", "specline_claim", "specline_close"] {
         assert!(tools.iter().any(|t| t["name"] == verb), "missing {verb}");
     }
     assert!(body["result"]["ttlMs"].as_u64().unwrap() > 0);
@@ -170,7 +170,7 @@ async fn a_header_that_disagrees_with_the_body_is_rejected() {
         .header("Mcp-Method", "tools/list")
         .json(&json!({
             "jsonrpc": "2.0", "id": 1, "method": "tools/call",
-            "params": { "name": "keel_context", "arguments": {} }
+            "params": { "name": "specline_context", "arguments": {} }
         }))
         .send()
         .await
@@ -312,14 +312,14 @@ async fn uc2_conversational_capture() {
 
     // The plugin's discipline: check before creating (UC-8, REQ-8).
     let lookup = d
-        .call("keel_projects", args(json!({"query": "Harbour"})))
+        .call("specline_projects", args(json!({"query": "Harbour"})))
         .await;
     assert_eq!(lookup["projects"].as_array().unwrap().len(), 0);
     assert_eq!(lookup["requires_confirmation"], false);
 
     let project = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "project",
                 "title": "Harbour",
@@ -333,7 +333,7 @@ async fn uc2_conversational_capture() {
 
     let prd = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "spec",
                 "project": project_id,
@@ -353,7 +353,7 @@ async fn uc2_conversational_capture() {
 
     let milestone = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "milestone",
                 "project": project_id,
@@ -373,7 +373,7 @@ async fn uc2_conversational_capture() {
     ] {
         let task = d
             .call(
-                "keel_create",
+                "specline_create",
                 args(json!({
                     "type": "task",
                     "project": project_id,
@@ -389,7 +389,7 @@ async fn uc2_conversational_capture() {
     // Trace each task to the requirement it implements.
     for id in &task_ids {
         d.call(
-            "keel_link",
+            "specline_link",
             args(json!({
                 "from": id, "rel": "implements", "to": spec_id, "anchor": "REQ-1"
             })),
@@ -401,7 +401,7 @@ async fn uc2_conversational_capture() {
     // between sessions.
     let question = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "question",
                 "project": project_id,
@@ -415,7 +415,7 @@ async fn uc2_conversational_capture() {
 
     // Everything is attributed to this conversation.
     let activity = d
-        .call("keel_activity", args(json!({"project": project_id})))
+        .call("specline_activity", args(json!({"project": project_id})))
         .await;
     let events = activity["events"].as_array().unwrap();
     assert!(!events.is_empty());
@@ -437,7 +437,7 @@ async fn uc1_agent_orientation_in_one_call() {
     seed(&d).await;
 
     let text = d
-        .call_text("keel_context", args(json!({"project": "harbour"})))
+        .call_text("specline_context", args(json!({"project": "harbour"})))
         .await;
 
     // The digest must actually orient: what it is, what is urgent, what is
@@ -449,7 +449,7 @@ async fn uc1_agent_orientation_in_one_call() {
     assert!(text.contains("Metering v1"), "the active milestone: {text}");
 
     let digest = d
-        .call("keel_context", args(json!({"project": "harbour"})))
+        .call("specline_context", args(json!({"project": "harbour"})))
         .await;
     assert_eq!(
         digest["session_id"], SESSION,
@@ -465,7 +465,7 @@ async fn uc1_agent_orientation_in_one_call() {
     assert_eq!(digest["budget_exceeded"], false);
 
     // And the cross-project roll-up.
-    let all = d.call_text("keel_context", args(json!({}))).await;
+    let all = d.call_text("specline_context", args(json!({}))).await;
     assert!(all.contains("All projects"), "{all}");
     assert!(all.contains("harbour"), "{all}");
 }
@@ -479,7 +479,7 @@ async fn the_digest_never_truncates_questions_or_terms() {
 
     for i in 0..60 {
         d.call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "question", "project": project_id,
                 "title": format!("Open question number {i} that is deliberately quite long so \
@@ -492,7 +492,7 @@ async fn the_digest_never_truncates_questions_or_terms() {
         )
         .await;
         d.call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "term", "project": project_id,
                 "title": format!("Term{i}"),
@@ -504,7 +504,7 @@ async fn the_digest_never_truncates_questions_or_terms() {
     }
 
     let digest = d
-        .call("keel_context", args(json!({"project": project_id})))
+        .call("specline_context", args(json!({"project": project_id})))
         .await;
 
     assert!(
@@ -524,7 +524,7 @@ async fn the_digest_never_truncates_questions_or_terms() {
     );
 
     let text = d
-        .call_text("keel_context", args(json!({"project": project_id})))
+        .call_text("specline_context", args(json!({"project": project_id})))
         .await;
     assert!(
         text.contains("never trimmed"),
@@ -546,7 +546,7 @@ async fn uc3_implementation_handoff() {
     // Find the spec, and what implements it — the inbound traversal.
     let hits = d
         .call(
-            "keel_search",
+            "specline_search",
             args(json!({"query": "idempotent ingest", "project": project_id})),
         )
         .await;
@@ -562,7 +562,7 @@ async fn uc3_implementation_handoff() {
 
     let traced = d
         .call(
-            "keel_get",
+            "specline_get",
             args(json!({
                 "ids": [spec_id], "depth": 2, "direction": "inbound", "rels": ["implements"]
             })),
@@ -576,16 +576,18 @@ async fn uc3_implementation_handoff() {
     let task_id = neighbours[0]["id"].as_str().unwrap().to_owned();
 
     // Read it, then close it with the PR.
-    let task = d.call("keel_get", args(json!({"ids": [task_id]}))).await;
+    let task = d
+        .call("specline_get", args(json!({"ids": [task_id]})))
+        .await;
     // `version` is lifted to the top of the entity precisely so this is a
-    // straight copy into keel_update rather than a hunt inside `audit`.
+    // straight copy into specline_update rather than a hunt inside `audit`.
     let version = task["artifacts"][0]["entity"]["version"]
         .as_i64()
-        .expect("keel_get must surface `version` where keel_update asks for it");
+        .expect("specline_get must surface `version` where specline_update asks for it");
 
     let linked = d
         .call(
-            "keel_update",
+            "specline_update",
             args(json!({
                 "id": task_id,
                 "version": version,
@@ -606,12 +608,12 @@ async fn uc3_implementation_handoff() {
         Some(2)
     );
 
-    // Finishing it is `keel_close`, not a status change. The PR that shipped it
+    // Finishing it is `specline_close`, not a status change. The PR that shipped it
     // is the evidence, which is the shape this use case was already reaching for
     // when it attached the URL by hand.
     let done = d
         .call(
-            "keel_close",
+            "specline_close",
             args(json!({
                 "id": task_id,
                 "reason": "done",
@@ -626,7 +628,7 @@ async fn uc3_implementation_handoff() {
 
     // The timeline shows it.
     let activity = d
-        .call("keel_activity", args(json!({"project": project_id})))
+        .call("specline_activity", args(json!({"project": project_id})))
         .await;
     let status_changes: Vec<&Value> = activity["events"]
         .as_array()
@@ -666,7 +668,7 @@ async fn uc4_customer_feedback_triage() {
     for (summary, body) in notes {
         let f = d
             .call(
-                "keel_create",
+                "specline_create",
                 args(json!({
                     "type": "feedback", "project": project_id,
                     "title": summary, "body": body,
@@ -680,7 +682,7 @@ async fn uc4_customer_feedback_triage() {
     // A week later: search across every piece of feedback.
     let hits = d
         .call(
-            "keel_search",
+            "specline_search",
             args(json!({ "query": "onboarding is slow", "types": ["feedback"] })),
         )
         .await;
@@ -695,7 +697,7 @@ async fn uc4_customer_feedback_triage() {
     // Propose a task and connect it to the evidence.
     let task = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "task", "project": project_id,
                 "title": "Shorten the onboarding flow",
@@ -709,7 +711,7 @@ async fn uc4_customer_feedback_triage() {
 
     let spec = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "spec", "project": project_id,
                 "title": "Onboarding redesign",
@@ -721,17 +723,17 @@ async fn uc4_customer_feedback_triage() {
     let spec_id = spec["entity"]["id"].as_str().unwrap().to_owned();
 
     d.call(
-        "keel_link",
+        "specline_link",
         args(json!({"from": spec_id, "rel": "derived_from", "to": feedback_ids[0]})),
     )
     .await;
     d.call(
-        "keel_link",
+        "specline_link",
         args(json!({"from": feedback_ids[1], "rel": "informs", "to": spec_id})),
     )
     .await;
     d.call(
-        "keel_link",
+        "specline_link",
         args(json!({"from": task_id, "rel": "implements", "to": spec_id})),
     )
     .await;
@@ -739,7 +741,7 @@ async fn uc4_customer_feedback_triage() {
     // The evidence trail is walkable in both directions.
     let from_spec = d
         .call(
-            "keel_get",
+            "specline_get",
             args(json!({"ids": [spec_id], "depth": 1, "direction": "outbound"})),
         )
         .await;
@@ -751,7 +753,7 @@ async fn uc4_customer_feedback_triage() {
 
     let into_spec = d
         .call(
-            "keel_get",
+            "specline_get",
             args(json!({"ids": [spec_id], "depth": 1, "direction": "inbound"})),
         )
         .await;
@@ -771,7 +773,7 @@ async fn a_retried_create_does_not_duplicate() {
 
     let first = d
         .call(
-            "keel_create",
+            "specline_create",
             args(
                 json!({"type": "task", "project": project_id, "title": "Ship the thing",
                 "summary": "The thing is built and not released. Done when it is on the server."}),
@@ -780,7 +782,7 @@ async fn a_retried_create_does_not_duplicate() {
         .await;
     let second = d
         .call(
-            "keel_create",
+            "specline_create",
             args(
                 json!({"type": "task", "project": project_id, "title": "Ship the thing",
                 "summary": "The thing is built and not released. Done when it is on the server."}),
@@ -799,7 +801,7 @@ async fn a_stale_update_returns_409_with_enough_to_merge() {
     let project_id = seed(&d).await;
     let task = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({"type": "task", "project": project_id, "title": "Contended",
                 "summary": "Two writers touch this row at once. Done when neither loses an update."})),
         )
@@ -807,14 +809,14 @@ async fn a_stale_update_returns_409_with_enough_to_merge() {
     let id = task["entity"]["id"].as_str().unwrap().to_owned();
 
     d.call(
-        "keel_update",
+        "specline_update",
         args(json!({"id": id, "version": 1, "changes": {"status": "in_progress"}})),
     )
     .await;
 
     let (status, error) = d
         .call_err(
-            "keel_update",
+            "specline_update",
             args(json!({"id": id, "version": 1, "changes": {"status": "done"}})),
         )
         .await;
@@ -839,7 +841,7 @@ async fn depends_on_is_stored_as_blocks_and_the_response_says_so() {
     let project_id = seed(&d).await;
     let a = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({"type": "task", "project": project_id, "title": "A",
                 "summary": "The first of a pair, so the link between them has two ends."})),
         )
@@ -849,7 +851,7 @@ async fn depends_on_is_stored_as_blocks_and_the_response_says_so() {
         .to_owned();
     let b = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({"type": "task", "project": project_id, "title": "B",
                 "summary": "The second of a pair, so the link between them has two ends."})),
         )
@@ -860,7 +862,7 @@ async fn depends_on_is_stored_as_blocks_and_the_response_says_so() {
 
     let text = d
         .call_text(
-            "keel_link",
+            "specline_link",
             args(json!({"from": a, "rel": "depends_on", "to": b})),
         )
         .await;
@@ -877,7 +879,7 @@ async fn an_invalid_enum_value_tells_the_agent_what_would_work() {
     let project_id = seed(&d).await;
     let (status, error) = d
         .call_err(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "task", "project": project_id, "title": "Bad status",
                 "summary": "Sends a status the enum does not have, to see what the error says.",
@@ -905,7 +907,7 @@ async fn machine_written_prose_is_refused_with_a_replacement() {
     let project_id = seed(&d).await;
     let (status, error) = d
         .call_err(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "decision", "project": project_id, "title": "Use one parser",
                 "body": "We should leverage the existing parser in order to avoid duplication."
@@ -934,7 +936,7 @@ async fn a_quoted_error_message_is_not_refused_as_house_style() {
     let project_id = seed(&d).await;
     let created = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "decision", "project": project_id, "title": "Pin the pool size",
                 "body": "The driver said:\n\n> Failed to utilize the connection pool\n\n\
@@ -961,7 +963,7 @@ async fn a_soft_tell_lands_the_write_and_says_so() {
     let project_id = seed(&d).await;
     let created = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "decision", "project": project_id, "title": "Cache the digest",
                 "body": "Recomputing the digest per call is a crucial cost we can avoid by \
@@ -979,7 +981,7 @@ async fn a_soft_tell_lands_the_write_and_says_so() {
 /// A milestone reaches the roadmap with an explainer or it does not reach it.
 ///
 /// This is asserted at the daemon rather than only in `specline-core` because the
-/// MCP path is where the bug was: `keel_create` accepted a `body` for a
+/// MCP path is where the bug was: `specline_create` accepted a `body` for a
 /// milestone and discarded it, so every milestone written over the tool surface
 /// landed as a bare name and the caller was told it had succeeded. A store-level
 /// test would not have caught that — the store was never asked. B-45.
@@ -989,7 +991,7 @@ async fn a_milestone_without_an_explainer_is_refused_over_mcp() {
     let project_id = seed(&d).await;
     let (status, error) = d
         .call_err(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "milestone", "project": project_id, "title": "Phase 9"
             })),
@@ -1015,7 +1017,7 @@ async fn a_milestone_takes_its_explainer_from_body_as_well_as_summary() {
     let project_id = seed(&d).await;
     let created = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "milestone", "project": project_id, "title": "Phase 9",
                 "body": "Fold DuckDB and Lance into one database."
@@ -1037,7 +1039,10 @@ async fn a_near_duplicate_project_requires_confirmation() {
     seed(&d).await;
 
     let lookup = d
-        .call("keel_projects", args(json!({"query": "harbour billing"})))
+        .call(
+            "specline_projects",
+            args(json!({"query": "harbour billing"})),
+        )
         .await;
     assert_eq!(
         lookup["requires_confirmation"], true,
@@ -1046,13 +1051,16 @@ async fn a_near_duplicate_project_requires_confirmation() {
     assert!(!lookup["projects"].as_array().unwrap().is_empty());
 
     let text = d
-        .call_text("keel_projects", args(json!({"query": "harbour billing"})))
+        .call_text(
+            "specline_projects",
+            args(json!({"query": "harbour billing"})),
+        )
         .await;
     assert!(text.contains("Ask the human"), "{text}");
 
     // An exact match resolves without a prompt.
     let exact = d
-        .call("keel_projects", args(json!({"query": "harbour"})))
+        .call("specline_projects", args(json!({"query": "harbour"})))
         .await;
     assert_eq!(exact["requires_confirmation"], false);
 }
@@ -1066,7 +1074,7 @@ async fn a_document_can_be_revised_and_diffed_over_mcp() {
 
     let spec = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "decision", "project": project_id,
                 "title": "Aggregate hourly", "body": "## Decision\n\nHourly buckets.\n"
@@ -1077,7 +1085,7 @@ async fn a_document_can_be_revised_and_diffed_over_mcp() {
 
     let revised = d
         .call(
-            "keel_write_doc",
+            "specline_write_doc",
             args(json!({
                 "id": id,
                 "body": "## Decision\n\nHourly buckets.\n\n## Consequences\n\nPer-minute would \
@@ -1091,7 +1099,7 @@ async fn a_document_can_be_revised_and_diffed_over_mcp() {
     // Writing the same content again is a no-op.
     let again = d
         .call(
-            "keel_write_doc",
+            "specline_write_doc",
             args(json!({
                 "id": id,
                 "body": "## Decision\n\nHourly buckets.\n\n## Consequences\n\nPer-minute would \
@@ -1104,7 +1112,7 @@ async fn a_document_can_be_revised_and_diffed_over_mcp() {
 
     let diffed = d
         .call(
-            "keel_get",
+            "specline_get",
             args(json!({"ids": [id], "version": 2, "diff_against": 1})),
         )
         .await;
@@ -1122,7 +1130,7 @@ async fn asking_for_something_that_does_not_exist_says_so_rather_than_returning_
     let project_id = seed(&d).await;
     let real = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({"type": "task", "project": project_id, "title": "Real",
                 "summary": "A row that exists, so a lookup for one that does not can be told apart."})),
         )
@@ -1133,7 +1141,7 @@ async fn asking_for_something_that_does_not_exist_says_so_rather_than_returning_
 
     let ghost = "tsk_01ZZZZZZZZZZZZZZZZZZZZZZZZ";
     let result = d
-        .call("keel_get", args(json!({"ids": [real, ghost]})))
+        .call("specline_get", args(json!({"ids": [real, ghost]})))
         .await;
 
     assert_eq!(result["artifacts"].as_array().unwrap().len(), 1);
@@ -1144,7 +1152,9 @@ async fn asking_for_something_that_does_not_exist_says_so_rather_than_returning_
          will assume the missing ones do not exist"
     );
 
-    let text = d.call_text("keel_get", args(json!({"ids": [ghost]}))).await;
+    let text = d
+        .call_text("specline_get", args(json!({"ids": [ghost]})))
+        .await;
     assert!(text.contains("not found"), "{text}");
 }
 
@@ -1185,7 +1195,7 @@ async fn the_local_api_serves_the_same_data_as_mcp() {
 async fn seed(d: &Daemon) -> String {
     let project = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "project", "title": "Harbour",
                 "body": "Usage-based billing for API companies."
@@ -1196,7 +1206,7 @@ async fn seed(d: &Daemon) -> String {
 
     let milestone = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "milestone", "project": project_id, "title": "Metering v1",
                 "summary": "Charge customers for what they actually use, and show them the bill.",
@@ -1211,7 +1221,7 @@ async fn seed(d: &Daemon) -> String {
 
     let spec = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "spec", "project": project_id, "title": "Usage metering",
                 "body": "# Metering\n\n## REQ-1 Idempotent ingest\n\nEvery usage event carries a \
@@ -1226,7 +1236,7 @@ async fn seed(d: &Daemon) -> String {
 
     let task = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "task", "project": project_id,
                 "title": "Dedupe usage events by idempotency key",
@@ -1241,13 +1251,13 @@ async fn seed(d: &Daemon) -> String {
         .to_owned();
 
     d.call(
-        "keel_link",
+        "specline_link",
         args(json!({"from": task, "rel": "implements", "to": spec, "anchor": "REQ-1"})),
     )
     .await;
 
     d.call(
-        "keel_create",
+        "specline_create",
         args(json!({
             "type": "question", "project": project_id,
             "title": "Does a downgrade take effect immediately or at period end?",
@@ -1259,7 +1269,7 @@ async fn seed(d: &Daemon) -> String {
     .await;
 
     d.call(
-        "keel_create",
+        "specline_create",
         args(json!({
             "type": "term", "project": project_id, "title": "Meter",
             "body": "A named quantity being counted for billing."
@@ -1328,7 +1338,7 @@ async fn an_ordinary_run_of_calls_is_not_limited() {
         let (status, _) = d
             .rpc(
                 "tools/call",
-                json!({ "name": "keel_context", "arguments": args(json!({ "project": project_id })) }),
+                json!({ "name": "specline_context", "arguments": args(json!({ "project": project_id })) }),
             )
             .await;
         assert_eq!(status, 200, "a normal session must not be throttled");
@@ -1336,7 +1346,7 @@ async fn an_ordinary_run_of_calls_is_not_limited() {
 }
 
 /// The Phase 8 exit criterion for 8F: this project says "phase" on every
-/// screen, and `keel_create(type: "phase")` used to fail with an enum error
+/// screen, and `specline_create(type: "phase")` used to fail with an enum error
 /// listing thirteen types, none of which was the word.
 #[tokio::test]
 async fn a_project_can_say_phase_and_be_understood() {
@@ -1345,7 +1355,7 @@ async fn a_project_can_say_phase_and_be_understood() {
 
     let created = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "phase", "project": project_id, "title": "Phase 9 — One database",
                 "summary": "Fold DuckDB and Lance into one database."
@@ -1368,7 +1378,7 @@ async fn saying_phase_is_narrated_rather_than_quietly_accepted() {
 
     let text = d
         .call_text(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "sprint", "project": project_id, "title": "Sprint 4",
                 "summary": "Ship the intake form and the triage column."
@@ -1388,7 +1398,7 @@ async fn a_word_nobody_taught_it_still_fails_usefully() {
 
     let (status, error) = d
         .call_err(
-            "keel_create",
+            "specline_create",
             args(json!({ "type": "widget", "project": project_id, "title": "A widget" })),
         )
         .await;
@@ -1411,7 +1421,7 @@ async fn a_task_without_a_summary_is_refused_over_mcp() {
 
     let (status, error) = d
         .call_err(
-            "keel_create",
+            "specline_create",
             args(json!({ "type": "task", "project": project_id, "title": "Do the thing" })),
         )
         .await;
@@ -1433,7 +1443,7 @@ async fn a_task_with_a_summary_keeps_it() {
 
     let created = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "task", "project": project_id,
                 "title": "Show the milestone on every row",
@@ -1457,7 +1467,7 @@ async fn a_task_with_a_summary_keeps_it() {
 /// `specline ready` promises one ranking behind three doors. This is the assertion
 /// that they are the same door.
 ///
-/// The CLI is not spawned as a process here — it calls `keel_ready` over this
+/// The CLI is not spawned as a process here — it calls `specline_ready` over this
 /// same endpoint, which is the property worth pinning: the tool, the REST
 /// endpoint the app reads, and `specline_core::ready` itself return the same list in
 /// the same order. If the app ever disagreed with the session, this is the test
@@ -1473,7 +1483,7 @@ async fn ready_gives_the_same_answer_over_mcp_and_over_the_local_api() {
         ("Ship the invoice screen", "p0"),
     ] {
         d.call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "task", "project": project_id, "title": title,
                 "summary": format!("{title}. Done when it works and there is a test."),
@@ -1484,7 +1494,7 @@ async fn ready_gives_the_same_answer_over_mcp_and_over_the_local_api() {
     }
 
     let over_mcp = d
-        .call("keel_ready", args(json!({"project": project_id})))
+        .call("specline_ready", args(json!({"project": project_id})))
         .await;
 
     let over_rest: Value = d
@@ -1522,7 +1532,7 @@ async fn claiming_shows_on_the_row_and_a_second_session_is_refused() {
     let project_id = seed(&d).await;
     let task = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "task", "project": project_id, "title": "Only one of us",
                 "summary": "A task two sessions will both try to take. Done when one of them \
@@ -1534,14 +1544,14 @@ async fn claiming_shows_on_the_row_and_a_second_session_is_refused() {
         .unwrap()
         .to_owned();
 
-    let claimed = d.call("keel_claim", args(json!({"id": task}))).await;
+    let claimed = d.call("specline_claim", args(json!({"id": task}))).await;
     assert_eq!(claimed["task"]["status"], "in_progress");
     assert_eq!(claimed["task"]["claimed_by"], SESSION);
 
     // A different conversation, which is the case the claim exists for.
     let (status, error) = d
         .call_err(
-            "keel_claim",
+            "specline_claim",
             json!({"id": task, "session_id": "ses_someone_else", "surface": "code"}),
         )
         .await;
@@ -1555,7 +1565,7 @@ async fn claiming_shows_on_the_row_and_a_second_session_is_refused() {
     // And the ranked list can be asked to leave claimed work out.
     let unclaimed = d
         .call(
-            "keel_ready",
+            "specline_ready",
             args(json!({"project": project_id, "unclaimed": true})),
         )
         .await;
@@ -1570,15 +1580,15 @@ async fn claiming_shows_on_the_row_and_a_second_session_is_refused() {
 }
 
 // The Phase 8 exit criterion, over the real transport: a task cannot reach
-// `done` without a reason, a message and evidence, and `keel_update` is held to
-// the same rule as `keel_close`.
+// `done` without a reason, a message and evidence, and `specline_update` is held to
+// the same rule as `specline_close`.
 #[tokio::test]
 async fn a_task_cannot_be_finished_without_saying_why_or_showing_the_work() {
     let d = Daemon::start().await;
     let project_id = seed(&d).await;
     let created = d
         .call(
-            "keel_create",
+            "specline_create",
             args(json!({
                 "type": "task", "project": project_id, "title": "Finished properly or not at all",
                 "summary": "A task used to check that closing states a reason. Done when the \
@@ -1593,7 +1603,7 @@ async fn a_task_cannot_be_finished_without_saying_why_or_showing_the_work() {
     // makes the rule an invariant rather than a convention in a markdown file.
     let (status, error) = d
         .call_err(
-            "keel_update",
+            "specline_update",
             args(json!({
                 "id": task, "version": version, "changes": { "status": "done" }
             })),
@@ -1611,7 +1621,7 @@ async fn a_task_cannot_be_finished_without_saying_why_or_showing_the_work() {
     // The tool, with no evidence. Also refused.
     let (_, error) = d
         .call_err(
-            "keel_close",
+            "specline_close",
             args(json!({
                 "id": task, "reason": "done", "message": "It is finished, honestly."
             })),
@@ -1628,7 +1638,7 @@ async fn a_task_cannot_be_finished_without_saying_why_or_showing_the_work() {
     // And properly.
     let closed = d
         .call(
-            "keel_close",
+            "specline_close",
             args(json!({
                 "id": task, "reason": "done",
                 "message": "The close path now asks for the reason, the message and the \

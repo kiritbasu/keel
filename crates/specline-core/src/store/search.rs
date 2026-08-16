@@ -306,7 +306,7 @@ impl Store {
                 field: "query".to_owned(),
                 problem: "the search text is empty".to_owned(),
                 expected: "some words to search for; to list entities without searching, \
-                           use keel_get or keel_context instead"
+                           use specline_get or specline_context instead"
                     .to_owned(),
             });
         }
@@ -1033,7 +1033,7 @@ mod tests {
                 assert_eq!(field, "query");
                 assert!(problem.contains("empty"));
                 assert!(
-                    expected.contains("keel_get"),
+                    expected.contains("specline_get"),
                     "the error should say what to do instead, not only what was wrong"
                 );
             }

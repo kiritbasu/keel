@@ -1,0 +1,69 @@
+---
+source: crates/specline-mcp/tests/snapshots.rs
+assertion_line: 376
+expression: result
+---
+{
+  "content": [
+    {
+      "text": "3 change(s):\n  [time] claude created — created project “Harbour”\n  [time] claude created — created spec “Usage metering”\n  [time] claude created — created task “Dedupe usage events by idempotency key”",
+      "type": "text"
+    }
+  ],
+  "isError": false,
+  "structuredContent": {
+    "cursor": "[id]",
+    "events": [
+      {
+        "action": "created",
+        "actor": "claude",
+        "after": null,
+        "before": null,
+        "created_at": "[timestamp]",
+        "entity_id": "[id]",
+        "entity_type": "project",
+        "field": null,
+        "id": "[id]",
+        "meta": null,
+        "project_id": "[id]",
+        "session_id": "ses_snapshot",
+        "summary": "created project “Harbour”",
+        "surface": null
+      },
+      {
+        "action": "created",
+        "actor": "claude",
+        "after": null,
+        "before": null,
+        "created_at": "[timestamp]",
+        "entity_id": "[id]",
+        "entity_type": "spec",
+        "field": null,
+        "id": "[id]",
+        "meta": null,
+        "project_id": "[id]",
+        "session_id": "ses_snapshot",
+        "summary": "created spec “Usage metering”",
+        "surface": null
+      },
+      {
+        "action": "created",
+        "actor": "claude",
+        "after": null,
+        "before": null,
+        "created_at": "[timestamp]",
+        "entity_id": "[id]",
+        "entity_type": "task",
+        "field": null,
+        "id": "[id]",
+        "meta": null,
+        "project_id": "[id]",
+        "session_id": "ses_snapshot",
+        "summary": "created task “Dedupe usage events by idempotency key”",
+        "surface": null
+      }
+    ],
+    "total": 3,
+    "truncated": false
+  }
+}

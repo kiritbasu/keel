@@ -526,7 +526,7 @@ fn an_empty_search_says_what_to_use_instead() {
         .search(&SearchQuery::new("   "))
         .unwrap_err()
         .to_string();
-    assert!(err.contains("keel_context"), "{err}");
+    assert!(err.contains("specline_context"), "{err}");
 }
 
 #[test]

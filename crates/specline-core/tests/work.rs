@@ -68,7 +68,7 @@ impl Fixture {
         }
     }
 
-    /// Set fields directly, as `keel_update` does. The point of several tests
+    /// Set fields directly, as `specline_update` does. The point of several tests
     /// below is that this path is held to the same rule as `close`.
     fn update(
         &mut self,
@@ -551,7 +551,7 @@ fn a_task_closed_before_the_rule_existed_can_still_be_edited() {
 // --- Closing on the way in -----------------------------------------------
 //
 // KEEL-217. The rule above is enforced on the *transition* into a terminal
-// status, and a create is not a transition — so `keel_create(status: "done")`
+// status, and a create is not a transition — so `specline_create(status: "done")`
 // went straight past it. KEEL-216 landed that way: done, with no reason, no
 // message, no evidence and no `closed_at`, which is a row that reads as
 // finished and says nothing about why.

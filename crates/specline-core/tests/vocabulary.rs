@@ -172,7 +172,7 @@ fn a_global_term_applies_everywhere_and_a_project_one_wins_over_it() {
 }
 
 // Failure case, and the one that would be worst: a term named after a canonical
-// type must not be able to redirect it. `keel_create(type: "task")` has to mean
+// type must not be able to redirect it. `specline_create(type: "task")` has to mean
 // a task in every project, forever.
 #[test]
 fn a_term_cannot_shadow_a_canonical_type_name() {
@@ -264,7 +264,7 @@ fn the_noun_is_what_the_interface_says_and_falls_back_to_keels_word() {
 }
 
 // Failure case: a project calling milestones "tasks" would make every
-// `keel_create(type: "task")` ambiguous, and the resolution order hides that
+// `specline_create(type: "task")` ambiguous, and the resolution order hides that
 // rather than surfacing it — the canonical name wins, so the noun would silently
 // do nothing.
 #[test]

@@ -19,7 +19,7 @@ anything.
 
 ## Why too much is worse than too little
 
-`keel_context` is the first thing every future session reads. It is budgeted at
+`specline_context` is the first thing every future session reads. It is budgeted at
 roughly 3–4k tokens and it returns the open questions and the glossary **in
 full, never trimmed**. So every speculative question and every half-term you add
 is paid for again at the start of every conversation anyone has about this
@@ -57,7 +57,7 @@ which of those documents is dead and you do not.
 
 ### 2. Create the project, and get the paths right
 
-`keel_projects` first to check it does not already exist, then `keel_create`.
+`specline_projects` first to check it does not already exist, then `specline_create`.
 
 Set `root_path` to the repository, and set it correctly — it is what every
 generated file is written relative to later. Getting it wrong is quiet and
@@ -66,7 +66,7 @@ annoying to undo.
 ### 3. Import the documents mechanically
 
 Anything that is already a markdown document should go in as one. Do not paste
-prose into task bodies or retype a spec into `keel_write_doc`.
+prose into task bodies or retype a spec into `specline_write_doc`.
 
 ```bash
 specline import docs/architecture.md docs/api.md --project <slug> --as spec --dry-run
@@ -161,7 +161,7 @@ because a person wrote the file.
 
 ## What "done" looks like
 
-- The digest is worth reading. Open it with `keel_context` and see for yourself.
+- The digest is worth reading. Open it with `specline_context` and see for yourself.
   If it is over budget on day one, you put too much in.
 - Every open question is one someone means to answer.
 - Every task is a unit of work, not a step.

@@ -350,7 +350,7 @@ fn get_oi(row: &Row<'_>, table: &str, col: &str) -> Result<Option<i32>> {
 /// DuckDB reader this one replaced, where a single NULL `number` once made
 /// *every* row of that type unreadable in a project, including the idempotency
 /// lookup, so
-/// `keel_create` failed too. A migration adds the column before the binary that
+/// `specline_create` failed too. A migration adds the column before the binary that
 /// populates it can be running, so there is always a window in which a writer
 /// inserts a row without one. A single unnumbered row should cost that row's
 /// label, not the whole table.
