@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T18:20:12Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T18:54:53Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1046,6 +1046,7 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | created task “124 stored documents still say Keel, and the sweep is structurally blind to all of them” |
 | 2026-08-16 | human | revised spec “Specline — Build journal” to v5 |
 | 2026-08-16 | claude | status todo → done |
 | 2026-08-16 | claude | evidence [] → (87 characters) |
@@ -1245,7 +1246,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | claimed_at none → 2026-08-16T10:15:08.590432Z |
 | 2026-08-16 | claude | created task “Cut v0.1.5-rc.1 to exercise the release path before a real version depends on it” |
 | 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → (121 characters) |
 
-*Showing the 200 most recent of 2004 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2005 changes. Use `specline_activity` for the rest.*
 
