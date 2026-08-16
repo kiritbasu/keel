@@ -44,6 +44,14 @@ dist = true
 [lints]
 workspace = true
 
+# Forwards to the daemon's, and both have to move together: this crate builds
+# the `keel-daemon` binary as well as `keel`, so a `keel` without embeddings
+# that still pulled a daemon with them would link the ONNX runtime anyway and
+# the feature would buy nothing. See `keel-daemon/Cargo.toml` for the argument.
+[features]
+default = ["embeddings"]
+embeddings = ["dep:keel-embed", "keel-daemon/embeddings"]
+
 [dependencies]
 keel-core.workspace = true
 # For the protocol's own header names and version string, so `keel claim` and
@@ -52,7 +60,7 @@ keel-core.workspace = true
 keel-mcp.workspace = true
 # Only `keel reembed` constructs an embedder. It is the one CLI command whose
 # job is the model, so it is the one place the ONNX dependency is worth having.
-keel-embed.workspace = true
+keel-embed = { workspace = true, optional = true }
 # The daemon's library half, for the `keel-daemon` binary above. Nothing in the
 # `keel` binary references it, so the linker drops it there; what it costs is
 # that a `cargo build -p keel` now builds axum and tokio, which a workspace

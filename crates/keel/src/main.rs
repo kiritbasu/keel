@@ -1301,6 +1301,27 @@ fn run_fsck(home: &Path, daemon: &str, json: bool) -> Result<()> {
 }
 
 /// Backfill the vectors that were never written.
+///
+/// The one command whose whole job is the model, so it is the one that has to
+/// say something honest when the build has none. Hidden or silently successful
+/// would both be worse: a person running this expects vectors afterwards, and
+/// the way to find out they did not get any is otherwise a search that quietly
+/// stays keyword-only (KEEL-220).
+#[cfg(not(feature = "embeddings"))]
+fn run_reembed(_home: &Path, _missing: bool, _force: bool, _json: bool) -> Result<()> {
+    bail!(
+        "this build of Keel has no embedding model in it, so there is nothing to re-embed with.\n\n\
+         Two of the three release targets cannot link the ONNX runtime the model needs — Intel \
+         macOS has no prebuilt one, and the Linux build wants a newer glibc than the binaries \
+         are built against — so those builds ship without it. Keyword search covers every \
+         artifact either way, prose included, and it is what this store has been using.\n\n\
+         `keel doctor` reports which build you are running. The arm64 macOS release is the one \
+         that carries a model."
+    )
+}
+
+/// Backfill the vectors that were never written.
+#[cfg(feature = "embeddings")]
 fn run_reembed(home: &Path, missing: bool, force: bool, json: bool) -> Result<()> {
     if !missing {
         bail!(

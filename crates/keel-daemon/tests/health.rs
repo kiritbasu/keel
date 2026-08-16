@@ -277,3 +277,49 @@ async fn health_says_whether_update_checking_is_happening_at_all() {
     );
     drop(state);
 }
+
+/// KEEL-220. Two of the three release targets cannot link the ONNX runtime, so
+/// `keel 0.1.x` on Intel macOS and `keel 0.1.x` on arm64 are different binaries
+/// with the same name. A version number cannot say which; this can.
+#[tokio::test]
+async fn health_says_whether_this_build_can_embed_at_all() {
+    let (base, state, _home) = daemon().await;
+
+    let body = health(&base).await;
+    let embeddings = body
+        .get("embeddings")
+        .expect("health has to say what this build can do, not only what it is called");
+
+    assert_eq!(
+        embeddings["built_in"],
+        serde_json::json!(keel_daemon::EMBEDDINGS_BUILT_IN),
+        "the reported capability must be this binary's, not a guess: {body}"
+    );
+
+    // Three answers, not two: cannot, could and has not yet, is. `loaded` is
+    // null only when the store was busy — which is not the same as no model,
+    // and reporting the second for the first is how "semantic search is off"
+    // gets believed about a daemon that is merely mid-write.
+    assert!(
+        embeddings.get("loaded").is_some(),
+        "the field is always present: {body}"
+    );
+    drop(state);
+}
+
+/// The half that is a property of the build rather than of this moment, checked
+/// against what the daemon will actually do with `--embeddings`.
+#[tokio::test]
+async fn a_build_without_a_model_never_reports_one_as_loaded() {
+    let (base, state, _home) = daemon().await;
+    let body = health(&base).await;
+
+    if !keel_daemon::EMBEDDINGS_BUILT_IN {
+        assert_ne!(
+            body["embeddings"]["loaded"],
+            serde_json::json!(true),
+            "a build with no model in it cannot have one loaded: {body}"
+        );
+    }
+    drop(state);
+}

@@ -326,7 +326,21 @@ pub fn examine(home: &Path, daemon: &str) -> Result<Report> {
     // no vectors at all looks exactly like a store with them — which is how
     // 227 documents went unembedded for months without anything saying so.
     let (current, without) = embedding_coverage(&store)?;
-    checks.push(if current == 0 {
+    checks.push(if !keel_daemon::EMBEDDINGS_BUILT_IN {
+        // A property of the binary, not of the store, and it outranks the count
+        // below: "none of your documents has a vector" reads as something to
+        // fix, and on this build it is not. Two of the three release targets
+        // cannot link the ONNX runtime at all (KEEL-220), so a version number
+        // does not tell you which one you have and this does.
+        Check::ok(
+            "embeddings",
+            format!(
+                "not built into this binary, so search is keyword-only by construction — \
+                 {without} of {current} current document(s) have no vector and nothing here \
+                 can add one"
+            ),
+        )
+    } else if current == 0 {
         Check::ok("embeddings", "no documents yet, so nothing to embed")
     } else if without == 0 {
         Check::ok(
@@ -877,7 +891,21 @@ mod tests {
 
         let report = examine(dir.path(), NO_DAEMON).unwrap();
         let check = find(&report, "embeddings");
-        assert_eq!(check.level, Level::Degraded);
+        // Two answers, because there are two builds (KEEL-220). A missing
+        // vector is something to fix where a model exists and simply a fact
+        // where none was compiled in — reporting the second as degraded would
+        // put a permanent warning on a store that is working as well as that
+        // binary can, which is how a report stops being read.
+        if cfg!(feature = "embeddings") {
+            assert_eq!(check.level, Level::Degraded);
+        } else {
+            assert_eq!(check.level, Level::Ok);
+            assert!(
+                check.detail.contains("not built into this binary"),
+                "and say why it is not a fault: {}",
+                check.detail
+            );
+        }
         assert!(
             check.detail.contains("keyword"),
             "it has to say what the user is actually losing: {}",

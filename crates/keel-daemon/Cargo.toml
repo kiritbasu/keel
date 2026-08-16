@@ -24,11 +24,25 @@ dist = false
 [lints]
 workspace = true
 
+# The only feature in the workspace, and it exists because it decides whether a
+# platform can be *built at all* rather than which copy of a library gets
+# linked (KEEL-220). `fastembed` pulls a prebuilt ONNX Runtime that has no
+# Intel macOS build and wants a newer glibc than the Linux runner has, so two
+# of three release targets could not link. Without it they can.
+#
+# On by default, so nothing about an ordinary build or an ordinary developer's
+# `cargo test` changes. Off is a supported configuration rather than a broken
+# one: keyword search covers every searchable artifact, prose included, and
+# search degrades rather than failing.
+[features]
+default = ["embeddings"]
+embeddings = ["dep:keel-embed"]
+
 [dependencies]
 keel-core.workspace = true
 # The only crate that constructs the real embedder, because it is the only one
 # that decides whether embeddings are on. keel-core deliberately cannot.
-keel-embed.workspace = true
+keel-embed = { workspace = true, optional = true }
 keel-mcp.workspace = true
 axum.workspace = true
 tokio.workspace = true

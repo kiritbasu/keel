@@ -514,18 +514,26 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
         .as_ref()
         .and_then(|dir| keel_update::last_check(dir));
 
-    let (projects, busy) = match state.try_store() {
+    // `loaded` is read in the same borrow as the project count rather than in a
+    // second `try_store`, because two looks at a busy store can disagree and
+    // one health response saying two different things about one moment is worse
+    // than a stale number.
+    let (projects, busy, embedder_loaded) = match state.try_store() {
         Some(store) => {
             use keel_core::{EntityQuery, EntityStore, EntityType};
             let n = store
                 .list(&EntityQuery::default().of_type(EntityType::Project))
                 .map(|p| p.total)
                 .unwrap_or(0);
+            let loaded = store.embedder().is_some();
             drop(store);
             state.remember_project_count(n);
-            (n, false)
+            (n, false, Some(loaded))
         }
-        None => (state.last_project_count().unwrap_or(0), true),
+        // Unknown rather than false. A busy store is not a store without a
+        // model, and reporting the second for the first is how "semantic search
+        // is off" gets believed about a daemon that is merely mid-write.
+        None => (state.last_project_count().unwrap_or(0), true, None),
     };
 
     Json(json!({
@@ -567,6 +575,20 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
             "enabled": keel_update::auto_update_enabled(),
             "last_checked_at": last_check.as_ref().map(|c| c.at.clone()),
             "last_error": last_check.as_ref().and_then(|c| c.error.clone()),
+        },
+        // Whether this build can do semantic search at all, which a version
+        // number cannot say. Two of the three release targets cannot link the
+        // ONNX runtime, so `keel 0.1.x` on Intel macOS and on arm64 are
+        // different binaries with the same name (KEEL-220).
+        //
+        // `built_in` is a property of the build, `loaded` of this process right
+        // now — a model loads in the background and takes a moment, and null
+        // means the store was busy rather than that no model is there. Three
+        // fields because "cannot", "could and has not yet" and "is" are three
+        // different answers and only one of them is worth acting on.
+        "embeddings": {
+            "built_in": crate::EMBEDDINGS_BUILT_IN,
+            "loaded": embedder_loaded,
         },
         // Which binary this is, not only what version it claims. KB had two
         // `keel` installs and the one on his PATH was not the one he had

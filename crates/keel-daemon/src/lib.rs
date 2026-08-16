@@ -39,3 +39,17 @@ pub mod state;
 pub use http::{TOKEN_HEADER, router};
 pub use run::run;
 pub use state::AppState;
+
+/// Whether this binary was built with an embedding model in it.
+///
+/// A constant rather than a runtime check, because it is a property of the
+/// build and not of the machine. Two of the three release targets cannot link
+/// the ONNX runtime at all (KEEL-220), so `keel 0.1.x` on Intel macOS and
+/// `keel 0.1.x` on arm64 are different in a way a version number cannot show —
+/// and the interface that shows a version has to be able to say which one it is
+/// talking to. Reported on `/api/health` and by `keel doctor`.
+///
+/// False does not mean broken. Keyword search covers every searchable artifact
+/// and search degrades rather than failing; what it means is that
+/// `--embeddings` has nothing to switch on.
+pub const EMBEDDINGS_BUILT_IN: bool = cfg!(feature = "embeddings");

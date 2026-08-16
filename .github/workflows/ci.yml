@@ -98,6 +98,55 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust-check
 
+  # The configuration two of the three release targets ship, run so that it is
+  # not the one nobody tests.
+  #
+  # A feature that changes what a build *can do* creates a second product, and
+  # the ordinary `cargo test` covers exactly one of them. Without this leg, the
+  # binary an Intel Mac or a Linux box installs would be the configuration with
+  # no coverage at all — which is the shape of mistake the definition of done
+  # dropped `--all-features` to avoid, arriving from the other direction
+  # (KEEL-220).
+  #
+  # Linux and hosted, because it is cheap and because this is exactly the
+  # platform the configuration exists for.
+  check-no-embeddings:
+    name: fmt · clippy · test (no embeddings)
+    runs-on: ubuntu-latest
+    env:
+      KEEL_HOME: ${{ github.workspace }}/.ci-keel-home
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      # `--exclude keel-embed`, and it is the whole trick rather than a detail.
+      # `keel-embed` is a workspace member, so `--workspace` builds it directly
+      # no matter what features anything else asked for — and building it *is*
+      # building the ONNX runtime. Without the exclusion this leg would link the
+      # thing it exists to prove is absent, and fail on the one platform that
+      # cannot link it. The same applies to a Linux developer's `cargo build
+      # --workspace`; CONTRIBUTING.md says so.
+      - name: Clippy
+        run: cargo clippy --workspace --exclude keel-embed --all-targets --no-default-features -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace --exclude keel-embed --no-default-features
+
+      # The point of the whole exercise, asserted rather than assumed: the ONNX
+      # runtime is out of the graph, so the targets that cannot link it can be
+      # built. A green test suite would not notice `ort` still being pulled in.
+      - name: The ONNX runtime is not in this build
+        run: |
+          if cargo tree -p keel --no-default-features -e normal | grep -qE 'fastembed|ort v'; then
+            echo "::error::fastembed or ort is still in the dependency graph without the embeddings feature"
+            cargo tree -p keel --no-default-features -e normal | grep -E 'fastembed|ort v'
+            exit 1
+          fi
+          echo "no fastembed, no ort"
+
   snapshots:
     name: snapshots · no drift, no strays
     runs-on: ubuntu-latest

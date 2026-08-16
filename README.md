@@ -62,6 +62,8 @@ keel-daemon
 
 It binds `127.0.0.1:7654`. Add `--embeddings` if you want semantic search as well as keyword search — the first run downloads the model, which takes a minute. Keyword search works either way.
 
+**Not every build can do that.** The model needs the ONNX runtime, which has no prebuilt Intel macOS library and wants a newer glibc than the Linux binaries are built against, so those builds ship without it and `--embeddings` has nothing to switch on. It is a cargo feature, on by default, so a build from source has it wherever it links: `cargo build --no-default-features` leaves it out deliberately. `keel doctor` and `/api/health` both report which build you are running — a version number cannot tell you.
+
 ### Connect it to Claude
 
 Register the MCP server once:

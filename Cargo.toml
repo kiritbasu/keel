@@ -106,7 +106,12 @@ keel-update = { path = "crates/keel-update", version = "0.1.4" }
 # A library from the `keel` package's point of view: it holds the daemon, and
 # the `keel-daemon` *binary* is a shim in `keel` so that one installer ships
 # both executables. See `crates/keel/Cargo.toml`.
-keel-daemon = { path = "crates/keel-daemon", version = "0.1.4" }
+# `default-features = false` here rather than at the one call site, because
+# Cargo will not let an inheriting member turn a workspace dependency's default
+# features off. Only `keel` depends on this, and its own `embeddings` feature
+# forwards to the daemon's — so the ordinary build is unchanged and
+# `--no-default-features` reaches all the way down (KEEL-220).
+keel-daemon = { path = "crates/keel-daemon", version = "0.1.4", default-features = false }
 
 # Test-only
 insta = { version = "1", features = ["json", "redactions", "filters"] }

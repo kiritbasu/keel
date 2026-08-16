@@ -476,3 +476,54 @@ fn the_commands_that_are_asked_to_make_a_store_still_do() {
     keel(home.path(), &["--force", "fixture"]).expect_ok("fixture makes a store");
     assert!(home.path().join("keel.sqlite").exists());
 }
+
+/// KEEL-220. `reembed` is the one command whose whole job is the model, so a
+/// build without one has to say so rather than fail obscurely or succeed
+/// having done nothing.
+///
+/// Only meaningful in the build that has no model — and running the real thing
+/// in the other configuration would download 133 MB, which is not a test.
+#[cfg(not(feature = "embeddings"))]
+#[test]
+fn reembed_in_a_build_with_no_model_says_that_is_why() {
+    let (home, _task) = seeded();
+
+    let out = keel(home.path(), &["--force", "reembed", "--missing"])
+        .expect_failure("a build with no embedder cannot re-embed");
+
+    assert!(
+        out.contains("no embedding model"),
+        "the refusal has to name the cause: {out}"
+    );
+    assert!(
+        out.to_lowercase().contains("keyword search"),
+        "and say what still works, because it is most of what search does: {out}"
+    );
+    assert!(
+        out.contains("keel doctor"),
+        "and where to find out which build this is: {out}"
+    );
+}
+
+/// `keel doctor` reports the capability either way, because "none of your
+/// documents has a vector" reads as something to fix and on a build with no
+/// model it is not.
+#[test]
+fn doctor_says_which_build_this_is_where_embeddings_are_concerned() {
+    let (home, _task) = seeded();
+
+    let out = keel(home.path(), &["doctor", "--daemon", NO_DAEMON]).expect_ok("keel doctor");
+
+    assert!(out.contains("embeddings"), "{out}");
+    if cfg!(feature = "embeddings") {
+        assert!(
+            !out.contains("not built into this binary"),
+            "a build that has a model must not claim otherwise: {out}"
+        );
+    } else {
+        assert!(
+            out.contains("not built into this binary"),
+            "and one that does not must say so rather than reporting an empty corpus: {out}"
+        );
+    }
+}

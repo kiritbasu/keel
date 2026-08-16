@@ -180,7 +180,20 @@ impl AppState {
         };
 
         if embeddings {
+            #[cfg(feature = "embeddings")]
             state.load_embedder_in_background(home.join("models"));
+
+            // Asked for something this binary cannot do. Said once, loudly, at
+            // startup: the alternative is a daemon that accepts `--embeddings`,
+            // reports a version, and quietly answers every search with keyword
+            // hits — which is indistinguishable from one where the model simply
+            // has not finished loading.
+            #[cfg(not(feature = "embeddings"))]
+            tracing::warn!(
+                "--embeddings was asked for and this build has no embedding model compiled in, \
+                 so search stays keyword-only. `keel doctor` reports this, and the arm64 macOS \
+                 release is the build that carries one"
+            );
         }
 
         Ok(state)
@@ -199,6 +212,7 @@ impl AppState {
     /// whether to touch the network or where model files live. The directory is
     /// derived from `home` rather than asked of the store, because the store is
     /// a file now and has no directory of its own to hang a cache off.
+    #[cfg(feature = "embeddings")]
     fn load_embedder_in_background(&self, models: std::path::PathBuf) {
         let store = self.store.clone();
         std::thread::spawn(move || {
