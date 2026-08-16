@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T16:41:03Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T16:43:28Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1040,6 +1040,7 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | created task “A note on a closed task never reaches the repository” |
 | 2026-08-16 | claude | root_path /Users/h8hcn/development/keel → /Users/h8hcn/development/specline |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → (113 characters) |
@@ -1239,7 +1240,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
 | 2026-08-16 | claude | claimed_at none → 2026-08-16T08:58:02.073630Z |
 | 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
 
-*Showing the 200 most recent of 1997 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 1998 changes. Use `specline_activity` for the rest.*
 
