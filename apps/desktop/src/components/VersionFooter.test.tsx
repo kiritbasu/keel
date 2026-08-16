@@ -13,7 +13,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { VersionFooter, checkStatus } from "./VersionFooter";
-import { api } from "../lib/api";
+import { ApiError, api } from "../lib/api";
+import * as footer from "./VersionFooter";
 
 afterEach(cleanup);
 
@@ -356,5 +357,94 @@ describe("VersionFooter — asking for a check", () => {
     // The offer appears on the refresh. Saying it here as well would be the
     // interface talking over itself.
     expect(refreshed).toBe(1);
+  });
+});
+
+/**
+ * KEEL-259. KB took an update and was left with `Restarting the daemon into …`
+ * on screen — for ever, and with no version in it.
+ */
+describe("VersionFooter — taking an update", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("names the version it is taking, even though nothing is staged by then", async () => {
+    vi.spyOn(api, "applyUpdate").mockResolvedValue({
+      applied: "0.1.5",
+      restarting: true,
+    });
+    // Never comes back, so the message stays up and can be read. The reload is
+    // covered separately.
+    vi.spyOn(api, "health").mockRejectedValue(new Error("restarting"));
+
+    render(
+      <VersionFooter version="0.1.4" stagedVersion="0.1.5" onApplied={() => {}} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /restart into it/i }));
+
+    // The bug was reading `stagedVersion` here, which is null once the daemon
+    // has restarted — leaving an ellipsis with nothing before it.
+    expect(await screen.findByText(/Restarting the daemon into 0\.1\.5…/)).toBeTruthy();
+  });
+
+  it("tells the parent only once the daemon answers again", async () => {
+    vi.spyOn(api, "applyUpdate").mockResolvedValue({
+      applied: "0.1.5",
+      restarting: true,
+    });
+    let answers = false;
+    vi.spyOn(api, "health").mockImplementation(async () => {
+      if (!answers) throw new Error("still restarting");
+      return { status: "ok", protocol: "x", version: "0.1.5", projects: 1, store_busy: false };
+    });
+
+    let applied = 0;
+    render(
+      <VersionFooter
+        version="0.1.4"
+        stagedVersion="0.1.5"
+        onApplied={() => {
+          applied += 1;
+        }}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /restart into it/i }));
+
+    // Not yet: the daemon has not come back, and firing now is what the old
+    // fixed 1500ms wait did — reporting a failure for something that worked.
+    expect(applied).toBe(0);
+
+    answers = true;
+    // `onApplied` is what reloads, in App.tsx. The daemon serves this
+    // interface, so the binary it restarted into serves a different bundle;
+    // refetching would leave the replaced build running.
+    await vi.waitFor(() => expect(applied).toBe(1), { timeout: 4000 });
+  });
+
+  it("says the daemon did not come back, rather than waiting for ever", async () => {
+    vi.spyOn(api, "applyUpdate").mockResolvedValue({
+      applied: "0.1.5",
+      restarting: true,
+    });
+    vi.spyOn(api, "health").mockRejectedValue(new Error("gone"));
+
+    // One attempt, no gap: the real thing waits twenty seconds, which is not a
+    // thing to sit through in a test.
+    await expect(footer.waitForDaemon(1, 0)).rejects.toThrow(/did not come back/i);
+  });
+
+  it("clears the progress line and explains when applying fails", async () => {
+    vi.spyOn(api, "applyUpdate").mockRejectedValue(
+      new ApiError("nothing is staged, so there is nothing to apply.", 400),
+    );
+
+    render(
+      <VersionFooter version="0.1.4" stagedVersion="0.1.5" onApplied={() => {}} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /restart into it/i }));
+
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent");
+    expect(screen.queryByText(/Restarting the daemon into/)).toBeNull();
   });
 });

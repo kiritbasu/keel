@@ -452,7 +452,12 @@ export function App() {
             stagedReleaseNotes={health?.staged_release_notes}
             updateCheck={health?.update_check}
             executable={health?.executable}
-            onApplied={refresh}
+            // A reload rather than `refresh`. The daemon serves this page, so
+            // the binary it just restarted into serves a different bundle —
+            // refetching data would leave the old interface running against the
+            // new daemon, which works and is not the version just installed
+            // (KEEL-259).
+            onApplied={() => window.location.reload()}
           />
           <div className="mt-cosy">
             <ThemeControl />

@@ -15,6 +15,10 @@
  * than after. The page then loses its connection for a second or two, which is
  * indistinguishable from a crash unless it is named — hence the wait state
  * saying the daemon is restarting rather than an error.
+ *
+ * `onApplied` fires once the daemon answers again, and the parent reloads:
+ * refetching data left the browser running the interface the *previous* binary
+ * served, which worked and was quietly the wrong version (KEEL-259).
  */
 
 import { useState } from "react";
@@ -37,6 +41,35 @@ export type UpdateCheck = {
 
 /** How long a check may be silent before its silence is worth naming. */
 const STALE_AFTER_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * Wait until the daemon answers again, or give up.
+ *
+ * Applying an update replaces the process, so there is a gap where nothing is
+ * listening. This used to be `setTimeout(…, 1500)` — a guess about how long a
+ * restart takes, which on a slow machine reported a failure for something that
+ * had worked.
+ *
+ * Returns when health answers. Throws when it has not come back within the
+ * deadline, which is a real failure worth showing: the daemon was asked to
+ * restart and did not.
+ */
+export async function waitForDaemon(
+  attempts = 40,
+  gapMs = 500,
+): Promise<void> {
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      await api.health();
+      return;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, gapMs));
+    }
+  }
+  throw new Error(
+    "The daemon did not come back after restarting. Check `keel-daemon`'s output.",
+  );
+}
 
 /**
  * The one sentence to put under the version, or null when there is nothing
@@ -116,7 +149,10 @@ export function VersionFooter({
   executable?: string | null;
   onApplied: () => void;
 }) {
-  const [applying, setApplying] = useState(false);
+  // The version being taken, or null. A string rather than a boolean because
+  // the message names it, and reading it back from `stagedVersion` was the bug:
+  // by then the daemon has restarted and nothing is staged (KEEL-259).
+  const [applying, setApplying] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<string | null>(null);
@@ -164,16 +200,33 @@ export function VersionFooter({
   }
 
   async function apply() {
-    setApplying(true);
+    // Captured now, not read back later. By the time this renders the daemon
+    // has restarted and health reports nothing staged, so reading
+    // `stagedVersion` gave "Restarting the daemon into …" with the version
+    // missing — the ellipsis with nothing before it that KB screenshotted.
+    const taking = stagedVersion;
+    setApplying(taking ?? "the staged version");
     setFailed(null);
     try {
       await api.applyUpdate();
-      // The daemon is going away. Give it a moment to come back on the new
-      // binary before asking the page to refetch, rather than racing the
-      // restart and reporting the gap as a failure.
-      setTimeout(onApplied, 1500);
+      // **Reload, rather than refetch.** The daemon serves this interface, so
+      // the binary that just replaced it serves a different bundle. Refetching
+      // data left the browser running the *previous* build's UI against the new
+      // daemon — everything worked, and it was quietly not the version you had
+      // just installed.
+      //
+      // Waiting for health to answer rather than sleeping a fixed 1500ms: that
+      // number was a guess about how long a process takes to come back, and on
+      // a slow machine it raced the restart and reported a failure for
+      // something that had worked.
+      await waitForDaemon();
+      // The parent decides what "it came back" means. It reloads, because the
+      // daemon serves this interface and the binary that just replaced it
+      // serves a different bundle — see `App.tsx`. Deciding that here would put
+      // a page-level navigation inside a footer.
+      onApplied();
     } catch (e) {
-      setApplying(false);
+      setApplying(null);
       setFailed(
         e instanceof ApiError
           ? e.message
@@ -287,7 +340,7 @@ export function VersionFooter({
 
       {applying && (
         <p role="status" className="mt-cosy text-micro text-ink-faint">
-          Restarting the daemon into {stagedVersion}…
+          Restarting the daemon into {applying}…
         </p>
       )}
 
