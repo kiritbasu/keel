@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T10:38:35Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T11:58:47Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (236)
+## Closed work (237)
 
 ### 2026-08-16
+
+- **KEEL-256** Cut v0.1.5 — three platforms, and the first release whose binaries cannot do semantic search — `done`
+
+  Published, verified by download, and `releases/latest` now serves it. Three archives, each matching its published checksum; the Intel binary is a Mach-O x86_64, the Linux one an x86-64 ELF with a glibc floor of 2.34, and none of the three carries a byte of ONNX. The installer served by `latest` embeds the real digests and has three refusal branches rather than skipping verification. The shipped arm64 binary runs, reports 0.1.5 and schema 4, and `keel doctor` says "not built into this binary" on a real store rather than counting 52 missing vectors as a fault. Release notes replaced: `--generate-notes` produced one Dependabot PR and a compare link, because everything else reached main by direct push — so it said nothing about the only change that affects an existing install.
+
+  <sub>commit:5137619 · url:https://github.com/kiritbasu/keel/releases/tag/v0.1.5 · url:https://github.com/kiritbasu/keel/actions/runs/31944990156</sub>
 
 - **KEEL-252** Restore the Intel macOS and Linux release targets, now that a build without embeddings exists — `done`
 
@@ -938,6 +944,15 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | created task “Release notes generate themselves from pull requests, and this project does not use pull requests” |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (143 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (783 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T11:37:43.507125Z |
+| 2026-08-16 | claude | created task “Cut v0.1.5 — three platforms, and the first release whose binaries cannot do semantic search” |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → (148 characters) |
 | 2026-08-16 | claude | close_reason none → done |
@@ -1129,15 +1144,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | “Anything the daemon serves has to be safe to render in a…” blocks “The interface can create a task, comment on one, and…” |
 | 2026-08-15 | claude | “A per-session token, so a mutating endpoint knows who is…” blocks “The interface can create a task, comment on one, and…” |
 | 2026-08-15 | claude | created task “The interface can create a task, comment on one, and archive or close a row” |
-| 2026-08-15 | claude | created task “Anything the daemon serves has to be safe to render in a browser” |
-| 2026-08-15 | claude | created task “A per-session token, so a mutating endpoint knows who is calling” |
-| 2026-08-15 | claude | revised question “How far does hard constraint 7 move, now that the app needs to write?” to v1 |
-| 2026-08-15 | claude | created question “How far does hard constraint 7 move, now that the app needs to write?” |
-| 2026-08-15 | claude | status todo → done |
-| 2026-08-15 | claude | evidence [] → ["commit:dfc39b4","test:npx vitest run src/lib/filters.test.ts"] |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (311 characters) |
-| 2026-08-15 | claude | created task “Board search cannot find a task by the identifier everyone uses for it” |
 
-*Showing the 200 most recent of 1818 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1827 changes. Use `keel_activity` for the rest.*
 
