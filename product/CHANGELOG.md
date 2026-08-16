@@ -1,15 +1,33 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T05:52:52Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T06:16:20Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (224)
+## Closed work (227)
 
 ### 2026-08-16
+
+- **KEEL-227** A daemon too old to check for updates says nothing, which is when you most need telling — `done`
+
+  The daemon now reports the state of update checking as well as its result — whether checks are on, when one last completed, why it did not — and which binary it is running. The interface reads two different absences to tell how far back it is talking to: no `staged_version` at all means a daemon with no updater, and `staged_version` without `update_check` means one that checks but cannot say when. Nothing outbound and no known-latest comparison, so the "should the interface reach the internet" question stays unanswered and unblocked. Verified against the live daemon: the footer went from silence to a sentence.
+
+  <sub>commit:0862e71 · test:cargo test -p keel-daemon --test health · test:npx vitest run src/components/VersionFooter.test.tsx</sub>
+
+- **KEEL-137** The daemonless fallback creates an empty store instead of saying there isn't one — `done`
+
+  `open` refuses a home with no store, naming the path and the two commands that make one; `create_or_open` is the separate half for `bootstrap` and the doctor tests that build a store to examine. Two tests: a `keel ready` fallback that fails, names the path, and leaves no file behind, and `keel fixture` still making one.
+
+  <sub>commit:661a9be · test:cargo test -p keel --test verbs</sub>
+
+- **KEEL-172** keel_create cannot record a metric observation through its own schema — `done`
+
+  `metric_id`, `value` and `observed_at` are now read from `fields` as well as from the top level, and the `fields` description names them, so the path the tool documents is the path that works. `fields` no longer re-applies what the constructor already took, which would otherwise have turned a working call into an immutable-column error. Three tests: the documented form, the top-level form that already worked, and a missing metric whose refusal says to find one with `keel_search`.
+
+  <sub>commit:4e0a0ed · test:cargo test -p keel-mcp --test argument_edges</sub>
 
 - **KEEL-186** A running daemon blocks writes to stores it is not serving — `duplicate`
 
@@ -866,6 +884,28 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (125 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (617 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T06:07:45.897635Z |
+| 2026-08-16 | claude | created task “keel bootstrap is the last writer that goes round the daemon probe and the lock” |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:661a9be","test:cargo test -p keel --test verbs"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (321 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T06:03:11.044507Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:4e0a0ed","test:cargo test -p keel-mcp --test argument_edges"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (484 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:57:56.897809Z |
 | 2026-08-16 | claude | revised decision “A create into a terminal status is held to the closing rule, not refused” to v1 |
 | 2026-08-16 | claude | created decision “A create into a terminal status is held to the closing rule, not refused” |
 | 2026-08-16 | claude | status in_progress → todo |
@@ -1044,28 +1084,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | created decision “The daemon restarts itself for the CLI too, and the update says which version came back” |
 | 2026-08-15 | claude | “An installer with no checksum in it refuses to install, and…” resolves “0.1.2's published installer still verifies nothing. Re-cut,…” |
 | 2026-08-15 | claude | status open → answered |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → (106 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (557 characters) |
-| 2026-08-15 | claude | revised question “0.1.2's published installer still verifies nothing. Re-cut, replace the asset, or leave it?” to v1 |
-| 2026-08-15 | claude | created question “0.1.2's published installer still verifies nothing. Re-cut, replace the asset, or leave it?” |
-| 2026-08-15 | claude | “An installer with no checksum in it refuses to install, and…” references “The shipped installer verifies nothing, and the check that…” |
-| 2026-08-15 | claude | “An installer with no checksum in it refuses to install, and…” references “The installer refuses a download it cannot verify, rather…” |
-| 2026-08-15 | claude | revised decision “An installer with no checksum in it refuses to install, and the release proves the checksum is there” to v1 |
-| 2026-08-15 | claude | created decision “An installer with no checksum in it refuses to install, and the release proves the checksum is there” |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T20:02:43.906223Z |
-| 2026-08-15 | claude | created task “The shipped installer verifies nothing, and the check that should have caught it passed” |
-| 2026-08-15 | claude | created task “A daemon too old to check for updates says nothing, which is when you most need telling” |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → (119 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (1654 characters) |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_834b8828-e87e-45a2-b922-dc407a2538a1 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T19:37:47.694457Z |
 
-*Showing the 200 most recent of 1725 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1747 changes. Use `keel_activity` for the rest.*
 
