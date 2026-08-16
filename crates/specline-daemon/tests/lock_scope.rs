@@ -69,7 +69,7 @@ async fn a_generate_through_the_daemon_writes_the_files() {
         "a generate that wrote nothing has not been verified: {body}"
     );
     assert!(
-        repo.path().join(".keel/manifest.json").is_file(),
+        repo.path().join(".specline/manifest.json").is_file(),
         "the mirror manifest should exist after a generate"
     );
 }

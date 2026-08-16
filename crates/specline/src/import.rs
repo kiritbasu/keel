@@ -150,7 +150,7 @@ pub fn file(
     };
 
     // An artifact imported before this behaviour existed has no recorded
-    // path, and would otherwise be generated into `.keel/` at a slugged name
+    // path, and would otherwise be generated into `.specline/` at a slugged name
     // while the file it came from sat beside it going stale.
     adopt_path(store, &entity_id, mirror_path.as_deref(), &prov)?;
 
@@ -184,7 +184,7 @@ pub fn file(
 ///
 /// `None` when the project has no recorded checkout or the file sits outside
 /// it — in which case the artifact adopts no file and generation sends it to
-/// the `.keel/` mirror instead. Guessing would be worse: a wrong path means
+/// the `.specline/` mirror instead. Guessing would be worse: a wrong path means
 /// generation writes over something it does not own.
 fn repo_relative(store: &Store, project_id: &EntityId, file: &Path) -> Result<Option<String>> {
     let Some(Entity::Project(project)) = store.get(project_id)? else {

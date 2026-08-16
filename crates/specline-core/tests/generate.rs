@@ -146,7 +146,7 @@ fn an_adopted_document_does_not_also_appear_in_the_mirror() {
 
     let slugged = repo
         .path()
-        .join(".keel/specs/demo-technical-specification.md");
+        .join(".specline/specs/demo-technical-specification.md");
     assert!(
         !slugged.exists(),
         "a document with a home of its own must not also be written into the \
@@ -353,7 +353,7 @@ fn the_questions_file_carries_settled_questions_as_well_as_open_ones() {
     store.write_revision(doc).unwrap();
 
     generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
-    let written = std::fs::read_to_string(repo.path().join(".keel/questions.md")).unwrap();
+    let written = std::fs::read_to_string(repo.path().join(".specline/questions.md")).unwrap();
 
     assert!(written.contains("Where does the store live?"), "{written}");
     assert!(written.contains("Local or hosted embeddings?"), "{written}");
@@ -500,7 +500,7 @@ fn renaming_an_artifact_removes_the_file_its_old_name_produced() {
         .entity;
     generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
 
-    let old = repo.path().join(".keel/decisions/use-duckdb.md");
+    let old = repo.path().join(".specline/decisions/use-duckdb.md");
     assert!(old.is_file(), "the first run should have written it");
 
     let mut changes = serde_json::Map::new();
@@ -516,12 +516,14 @@ fn renaming_an_artifact_removes_the_file_its_old_name_produced() {
         "the file the old title produced must not survive the rename"
     );
     assert!(
-        repo.path().join(".keel/decisions/use-sqlite.md").is_file(),
+        repo.path()
+            .join(".specline/decisions/use-sqlite.md")
+            .is_file(),
         "the new one must be written"
     );
     assert_eq!(
         report.orphans,
-        vec![".keel/decisions/use-duckdb.md".to_owned()],
+        vec![".specline/decisions/use-duckdb.md".to_owned()],
         "and the removal must be reported, never silent"
     );
 }
@@ -554,12 +556,14 @@ fn check_mode_reports_an_orphan_without_removing_it() {
     let report = generate::all(&store, &project_id, repo.path(), Mode::Check).unwrap();
 
     assert!(
-        repo.path().join(".keel/decisions/use-duckdb.md").is_file(),
+        repo.path()
+            .join(".specline/decisions/use-duckdb.md")
+            .is_file(),
         "check mode must not delete"
     );
     assert_eq!(
         report.orphans,
-        vec![".keel/decisions/use-duckdb.md".to_owned()]
+        vec![".specline/decisions/use-duckdb.md".to_owned()]
     );
     assert!(
         !report.is_current(),
@@ -587,11 +591,11 @@ fn a_missing_or_unreadable_manifest_removes_nothing() {
         .unwrap();
     generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
 
-    let decision = repo.path().join(".keel/decisions/use-duckdb.md");
+    let decision = repo.path().join(".specline/decisions/use-duckdb.md");
     let spec = repo.path().join("product/SPEC.md");
     assert!(decision.is_file() && spec.is_file());
 
-    std::fs::write(repo.path().join(".keel/manifest.json"), "{ not json").unwrap();
+    std::fs::write(repo.path().join(".specline/manifest.json"), "{ not json").unwrap();
     let report = generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
 
     assert!(report.orphans.is_empty(), "{:?}", report.orphans);
@@ -611,13 +615,13 @@ fn pruning_refuses_paths_outside_the_mirror_root() {
     let (_home, store, project_id, _) = fixture(repo.path(), BODY);
     generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
 
-    let manifest = repo.path().join(".keel/manifest.json");
+    let manifest = repo.path().join(".specline/manifest.json");
     let mut parsed: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&manifest).unwrap()).unwrap();
     for path in [
         "product/SPEC.md",
         "../escape.md",
-        ".keel/../product/SPEC.md",
+        ".specline/../product/SPEC.md",
     ] {
         parsed["files"]
             .as_array_mut()
@@ -710,7 +714,7 @@ fn a_plan_can_be_applied_after_the_store_is_gone() {
 
     let report = plan.apply(Mode::Write).unwrap();
     assert!(repo.path().join("product/SPEC.md").is_file());
-    assert!(repo.path().join(".keel/manifest.json").is_file());
+    assert!(repo.path().join(".specline/manifest.json").is_file());
     assert!(
         report.written.iter().any(|p| p == "product/SPEC.md"),
         "the report should name what it wrote: {:?}",
@@ -952,4 +956,56 @@ fn a_document_that_adopted_the_changelog_path_keeps_it() {
         "and the skipped changelog must be reported, not dropped in silence: {:?}",
         report.unrepresented
     );
+}
+
+/// A mirror from before the rename is reported and never deleted.
+///
+/// Two properties, and they pull in opposite directions. Generation must *say*
+/// the old directory is there, because nothing regenerates it and a stale
+/// shadow of the store is the exact failure the mirror exists to avoid. And it
+/// must not remove it: pruning only ever deletes what this mirror's own
+/// manifest records writing, and a directory predating that record is outside
+/// it. Deleting anyway would mean removing files from somebody's repository on
+/// the strength of a guess about where they came from.
+#[test]
+fn a_mirror_from_before_the_rename_is_reported_and_left_alone() {
+    let repo = tempfile::tempdir().unwrap();
+    let (_home, store, project_id, _) = fixture(repo.path(), BODY);
+
+    let old = repo.path().join(".keel");
+    std::fs::create_dir_all(old.join("decisions")).unwrap();
+    let stranded = old.join("decisions/something-from-before.md");
+    std::fs::write(&stranded, "written when this was called Keel").unwrap();
+
+    let report = generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+
+    assert_eq!(
+        report.legacy_mirror.as_deref(),
+        Some(old.display().to_string().as_str()),
+        "a repository carrying the old mirror must be told so"
+    );
+    assert!(
+        stranded.is_file(),
+        "generation must not delete a directory it cannot prove it wrote"
+    );
+    assert!(
+        !report.orphans.iter().any(|o| o.starts_with(".keel/")),
+        "the old directory is not an orphan of this mirror: {:?}",
+        report.orphans
+    );
+    assert!(
+        repo.path().join(".specline").is_dir(),
+        "and the new mirror is written beside it"
+    );
+}
+
+/// The common case says nothing, so the note above means something when it appears.
+#[test]
+fn a_repository_with_no_old_mirror_reports_none() {
+    let repo = tempfile::tempdir().unwrap();
+    let (_home, store, project_id, _) = fixture(repo.path(), BODY);
+
+    let report = generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
+
+    assert_eq!(report.legacy_mirror, None);
 }

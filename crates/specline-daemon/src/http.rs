@@ -1092,6 +1092,7 @@ async fn api_generate(State(state): State<AppState>, Json(body): Json<Value>) ->
                 "unchanged": report.unchanged,
                 "unrepresented": report.unrepresented,
                 "orphans": report.orphans,
+                "legacy_mirror": report.legacy_mirror,
                 "checked": check,
             }})),
         )

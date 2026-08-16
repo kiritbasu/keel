@@ -258,7 +258,7 @@ pub struct Project {
     /// from the decision rows rather than being one artifact's prose, so no
     /// document can adopt the path and the destination has to belong to the
     /// project. `None` means this project does not want one, and its decisions
-    /// appear only as one file each under `.keel/decisions/`.
+    /// appear only as one file each under `.specline/decisions/`.
     pub decisions_path: Option<String>,
     /// Other names this project goes by. The main defence against UC-8's
     /// nine-near-duplicate-projects failure.
@@ -1460,7 +1460,7 @@ impl Entity {
     ///
     /// `None` for the nine types that carry no prose, and for prose artifacts
     /// that were born in Specline and have no natural home in a repository —
-    /// those go to the `.keel/` mirror at a generated path instead.
+    /// those go to the `.specline/` mirror at a generated path instead.
     pub fn mirror_path(&self) -> Option<&str> {
         match self {
             Entity::Spec(e) => e.mirror_path.as_deref(),

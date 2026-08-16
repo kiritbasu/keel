@@ -197,7 +197,7 @@ fn generate_runs_over_the_real_transport() {
             .is_some_and(|w| !w.is_empty()),
         "generate wrote nothing: {response}"
     );
-    assert!(repo.path().join(".keel/manifest.json").is_file());
+    assert!(repo.path().join(".specline/manifest.json").is_file());
 }
 
 #[test]

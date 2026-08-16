@@ -3,7 +3,7 @@
 //! The second half of the same dogfooding move that produced
 //! [`crate::render_status`]. The decision log was a hand-maintained numbered
 //! table, `B-1` to `B-25`, sitting alongside one generated file per decision
-//! under `.keel/decisions/`. Neither contained the other: 39 rows against 25
+//! under `.specline/decisions/`. Neither contained the other: 39 rows against 25
 //! table entries, only 11 of which carried a `B-n` at all, and where they did
 //! overlap the table held several hundred words of reasoning against the row's
 //! three-sentence summary.

@@ -12,7 +12,7 @@
 //! already carries its own heading and front matter and injecting more would
 //! corrupt a document someone wrote to be read as a whole.
 //!
-//! **The `.keel/` mirror** ([`crate::mirror`]) covers everything else: one file
+//! **The `.specline/` mirror** ([`crate::mirror`]) covers everything else: one file
 //! per spec and decision at a slugged path, plus the aggregated questions and
 //! glossary. That is the SPEC §8 export, and it is for artifacts that were born
 //! in Specline and have no natural home in the repository.
@@ -68,6 +68,14 @@ pub struct GenerateReport {
     /// than a missing file. Counted by [`GenerateReport::is_current`], so a
     /// repository carrying one fails `--check`.
     pub orphans: Vec<String>,
+    /// A mirror directory left from before the rename to Specline, if any.
+    ///
+    /// Reported, never removed, and deliberately *not* counted by
+    /// [`GenerateReport::is_current`]: it is not drift between the store and
+    /// the repository, it is a directory this mirror never wrote and cannot
+    /// prove it owns. Failing `--check` on it would block every commit until
+    /// somebody deleted files that generation is not itself willing to delete.
+    pub legacy_mirror: Option<String>,
 }
 
 impl GenerateReport {
@@ -101,14 +109,19 @@ pub fn all(
 #[derive(Debug)]
 pub struct GeneratePlan {
     /// Adopted prose, written before the mirror so that an artifact with an
-    /// explicit home is not also emitted into `.keel/`.
+    /// explicit home is not also emitted into `.specline/`.
     adopted: Vec<PlannedFile>,
-    /// The `.keel/` mirror, which has its own manifest and orphan handling.
+    /// The `.specline/` mirror, which has its own manifest and orphan handling.
     mirror: mirror::MirrorPlan,
     /// The tracker and the decision log, rendered from rows.
     rendered: Vec<PlannedFile>,
     /// What could not be represented as a file, decided while reading.
     unrepresented: Vec<String>,
+    /// A mirror directory from before the rename, noticed while planning.
+    ///
+    /// Carried on the plan rather than recomputed in `apply`, so that the
+    /// answer comes from the same repository root the plan was built against.
+    legacy_mirror: Option<String>,
 }
 
 impl GeneratePlan {
@@ -118,6 +131,7 @@ impl GeneratePlan {
     pub fn apply(self, mode: Mode) -> Result<GenerateReport> {
         let mut report = GenerateReport {
             unrepresented: self.unrepresented,
+            legacy_mirror: self.legacy_mirror,
             ..GenerateReport::default()
         };
         write_planned(
@@ -154,13 +168,14 @@ pub fn plan(store: &Store, project_id: &EntityId, repo_root: &Path) -> Result<Ge
     };
 
     let mut report = GenerateReport::default();
+    let legacy_mirror = crate::mirror::legacy_mirror_in(repo_root).map(|p| p.display().to_string());
     let mut adopted_files: Vec<PlannedFile> = Vec::new();
     let mut rendered: Vec<PlannedFile> = Vec::new();
 
     // --- Adopted prose files ---------------------------------------------
     //
     // Done before the mirror so that an artifact with an explicit home is
-    // written there and *not* also into `.keel/`, which would give one
+    // written there and *not* also into `.specline/`, which would give one
     // document two files and no answer to which is authoritative.
     let mut adopted: Vec<EntityId> = Vec::new();
     let mut adopted_paths: Vec<String> = Vec::new();
@@ -206,7 +221,7 @@ pub fn plan(store: &Store, project_id: &EntityId, repo_root: &Path) -> Result<Ge
         }
     }
 
-    // --- The `.keel/` mirror ---------------------------------------------
+    // --- The `.specline/` mirror ---------------------------------------------
     let mirror = mirror::plan_except(store, project_id, repo_root, &adopted)?;
 
     // --- The tracker ------------------------------------------------------
@@ -285,17 +300,18 @@ pub fn plan(store: &Store, project_id: &EntityId, repo_root: &Path) -> Result<Ge
         mirror,
         rendered,
         unrepresented: report.unrepresented,
+        legacy_mirror,
     })
 }
 
 /// Whether a recorded `mirror_path` means "adopt this file" or "put it in the
 /// mirror".
 ///
-/// A path under `.keel/` is the mirror's own bookkeeping, written by the mirror
+/// A path under `.specline/` is the mirror's own bookkeeping, written by the mirror
 /// and pointing at a slugged file it owns. Anything else is a real repository
 /// path the document has adopted.
 fn is_adopted(relative: &str) -> bool {
-    !relative.starts_with(".keel/") && !relative.is_empty()
+    !relative.starts_with(crate::mirror::MIRROR_PREFIX) && !relative.is_empty()
 }
 
 /// Render an adopted file: the body, verbatim, under a banner.
@@ -434,7 +450,7 @@ mod tests {
     fn a_path_under_dot_keel_belongs_to_the_mirror_not_to_adoption() {
         assert!(is_adopted("product/SPEC.md"));
         assert!(is_adopted("docs/architecture/overview.md"));
-        assert!(!is_adopted(".keel/specs/storage.md"));
+        assert!(!is_adopted(".specline/specs/storage.md"));
         assert!(!is_adopted(""));
     }
 

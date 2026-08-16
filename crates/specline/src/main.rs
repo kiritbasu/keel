@@ -339,7 +339,7 @@ enum Command {
     ///
     /// Specline is the source of truth; the markdown in the repo is an output.
     /// This writes the adopted prose files at their recorded paths, the
-    /// `.keel/` mirror for everything born in Specline, and the tracker.
+    /// `.specline/` mirror for everything born in Specline, and the tracker.
     ///
     /// One-directional: nothing here reads a generated file back into the
     /// store. It goes through the running daemon, which owns the store —

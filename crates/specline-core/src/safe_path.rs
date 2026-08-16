@@ -227,7 +227,7 @@ mod tests {
     #[test]
     fn ordinary_repo_paths_are_accepted() {
         assert!(ok("product/SPEC.md"));
-        assert!(ok(".keel/questions.md"));
+        assert!(ok(".specline/questions.md"));
         assert!(ok("docs/architecture/overview.md"));
         assert!(ok("README.md"));
     }

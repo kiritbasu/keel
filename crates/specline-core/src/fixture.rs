@@ -992,7 +992,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
         sp.kind = kind;
         sp.status = status;
         sp.mirror_path = Some(format!(
-            ".keel/specs/{}.md",
+            ".specline/specs/{}.md",
             title.to_lowercase().replace(' ', "-")
         ));
         let id = make(store, sp.into(), &chat, &mut s)?;
@@ -1082,7 +1082,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             d.decided_at = Some(now - Duration::days(30));
         }
         d.mirror_path = Some(format!(
-            ".keel/decisions/{}.md",
+            ".specline/decisions/{}.md",
             title.to_lowercase().replace(' ', "-")
         ));
         let id = make(store, d.into(), &chat, &mut s)?;
@@ -1198,7 +1198,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
         if !status.is_unresolved() {
             q.resolved_at = Some(now - Duration::days(14));
         }
-        q.mirror_path = Some(".keel/questions.md".to_owned());
+        q.mirror_path = Some(".specline/questions.md".to_owned());
         let id = make(store, q.into(), &chat, &mut s)?;
         write_doc(store, &id, project, title, body, &chat, &mut s)?;
         question_ids.push((title.to_owned(), id));
@@ -1342,7 +1342,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
     for (project, term, definition, aliases) in terms {
         let mut t = Term::new(project.cloned(), term, definition);
         t.aliases = aliases.iter().map(|a| (*a).to_owned()).collect();
-        t.mirror_path = Some(".keel/glossary.md".to_owned());
+        t.mirror_path = Some(".specline/glossary.md".to_owned());
         make(store, t.into(), &human, &mut s)?;
     }
 

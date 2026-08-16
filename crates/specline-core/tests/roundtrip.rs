@@ -62,7 +62,7 @@ fn one_of_each(project_id: &EntityId, metric_id: &EntityId) -> Vec<Entity> {
     let mut spec = Spec::new(project_id.clone(), "Storage specification");
     spec.kind = SpecKind::DesignDoc;
     spec.status = SpecStatus::Approved;
-    spec.mirror_path = Some(".keel/specs/storage.md".into());
+    spec.mirror_path = Some(".specline/specs/storage.md".into());
 
     let mut decision = Decision::new(project_id.clone(), "DuckDB and Lance, not SQLite");
     decision.status = DecisionStatus::Accepted;

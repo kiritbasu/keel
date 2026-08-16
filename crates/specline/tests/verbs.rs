@@ -300,7 +300,7 @@ fn generate_writes_the_mirror_and_check_agrees_afterwards() {
         "generate should say what it did: {out}"
     );
     assert!(
-        repo.path().join(".keel/manifest.json").is_file(),
+        repo.path().join(".specline/manifest.json").is_file(),
         "generate should have written the mirror manifest"
     );
 
@@ -328,7 +328,7 @@ fn generate_check_notices_a_hand_edit() {
     ];
     specline(home.path(), &args).expect_ok("specline generate");
 
-    let glossary = repo.path().join(".keel/glossary.md");
+    let glossary = repo.path().join(".specline/glossary.md");
     assert!(glossary.is_file(), "the fixture should produce a glossary");
     std::fs::write(&glossary, "I edited this by hand.\n").unwrap();
 

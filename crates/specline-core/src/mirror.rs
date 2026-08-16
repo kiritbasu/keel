@@ -1,6 +1,6 @@
 //! The one-directional markdown mirror.
 //!
-//! A generated export of a project's prose into `<repo>/.keel/`, so that specs,
+//! A generated export of a project's prose into `<repo>/.specline/`, so that specs,
 //! decisions, open questions and the glossary are legible offline, land in repo
 //! grep, and end up in an agent's context for free (Q-3: committed).
 //!
@@ -28,6 +28,44 @@ use crate::{Entity, EntityId, EntityQuery, EntityStore, EntityType, Error, Resul
 use serde::{Deserialize, Serialize};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
+
+/// The directory the mirror is written into, inside a project's repository.
+///
+/// One name for what used to be nine string literals, and the reason is a real
+/// failure rather than tidiness. The name appears in three different roles:
+/// the root files are written to, the prefix every recorded path carries, and
+/// the guard on [`MirrorReport`]'s pruning, which refuses to delete anything
+/// whose path does not start with it.
+///
+/// Those roles disagreeing is silent in the direction that matters. If the
+/// guard names one directory and the writer another, pruning stops finding
+/// anything to prune: no error, no warning, and orphaned files accumulate in a
+/// tree nobody is reading closely. Renaming the mirror was the first time all
+/// nine had to change together, which is a good argument for them never having
+/// been nine.
+pub const MIRROR_DIR: &str = ".specline";
+
+/// [`MIRROR_DIR`] with its separator, for the recorded relative paths.
+pub const MIRROR_PREFIX: &str = ".specline/";
+
+/// The directory Keel wrote its mirror into.
+///
+/// Nothing writes it. It exists so that a repository carrying an old mirror can
+/// be recognised and reported rather than silently gaining a second one beside
+/// it — see [`legacy_mirror_in`].
+pub const LEGACY_MIRROR_DIR: &str = ".keel";
+
+/// Whether a repository still carries a mirror written under the name Keel.
+///
+/// Generation does not delete it. Pruning only ever removes files this mirror's
+/// own manifest says it wrote, and a directory from before the rename is
+/// outside that record — deleting it would mean removing files on the strength
+/// of a guess about where they came from, in somebody's repository. So this
+/// reports, and the caller tells the person.
+pub fn legacy_mirror_in(repo_root: &Path) -> Option<PathBuf> {
+    let old = repo_root.join(LEGACY_MIRROR_DIR);
+    old.is_dir().then_some(old)
+}
 
 /// One generated file and what contributed to it.
 ///
@@ -85,7 +123,7 @@ pub struct MirrorReport {
     pub orphans: Vec<String>,
 }
 
-/// Generate the mirror for a project into `repo_root/.keel/`.
+/// Generate the mirror for a project into `repo_root/.specline/`.
 pub fn generate(store: &Store, project_id: &EntityId, repo_root: &Path) -> Result<MirrorReport> {
     generate_except(
         store,
@@ -173,7 +211,7 @@ impl MirrorPlan {
             if produced.contains(stale.as_str()) {
                 continue;
             }
-            if !stale.starts_with(".keel/") || stale.contains("..") {
+            if !stale.starts_with(MIRROR_PREFIX) || stale.contains("..") {
                 continue;
             }
             let Ok(absolute) = crate::safe_path::confine(&self.repo_root, stale) else {
@@ -200,7 +238,10 @@ impl MirrorPlan {
         // is dirty because a clock moved.
         if mode == crate::generate::Mode::Write {
             crate::atomic::write(
-                &crate::safe_path::confine(&self.repo_root, ".keel/manifest.json")?,
+                &crate::safe_path::confine(
+                    &self.repo_root,
+                    &format!("{MIRROR_PREFIX}manifest.json"),
+                )?,
                 &format!("{}\n", self.manifest_json),
             )?;
         }
@@ -226,7 +267,7 @@ pub fn plan_except(
         });
     };
 
-    let root = repo_root.join(".keel");
+    let root = repo_root.join(MIRROR_DIR);
     let mut writes: Vec<crate::generate::PlannedFile> = Vec::new();
     let mut files: Vec<MirrorFile> = Vec::new();
 
@@ -249,7 +290,11 @@ pub fn plan_except(
          - `manifest.json` — which artifacts produced which file\n",
         project.name, project.id, project.slug
     );
-    writes.push(planned(repo_root, ".keel/README.md", readme)?);
+    writes.push(planned(
+        repo_root,
+        &format!("{MIRROR_PREFIX}README.md"),
+        readme,
+    )?);
 
     // --- Specs and decisions, one file each ------------------------------
     for (entity_type, folder) in [
@@ -268,7 +313,7 @@ pub fn plan_except(
             }
             let doc = store.revision(entity.id(), None)?;
             let slug = slugify(entity.label());
-            let relative = format!(".keel/{folder}/{slug}.md");
+            let relative = format!("{MIRROR_PREFIX}{folder}/{slug}.md");
             let body = doc.as_ref().map(|d| d.body.as_str()).unwrap_or("");
             let version = doc.as_ref().map(|d| d.version).unwrap_or(0);
 
@@ -371,9 +416,13 @@ pub fn plan_except(
     if !any {
         writeln!(open, "*Nothing recorded.*").map_err(fmt_err)?;
     }
-    writes.push(planned(repo_root, ".keel/questions.md", open)?);
+    writes.push(planned(
+        repo_root,
+        &format!("{MIRROR_PREFIX}questions.md"),
+        open,
+    )?);
     files.push(MirrorFile {
-        path: ".keel/questions.md".to_owned(),
+        path: format!("{MIRROR_PREFIX}questions.md"),
         contributors,
     });
 
@@ -434,9 +483,13 @@ pub fn plan_except(
             });
         }
     }
-    writes.push(planned(repo_root, ".keel/glossary.md", glossary)?);
+    writes.push(planned(
+        repo_root,
+        &format!("{MIRROR_PREFIX}glossary.md"),
+        glossary,
+    )?);
     files.push(MirrorFile {
-        path: ".keel/glossary.md".to_owned(),
+        path: format!("{MIRROR_PREFIX}glossary.md"),
         contributors: term_contributors,
     });
 

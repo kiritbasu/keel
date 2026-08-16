@@ -64,6 +64,7 @@ pub fn run(
                 "unchanged": report.unchanged,
                 "unrepresented": report.unrepresented,
                 "orphans": report.orphans,
+                "legacy_mirror": report.legacy_mirror,
                 "checked": check,
             }))?
         );
@@ -97,6 +98,22 @@ pub fn run(
                 report.unchanged.len()
             );
         }
+
+        // A mirror from before the rename is reported, never deleted. Pruning
+        // only removes what this mirror's own manifest says it wrote, and a
+        // directory predating that record is outside it — removing it would
+        // mean deleting files in somebody's repository on the strength of a
+        // guess about where they came from. Saying so is the honest half: a
+        // repository with both directories has one nobody is regenerating, and
+        // that is exactly the stale-shadow problem the mirror exists to avoid.
+        if let Some(old) = &report.legacy_mirror {
+            println!(
+                "\n  note: {old} is a mirror from before the rename to Specline.\n  \
+                 Nothing regenerates it now, so it will go stale. Remove it when \
+                 you are happy with {}:\n\n      git rm -r {old}\n",
+                specline_core::mirror::MIRROR_DIR,
+            );
+        }
     }
 
     // `--check` is meant for a hook, so it has to fail loudly. A plain run
@@ -116,6 +133,11 @@ struct WireReport {
     unrepresented: Vec<String>,
     #[serde(default)]
     orphans: Vec<String>,
+    /// Absent from a daemon older than this field, which is why it defaults
+    /// rather than failing the parse. An old daemon simply does not mention a
+    /// legacy mirror; it does not assert there is none.
+    #[serde(default)]
+    legacy_mirror: Option<String>,
 }
 
 fn via_daemon(
@@ -177,6 +199,7 @@ fn via_daemon(
         unchanged: report.unchanged,
         unrepresented: report.unrepresented,
         orphans: report.orphans,
+        legacy_mirror: report.legacy_mirror,
     })
 }
 
