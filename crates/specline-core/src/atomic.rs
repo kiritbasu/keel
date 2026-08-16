@@ -22,14 +22,25 @@ use crate::{Error, Result};
 use std::io::Write as _;
 use std::path::Path;
 
+/// What marks a temporary file as ours, in the name and in the sweep for
+/// leftovers.
+///
+/// One constant because the two uses are a pair: the writer puts it in the
+/// filename and the test that proves nothing is left behind looks for it. If
+/// they ever disagree the test stops finding anything and passes — which is a
+/// test that has become an assertion about the empty set. The rename was the
+/// first time both had to change at once, and the sweep found them because
+/// neither is a filename anybody would grep for.
+const TEMP_MARKER: &str = "specline";
+
 /// Write `content` to `path`, atomically.
 ///
 /// Creates the parent directory if it is missing, which is what every caller
 /// wanted anyway — a generated tree includes directories that do not exist yet.
 ///
-/// The temporary file is named from the process id so two Keels generating into
-/// one repository cannot collide on it, and it is removed on the failure paths
-/// so a full disk does not also leave litter.
+/// The temporary file is named from the process id so two Specline processes
+/// generating into one repository cannot collide on it, and it is removed on
+/// the failure paths so a full disk does not also leave litter.
 pub fn write(path: &Path, content: &str) -> Result<()> {
     if let Some(parent) = path.parent()
         && !parent.as_os_str().is_empty()
@@ -83,7 +94,7 @@ fn temp_path(path: &Path) -> std::path::PathBuf {
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "specline".to_owned());
-    let temp = format!(".{name}.keel-{}.tmp", std::process::id());
+    let temp = format!(".{name}.{TEMP_MARKER}-{}.tmp", std::process::id());
     match path.parent() {
         Some(dir) if !dir.as_os_str().is_empty() => dir.join(temp),
         _ => std::path::PathBuf::from(temp),
@@ -132,7 +143,7 @@ mod tests {
             .unwrap()
             .filter_map(std::result::Result::ok)
             .map(|e| e.file_name().to_string_lossy().into_owned())
-            .filter(|n| n.contains("keel-") && n.ends_with(".tmp"))
+            .filter(|n| n.contains(TEMP_MARKER) && n.ends_with(".tmp"))
             .collect();
         assert!(leftovers.is_empty(), "left behind {leftovers:?}");
     }

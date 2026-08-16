@@ -4,7 +4,7 @@
     "name": "KB"
   },
   "metadata": {
-    "description": "Keel — a local-first store for everything about a software project except the code.",
+    "description": "Specline — a local-first store for everything about a software project except the code.",
     "version": "0.1.5"
   },
   "plugins": [

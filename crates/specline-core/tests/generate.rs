@@ -206,7 +206,7 @@ fn check_mode_reports_a_hand_edit_and_does_not_overwrite_it() {
 }
 
 #[test]
-fn a_new_revision_in_keel_reaches_the_file() {
+fn a_new_revision_in_specline_reaches_the_file() {
     let repo = tempfile::tempdir().unwrap();
     let (_home, mut store, project_id, spec_id) = fixture(repo.path(), BODY);
     generate::all(&store, &project_id, repo.path(), Mode::Write).unwrap();
@@ -667,7 +667,7 @@ fn a_generated_file_is_never_left_half_written() {
     let blocker = dir
         .path()
         .join("product")
-        .join(format!(".CLAUDE.md.keel-{}.tmp", std::process::id()));
+        .join(format!(".CLAUDE.md.specline-{}.tmp", std::process::id()));
     std::fs::create_dir(&blocker).unwrap();
 
     let failed = specline_core::atomic::write(&path, new);
@@ -708,7 +708,7 @@ fn a_plan_can_be_applied_after_the_store_is_gone() {
         !repo.path().join("product/SPEC.md").exists(),
         "planning must not write anything"
     );
-    assert!(!repo.path().join(".keel").exists());
+    assert!(!repo.path().join(".specline").exists());
 
     drop(store);
 
@@ -972,7 +972,10 @@ fn a_mirror_from_before_the_rename_is_reported_and_left_alone() {
     let repo = tempfile::tempdir().unwrap();
     let (_home, store, project_id, _) = fixture(repo.path(), BODY);
 
-    let old = repo.path().join(".keel");
+    // Both directory names come from the constants, never from a literal. A
+    // literal here was rewritten by the very sweep this phase ran, so the test
+    // built the *new* mirror and then asserted it was the old one.
+    let old = repo.path().join(specline_core::mirror::LEGACY_MIRROR_DIR);
     std::fs::create_dir_all(old.join("decisions")).unwrap();
     let stranded = old.join("decisions/something-from-before.md");
     std::fs::write(&stranded, "written when this was called Keel").unwrap();
@@ -989,12 +992,15 @@ fn a_mirror_from_before_the_rename_is_reported_and_left_alone() {
         "generation must not delete a directory it cannot prove it wrote"
     );
     assert!(
-        !report.orphans.iter().any(|o| o.starts_with(".keel/")),
+        !report
+            .orphans
+            .iter()
+            .any(|o| o.starts_with(specline_core::mirror::LEGACY_MIRROR_DIR)),
         "the old directory is not an orphan of this mirror: {:?}",
         report.orphans
     );
     assert!(
-        repo.path().join(".specline").is_dir(),
+        repo.path().join(specline_core::mirror::MIRROR_DIR).is_dir(),
         "and the new mirror is written beside it"
     );
 }

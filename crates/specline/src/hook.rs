@@ -21,7 +21,7 @@
 //! # What did not move
 //!
 //! A shim stays in `plugin/hooks/`, and it has to. The install flow needs a
-//! session to be able to say *"the binary is missing, run `/keel:setup`"* — and
+//! session to be able to say *"the binary is missing, run `/specline:setup`"* — and
 //! a hook that **is** the binary cannot report its own absence. So the shim is
 //! the smallest thing that can: it execs this if the binary is there, and
 //! prints one sentence if it is not. Everything that can change is on this side
@@ -129,7 +129,7 @@ fn get_json(daemon: &str, path: &str, query: &[(&str, &str)]) -> Option<Value> {
 /// thing is how they come to disagree.
 const PREAMBLE: &str = "Specline holds this project's specs, decisions, tasks, questions and history. \
 You did not have to ask for this — it is here so you start oriented. Write back to it when \
-something becomes true, with the keel_* tools; the `specline` skill has the detail on what belongs \
+something becomes true, with the specline_* tools; the `specline` skill has the detail on what belongs \
 where.\n\n\
 Record it rather than offering to. In a measured run, five of ten sessions worked out exactly \
 what should be captured, drafted it, then asked permission and stopped — so it was lost. Write \
@@ -478,7 +478,7 @@ mod tests {
     /// KEEL-192, and the reason this file exists: the behaviour was fixed by
     /// reading and guarded by nothing.
     #[test]
-    fn a_directory_with_no_project_is_not_a_keel_directory() {
+    fn a_directory_with_no_project_is_not_a_specline_directory() {
         assert!(directory_is_a_project(
             &json!({"data": {"project": {"slug": "specline"}}})
         ));

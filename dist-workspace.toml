@@ -76,7 +76,7 @@ ci = ["github"]
 # when someone asks, with test coverage from the first commit (§10).
 # **Three again, since KEEL-252.** The `ort-sys` failures below were real and are
 # now avoided rather than worked around: `[package.metadata.dist] default-features
-# = false` in `crates/keel/Cargo.toml` takes the ONNX runtime out of the release
+# = false` in `crates/specline/Cargo.toml` takes the ONNX runtime out of the release
 # build entirely, so every one of these links. The comment above is kept because
 # it is the reason this list was ever one item, and because the constraint it
 # describes has not gone away — it is only no longer in the way.
@@ -112,7 +112,7 @@ installers = ["shell"]
 checksum = "sha256"
 
 # Build provenance, so a downloaded archive can be traced to the workflow run
-# and commit that produced it (`gh attestation verify <file> --repo <owner>/keel`).
+# and commit that produced it (`gh attestation verify <file> --repo <owner>/specline`).
 #
 # Confirmed: `github_attestations`, and workspace-level only — `dist` warns and
 # ignores it if it appears under `[package.metadata.dist]`, which is why it is
@@ -185,7 +185,7 @@ allow-dirty = ["ci"]
 # 2. **`publish = false`.** Real, and it hid everything: `dist plan` refused the
 #    whole workspace with "no packages in your workspace with distable
 #    binaries". The opt-in is `[package.metadata.dist] dist = true`, per package,
-#    with no workspace-level form — it is in `crates/keel/Cargo.toml`, and
+#    with no workspace-level form — it is in `crates/specline/Cargo.toml`, and
 #    `crates/specline-daemon/Cargo.toml` sets `dist = false` so that a binary added
 #    back there fails the plan instead of quietly becoming a second installer.
 #
@@ -211,13 +211,13 @@ allow-dirty = ["ci"]
 # attesting, so provenance covers the bytes people download. It fails the
 # release if the text it expects is not there, which is how a `dist` upgrade
 # that fixes this upstream gets noticed instead of being papered over.
-# `crates/keel/tests/installer_checksum.rs` is the proof, including a test that
+# `crates/specline/tests/installer_checksum.rs` is the proof, including a test that
 # pins the unpatched behaviour so the patch can be deleted with evidence.
 #
 # The second is the one that actually reached a user, and it is worse: with no
 # checksum embedded at all the installer says "no checksums to verify" and
 # unpacks the archive. That branch is now a refusal too, because the installer
 # should not depend on the release having been built correctly to be safe — and
-# on 0.1.2 it was not. `crates/keel/tests/installer_embedded_checksums.rs`
+# on 0.1.2 it was not. `crates/specline/tests/installer_embedded_checksums.rs`
 # covers the other half, the release-time check that the digest in the installer
 # is the digest of the archive being published.

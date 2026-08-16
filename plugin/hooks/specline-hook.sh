@@ -3,7 +3,7 @@
 # The only shell left, and it stays for one reason: a hook that *is* the binary
 # cannot report the binary's absence.
 #
-# Between installing the plugin and running `/keel:setup` there is no `specline` on
+# Between installing the plugin and running `/specline:setup` there is no `specline` on
 # the machine, and the session should say so rather than starting silently
 # unoriented. That sentence has to come from something that runs without Specline —
 # so it comes from here, and everything that can change is on the other side of
@@ -17,7 +17,7 @@
 # like Specline being broken.
 #
 # Nothing here holds logic worth testing. Everything that does is in
-# `specline hook`, with `crates/keel/tests/hooks.rs` running it for real.
+# `specline hook`, with `crates/specline/tests/hooks.rs` running it for real.
 #
 # Usage: specline-hook.sh session-start | stop
 
@@ -29,14 +29,14 @@ event="${1:-}"
 # Where the installer puts it, then whatever is on PATH. `command -v` rather
 # than a hardcoded path so a non-standard install still works.
 #
-# `~/.local/bin/keel` used to be first on this list, and it was the wrong place:
+# `~/.local/bin/specline` used to be first on this list, and it was the wrong place:
 # no release has ever written there, only the old default of
 # `plugin/install.sh`. So a machine with both had its session hook running a
 # development build while everything else ran the released one (KEEL-234). One
 # location, and it is the one a release installs to.
 specline="${SPECLINE_BIN:-}"
 if [ -z "$specline" ]; then
-    for candidate in "${CARGO_HOME:-$HOME/.cargo}/bin/keel" "$HOME/.cargo/bin/keel"; do
+    for candidate in "${CARGO_HOME:-$HOME/.cargo}/bin/specline" "$HOME/.cargo/bin/specline"; do
         [ -x "$candidate" ] && specline="$candidate" && break
     done
 fi
@@ -62,4 +62,4 @@ fi
 # and `Stop` output would block it.
 [ "$event" = "session-start" ] || exit 0
 
-printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"The Specline plugin is installed but the `specline` binary is not on this machine yet, so this session has no project context and the keel_* tools will not answer. Run /keel:setup to install it, then restart Claude Code."}}'
+printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"The Specline plugin is installed but the `specline` binary is not on this machine yet, so this session has no project context and the specline_* tools will not answer. Run /specline:setup to install it, then restart Claude Code."}}'

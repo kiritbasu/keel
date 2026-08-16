@@ -30,7 +30,7 @@ expression: cases
   "unknown_tool": {
     "error": {
       "code": -32602,
-      "message": "no tool named `keel_delete`. Available: specline_context, specline_search, specline_get, specline_projects, specline_activity, specline_create, specline_update, specline_write_doc, specline_note, specline_link, specline_ready, specline_claim, specline_close"
+      "message": "no tool named `specline_delete`. Available: specline_context, specline_search, specline_get, specline_projects, specline_activity, specline_create, specline_update, specline_write_doc, specline_note, specline_link, specline_ready, specline_claim, specline_close"
     }
   }
 }

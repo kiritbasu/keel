@@ -895,7 +895,7 @@ fn an_acknowledged_one_passes() {
 /// change would be a gate people learn to satisfy without reading.
 #[test]
 fn additive_differences_need_no_entry() {
-    let differences = vec![additive("tools", "tool `keel_x` was added")];
+    let differences = vec![additive("tools", "tool `specline_x` was added")];
     assert!(gate(&differences, &[]).passes());
 }
 

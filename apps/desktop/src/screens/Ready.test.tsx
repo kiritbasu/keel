@@ -17,7 +17,7 @@ const READY = {
     {
       id: "tsk_2",
       reference: "KEEL-108",
-      title: "keel ready: what can be worked on right now",
+      title: "specline ready: what can be worked on right now",
       priority: "p0",
       unblocks: 2,
       why: "unblocks 2 other tasks · p0",

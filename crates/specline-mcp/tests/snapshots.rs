@@ -206,7 +206,7 @@ fn error_shapes() {
         "unknown_project": call(
             &mut seed.store, "specline_context", json!({"project": "does-not-exist"})
         ),
-        "unknown_tool": call(&mut seed.store, "keel_delete", json!({})),
+        "unknown_tool": call(&mut seed.store, "specline_delete", json!({})),
         "bad_timestamp": call(
             &mut seed.store, "specline_activity", json!({"since": "last tuesday"})
         ),
@@ -251,7 +251,7 @@ fn every_advertised_tool_is_dispatchable_and_vice_versa() {
     let unknown = dispatch(
         &mut seed.store,
         ToolCall {
-            name: "keel_teleport",
+            name: "specline_teleport",
             arguments: &json!({}),
         },
     )
@@ -441,7 +441,7 @@ fn every_tool_has_a_response_snapshot() {
         missing.is_empty(),
         "these tools are advertised but have no response snapshot: {missing:?}\n\
          Add a test that calls the tool against `seeded()` and snapshots the result as \
-         `keel_<name>`. A tool whose response shape nothing has pinned can be renamed in a \
+         `specline_<name>`. A tool whose response shape nothing has pinned can be renamed in a \
          way no diff shows."
     );
 }

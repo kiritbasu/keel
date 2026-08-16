@@ -74,7 +74,7 @@ fn an_unopenable_store_exits_zero_and_says_why() {
 #[test]
 fn a_synced_home_is_warned_about_at_startup() {
     let dir = tempfile::tempdir().unwrap();
-    let home = dir.path().join("Dropbox").join(".keel");
+    let home = dir.path().join("Dropbox").join(".specline");
     std::fs::create_dir_all(home.join("specline.sqlite")).unwrap();
 
     let output = Command::new(env!("CARGO_BIN_EXE_specline-daemon"))

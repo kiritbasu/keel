@@ -159,7 +159,7 @@ mkdir -p "$CLEAN_HOME" "$DIRTY_HOME" "$LOGS"
 #
 # **Tier 1 has to be runnable before the tag, or it verifies nothing that
 # matters.** The generated installer downloads from
-# `github.com/<owner>/keel/releases/download/<version>`, so a run that only
+# `github.com/<owner>/specline/releases/download/<version>`, so a run that only
 # works once a release exists can only ever confirm what has already shipped —
 # which is the wrong way round for a gate whose job is to stop a bad release.
 #

@@ -90,8 +90,15 @@ impl Level {
 pub struct SessionRead {
     /// Claude Code's session UUID. One per transcript, so it cannot collide.
     pub session_id: String,
-    /// Specline tools the session actually invoked.
-    pub keel_tools: Vec<String>,
+    /// This project's tools that the session actually invoked, under either
+    /// spelling of the prefix.
+    ///
+    /// The alias keeps `.gate-runs/` readable. Those files are the frozen
+    /// measurement's raw evidence, written under the old field name, and a
+    /// rename without it would make them deserialise to an empty list — every
+    /// historical session reading as L1 rather than failing.
+    #[serde(alias = "tools")]
+    pub tools: Vec<String>,
     /// Write attempts, whether or not they succeeded.
     pub write_attempts: usize,
     /// Write attempts the store rejected — validation, not permission.
@@ -148,7 +155,7 @@ fn is_our_tool(name: &str) -> bool {
 /// `landed` is whether the event log confirms a write reached the store, which
 /// is the only way to tell L4/L5 from a write that was attempted and rejected.
 pub fn classify(
-    keel_tools: &[String],
+    tools: &[String],
     write_attempts: usize,
     landed: bool,
     offers: &[String],
@@ -168,7 +175,7 @@ pub fn classify(
         // stopped: the intent formed and no record exists.
         return Level::L3OfferedNotWritten;
     }
-    if keel_tools.is_empty() {
+    if tools.is_empty() {
         return Level::L1NoSignOfNoticing;
     }
     Level::L2NoticedNoDraft
@@ -255,7 +262,7 @@ mod tests {
     fn read(level: Level, offers: usize) -> SessionRead {
         SessionRead {
             session_id: "s".into(),
-            keel_tools: vec![],
+            tools: vec![],
             write_attempts: 0,
             write_errors: vec![],
             permission_denials: 0,
@@ -367,7 +374,7 @@ pub fn read_transcript(path: &Path) -> Result<SessionRead> {
         .with_context(|| format!("read transcript {}", path.display()))?;
 
     let mut session_id = String::new();
-    let mut keel_tools: Vec<String> = Vec::new();
+    let mut tools: Vec<String> = Vec::new();
     let mut write_attempts = 0usize;
     let mut write_errors: Vec<String> = Vec::new();
     let mut permission_denials = 0usize;
@@ -409,7 +416,7 @@ pub fn read_transcript(path: &Path) -> Result<SessionRead> {
                         continue;
                     }
                     let short = name.rsplit("__").next().unwrap_or(name).to_owned();
-                    keel_tools.push(short);
+                    tools.push(short);
                     if is_write_tool(name) {
                         write_attempts += 1;
                         if let Some(id) = block.get("id").and_then(|v| v.as_str()) {
@@ -452,7 +459,7 @@ pub fn read_transcript(path: &Path) -> Result<SessionRead> {
     let offers = find_offers(&last_text);
     Ok(SessionRead {
         session_id,
-        keel_tools,
+        tools,
         write_attempts,
         write_errors,
         permission_denials,
@@ -483,22 +490,22 @@ mod transcript_tests {
     fn both_spellings_of_the_prefix_score_identically() {
         let dir = tempfile::tempdir().unwrap();
 
-        for (name, prefix) in [("old.jsonl", "keel"), ("new.jsonl", "specline")] {
+        // Taken from the constant rather than spelled again, so this test
+        // cannot drift from the list the scorer actually uses.
+        for (name, prefix) in TOOL_PREFIXES
+            .iter()
+            .enumerate()
+            .map(|(i, p)| (format!("t{i}.jsonl"), *p))
+        {
             let line = format!(
                 r#"{{"sessionId":"s","message":{{"content":[{{"type":"tool_use","name":"mcp__{prefix}__{prefix}_create","id":"w1"}}]}}}}"#
             );
-            let path = write_jsonl(dir.path(), name, &[&line]);
+            let path = write_jsonl(dir.path(), &name, &[&line]);
             let read = read_transcript(&path).unwrap();
 
             assert_eq!(read.write_attempts, 1, "{prefix}: the write was not seen");
             assert_eq!(
-                classify(
-                    &read.keel_tools,
-                    read.write_attempts,
-                    true,
-                    &read.offers,
-                    true
-                ),
+                classify(&read.tools, read.write_attempts, true, &read.offers, true),
                 Level::L5WroteWell,
                 "{prefix}: scored differently from the other spelling"
             );
@@ -518,12 +525,12 @@ mod transcript_tests {
         );
         let read = read_transcript(&path).unwrap();
 
-        assert!(read.keel_tools.is_empty(), "a foreign tool was counted");
+        assert!(read.tools.is_empty(), "a foreign tool was counted");
         assert_eq!(read.write_attempts, 0);
     }
 
     #[test]
-    fn a_transcript_with_no_keel_calls_reads_as_untouched() {
+    fn a_transcript_with_no_specline_calls_reads_as_untouched() {
         let dir = tempfile::tempdir().unwrap();
         let p = write_jsonl(
             dir.path(),
@@ -535,11 +542,11 @@ mod transcript_tests {
         );
         let r = read_transcript(&p).unwrap();
         assert_eq!(r.session_id, "abc");
-        assert!(r.keel_tools.is_empty());
+        assert!(r.tools.is_empty());
         assert_eq!(r.write_attempts, 0);
         assert!(r.offers.is_empty());
         assert_eq!(
-            classify(&r.keel_tools, 0, false, &r.offers, true),
+            classify(&r.tools, 0, false, &r.offers, true),
             Level::L1NoSignOfNoticing
         );
     }
@@ -561,10 +568,10 @@ mod transcript_tests {
         // reports what the session actually called, not what it would be
         // called today — a scorer that normalised the name would be quietly
         // rewriting the evidence.
-        assert_eq!(r.keel_tools, vec!["keel_context"]);
+        assert_eq!(r.tools, vec!["keel_context"]);
         assert_eq!(r.offers.len(), 2, "two distinct markers in one sentence");
         assert_eq!(
-            classify(&r.keel_tools, 0, false, &r.offers, true),
+            classify(&r.tools, 0, false, &r.offers, true),
             Level::L3OfferedNotWritten
         );
     }
@@ -652,7 +659,7 @@ mod known_answer_fixtures {
             .map(|n| canned(dir.path(), n, false, false))
             .collect();
         for r in &mut reads {
-            r.level = classify(&r.keel_tools, r.write_attempts, false, &r.offers, true);
+            r.level = classify(&r.tools, r.write_attempts, false, &r.offers, true);
         }
         let s = score(10, &reads);
         assert_eq!(s.recall, 0.0, "no writes must score zero recall");
@@ -668,7 +675,7 @@ mod known_answer_fixtures {
             .map(|n| canned(dir.path(), n, true, false))
             .collect();
         for r in &mut reads {
-            r.level = classify(&r.keel_tools, r.write_attempts, true, &r.offers, true);
+            r.level = classify(&r.tools, r.write_attempts, true, &r.offers, true);
         }
         let s = score(10, &reads);
         assert_eq!(s.recall, 1.0);
@@ -684,7 +691,7 @@ mod known_answer_fixtures {
         let mut reads: Vec<SessionRead> =
             (0..3).map(|n| canned(dir.path(), n, true, false)).collect();
         for r in &mut reads {
-            r.level = classify(&r.keel_tools, r.write_attempts, true, &r.offers, true);
+            r.level = classify(&r.tools, r.write_attempts, true, &r.offers, true);
         }
         let s = score(10, &reads);
         assert!(
@@ -716,7 +723,7 @@ mod known_answer_fixtures {
             reads.push(read_transcript(&p).unwrap()); // never touched Specline
         }
         for r in &mut reads {
-            r.level = classify(&r.keel_tools, r.write_attempts, false, &r.offers, true);
+            r.level = classify(&r.tools, r.write_attempts, false, &r.offers, true);
         }
         let s = score(10, &reads);
         assert_eq!(s.recall, 0.0, "nobody wrote");

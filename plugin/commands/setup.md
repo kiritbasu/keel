@@ -15,7 +15,7 @@ fails — the script says what went wrong and what to do about it, and a second
 opinion improvised here would only compete with that.
 
 When it finishes, tell the user in one line that they need to **restart Claude
-Code**: MCP servers are connected at startup, so the `keel_*` tools will not
+Code**: MCP servers are connected at startup, so the `specline_*` tools will not
 appear in this session however well the install went.
 
 Relay the "What leaves your machine" paragraph too, rather than summarising it

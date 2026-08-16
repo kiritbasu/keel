@@ -167,7 +167,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
     specline.repo_urls = vec!["https://github.com/kb/specline".to_owned()];
     specline.aliases = vec!["project spine".to_owned(), "the specline store".to_owned()];
     specline.root_path = Some("~/development/specline".to_owned());
-    let keel_id = make(store, specline.into(), &human, &mut s)?;
+    let specline_id = make(store, specline.into(), &human, &mut s)?;
 
     // ------------------------------------------------------------- Harbour
     let mut harbour = Project::new("harbour", "Harbour");
@@ -194,7 +194,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
     // --- Milestones ------------------------------------------------------
     let milestones: Vec<MilestoneRow<'_>> = vec![
         (
-            &keel_id,
+            &specline_id,
             "Phase 0 — Spine",
             "Storage, schema, event log, graph. No network, no UI.",
             MilestoneStatus::Open,
@@ -203,7 +203,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             None,
         ),
         (
-            &keel_id,
+            &specline_id,
             "Phase 1 — Daemon",
             "axum, nine MCP tools, hybrid search wired to the tool surface.",
             MilestoneStatus::Open,
@@ -212,7 +212,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             None,
         ),
         (
-            &keel_id,
+            &specline_id,
             "Phase 2 — Plugin",
             "The skill, session threading, mirror hooks. The real test of the premise.",
             MilestoneStatus::Open,
@@ -221,7 +221,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             None,
         ),
         (
-            &keel_id,
+            &specline_id,
             "Phase 3 — Desktop",
             "Tauri shell and the seven v1 screens.",
             MilestoneStatus::Open,
@@ -300,7 +300,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
     // --- Tasks -----------------------------------------------------------
     let tasks: Vec<TaskRow<'_>> = vec![
         (
-            &keel_id,
+            &specline_id,
             0,
             "Verify the Lance DuckDB extension against running code",
             "The spec was written from documentation. Confirm ATTACH syntax, the hybrid search signature, and whether DuckPGQ can coexist.",
@@ -310,7 +310,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["storage", "risk"],
         ),
         (
-            &keel_id,
+            &specline_id,
             0,
             "Forward-only DuckDB migrations",
             "Numbered, recorded in _keel_migrations, applied in order. No down migrations.",
@@ -320,7 +320,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["storage"],
         ),
         (
-            &keel_id,
+            &specline_id,
             0,
             "Graph traversal with direction tests for every relation",
             "One test per relation asserting both directions, plus both inversions. An inverted traversal returns an empty set that looks legitimate.",
@@ -330,7 +330,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["graph", "correctness"],
         ),
         (
-            &keel_id,
+            &specline_id,
             0,
             "Document revisions with content-addressed dedupe",
             "Identical bodies must not grow the history — the mirror hook regenerates and re-reads files constantly.",
@@ -340,7 +340,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["storage"],
         ),
         (
-            &keel_id,
+            &specline_id,
             0,
             "Hybrid search fusing Lance and DuckDB FTS",
             "Reciprocal rank fusion. BM25 and vector distances are not on comparable scales.",
@@ -350,7 +350,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["search"],
         ),
         (
-            &keel_id,
+            &specline_id,
             0,
             "Backup including the Lance datasets, not just DuckDB",
             "A Lance snapshot is not an escape hatch from Lance. Parquet export of both.",
@@ -360,7 +360,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["backup", "risk"],
         ),
         (
-            &keel_id,
+            &specline_id,
             0,
             "fsck for cross-engine referential integrity",
             "Foreign keys cannot be declared across the two engines, so this is the safety net.",
@@ -370,7 +370,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["correctness"],
         ),
         (
-            &keel_id,
+            &specline_id,
             1,
             "axum server with the stateless MCP transport",
             "2026-07-28: no handshake, no session header, Mcp-Method and Mcp-Name required on every POST.",
@@ -380,7 +380,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["daemon", "mcp"],
         ),
         (
-            &keel_id,
+            &specline_id,
             1,
             "Implement server/discover",
             "Required by the 2026-07-28 spec. Advertises supported versions, capabilities and identity.",
@@ -390,7 +390,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["daemon", "mcp"],
         ),
         (
-            &keel_id,
+            &specline_id,
             1,
             "specline_context digest within a 4k token budget",
             "Questions and terms are never truncated; everything else degrades and reports what it dropped.",
@@ -400,7 +400,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["daemon", "mcp"],
         ),
         (
-            &keel_id,
+            &specline_id,
             1,
             "keel-cli render-status for the dogfooding switch",
             "The mirror is prose-only, so STATUS.md needs its own renderer.",
@@ -410,7 +410,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["cli"],
         ),
         (
-            &keel_id,
+            &specline_id,
             2,
             "Write the skill that teaches Claude when to write",
             "Phase 2 is the real test. If Specline is not useful with no UI, the premise is wrong.",
@@ -420,7 +420,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["plugin"],
         ),
         (
-            &keel_id,
+            &specline_id,
             2,
             "PostToolUse hook for mirror edits",
             "Event-triggered, not reconciliation-triggered. Reads the file once, as the payload of a known edit.",
@@ -430,7 +430,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["plugin", "mirror"],
         ),
         (
-            &keel_id,
+            &specline_id,
             3,
             "Tauri shell with the daemon as a sidecar",
             "Same bundle as the eventual web build, different base URL.",
@@ -440,7 +440,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["desktop"],
         ),
         (
-            &keel_id,
+            &specline_id,
             3,
             "Activity feed screen",
             "REQ-10 lists it as v1. 'What did Claude do today.'",
@@ -670,7 +670,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["frontend", "design"],
         ),
         (
-            &keel_id,
+            &specline_id,
             0,
             "Realistic fixture corpus across all types and relations",
             "It is also the search-quality corpus, so the prose has to be real.",
@@ -680,7 +680,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["testing"],
         ),
         (
-            &keel_id,
+            &specline_id,
             0,
             "Backup verification that asserts rather than eyeballs",
             "Compare row counts per table on both engines against the manifest.",
@@ -690,7 +690,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["backup", "testing"],
         ),
         (
-            &keel_id,
+            &specline_id,
             0,
             "Monotonic ULID generation",
             "Plain ULIDs are not ordered within a millisecond, which would make the event cursor skip rows.",
@@ -700,7 +700,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["correctness"],
         ),
         (
-            &keel_id,
+            &specline_id,
             0,
             "Rebuild the entity FTS index when the event log moves",
             "DuckDB's FTS index is a snapshot. A task created after the last build is silently unfindable.",
@@ -710,7 +710,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["search", "correctness"],
         ),
         (
-            &keel_id,
+            &specline_id,
             1,
             "specline_search wired to the Phase 0 hybrid implementation",
             "The fusion already exists; this is the tool surface over it.",
@@ -720,7 +720,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["daemon", "mcp"],
         ),
         (
-            &keel_id,
+            &specline_id,
             1,
             "specline_get with linked neighbours and a diff_against argument",
             "REQ-2 wants diffs at the API layer, not only in the UI.",
@@ -730,7 +730,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["daemon", "mcp"],
         ),
         (
-            &keel_id,
+            &specline_id,
             1,
             "specline_projects fuzzy matching for disambiguation",
             "The defence against nine near-duplicate projects. Matches name, slug, aliases and repo URL.",
@@ -740,7 +740,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["daemon", "mcp"],
         ),
         (
-            &keel_id,
+            &specline_id,
             1,
             "409 payload carrying current state and events since the read",
             "So a losing writer can usually merge instead of giving up.",
@@ -750,7 +750,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["daemon"],
         ),
         (
-            &keel_id,
+            &specline_id,
             1,
             "Local REST and SSE surface for the desktop app",
             "Same shape as a remote daemon, so the web build is the same bundle.",
@@ -760,7 +760,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["daemon"],
         ),
         (
-            &keel_id,
+            &specline_id,
             2,
             "Project confirmation before creating one",
             "UC-8. The plugin must ask the human rather than guessing.",
@@ -770,7 +770,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["plugin"],
         ),
         (
-            &keel_id,
+            &specline_id,
             2,
             "Markdown mirror generator",
             "One-directional export. Never reconciled against the database.",
@@ -780,7 +780,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["plugin", "mirror"],
         ),
         (
-            &keel_id,
+            &specline_id,
             3,
             "Roadmap timeline across one or all projects",
             "Built from milestones, which is what they are for.",
@@ -790,7 +790,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["desktop"],
         ),
         (
-            &keel_id,
+            &specline_id,
             3,
             "Search screen with type facets",
             "Cross-project, faceted, keyboard-driven.",
@@ -800,7 +800,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["desktop"],
         ),
         (
-            &keel_id,
+            &specline_id,
             3,
             "Document reader with side-by-side revision diff",
             "The diff already exists in specline-core; this is the rendering.",
@@ -899,7 +899,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
     // --- Specs, with bodies ----------------------------------------------
     let specs: Vec<SpecRow<'_>> = vec![
         (
-            &keel_id,
+            &specline_id,
             "Specline storage specification",
             SpecKind::Spec,
             SpecStatus::Approved,
@@ -917,7 +917,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
           write; audit with fsck.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "MCP tool surface",
             SpecKind::Spec,
             SpecStatus::Draft,
@@ -931,7 +931,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
           agent less informed, but a truncated glossary makes it confidently wrong.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Agent orientation digest",
             SpecKind::DesignDoc,
             SpecStatus::Draft,
@@ -1003,7 +1003,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
     // --- Decisions -------------------------------------------------------
     let decisions: Vec<DecisionRow<'_>> = vec![
         (
-            &keel_id,
+            &specline_id,
             "DuckDB and Lance, not SQLite",
             DecisionStatus::Accepted,
             "## Context\n\nThe store needs relational queries over mutable rows, hybrid semantic \
@@ -1014,7 +1014,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
           is why the Parquet export exists.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "The daemon owns the single write path",
             DecisionStatus::Accepted,
             "## Context\n\nDuckDB is single-process for writes.\n\n## Decision\n\nOne daemon holds \
@@ -1025,7 +1025,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
           multi-process writes become possible.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Recursive CTEs for the graph, not DuckPGQ",
             DecisionStatus::Accepted,
             "## Context\n\nThe graph will have a few thousand edges.\n\n## Decision\n\nRecursive \
@@ -1035,7 +1035,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
           fits in memory twice over.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Propose task closure on PR merge, never auto-close",
             DecisionStatus::Accepted,
             "## Context\n\nA merged PR usually means the task is done.\n\n## Decision\n\nSet status \
@@ -1044,7 +1044,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
           destroys trust faster than one that is merely stale.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Soft delete only, links included",
             DecisionStatus::Accepted,
             "## Decision\n\nNothing is ever DELETEd. Archiving sets archived_at.\n\n## Consequences\n\n\
@@ -1093,7 +1093,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
     // --- Questions and risks ---------------------------------------------
     let questions: Vec<QuestionRow<'_>> = vec![
         (
-            &keel_id,
+            &specline_id,
             "Where does the store live, and does it get a git remote?",
             QuestionKind::Question,
             QuestionStatus::Open,
@@ -1101,7 +1101,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "Working assumption is ~/.specline with a local git repo and no remote. Moving it is a config change, so the cost of being wrong is low.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "What is the retention policy on the event log?",
             QuestionKind::Question,
             QuestionStatus::Open,
@@ -1109,7 +1109,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "It grows forever. Options: keep everything, which is probably fine for a decade at this write volume, or roll up events older than a year into daily summaries.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Schema creep is the most likely cause of death",
             QuestionKind::Risk,
             QuestionStatus::Accepted,
@@ -1117,7 +1117,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "Thirteen artifact types is a ceiling, not a starting point. Watch for wanting a fourteenth — it is almost always a field or a kind value on an existing type.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "The agent might simply not write to it",
             QuestionKind::Risk,
             QuestionStatus::Open,
@@ -1125,7 +1125,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "If Claude has to be reminded every session, the whole thing fails. This is why the plugin is a real phase rather than an afterthought.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Retrieval quality may be mediocre",
             QuestionKind::Risk,
             QuestionStatus::Mitigated,
@@ -1133,7 +1133,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "Mitigated by hybrid rather than pure-vector search from day one. Still needs evaluation on real queries before any UI is built.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Lance is the one unhedged dependency",
             QuestionKind::Risk,
             QuestionStatus::Mitigated,
@@ -1141,7 +1141,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "Mitigated by exporting the Lance datasets to Parquet in every backup. A Lance snapshot alone would not be an escape hatch from Lance.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Attribution is cooperative, not enforced",
             QuestionKind::Assumption,
             QuestionStatus::Accepted,
@@ -1219,25 +1219,25 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &["archive"],
         ),
         (
-            Some(&keel_id),
+            Some(&specline_id),
             "Traversal direction",
             "Which way an edge is walked. Outbound matches from_id, inbound matches to_id. Getting it wrong returns an empty set that looks legitimate.",
             &["direction"],
         ),
         (
-            Some(&keel_id),
+            Some(&specline_id),
             "Vertex view",
             "v_entities — the UNION over all thirteen tables that lets a query resolve an id without knowing its type.",
             &["v_entities"],
         ),
         (
-            Some(&keel_id),
+            Some(&specline_id),
             "Surface",
             "Where a write came from: chat, cowork, code, ui or cli.",
             &[],
         ),
         (
-            Some(&keel_id),
+            Some(&specline_id),
             "Hybrid search",
             "Keyword and semantic retrieval fused by reciprocal rank, because BM25 and vector distances are not comparable.",
             &["rrf"],
@@ -1279,31 +1279,31 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &[],
         ),
         (
-            Some(&keel_id),
+            Some(&specline_id),
             "Digest",
             "The compact project summary returned by specline_context. Budgeted to roughly 3–4k tokens.",
             &["context digest"],
         ),
         (
-            Some(&keel_id),
+            Some(&specline_id),
             "Mirror",
             "Generated read-only markdown written into a project repo. Never a source of truth.",
             &[],
         ),
         (
-            Some(&keel_id),
+            Some(&specline_id),
             "Revision",
             "One immutable version of a document body.",
             &["doc version"],
         ),
         (
-            Some(&keel_id),
+            Some(&specline_id),
             "Session",
             "One Claude conversation, used as the provenance unit. Caller-supplied.",
             &[],
         ),
         (
-            Some(&keel_id),
+            Some(&specline_id),
             "Anchor",
             "A reference to a block inside a document, such as REQ-4, so a task can link to one requirement rather than a whole spec.",
             &[],
@@ -1445,7 +1445,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "Different bet: they are selling insight, we are selling correctness. Worth being explicit about that rather than drifting into feature parity.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Claude re-litigated a decision from two sessions ago",
             FeedbackKind::Observation,
             Sentiment::Negative,
@@ -1453,7 +1453,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "It proposed SQLite again, having no way to know the question was settled. This is the single clearest argument for the questions and decisions register.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Vocabulary drifts between sessions",
             FeedbackKind::Observation,
             Sentiment::Negative,
@@ -1461,7 +1461,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "Same concept called a digest, a summary and a context blob across three sessions. Cheap to fix with a glossary; expensive to notice.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "The desktop app is the tempting thing to build first",
             FeedbackKind::Observation,
             Sentiment::Mixed,
@@ -1477,7 +1477,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "The honest reason the project is paused. Worth recording rather than letting it look like it merely stalled.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Reading a folder of markdown files is not a status view",
             FeedbackKind::Observation,
             Sentiment::Negative,
@@ -1485,7 +1485,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "The original complaint that produced this project. There is no single screen that answers 'what is the state of this project', let alone all of them.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Every new session starts cold",
             FeedbackKind::Observation,
             Sentiment::Negative,
@@ -1493,7 +1493,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "Claude cannot know what was decided three sessions ago, what is open, or what it already tried. Context is re-established by hand, expensively and incompletely, every time.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Onboarding a new project should take one sentence",
             FeedbackKind::Idea,
             Sentiment::Positive,
@@ -1517,19 +1517,19 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
     // --- Design artifacts -------------------------------------------------
     let designs: Vec<DesignRow<'_>> = vec![
         (
-            &keel_id,
+            &specline_id,
             "Home — all projects at a glance",
             DesignState::Proposed,
             "One row per project: health, what shipped this week, what is at risk. The Sunday-review screen.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Project dashboard",
             DesignState::Proposed,
             "Active milestone, task counts by status, open questions, recent activity, live environments.",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Document reader with revision history",
             DesignState::Proposed,
             "Side-by-side diff between any two revisions, plus the link graph for the current document.",
@@ -1573,14 +1573,14 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "1.4.2",
         ),
         (
-            &keel_id,
+            &specline_id,
             "desktop-dev",
             "tauri://localhost",
             EnvironmentStatus::Unknown,
             "0.1.0",
         ),
         (
-            &keel_id,
+            &specline_id,
             "local",
             "http://127.0.0.1:7654",
             EnvironmentStatus::Healthy,
@@ -1628,7 +1628,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
     // --- Metrics and observations ----------------------------------------
     let metrics: Vec<MetricRow<'_>> = vec![
         (
-            &keel_id,
+            &specline_id,
             "Sessions where Claude writes to Specline unprompted",
             "%",
             80.0,
@@ -1636,7 +1636,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &[0.0, 4.0, 12.0, 21.0, 34.0, 43.0, 51.0, 58.0],
         ),
         (
-            &keel_id,
+            &specline_id,
             "Agent orientation cost",
             "tokens",
             4000.0,
@@ -1644,7 +1644,7 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             &[9200.0, 8100.0, 7300.0, 6100.0, 5200.0, 4400.0, 3900.0],
         ),
         (
-            &keel_id,
+            &specline_id,
             "Manual markdown files consulted per week",
             "files",
             0.0,
@@ -1697,19 +1697,19 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
     // --- Generic artifacts -------------------------------------------------
     let artifacts: Vec<ArtifactRow<'_>> = vec![
         (
-            &keel_id,
+            &specline_id,
             "RRF paper — reciprocal rank fusion",
             ArtifactKind::Link,
             "https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf",
         ),
         (
-            &keel_id,
+            &specline_id,
             "fastembed-rs",
             ArtifactKind::Link,
             "https://github.com/Anush008/fastembed-rs",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Screenshot: first working specline_context digest",
             ArtifactKind::Image,
             "file:///archive/specline-context-first-run.png",
@@ -1733,19 +1733,19 @@ pub fn load<S: EntityStore + DocumentStore>(store: &mut S) -> Result<FixtureSumm
             "https://web.archive.org/ledgerline/pricing",
         ),
         (
-            &keel_id,
+            &specline_id,
             "DuckDB Lance extension documentation",
             ArtifactKind::Link,
             "https://duckdb.org/docs/lts/core_extensions/lance",
         ),
         (
-            &keel_id,
+            &specline_id,
             "MCP 2026-07-28 specification",
             ArtifactKind::Link,
             "https://modelcontextprotocol.io/specification/2026-07-28",
         ),
         (
-            &keel_id,
+            &specline_id,
             "Tauri v2 documentation",
             ArtifactKind::Link,
             "https://v2.tauri.app/",

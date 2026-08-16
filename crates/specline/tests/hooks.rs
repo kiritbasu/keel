@@ -198,7 +198,7 @@ fn session_start_survives_a_payload_it_cannot_parse() {
 // --- stop -------------------------------------------------------------------
 
 #[test]
-fn stop_asks_when_a_session_in_a_keel_project_recorded_nothing() {
+fn stop_asks_when_a_session_in_a_specline_project_recorded_nothing() {
     let dir = scratch();
     let daemon = stub_daemon(MATCHED, NO_EVENTS);
 
@@ -244,7 +244,7 @@ fn stop_is_silent_for_a_session_that_already_wrote() {
 /// filing notes about a project that does not exist. This behaviour was fixed
 /// by reading and, until now, guarded by nothing.
 #[test]
-fn stop_is_silent_in_a_directory_keel_has_never_heard_of() {
+fn stop_is_silent_in_a_directory_specline_has_never_heard_of() {
     let dir = scratch();
     let daemon = stub_daemon(UNMATCHED, NO_EVENTS);
 
@@ -370,11 +370,16 @@ fn shim() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugin/hooks/specline-hook.sh")
 }
 
-fn run_shim(event: &str, keel_bin: &str, payload: &str, tmpdir: &std::path::Path) -> (String, i32) {
+fn run_shim(
+    event: &str,
+    specline_bin: &str,
+    payload: &str,
+    tmpdir: &std::path::Path,
+) -> (String, i32) {
     let mut child = Command::new("/bin/sh")
         .arg(shim())
         .arg(event)
-        .env("SPECLINE_BIN", keel_bin)
+        .env("SPECLINE_BIN", specline_bin)
         .env("TMPDIR", tmpdir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -438,7 +443,7 @@ fn the_shim_reports_a_missing_binary_at_session_start() {
     let dir = scratch();
     let (stdout, code) = run_shim(
         "session-start",
-        "/nonexistent/keel",
+        "/nonexistent/specline",
         r#"{"session_id":"abc"}"#,
         dir.path(),
     );
@@ -448,7 +453,7 @@ fn the_shim_reports_a_missing_binary_at_session_start() {
     let context = parsed["hookSpecificOutput"]["additionalContext"]
         .as_str()
         .unwrap();
-    assert!(context.contains("/keel:setup"), "{context}");
+    assert!(context.contains("/specline:setup"), "{context}");
 }
 
 /// A session that is ending is the wrong moment to be told about installation,
@@ -458,7 +463,7 @@ fn the_shim_says_nothing_about_a_missing_binary_at_stop() {
     let dir = scratch();
     let (stdout, code) = run_shim(
         "stop",
-        "/nonexistent/keel",
+        "/nonexistent/specline",
         r#"{"session_id":"abc"}"#,
         dir.path(),
     );
@@ -475,7 +480,7 @@ fn the_shim_says_nothing_about_a_missing_binary_at_stop() {
 #[test]
 fn a_binary_too_old_to_know_hook_is_silent_rather_than_blocking() {
     let dir = scratch();
-    let fake = dir.path().join("old-keel");
+    let fake = dir.path().join("old-specline");
     std::fs::write(
         &fake,
         "#!/bin/sh\necho 'error: unrecognized subcommand' >&2\nexit 2\n",

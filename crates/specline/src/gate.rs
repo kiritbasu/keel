@@ -393,8 +393,7 @@ pub fn score_run(run_dir: &std::path::Path, json: bool) -> Result<()> {
             // A session that wrote under an id it invented still wrote. The
             // store is per-session here, so any event in it belongs to it.
             || (r.write_attempts > 0 && !landed.is_empty());
-        r.level =
-            crate::rubric::classify(&r.keel_tools, r.write_attempts, did_land, &r.offers, true);
+        r.level = crate::rubric::classify(&r.tools, r.write_attempts, did_land, &r.offers, true);
         reads.push(r);
     }
 

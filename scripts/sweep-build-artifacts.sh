@@ -131,7 +131,7 @@ leaked=0
 cd "$TMP" 2>/dev/null || true
 for d in "$TMP"/.tmp*; do
   [ -d "$d" ] || continue
-  [ -f "$d/keel.sqlite" ] || [ -f "$d/keel.duckdb" ] || continue
+  [ -f "$d/specline.sqlite" ] || [ -f "$d/keel.sqlite" ] || [ -f "$d/keel.duckdb" ] || continue
   [ -n "$(find "$d" -maxdepth 0 -mmin +60 2>/dev/null)" ] || continue
   run "$d"
   leaked=$((leaked + 1))

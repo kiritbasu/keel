@@ -167,34 +167,40 @@ mod tests {
 
     #[test]
     fn an_ordinary_home_is_fine() {
-        assert!(hazards(&PathBuf::from("/Users/kb/.keel")).is_empty());
-        assert!(hazards(&PathBuf::from("/home/kb/.keel")).is_empty());
+        assert!(hazards(&PathBuf::from("/Users/kb/.specline")).is_empty());
+        assert!(hazards(&PathBuf::from("/home/kb/.specline")).is_empty());
     }
 
     #[test]
     fn the_sync_clients_are_recognised() {
-        assert_eq!(services("/Users/kb/Dropbox/.keel"), ["Dropbox"]);
+        assert_eq!(services("/Users/kb/Dropbox/.specline"), ["Dropbox"]);
         assert_eq!(
-            services("/Users/kb/Library/Mobile Documents/com~apple~CloudDocs/.keel"),
+            services("/Users/kb/Library/Mobile Documents/com~apple~CloudDocs/.specline"),
             ["iCloud Drive"]
         );
-        assert_eq!(services("/Users/kb/OneDrive/specline/.keel"), ["OneDrive"]);
-        assert_eq!(services("/Users/kb/Google Drive/.keel"), ["Google Drive"]);
+        assert_eq!(
+            services("/Users/kb/OneDrive/specline/.specline"),
+            ["OneDrive"]
+        );
+        assert_eq!(
+            services("/Users/kb/Google Drive/.specline"),
+            ["Google Drive"]
+        );
     }
 
     /// Matched on a whole component, never as a substring. A wrong warning is
     /// how the next right one gets ignored.
     #[test]
     fn a_name_that_merely_contains_one_is_not_one() {
-        assert!(services("/Users/kb/dropbox-exporter/.keel").is_empty());
-        assert!(services("/Users/kb/my-onedrive-notes/.keel").is_empty());
-        assert!(services("/Users/kb/NextcloudBackups/.keel").is_empty());
+        assert!(services("/Users/kb/dropbox-exporter/.specline").is_empty());
+        assert!(services("/Users/kb/my-onedrive-notes/.specline").is_empty());
+        assert!(services("/Users/kb/NextcloudBackups/.specline").is_empty());
     }
 
     #[test]
     fn a_service_is_reported_once_however_many_times_it_appears() {
         assert_eq!(
-            services("/Users/kb/Dropbox/work/Dropbox/.keel"),
+            services("/Users/kb/Dropbox/work/Dropbox/.specline"),
             ["Dropbox"]
         );
     }
@@ -203,8 +209,8 @@ mod tests {
     fn network_shaped_paths_are_flagged_as_a_guess() {
         for path in [
             "\\\\server\\share\\specline",
-            "/Volumes/team/.keel",
-            "/net/nas/.keel",
+            "/Volumes/team/.specline",
+            "/net/nas/.specline",
         ] {
             let found = hazards(&PathBuf::from(path));
             assert!(

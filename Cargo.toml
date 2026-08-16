@@ -105,7 +105,7 @@ specline-embed = { path = "crates/specline-embed", version = "0.1.5" }
 specline-update = { path = "crates/specline-update", version = "0.1.5" }
 # A library from the `specline` package's point of view: it holds the daemon, and
 # the `specline-daemon` *binary* is a shim in `specline` so that one installer ships
-# both executables. See `crates/keel/Cargo.toml`.
+# both executables. See `crates/specline/Cargo.toml`.
 # `default-features = false` here rather than at the one call site, because
 # Cargo will not let an inheriting member turn a workspace dependency's default
 # features off. Only `specline` depends on this, and its own `embeddings` feature

@@ -54,7 +54,7 @@ impl Run {
     }
 }
 
-fn keel_with_session(home: &Path, session: Option<&str>, args: &[&str]) -> Run {
+fn specline_with_session(home: &Path, session: Option<&str>, args: &[&str]) -> Run {
     let mut command = Command::new(env!("CARGO_BIN_EXE_specline"));
     command
         .arg("--home")
@@ -75,7 +75,7 @@ fn keel_with_session(home: &Path, session: Option<&str>, args: &[&str]) -> Run {
 }
 
 fn specline(home: &Path, args: &[&str]) -> Run {
-    keel_with_session(home, Some("ses_cli_verbs"), args)
+    specline_with_session(home, Some("ses_cli_verbs"), args)
 }
 
 /// A home holding the fixture corpus, plus one task of this test's own.
@@ -180,7 +180,7 @@ fn claim_records_the_session_and_refuses_without_one() {
     // `SPECLINE_SESSION` removed rather than blanked: an empty variable and an
     // absent one are different arguments to clap, and only one of them is what
     // a fresh shell looks like.
-    let out = keel_with_session(
+    let out = specline_with_session(
         home.path(),
         None,
         &["--force", "claim", &task, "--daemon", NO_DAEMON],

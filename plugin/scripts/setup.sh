@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# `/keel:setup` — get from "the plugin is installed" to "Specline is running".
+# `/specline:setup` — get from "the plugin is installed" to "Specline is running".
 #
 # ## Why this is a script and not a list of steps in a prompt
 #
@@ -10,7 +10,7 @@
 # is one line that runs this file, and every decision that matters lives here,
 # where it can be read and tested.
 #
-#   /keel:setup                    what the slash command runs
+#   /specline:setup                    what the slash command runs
 #   plugin/scripts/setup.sh        the same thing, by hand
 #   plugin/scripts/setup.sh --dry-run    say what would happen, change nothing
 #
@@ -50,7 +50,7 @@
 
 set -uo pipefail
 
-REPO="${SPECLINE_REPO:-kiritbasu/keel}"
+REPO="${SPECLINE_REPO:-kiritbasu/specline}"
 PORT="${SPECLINE_PORT:-7654}"
 # The release installer's own default — `CARGO_HOME`, falling back to
 # `~/.cargo/bin`. Kept identical to `plugin/install.sh` deliberately: two
@@ -210,7 +210,7 @@ else
     fi
 fi
 
-keel_bin="$BIN_DIR/keel"
+specline_bin="$BIN_DIR/specline"
 daemon_bin="$BIN_DIR/specline-daemon"
 
 if [ "$DRY_RUN" = false ]; then
@@ -227,15 +227,15 @@ if [ "$DRY_RUN" = false ]; then
     # looks.
     for candidate in "${CARGO_HOME:+$CARGO_HOME/bin}" "$BIN_DIR" "$HOME/.cargo/bin"; do
         [ -n "$candidate" ] || continue
-        if [ -x "$candidate/keel" ] && [ -x "$candidate/specline-daemon" ]; then
-            keel_bin="$candidate/keel"
+        if [ -x "$candidate/specline" ] && [ -x "$candidate/specline-daemon" ]; then
+            specline_bin="$candidate/specline"
             daemon_bin="$candidate/specline-daemon"
             break
         fi
     done
-    [ -x "$keel_bin" ] || die "specline is not where the installer said it would be" \
+    [ -x "$specline_bin" ] || die "specline is not where the installer said it would be" \
         "Looked in: $BIN_DIR, $HOME/.cargo/bin"
-    ok "specline $("$keel_bin" --version 2>/dev/null | awk '{print $2}') at $keel_bin"
+    ok "specline $("$specline_bin" --version 2>/dev/null | awk '{print $2}') at $specline_bin"
 fi
 
 # --- 2. the store -----------------------------------------------------------
@@ -265,7 +265,7 @@ else
     # nothing. Pointing it at the port being set up means it opens this store
     # directly when nothing is listening, which is the case on a clean machine
     # and the case that matters.
-    run "$keel_bin" --home "$SPECLINE_HOME_DIR" fsck --daemon "$DAEMON_URL" >/dev/null 2>&1
+    run "$specline_bin" --home "$SPECLINE_HOME_DIR" fsck --daemon "$DAEMON_URL" >/dev/null 2>&1
     if [ -f "$SPECLINE_HOME_DIR/keel.sqlite" ]; then
         ok "store created at $SPECLINE_HOME_DIR"
     else
@@ -289,7 +289,7 @@ fi
 
 if [ "$DRY_RUN" = false ]; then
     step "Applying migrations"
-    if "$keel_bin" --home "$SPECLINE_HOME_DIR" migrate --daemon "$DAEMON_URL" >/dev/null 2>&1; then
+    if "$specline_bin" --home "$SPECLINE_HOME_DIR" migrate --daemon "$DAEMON_URL" >/dev/null 2>&1; then
         ok "store is at the schema this binary ships"
     else
         info "nothing to migrate, or the store is already current"
@@ -342,7 +342,7 @@ PLIST
 }
 
 install_systemd() {
-    local unit="$HOME/.config/systemd/user/keel.service"
+    local unit="$HOME/.config/systemd/user/specline.service"
     local update_env=""
     [ "$UPDATE_CHECK" = false ] && update_env="Environment=SPECLINE_AUTO_UPDATE=0"
     local exec="$daemon_bin"
@@ -451,7 +451,7 @@ fi
 # sequence printed literally as \033[1m — in the one line that most needs to be
 # read, which is a fair demonstration of why the dry run exists.
 printf '  \033[1mRestart Claude Code now.\033[0m MCP servers are connected at startup,\n'
-printf '  and nothing was listening when this session began — so the keel_* tools\n'
+printf '  and nothing was listening when this session began — so the specline_* tools\n'
 printf '  will not appear until you do.\n\n'
 
 [ "$EMBEDDINGS" = false ] && printf '  For semantic search as well as keyword: re-run with --embeddings\n  (the first start downloads a 133 MB model).\n\n'

@@ -447,7 +447,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_path_under_dot_keel_belongs_to_the_mirror_not_to_adoption() {
+    fn a_path_under_the_mirror_dir_belongs_to_the_mirror_not_to_adoption() {
         assert!(is_adopted("product/SPEC.md"));
         assert!(is_adopted("docs/architecture/overview.md"));
         assert!(!is_adopted(".specline/specs/storage.md"));

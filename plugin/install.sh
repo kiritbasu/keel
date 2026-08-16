@@ -41,7 +41,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # is not a rehearsal of the thing users get; it is a second installation to keep
 # in step by hand.
 bin_dir="${SPECLINE_BIN_DIR:-${CARGO_HOME:-$HOME/.cargo}/bin}"
-keel_home="${SPECLINE_HOME:-$HOME/.specline}"
+specline_home="${SPECLINE_HOME:-$HOME/.specline}"
 skill_dir="${SPECLINE_SKILL_DIR:-$HOME/.claude/skills/specline}"
 # Adoption is its own skill because it is used once per project and the everyday
 # one is loaded in every project conversation. Folding eighty lines about
@@ -139,7 +139,7 @@ cargo build --release --workspace
 
 say "Installing binaries to $bin_dir"
 mkdir -p "$bin_dir"
-install -m 755 target/release/keel "$bin_dir/keel"
+install -m 755 target/release/specline "$bin_dir/specline"
 install -m 755 target/release/specline-daemon "$bin_dir/specline-daemon"
 note "specline"
 note "specline-daemon"
@@ -153,31 +153,31 @@ if ! command -v specline >/dev/null 2>&1; then
 # did not write — which is how a CLI and a daemon ended up hours apart with
 # nothing saying so (KEEL-234). Checked by resolution rather than by directory,
 # so a symlink farm or a shim is caught too.
-elif [ "$(command -v specline)" != "$bin_dir/keel" ]; then
+elif [ "$(command -v specline)" != "$bin_dir/specline" ]; then
   note ""
   note "WARNING: this is not the specline your shell will run."
-  note "  installed:  $bin_dir/keel"
+  note "  installed:  $bin_dir/specline"
   note "  PATH finds: $(command -v specline)"
   note ""
   note "Remove the other copy, or put $bin_dir earlier on PATH. Until then the"
   note "binaries this script just built are installed and not in use."
 fi
 
-say "Creating the store at $keel_home"
-"$bin_dir/keel" --home "$keel_home" status >/dev/null
+say "Creating the store at $specline_home"
+"$bin_dir/specline" --home "$specline_home" status >/dev/null
 note "done"
 
 # ~/.specline is its own git repo, which is recovery tier 1 (SPEC §11): full
 # fidelity, including revision history. No remote — that is KB's call (Q-2).
-if [ ! -d "$keel_home/.git" ]; then
-  say "Initialising $keel_home as a git repository"
-  git -C "$keel_home" init -q
-  cat > "$keel_home/.gitignore" <<'GITIGNORE'
+if [ ! -d "$specline_home/.git" ]; then
+  say "Initialising $specline_home as a git repository"
+  git -C "$specline_home" init -q
+  cat > "$specline_home/.gitignore" <<'GITIGNORE'
 # Model weights are large and re-downloadable.
 models/
 GITIGNORE
-  git -C "$keel_home" add -A
-  git -C "$keel_home" commit -q -m "chore: initialise the Specline store" || true
+  git -C "$specline_home" add -A
+  git -C "$specline_home" commit -q -m "chore: initialise the Specline store" || true
   note "done — no remote configured, which is deliberate (QUESTIONS Q-2)"
 fi
 

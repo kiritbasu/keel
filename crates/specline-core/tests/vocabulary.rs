@@ -242,7 +242,7 @@ fn a_projects_noun_resolves_even_with_no_term_for_it() {
 }
 
 #[test]
-fn the_noun_is_what_the_interface_says_and_falls_back_to_keels_word() {
+fn the_noun_is_what_the_interface_says_and_falls_back_to_speclines_word() {
     let mut f = setup();
     let project = f.project.clone();
     let before = match f.store.get(&project).unwrap() {

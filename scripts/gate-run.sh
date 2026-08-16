@@ -40,7 +40,7 @@ set -uo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 runs_dir="${GATE_RUNS:-$root/.gate-runs}"
-specline="${SPECLINE_BIN:-$root/target/release/keel}"
+specline="${SPECLINE_BIN:-$root/target/release/specline}"
 daemon_bin="${SPECLINE_DAEMON_BIN:-$root/target/release/specline-daemon}"
 run_id="${GATE_RUN_ID:-run-$(date -u +%Y%m%dT%H%M%SZ)}"
 run_dir="$runs_dir/$run_id"

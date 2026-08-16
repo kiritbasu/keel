@@ -32,7 +32,7 @@ fn json_at(relative: &str) -> Value {
 }
 
 /// The entry point. Without this at the repository root, `/plugin marketplace
-/// add <owner>/keel` finds nothing and the whole install flow has no first
+/// add <owner>/specline` finds nothing and the whole install flow has no first
 /// step.
 #[test]
 fn the_marketplace_entry_points_at_a_plugin_that_exists() {
@@ -61,7 +61,7 @@ fn the_plugin_name_matches_between_the_two_manifests() {
     assert_eq!(
         market["plugins"][0]["name"], plugin["name"],
         "the marketplace and the plugin manifest disagree about the name, so \
-         `/keel:setup` would not be the command's real name"
+         `/specline:setup` would not be the command's real name"
     );
 }
 
@@ -119,7 +119,7 @@ fn every_hook_names_a_script_that_exists_and_is_executable() {
 }
 
 /// The slash command's whole job is to run one script. If it names a file that
-/// is not there, `/keel:setup` fails at the one moment a new user is watching.
+/// is not there, `/specline:setup` fails at the one moment a new user is watching.
 #[test]
 fn the_setup_command_runs_a_script_that_exists() {
     let command = std::fs::read_to_string(root().join("plugin/commands/setup.md"))

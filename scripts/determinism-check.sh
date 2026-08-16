@@ -13,7 +13,7 @@
 
 set -uo pipefail
 
-KEEL="${KEEL:-./target/release/keel}"
+KEEL="${KEEL:-./target/release/specline}"
 # Derived, not written down. The `cwd` probe below needs a real path that
 # `specline_context` will match against a project's `root_path`, and hardcoding one
 # put this machine's username into a file that is going public.

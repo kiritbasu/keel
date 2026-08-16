@@ -750,7 +750,7 @@ mod tests {
     fn a_store_in_a_synced_folder_is_reported_without_failing_the_run() {
         let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
-        let home = dir.path().join("Dropbox").join(".keel");
+        let home = dir.path().join("Dropbox").join(".specline");
         std::fs::create_dir_all(&home).unwrap();
         let _ = crate::create_or_open(&home).unwrap();
 

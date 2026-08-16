@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Use GitHub's private reporting: **[Report a vulnerability](https://github.com/kiritbasu/keel/security/advisories/new)**.
+Use GitHub's private reporting: **[Report a vulnerability](https://github.com/kiritbasu/specline/security/advisories/new)**.
 It is enabled on this repository, so the report reaches the maintainer without
 being public first. Please do not open an ordinary issue for anything you think
 is exploitable.

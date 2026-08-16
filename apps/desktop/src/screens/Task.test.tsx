@@ -26,8 +26,8 @@ const TASK = {
   parent_id: "tsk_parent",
   closed_at: null,
   external_refs: [
-    "https://github.com/kb/keel/pull/1",
-    "https://github.com/kb/keel/issues/2",
+    "https://github.com/kb/specline/pull/1",
+    "https://github.com/kb/specline/issues/2",
   ],
   audit: { created_at: "2026-08-10T09:00:00Z", updated_at: "2026-08-10T10:00:00Z" },
 };
@@ -369,8 +369,8 @@ describe("what this is part of", () => {
 
   it("shows every external link, not just the first", async () => {
     await show();
-    expect(screen.getByText("github.com/kb/keel/pull/1")).toBeTruthy();
-    expect(screen.getByText("github.com/kb/keel/issues/2")).toBeTruthy();
+    expect(screen.getByText("github.com/kb/specline/pull/1")).toBeTruthy();
+    expect(screen.getByText("github.com/kb/specline/issues/2")).toBeTruthy();
   });
 });
 

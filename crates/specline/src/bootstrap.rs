@@ -793,7 +793,7 @@ pub fn run(store: &mut Store, repo_path: Option<String>) -> Result<Summary> {
             "Tool responses lift version to the top of the entity",
             "## Context\n\n`version` lives inside the audit block in the domain model.\n\n\
           ## Decision\n\nSurface it at the top of the entity on the wire, alongside the nested \
-          block.\n\n## Reasoning\n\nkeel_update documents a `version` argument, so an agent that \
+          block.\n\n## Reasoning\n\nspecline_update documents a `version` argument, so an agent that \
           has just read an entity should be able to copy the field of that name straight across. \
           Making it hunt inside `audit` is the papercut that becomes a 409 and a confused \
           retry.\n\n## Consequences\n\nFound by writing the UC-3 test the way an agent would \

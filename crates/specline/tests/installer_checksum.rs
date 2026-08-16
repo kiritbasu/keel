@@ -47,7 +47,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
 fn repo_root() -> PathBuf {
-    // CARGO_MANIFEST_DIR is `<root>/crates/keel`.
+    // CARGO_MANIFEST_DIR is `<root>/crates/specline`.
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(Path::parent)

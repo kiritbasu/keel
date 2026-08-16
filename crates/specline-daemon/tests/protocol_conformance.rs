@@ -208,7 +208,7 @@ async fn the_error_codes_are_the_ones_the_specification_names() {
         &[],
         rpc(
             "tools/call",
-            json!({"name": "keel_teleport", "arguments": {}}),
+            json!({"name": "specline_teleport", "arguments": {}}),
         ),
     )
     .await;

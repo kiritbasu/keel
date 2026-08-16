@@ -139,12 +139,12 @@ export function FirstRun({
       </Card>
 
       {/* The one failure a new install actually hits, and the only one this
-          page can pre-empt. `/keel:setup` installs the binaries, but MCP
+          page can pre-empt. `/specline:setup` installs the binaries, but MCP
           servers are connected when Claude Code starts — so a session opened
-          before setup finished has no `keel_*` tools however well it went, and
+          before setup finished has no `specline_*` tools however well it went, and
           the symptom is Claude saying it cannot find them. */}
       <p className="text-small text-ink-faint">
-        No <span className="font-mono text-micro">keel_*</span> tools in your
+        No <span className="font-mono text-micro">specline_*</span> tools in your
         session? Restart Claude Code. MCP servers connect at startup, so a
         session that was already open when Specline was installed will not have
         them.

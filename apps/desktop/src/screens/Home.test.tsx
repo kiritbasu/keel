@@ -64,7 +64,7 @@ const HEALTH = {
   version: "0.1.1",
   projects: 0,
   store_busy: false,
-  home: "/Users/someone/.keel",
+  home: "/Users/someone/.specline",
   schema: 4,
 };
 
@@ -112,7 +112,7 @@ describe("a store with nothing in it", () => {
     expect(screen.getByText(/Specline is running/i)).toBeTruthy();
     expect(screen.getByText(/0\.1\.1/)).toBeTruthy();
     expect(screen.getByText(/schema 4/i)).toBeTruthy();
-    expect(screen.getByText("/Users/someone/.keel")).toBeTruthy();
+    expect(screen.getByText("/Users/someone/.specline")).toBeTruthy();
   });
 
   /** Empty is the expected state before first use, and should read that way. */
@@ -136,7 +136,7 @@ describe("a store with nothing in it", () => {
   });
 
   /**
-   * The one failure a fresh install actually hits: `/keel:setup` succeeds, and
+   * The one failure a fresh install actually hits: `/specline:setup` succeeds, and
    * the session that ran it still has no tools, because MCP servers connect at
    * startup.
    */

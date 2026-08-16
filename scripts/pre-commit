@@ -37,8 +37,8 @@ staged="$(git diff --cached --name-only --diff-filter=ACM -- 'product/*.md' '.ke
 # `mirror` subcommand and no `generate` — which is also why the hook this
 # replaces called `keel mirror`: the command existed when it was written and was
 # renamed underneath it. Preferring the repository's own build fixed that, and
-# then broke the same way from the other side: `target/release/keel` was checked
-# first while being eighty minutes older than `target/debug/keel`, so a commit
+# then broke the same way from the other side: `target/release/specline` was checked
+# first while being eighty minutes older than `target/debug/specline`, so a commit
 # adding a renderer was told all 42 of its outputs were stale.
 #
 # A check that runs the wrong binary reports drift that is not there, and a
@@ -46,9 +46,9 @@ staged="$(git diff --cached --name-only --diff-filter=ACM -- 'product/*.md' '.ke
 # disease as a hook that silently does nothing. Age is the honest tiebreak: the
 # most recently built binary is the one that knows about the change being
 # committed.
-keel_bin=""
+specline_bin=""
 newest=0
-for candidate in target/release/keel target/debug/keel "$(command -v specline 2>/dev/null || true)"; do
+for candidate in target/release/specline target/debug/specline "$(command -v specline 2>/dev/null || true)"; do
   [ -n "$candidate" ] && [ -x "$candidate" ] || continue
   "$candidate" generate --help >/dev/null 2>&1 || continue
   # `stat -c %Y` on GNU, `stat -f %m` on BSD/macOS — **in that order**, and the
@@ -63,7 +63,7 @@ for candidate in target/release/keel target/debug/keel "$(command -v specline 2>
   #
   # So on every Linux machine this hook has been quietly doing nothing — which
   # is the exact failure the `PostToolUse` hook was deleted for, in the file
-  # written to replace it. Found by the tests in `crates/keel/tests/hooks.rs`
+  # written to replace it. Found by the tests in `crates/specline/tests/hooks.rs`
   # the first time CI ran them on Linux.
   #
   # The `case` is belt and braces: anything that is not a plain number counts
@@ -74,13 +74,13 @@ for candidate in target/release/keel target/debug/keel "$(command -v specline 2>
   esac
   if [ "$mtime" -ge "$newest" ]; then
     newest="$mtime"
-    keel_bin="$candidate"
+    specline_bin="$candidate"
   fi
 done
 
 # A missing or unusable binary must not block a commit — that would make the
 # check worse than the hook it replaces. Say so and get out of the way.
-if [ -z "$keel_bin" ]; then
+if [ -z "$specline_bin" ]; then
   echo "pre-commit: no specline build understands \`generate\`, so generated files were not checked." >&2
   exit 0
 fi
@@ -99,7 +99,7 @@ fi
 # there is no worktree, so this is not a special case for one.
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
 
-drift="$("$keel_bin" generate "$project" --repo "$repo_root" --check 2>&1)"
+drift="$("$specline_bin" generate "$project" --repo "$repo_root" --check 2>&1)"
 status=$?
 [ $status -eq 0 ] && exit 0
 

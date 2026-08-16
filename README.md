@@ -120,7 +120,7 @@ daemon fetches the latest release manifest once an hour so it can tell you a new
 version exists. It sends nothing from your store — no project names, no counts,
 no identifier — and nothing is installed without you agreeing to the restart.
 
-`--no-update-check` on `/keel:setup` turns it off at install time,
+`--no-update-check` on `/specline:setup` turns it off at install time,
 `SPECLINE_AUTO_UPDATE=0` turns it off afterwards, and `specline doctor` reports which it
 is and when the last check ran. With it off, Specline makes no network requests at
 all.
@@ -255,7 +255,7 @@ crates/specline-core/     domain types, storage, graph, search, generation, back
 crates/specline-mcp/      the thirteen tools, the digest, protocol handling
 crates/specline-embed/    the local embedding model, kept out of the core
 crates/specline-daemon/   axum: the MCP endpoint and a local read API
-crates/keel/          fsck, backup, restore, import, generate, notes —
+crates/specline/          fsck, backup, restore, import, generate, notes —
                       and both shipped binaries, `specline` and `specline-daemon`
 apps/desktop/         Tauri + React. Read and search only
 ```

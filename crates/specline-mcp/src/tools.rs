@@ -1153,7 +1153,7 @@ mod tests {
 
     #[test]
     fn unknown_tools_are_not_found() {
-        assert!(find("keel_delete").is_none());
+        assert!(find("specline_delete").is_none());
         assert!(find("specline_context").is_some());
     }
 
