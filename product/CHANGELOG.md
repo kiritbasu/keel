@@ -1,15 +1,27 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T09:08:05Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T10:38:35Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (234)
+## Closed work (236)
 
 ### 2026-08-16
+
+- **KEEL-252** Restore the Intel macOS and Linux release targets, now that a build without embeddings exists — `done`
+
+  Three archives published and verified by download. v0.1.5-rc.1 built `x86_64-apple-darwin` and `x86_64-unknown-linux-gnu` for the first time — the two targets `ort-sys` had blocked since 0.1.0 — alongside `aarch64-apple-darwin`, all through the ordinary `dist` path with no second build route. Route 1 as recommended: `[package.metadata.dist] default-features = false`, so no released binary carries ONNX, confirmed by `strings` on both new binaries. The Linux one is an x86-64 ELF with a glibc floor of 2.34, which keeps the low floor `ubuntu-22.04` was chosen for. KEEL-219's tier 2 now has a Linux binary to put in the VM.
+
+  <sub>url:https://github.com/kiritbasu/keel/releases/tag/v0.1.5-rc.1 · url:https://github.com/kiritbasu/keel/actions/runs/31941540543 · commit:2286131</sub>
+
+- **KEEL-255** Cut v0.1.5-rc.1 to exercise the release path before a real version depends on it — `done`
+
+  The run published three archives and all four jobs passed, including the two targets that had never produced an artifact. Verified by downloading rather than by reading the job status: both new archives match their published checksums, the Linux one is a real x86-64 ELF with a glibc floor of 2.34, the Intel one is a Mach-O x86_64, and neither carries a byte of ONNX. Marked prerelease, and `releases/latest` still resolves to v0.1.4, so nothing offers it to anyone. The rc also found the bug it was for: the snapshot version redaction did not match a prerelease suffix.
+
+  <sub>commit:2286131 · url:https://github.com/kiritbasu/keel/releases/tag/v0.1.5-rc.1 · url:https://github.com/kiritbasu/keel/actions/runs/31941540543</sub>
 
 - **KEEL-254** Three dependency majors need code changes: rand, ulid and sha2 — `done`
 
@@ -927,6 +939,18 @@ What has finished. What is happening now is in the tracker beside this file.
 | Date | Actor | Change |
 |---|---|---|
 | 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (148 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (625 characters) |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (148 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (571 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T10:15:08.590432Z |
+| 2026-08-16 | claude | created task “Cut v0.1.5-rc.1 to exercise the release path before a real version depends on it” |
+| 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → (121 characters) |
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (647 characters) |
@@ -1114,18 +1138,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | close_reason none → done |
 | 2026-08-15 | claude | close_message none → (311 characters) |
 | 2026-08-15 | claude | created task “Board search cannot find a task by the identifier everyone uses for it” |
-| 2026-08-15 | claude | “Hard constraint 7 is amended: the interface may ask the…” resolves “Should the interface tell people an update exists, and may…” |
-| 2026-08-15 | claude | status open → answered |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → (117 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (379 characters) |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T21:57:05.637248Z |
-| 2026-08-15 | claude | created task “Release 0.1.4 — the update restarts the daemon, and the tracker is readable again” |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → (127 characters) |
 
-*Showing the 200 most recent of 1806 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1818 changes. Use `keel_activity` for the rest.*
 
