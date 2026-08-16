@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T05:15:52Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T05:28:16Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (220)
+## Closed work (221)
 
 ### 2026-08-16
+
+- **KEEL-246** Labels should be found by typing, not by scanning ten chips — `done`
+
+  A combobox replaces the ten chips: type and the matching labels appear, arrow keys and Enter or click to take one, chips to remove. All sixty-four are reachable — verified in the browser by picking `security` and `tooling`, neither of which the old list showed. Enter is claimed only while a suggestion is highlighted, because it is also the dialog's submit. Still existing labels only, with an empty state that says so, so it reads as a rule rather than a field that ignores you.
+
+  <sub>commit:0b9a9f1 · test:npx vitest run src/components/LabelPicker.test.tsx</sub>
 
 - **KEEL-244** The new-task dialog is the wrong width and asks too little — `done`
 
@@ -847,6 +853,14 @@ What has finished. What is happening now is in the tracker beside this file.
 | Date | Actor | Change |
 |---|---|---|
 | 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:0b9a9f1","test:npx vitest run src/components/LabelPicker.test.tsx"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (480 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:24:44.578384Z |
+| 2026-08-16 | claude | created task “Labels should be found by typing, not by scanning ten chips” |
+| 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → ["commit:2dc0d59","test:npm test --prefix apps/desktop"] |
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (481 characters) |
@@ -1038,14 +1052,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | claimed_at none → 2026-08-15T15:09:17.202107Z |
 | 2026-08-15 | claude | revised question “Should the interface tell people an update exists, and may it ask the internet itself?” to v1 |
 | 2026-08-15 | claude | created question “Should the interface tell people an update exists, and may it ask the internet itself?” |
-| 2026-08-15 | claude | status todo → done |
-| 2026-08-15 | claude | evidence [] → ["test:npx vitest run src/App.test.tsx","commit:pending"] |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (776 characters) |
-| 2026-08-15 | claude | created task “The sidebar's keyboard shortcuts read as counts, and a new user reported them as a bug” |
-| 2026-08-15 | claude | created task “There is no way to uninstall Keel, and the install receipt is a single global file” |
-| 2026-08-15 | claude | created term “Claude Code vs Claude Desktop” |
-| 2026-08-15 | claude | revised question “Keel models chat and cowork surfaces it has never been used from. Support them, or say so?” to v1 |
 
-*Showing the 200 most recent of 1687 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1695 changes. Use `keel_activity` for the rest.*
 
