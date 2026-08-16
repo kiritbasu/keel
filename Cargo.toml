@@ -50,7 +50,7 @@ rusqlite = { version = "0.40", features = ["bundled", "chrono", "serde_json", "f
 sqlite-vec = "0.1.9"
 
 # Domain
-ulid = { version = "1", features = ["serde"] }
+ulid = { version = "3", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
