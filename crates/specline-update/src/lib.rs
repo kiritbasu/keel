@@ -179,7 +179,7 @@ pub fn plan(
 /// sites a rename of the package silently missed: neither is a literal
 /// filename, so grepping for the old archive name found nothing while the
 /// updater went on asking GitHub for an artifact that no longer exists.
-const ARCHIVE_STEM: &str = "specline";
+pub const ARCHIVE_STEM: &str = "specline";
 
 /// The archive filename for a target, as `dist` names it.
 fn archive_name(target: &str) -> String {

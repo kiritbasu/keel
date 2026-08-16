@@ -51,7 +51,7 @@ keep="$keep"'|mcp__keel__[a-z_]*|old\.jsonl|name under Keel|moving a Keel one|Ke
 # 5. The old store filename, which `restore` still accepts, and the sentences
 #    explaining why. See backup.rs: refusing an archive written under the old
 #    name would break the recovery path at exactly the moment somebody needs it.
-keep="$keep"'|keel\.sqlite|the name Keel|\.keel|directory Keel|Keel home|Keel used|Keel wrote|renamed to Specline|called Keel|keel_attach'
+keep="$keep"'|keel\.sqlite|the name Keel|\.keel|directory Keel|Keel home|Keel-shaped|Keel used|Keel wrote|renamed to Specline|called Keel|keel_attach'
 
 # 6. Two lines in rubric.rs that *are* the old prefix, and the pre-commit
 #    hook's account of a stale `keel` binary that really was on PATH.

@@ -566,3 +566,29 @@ fn things_that_are_not_dates_are_left_alone() {
         "a real date in ordinary prose is still a date"
     );
 }
+
+/// The updater's archive name has to be this package's name, and nothing else
+/// was checking that.
+///
+/// `dist` names both the release archive and the directory inside it after the
+/// package that owns the binaries. `specline-update` cannot ask Cargo for that
+/// — its own `CARGO_PKG_NAME` is `specline-update` — so it carries the stem as
+/// a constant, and a constant that has to match something it cannot see is a
+/// constant that will one day not.
+///
+/// This test lives here because this is the package in question: `CARGO_PKG_NAME`
+/// is exactly the name `dist` will use. Renaming the package without the
+/// constant fails here rather than at the first update somebody runs, which is
+/// where it failed last time — silently, by asking GitHub for an artifact that
+/// no longer existed.
+#[test]
+fn the_updater_asks_for_an_archive_named_after_this_package() {
+    assert_eq!(
+        specline_update::ARCHIVE_STEM,
+        env!("CARGO_PKG_NAME"),
+        "the updater would download `{}-<target>.tar.xz` while the release publishes \
+         `{}-<target>.tar.xz`",
+        specline_update::ARCHIVE_STEM,
+        env!("CARGO_PKG_NAME")
+    );
+}

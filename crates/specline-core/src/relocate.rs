@@ -86,6 +86,27 @@ impl Relocated {
 /// simply unnecessary, because a new user with no old store must not meet a
 /// failure about a product they never had.
 pub fn relocate(legacy_home: &Path, home: &Path) -> Result<Option<Relocated>> {
+    // Finishing an interrupted move comes first, because the state it leaves
+    // is indistinguishable from a completed one to every check below: the new
+    // directory exists and is not empty, so the ordinary path walks straight
+    // past it — and then the store opens `specline.sqlite`, does not find it,
+    // and creates an empty one beside the user's data.
+    //
+    // The two halves of this function are not one operation. The directory
+    // rename and the database rename are separate syscalls, and anything
+    // between them — a full disk, a signal, a lost power supply — leaves this.
+    let stranded = home.join(LEGACY_STORE_FILE);
+    if home.is_dir() && stranded.is_file() && !home.join(STORE_FILE).exists() {
+        let _lock = claim_or_refuse(&stranded, legacy_home, home)?;
+        rename_store_files(home)?;
+        write_marker(home, legacy_home, true)?;
+        return Ok(Some(Relocated {
+            from: legacy_home.to_path_buf(),
+            to: home.to_path_buf(),
+            store_renamed: true,
+        }));
+    }
+
     if !legacy_home.is_dir() {
         return Ok(None);
     }
@@ -106,26 +127,25 @@ pub fn relocate(legacy_home: &Path, home: &Path) -> Result<Option<Relocated>> {
             .map_err(Error::io(format!("clear the empty {}", home.display())))?;
     }
 
-    // Nothing moves while anything holds the store. The lock is released when
-    // this binding drops, which is before the rename below.
     let legacy_store = legacy_home.join(LEGACY_STORE_FILE);
     let has_store = legacy_store.is_file();
-    if has_store {
-        let _lock = StoreLock::acquire(&legacy_store).map_err(|_| Error::Invariant {
-            operation: format!("move {} to {}", legacy_home.display(), home.display()),
-            problem: format!(
-                "something else has {} open for writing, and a store cannot be moved \
-                 out from under a process that is writing to it.\n\n\
-                 It is almost always the daemon. Stop it and run this again:\n\n    \
-                 pkill -f specline-daemon\n\n\
-                 If it was installed as a service, unload that too, or it will \
-                 restart before you get here:\n\n    \
-                 launchctl unload ~/Library/LaunchAgents/sh.specline.daemon.plist\n\n\
-                 Nothing has been moved, so the store is exactly as it was.",
-                legacy_store.display()
-            ),
-        })?;
-    }
+
+    // Bound at function scope on purpose, so the claim is *held across* both
+    // renames rather than merely tested before them. Scoped to the `if` it
+    // used to live in, the lock dropped at the closing brace and left a window
+    // in which a daemon could open the store between the check and the move —
+    // the check-then-act race, on the one operation where the thing being
+    // raced is the user's only irreplaceable artifact.
+    //
+    // What this does not cover, stated rather than implied: once the directory
+    // has moved, the lock file has moved with it, so a process arriving after
+    // that point opens a different path entirely. This closes the window
+    // between deciding and acting, which is the half that was ours to close.
+    let _claim = if has_store {
+        Some(claim_or_refuse(&legacy_store, legacy_home, home)?)
+    } else {
+        None
+    };
 
     if let Some(parent) = home.parent() {
         std::fs::create_dir_all(parent)
@@ -151,6 +171,28 @@ pub fn relocate(legacy_home: &Path, home: &Path) -> Result<Option<Relocated>> {
         to: home.to_path_buf(),
         store_renamed: has_store,
     }))
+}
+
+/// Claim the store being moved, or explain what to stop.
+///
+/// One function because the refusal is needed in two places — the ordinary
+/// move and the resumed one — and a refusal that reads differently depending
+/// on which half you interrupted would be worse than either.
+fn claim_or_refuse(store: &Path, legacy_home: &Path, home: &Path) -> Result<StoreLock> {
+    StoreLock::acquire(store).map_err(|_| Error::Invariant {
+        operation: format!("move {} to {}", legacy_home.display(), home.display()),
+        problem: format!(
+            "something else has {} open for writing, and a store cannot be moved \
+             out from under a process that is writing to it.\n\n\
+             It is almost always the daemon. Stop it and run this again:\n\n    \
+             pkill -f specline-daemon\n\n\
+             If it was installed as a service, unload that too, or it will \
+             restart before you get here:\n\n    \
+             launchctl unload ~/Library/LaunchAgents/sh.specline.daemon.plist\n\n\
+             Nothing has been moved, so the store is exactly as it was.",
+            store.display()
+        ),
+    })
 }
 
 /// Rename the database and everything SQLite keeps beside it.
@@ -370,6 +412,78 @@ mod tests {
         assert!(
             relocate(&old, &new).unwrap().is_some(),
             "and it should work once the holder lets go"
+        );
+    }
+
+    /// Failure case: a relocation interrupted after the directory moved but
+    /// before the database was renamed must be finished, not skipped.
+    ///
+    /// This is the module's own failure shape pointed at itself. If the second
+    /// half never runs, the next start finds a `~/.specline` that exists, walks
+    /// past it, and opens `specline.sqlite` — which is not there, so it creates
+    /// an empty one beside the user's data and reports itself healthy.
+    #[test]
+    fn a_half_finished_relocation_is_completed_rather_than_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = dir.path().join(LEGACY_HOME_DIR);
+        let new = dir.path().join(HOME_DIR);
+
+        // Exactly what an interrupted run leaves: the directory moved, the
+        // database and its log still under the old name.
+        std::fs::create_dir_all(&new).unwrap();
+        std::fs::write(new.join(LEGACY_STORE_FILE), b"the database").unwrap();
+        std::fs::write(new.join("keel.sqlite-wal"), b"not checkpointed").unwrap();
+
+        let finished = relocate(&old, &new)
+            .unwrap()
+            .expect("a half-finished move must be reported as work done");
+
+        assert!(finished.store_renamed);
+        assert_eq!(
+            std::fs::read(new.join(STORE_FILE)).unwrap(),
+            b"the database",
+            "the database must end up under the name the store opens"
+        );
+        assert_eq!(
+            std::fs::read(new.join("specline.sqlite-wal")).unwrap(),
+            b"not checkpointed",
+            "and its log with it"
+        );
+        assert!(!new.join(LEGACY_STORE_FILE).exists());
+    }
+
+    /// Failure case: finishing an interrupted move is still a move, so it is
+    /// still refused while something holds the store.
+    ///
+    /// Worth its own test rather than trusting the shared helper: the resume
+    /// path was added after the fact, and a second entry point that skipped
+    /// the claim would be a writer-safety hole reachable only from the state
+    /// nobody plans for.
+    #[test]
+    fn a_resumed_relocation_is_refused_while_the_store_is_held() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = dir.path().join(LEGACY_HOME_DIR);
+        let new = dir.path().join(HOME_DIR);
+        std::fs::create_dir_all(&new).unwrap();
+        std::fs::write(new.join(LEGACY_STORE_FILE), b"the database").unwrap();
+
+        let held = StoreLock::acquire(&new.join(LEGACY_STORE_FILE)).unwrap();
+
+        let err = relocate(&old, &new).unwrap_err();
+        assert!(
+            err.to_string().contains("open for writing"),
+            "the resumed move must refuse too: {err}"
+        );
+        assert!(
+            !new.join(STORE_FILE).exists(),
+            "and must not have renamed anything"
+        );
+
+        drop(held);
+        assert!(relocate(&old, &new).unwrap().is_some());
+        assert_eq!(
+            std::fs::read(new.join(STORE_FILE)).unwrap(),
+            b"the database"
         );
     }
 

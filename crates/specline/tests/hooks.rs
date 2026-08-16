@@ -700,3 +700,51 @@ fn the_pre_commit_hook_ignores_a_commit_that_touches_no_generated_file() {
         "the hook must not call specline at all when nothing generated is staged"
     );
 }
+
+/// A store relocation must not land in a `--json` payload.
+///
+/// `resolve_home` runs before every command that touches the store, and every
+/// one of them can be asked for `--json` — at which point stdout is a document
+/// somebody parses. A relocation notice printed above it makes the whole
+/// thing unparseable, once, on the first run after an upgrade: the single run
+/// where somebody is watching to see whether the upgrade worked.
+///
+/// The session hook is not exposed, because it is dispatched before the home
+/// is resolved. That is a real protection but an incidental one — it was put
+/// there so a hook would not exit non-zero with `HOME` unset — so this asserts
+/// the property on a command that genuinely reaches the code.
+///
+/// Drives the real binary with a real Keel-shaped home, because the bug lives
+/// in the seam between two functions that are each correct alone.
+#[test]
+fn a_store_relocation_does_not_land_in_a_json_payload() {
+    let scratch = tempfile::tempdir().expect("a scratch directory");
+    let fake_home = scratch.path().join("home");
+    let legacy = fake_home.join(".keel");
+    std::fs::create_dir_all(&legacy).expect("the old home");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_specline"))
+        .args(["--json", "status"])
+        .env("HOME", &fake_home)
+        .env("TMPDIR", scratch.path())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .expect("the specline binary runs");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        fake_home.join(".specline").is_dir(),
+        "the relocation should have happened, or this test proves nothing"
+    );
+    assert!(
+        stderr.contains("moved your store"),
+        "and it should still tell somebody: stderr was {stderr:?}"
+    );
+    assert!(
+        !stdout.contains("moved your store"),
+        "but not on the stream the payload goes to: stdout was {stdout:?}"
+    );
+}

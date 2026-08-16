@@ -1270,9 +1270,24 @@ fn resolve_home(explicit: Option<PathBuf>) -> Result<PathBuf> {
         &base.join(specline_core::relocate::LEGACY_HOME_DIR),
         &home,
     )? {
-        // Printed, not logged. Somebody whose store just moved should find that
-        // out from the thing that moved it.
-        println!("specline: {}", moved.describe());
+        // Standard error, not standard output, and the distinction is not
+        // cosmetic. Every command below this line can be asked for `--json`,
+        // and stdout is then a payload somebody parses. A relocation notice
+        // printed above it makes the whole document unparseable — once, on the
+        // first run after an upgrade, which is exactly the run somebody is
+        // watching to see whether the upgrade worked.
+        //
+        // The session hook is *not* in that set, and the reason is worth
+        // knowing rather than assuming: it is dispatched above, before the
+        // home is resolved at all, so it never reaches this line. That
+        // ordering was put there for a different reason — a hook must not exit
+        // non-zero when `HOME` is unset — and it happens to cover this too.
+        // Relying on a happy accident for the payload nobody can afford to
+        // corrupt is not a plan, so this goes to stderr on its own merits.
+        //
+        // Still printed rather than logged: a person at a terminal reads
+        // stderr, and being told your store moved is the point.
+        eprintln!("specline: {}", moved.describe());
     }
     Ok(home)
 }
