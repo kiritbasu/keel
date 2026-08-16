@@ -1,0 +1,41 @@
+# The gate, as one thing, so that two jobs can run it on two platforms without
+# either copy drifting from the other.
+#
+# It is a composite action rather than a matrix because of what the matrix could
+# not express: the macOS leg runs on a self-hosted machine and must be skipped
+# for a pull request from a fork, and a job-level `if` cannot see the `matrix`
+# context — only `github`. So the platforms are two jobs, and this is what they
+# share.
+name: Rust check
+description: fmt, clippy and the test suite, the same way on every platform.
+
+runs:
+  using: composite
+  steps:
+    # No checkout here. A local action has to be on disk before it can be used,
+    # so the calling job has already checked out — doing it again would either
+    # be wasted work or, worse, a second checkout on top of the first.
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    # Dependencies dominate a cold build on a hosted runner; the workspace's
+    # own crates are quick. The self-hosted runner keeps `target/` between
+    # runs, so a cache there would download gigabytes it already has.
+    - uses: Swatinem/rust-cache@v2
+      if: runner.environment == 'github-hosted'
+
+    - name: Format
+      shell: bash
+      run: cargo fmt --all --check
+
+    - name: Clippy
+      # Not --all-features: no workspace crate declares a feature, so the flag
+      # buys nothing and only costs a second full build (DECISIONS B-11).
+      shell: bash
+      run: cargo clippy --workspace --all-targets -- -D warnings
+
+    - name: Test
+      shell: bash
+      run: cargo test --workspace

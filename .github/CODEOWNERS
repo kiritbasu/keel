@@ -1,0 +1,5 @@
+# One maintainer, so this is a review request rather than a gate: every pull
+# request asks @kiritbasu, and nothing is blocked on the answer. Written down
+# because the alternative — nobody assigned — is how a contributor's first pull
+# request sits for a fortnight with no sign anyone saw it.
+* @kiritbasu

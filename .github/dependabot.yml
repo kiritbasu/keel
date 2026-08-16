@@ -1,0 +1,43 @@
+# Dependency updates, batched rather than trickling.
+#
+# Weekly and grouped, because this is a one-person project: a pull request per
+# patch bump is a stream nobody reads, and a stream nobody reads is how the one
+# that matters gets merged unexamined. Security updates are separate and arrive
+# as soon as they exist — those are on in the repository settings, not here.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the ordinary churn. A major bump comes on its own, because
+      # that is the one worth reading a changelog for.
+      cargo-minor-and-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "chore"
+
+  - package-ecosystem: npm
+    directory: "/apps/desktop"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-and-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "chore"
+
+  # The actions themselves. Easy to forget, and they run with access to the
+  # release job's token.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore"

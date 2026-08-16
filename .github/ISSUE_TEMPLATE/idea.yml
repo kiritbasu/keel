@@ -1,0 +1,32 @@
+name: Idea or change
+description: Something Keel should do differently, or not do at all.
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Worth knowing before you write: `product/DECISIONS.md` records what was
+        chosen and why, including several things that were tried and dropped. If
+        your idea is in there, saying why that reasoning is wrong is a much
+        stronger opening than proposing it fresh.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >
+        What is awkward or missing today, from where you are sitting. Not the
+        feature — the thing the feature would fix.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you would do about it
+      description: If you have a shape in mind. It is fine not to.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried or considered instead
