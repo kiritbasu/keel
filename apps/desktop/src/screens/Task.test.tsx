@@ -169,7 +169,7 @@ vi.mock("../lib/api", () => ({
 
 const { TaskScreen } = await import("./Task");
 
-const route = { screen: "task" as const, project: "keel", taskId: "tsk_me", query: {} };
+const route = { screen: "task" as const, project: "specline", taskId: "tsk_me", query: {} };
 
 async function show() {
   render(<TaskScreen route={route} generation={0} />);
@@ -179,7 +179,7 @@ async function show() {
 }
 
 beforeEach(() => {
-  window.location.hash = "#/projects/keel/tasks/tsk_me";
+  window.location.hash = "#/projects/specline/tasks/tsk_me";
 });
 afterEach(cleanup);
 
@@ -205,7 +205,7 @@ describe("what it shows", () => {
   it("links a related task to its own page", async () => {
     await show();
     const link = screen.getByText("Sub-tasks — a parent link").closest("a");
-    expect(link?.getAttribute("href")).toBe("#/projects/keel/tasks/tsk_child");
+    expect(link?.getAttribute("href")).toBe("#/projects/specline/tasks/tsk_child");
   });
 
   // A retracted note stays visible and struck through. Hiding it would rewrite
@@ -295,13 +295,13 @@ describe("the keyboard", () => {
     // Board order is todo, then in_progress, then done — so the neighbours of
     // the in_progress task are the todo one and the done one.
     fireEvent.keyDown(window, { key: "j" });
-    expect(window.location.hash).toBe("#/projects/keel/tasks/tsk_last");
+    expect(window.location.hash).toBe("#/projects/specline/tasks/tsk_last");
 
-    window.location.hash = "#/projects/keel/tasks/tsk_me";
+    window.location.hash = "#/projects/specline/tasks/tsk_me";
     fireEvent.keyDown(window, { key: "k" });
     // The last card in the todo column, which is the one immediately before
     // the in_progress column this task sits in.
-    expect(window.location.hash).toBe("#/projects/keel/tasks/tsk_kid_b");
+    expect(window.location.hash).toBe("#/projects/specline/tasks/tsk_kid_b");
   });
 
   // Failure case: at the ends of the list the keys must do nothing rather than
@@ -313,9 +313,9 @@ describe("the keyboard", () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    window.location.hash = "#/projects/keel/tasks/tsk_first";
+    window.location.hash = "#/projects/specline/tasks/tsk_first";
     fireEvent.keyDown(window, { key: "k" });
-    expect(window.location.hash).toBe("#/projects/keel/tasks/tsk_first");
+    expect(window.location.hash).toBe("#/projects/specline/tasks/tsk_first");
   });
 
   // Failure case: J typed into a field is a letter, not a command.
@@ -324,7 +324,7 @@ describe("the keyboard", () => {
     const field = document.createElement("input");
     document.body.append(field);
     fireEvent.keyDown(field, { key: "j" });
-    expect(window.location.hash).toBe("#/projects/keel/tasks/tsk_me");
+    expect(window.location.hash).toBe("#/projects/specline/tasks/tsk_me");
     field.remove();
   });
 });
@@ -363,7 +363,7 @@ describe("what this is part of", () => {
   it("links a sub-task to its own page", async () => {
     await show();
     expect(screen.getByText("A finished piece").closest("a")?.getAttribute("href")).toBe(
-      "#/projects/keel/tasks/tsk_kid_a",
+      "#/projects/specline/tasks/tsk_kid_a",
     );
   });
 

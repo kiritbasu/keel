@@ -1,7 +1,7 @@
 //! The Tauri shell.
 //!
 //! Its whole job is to put a window around the React bundle and make sure the
-//! daemon is running behind it. Nothing about Keel's behaviour lives here —
+//! daemon is running behind it. Nothing about Specline's behaviour lives here —
 //! SPEC §1.2 is explicit that building daemon-first is what stops logic getting
 //! trapped in the desktop app, and this file is what that discipline looks like
 //! in practice.
@@ -15,7 +15,7 @@
 //! The daemon runs as a child process rather than being linked in. That is not
 //! an accident of packaging: D-5 says one process owns the write handle, and
 //! embedding the store in the UI would make the desktop app a second writer the
-//! moment anyone opened it alongside a `keel` command.
+//! moment anyone opened it alongside a `specline` command.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -87,7 +87,7 @@ fn main() {
         .expect("the Tauri runtime failed to start");
 }
 
-/// Whether something is already serving Keel's API.
+/// Whether something is already serving Specline's API.
 fn daemon_is_up() -> bool {
     // A raw TCP connect rather than an HTTP client: this is asked once a second
     // during startup and the answer only needs to be "is the port open".

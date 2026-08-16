@@ -2,7 +2,7 @@
  * Screen 6 — Search. Hybrid, cross-project, faceted by type.
  *
  * The query and the facets live in the address, so a search is a link. Scope is
- * the address too: `/search` is everything, `/projects/keel/search` is one
+ * the address too: `/search` is everything, `/projects/specline/search` is one
  * project — the same distinction the rest of the app already makes, rather than
  * a second mechanism that means the same thing.
  */

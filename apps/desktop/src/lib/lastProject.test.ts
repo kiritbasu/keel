@@ -9,17 +9,17 @@ describe("the project you were last in", () => {
   });
 
   it("round-trips a slug", () => {
-    rememberProject("keel");
-    expect(readLastProject()).toBe("keel");
+    rememberProject("specline");
+    expect(readLastProject()).toBe("specline");
   });
 
   it("opens what you were last in", () => {
-    rememberProject("keel");
-    expect(defaultProject(["audiosplatcamera", "keel"])).toBe("keel");
+    rememberProject("specline");
+    expect(defaultProject(["audiosplatcamera", "specline"])).toBe("specline");
   });
 
   it("opens the first project when there is no memory", () => {
-    expect(defaultProject(["audiosplatcamera", "keel"])).toBe("audiosplatcamera");
+    expect(defaultProject(["audiosplatcamera", "specline"])).toBe("audiosplatcamera");
   });
 
   // Failure case, and the reason the live list is passed in rather than
@@ -28,13 +28,13 @@ describe("the project you were last in", () => {
   // promises content, which is worse than opening a different real project.
   it("ignores a memory of a project that no longer exists", () => {
     rememberProject("deleted-thing");
-    expect(defaultProject(["keel"])).toBe("keel");
+    expect(defaultProject(["specline"])).toBe("specline");
   });
 
   // Failure case: an empty store has no project to fall back on, and inventing
   // one would send the rail at an address that cannot render.
   it("returns null when there are no projects at all", () => {
-    rememberProject("keel");
+    rememberProject("specline");
     expect(defaultProject([])).toBeNull();
   });
 });

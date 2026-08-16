@@ -18,7 +18,7 @@ export type Theme = "system" | "light" | "dark";
 
 export const THEMES: Theme[] = ["system", "light", "dark"];
 
-const KEY = "keel.theme";
+const KEY = "specline.theme";
 
 /** Whether a stored string is still a theme we recognise. */
 function isTheme(value: string | null): value is Theme {

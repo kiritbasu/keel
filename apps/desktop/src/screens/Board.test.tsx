@@ -92,7 +92,7 @@ vi.mock("../lib/api", () => ({
 const { BoardScreen } = await import("./Board");
 
 function at(query: Record<string, string>): Route {
-  return { screen: "board", project: "keel", query };
+  return { screen: "board", project: "specline", query };
 }
 
 async function show(query: Record<string, string> = {}) {
@@ -103,7 +103,7 @@ async function show(query: Record<string, string> = {}) {
 }
 
 beforeEach(() => {
-  window.location.hash = "#/projects/keel/board";
+  window.location.hash = "#/projects/specline/board";
   called.ready = 0;
   called.context = 0;
   called.notes = 0;

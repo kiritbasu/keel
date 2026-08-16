@@ -167,7 +167,7 @@ describe("a write from the interface", () => {
   });
 
   /**
-   * A token lives as long as one daemon, and `keel update` restarts the daemon
+   * A token lives as long as one daemon, and `specline update` restarts the daemon
    * — so a page left open across an update is holding an expired secret. Every
    * button on it would fail with a 401 that reads like a broken app.
    *

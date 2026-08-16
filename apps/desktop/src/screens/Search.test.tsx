@@ -53,7 +53,7 @@ vi.mock("../lib/api", () => ({
   subscribe: () => () => {},
   api: {
     projects: async () => ({
-      projects: [{ id: "prj_1", type: "project", name: "Keel", slug: "keel", audit: {} }],
+      projects: [{ id: "prj_1", type: "project", name: "Specline", slug: "specline", audit: {} }],
     }),
     search: async () => ({ hits: HITS, items: HITS, total: HITS.length, truncated: false }),
     // The starter chips are built from the digest, so the screen reads it on
@@ -79,7 +79,7 @@ vi.mock("../lib/api", () => ({
 const { SearchScreen } = await import("./Search");
 
 function at(query: Record<string, string>): Route {
-  return { screen: "search", project: "keel", query };
+  return { screen: "search", project: "specline", query };
 }
 
 async function show(query: Record<string, string>) {
@@ -90,7 +90,7 @@ async function show(query: Record<string, string>) {
 }
 
 beforeEach(() => {
-  window.location.hash = "#/projects/keel/search";
+  window.location.hash = "#/projects/specline/search";
 });
 afterEach(cleanup);
 
@@ -98,7 +98,7 @@ describe("where a hit leads", () => {
   it("sends a task to its own page", async () => {
     await show({ q: "routing" });
     expect(screen.getByText("Routing and URLs").closest("a")?.getAttribute("href")).toBe(
-      "#/projects/keel/tasks/tsk_1",
+      "#/projects/specline/tasks/tsk_1",
     );
   });
 
@@ -106,13 +106,13 @@ describe("where a hit leads", () => {
     await show({ q: "routing" });
     expect(
       screen.getByText("Readable identifiers are composed").closest("a")?.getAttribute("href"),
-    ).toBe("#/projects/keel/documents/dec_1");
+    ).toBe("#/projects/specline/documents/dec_1");
   });
 
   it("sends a milestone to the roadmap, which is where milestones are rendered", async () => {
     await show({ q: "routing" });
     expect(screen.getByText("Phase 6").closest("a")?.getAttribute("href")).toBe(
-      "#/projects/keel/roadmap",
+      "#/projects/specline/roadmap",
     );
   });
 
@@ -122,7 +122,7 @@ describe("where a hit leads", () => {
   it("sends a type with no page of its own to its project", async () => {
     await show({ q: "routing" });
     expect(screen.getByText("Digest").closest("a")?.getAttribute("href")).toBe(
-      "#/projects/keel",
+      "#/projects/specline",
     );
   });
 

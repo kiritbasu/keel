@@ -20,7 +20,7 @@ what changed and how you know it works without reading the diff first.
 
 - [ ] `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo test --workspace` all pass, run through the pinned toolchain
 - [ ] A test covers this, including a case that fails without the change
-- [ ] No generated file under `product/` or `.keel/` was hand-edited
+- [ ] No generated file under `product/` or `.specline/` was hand-edited
 
 <!--
 Found a security problem? Do not open a pull request for it — see SECURITY.md

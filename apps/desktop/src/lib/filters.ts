@@ -67,7 +67,7 @@ export function parseFilter(query: Record<string, string>): TaskFilter {
  *
  * Every empty value becomes `undefined` rather than an empty string, so
  * `setQuery` drops it: two views that are the same view get the same address,
- * and an unfiltered board is `#/projects/keel/board` rather than a URL trailing
+ * and an unfiltered board is `#/projects/specline/board` rather than a URL trailing
  * seven empty parameters.
  */
 export function filterToQuery(

@@ -3,7 +3,7 @@
  *
  * Two things live here for one reason: you cannot tell what you are running
  * without leaving the interface, and the first person to install a second copy
- * of Specline could not work out which version it was. `keel --version` answers
+ * of Specline could not work out which version it was. `specline --version` answers
  * it, but only if you know the binary is on your path — and the case where it
  * is not is exactly the case you are trying to diagnose.
  *
@@ -192,7 +192,7 @@ export function VersionFooter({
           break;
         case "needs_a_person":
           setCheckResult(
-            `${r.version} changes the store's shape (schema ${r.schema_from} → ${r.schema_to}), so it is not applied automatically. Run \`keel update\` to see what it involves.`,
+            `${r.version} changes the store's shape (schema ${r.schema_from} → ${r.schema_to}), so it is not applied automatically. Run \`specline update\` to see what it involves.`,
           );
           break;
         case "failed":

@@ -39,7 +39,7 @@ const RANGES = {
 type RangeId = keyof typeof RANGES;
 
 /** Where the "last here" mark is kept. Local, because it is about this reader. */
-const SEEN_KEY = "keel.changed.lastSeen";
+const SEEN_KEY = "specline.changed.lastSeen";
 
 interface ChangeRow {
   id: string;

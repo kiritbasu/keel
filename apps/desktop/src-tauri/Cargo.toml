@@ -3,7 +3,7 @@ name = "specline-desktop"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
-description = "Keel — the read surface"
+description = "Specline — the read surface"
 authors = ["KB"]
 publish = false
 

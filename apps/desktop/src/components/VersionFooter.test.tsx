@@ -339,7 +339,7 @@ describe("VersionFooter — asking for a check", () => {
     const status = await screen.findByRole("status");
     expect(status.textContent).toMatch(/0\.2\.0/);
     expect(status.textContent).toMatch(/schema 4 → 5/);
-    expect(status.textContent).toMatch(/keel update/);
+    expect(status.textContent).toMatch(/specline update/);
   });
 
   it("reports a failed check with its reason rather than as silence", async () => {

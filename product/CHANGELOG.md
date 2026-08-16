@@ -1,15 +1,33 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T15:01:30Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T15:10:17Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (248)
+## Closed work (251)
 
 ### 2026-08-16
+
+- **KEEL-270** Rename the plugin, the skills, the hooks and the background service — `done`
+
+  Plugin, marketplace, /specline:setup, both skills, the session hook, the launchd label and the systemd unit renamed. The adopt skill's frontmatter name was the one a bare-word sweep could not reach. Skills are installed and Claude Code lists them as specline and specline-adopt.
+
+  <sub>commit:6c5e4ef · test:cargo test -p specline --test plugin</sub>
+
+- **KEEL-274** Retire the old install from this Mac so two binaries cannot open one store — `done`
+
+  Old binaries, skills and receipt removed; new ones installed and the daemon runs from ~/.cargo/bin. Nothing named keel is on PATH, so the stale binary cannot find a missing ~/.keel and create an empty store in its place.
+
+  <sub>commit:c5acb64 · url:http://127.0.0.1:7654/api/health</sub>
+
+- **KEEL-272** Rewrite the prose by classifying every mention, not by running sed — `done`
+
+  Nine documents renamed and proved name-only by normalising the name out of both sides and diffing whole files — empty for all nine, SPEC.md's 70 KB included. Import matches on title, so a title change turns a revise into a create; the titles moved first.
+
+  <sub>commit:c5acb64 · test:specline generate specline --check</sub>
 
 - **KEEL-273** Rename the GitHub repository and put the release plumbing back together — `done`
 
@@ -1010,6 +1028,25 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T15:10:17.361755Z |
+| 2026-08-16 | claude | created task “A 400 from the daemon's generate endpoint is reported as a timeout” |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:6c5e4ef","test:cargo test -p specline --test plugin"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (278 characters) |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:c5acb64","url:http://127.0.0.1:7654/api/health"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (220 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T15:03:04.257925Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:c5acb64","test:specline generate specline --check"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (254 characters) |
 | 2026-08-16 | human | revised spec “Specline — Build journal” to v4 |
 | 2026-08-16 | human | revised spec “The gate — what it measured, and why it is frozen” to v5 |
 | 2026-08-16 | human | revised spec “Specline — Technical Specification” to v8 |
@@ -1191,25 +1228,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | close_message none → (420 characters) |
 | 2026-08-16 | claude | created task “CI has been red on main because a test asserts the machine has a Desktop folder” |
 | 2026-08-16 | claude | status todo → done |
-| 2026-08-16 | claude | evidence [] → ["url:https://github.com/kiritbasu/keel/branches"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (275 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T07:31:02.227206Z |
-| 2026-08-16 | claude | created task “Set the public repository up the way a public repository should be” |
-| 2026-08-16 | claude | created task “Delete the phase-10 branch on GitHub, or say why it stays” |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:f268b5a","test:cargo test -p keel --bin keel doctor"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (557 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T07:17:19.458565Z |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → (103 characters) |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (552 characters) |
 
-*Showing the 200 most recent of 1955 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 1974 changes. Use `specline_activity` for the rest.*
 

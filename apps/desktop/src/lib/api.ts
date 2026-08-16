@@ -124,7 +124,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     );
   }
 
-  // A token has the lifetime of one daemon, and `keel update` restarts the
+  // A token has the lifetime of one daemon, and `specline update` restarts the
   // daemon — so a page left open across an update is holding a secret that has
   // expired, and every button on it would fail with a 401 that reads like a
   // broken app.

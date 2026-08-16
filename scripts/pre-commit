@@ -23,7 +23,7 @@ set -uo pipefail
 
 # The project whose files this repository generates. `specline generate --check`
 # needs to know which project's outputs to compare against.
-project="${SPECLINE_PROJECT:-keel}"
+project="${SPECLINE_PROJECT:-specline}"
 
 # Nothing staged under the generated tree means nothing to check. Committing a
 # code change should not pay for a store round-trip.

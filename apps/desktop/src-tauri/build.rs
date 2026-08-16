@@ -1,7 +1,7 @@
 // The desktop shell is suspended, deliberately and reversibly.
 //
 // The read surface is the same React bundle, and since KEEL-207 the daemon
-// serves it directly — compiled in with `rust-embed`, opened by `keel ui`. It
+// serves it directly — compiled in with `rust-embed`, opened by `specline ui`. It
 // was Vite on :1420 when this guard was written; that is now the development
 // loop rather than the product.
 //
