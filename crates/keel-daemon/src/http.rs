@@ -499,9 +499,20 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
     // directory cannot be read; the difference does not matter to a caller, and
     // reporting an error here would put a red state on a healthy daemon for
     // something that is not about its health.
-    let staged: Option<String> = keel_update::install_dir()
-        .ok()
-        .and_then(|dir| keel_update::staged_version(&dir).ok().flatten());
+    let install_dir = keel_update::install_dir().ok();
+    let staged: Option<String> = install_dir
+        .as_ref()
+        .and_then(|dir| keel_update::staged_version(dir).ok().flatten());
+
+    // Whether checking is happening at all, which is a different question from
+    // what it found and the one nobody could answer. `staged_version` being
+    // null says "nothing is waiting", and that reads as "you are current" —
+    // whether the daemon checked an hour ago, has been failing since March, or
+    // has checks switched off entirely. Three states, one appearance
+    // (KEEL-227).
+    let last_check = install_dir
+        .as_ref()
+        .and_then(|dir| keel_update::last_check(dir));
 
     let (projects, busy) = match state.try_store() {
         Some(store) => {
@@ -545,6 +556,25 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
         // response the app was fetching anyway. See the binding above for what
         // null covers.
         "staged_version": staged.clone(),
+        // The state of update *checking*, which the interface needs in order to
+        // say "nothing is waiting" and mean it. Present from this version on,
+        // so a caller seeing no `update_check` at all is talking to a daemon
+        // that predates the updater — the absence is the answer, and it is the
+        // population most in need of one.
+        "update_check": {
+            // `KEEL_AUTO_UPDATE=0`. A deliberate choice, and one worth showing
+            // rather than silently rendering as "up to date".
+            "enabled": keel_update::auto_update_enabled(),
+            "last_checked_at": last_check.as_ref().map(|c| c.at.clone()),
+            "last_error": last_check.as_ref().and_then(|c| c.error.clone()),
+        },
+        // Which binary this is, not only what version it claims. KB had two
+        // `keel` installs and the one on his PATH was not the one he had
+        // updated, so "0.1.0" was true of the process and misleading about the
+        // machine (KEEL-221, and again in KEEL-227).
+        "executable": std::env::current_exe()
+            .ok()
+            .map(|p| p.display().to_string()),
         // Where to read what these versions contain. Minted here rather than
         // composed by the interface: the repository is configurable and a
         // template in the frontend would be right only for the default. Two

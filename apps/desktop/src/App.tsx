@@ -217,6 +217,14 @@ export function App() {
     staged_version?: string | null;
     release_notes?: string;
     staged_release_notes?: string | null;
+    // Absent on a daemon older than the updater, which is what tells the
+    // footer that its silence about updates means nothing (KEEL-227).
+    update_check?: {
+      enabled?: boolean;
+      last_checked_at?: string | null;
+      last_error?: string | null;
+    };
+    executable?: string | null;
   } | null>(null);
   useEffect(() => {
     api
@@ -442,6 +450,8 @@ export function App() {
             stagedVersion={health?.staged_version}
             releaseNotes={health?.release_notes}
             stagedReleaseNotes={health?.staged_release_notes}
+            updateCheck={health?.update_check}
+            executable={health?.executable}
             onApplied={refresh}
           />
           <div className="mt-cosy">

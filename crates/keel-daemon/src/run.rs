@@ -427,6 +427,7 @@ fn spawn_update_check() {
         );
         tokio::time::sleep(settle).await;
 
+        let stamp_dir = dir.clone();
         loop {
             let dir = dir.clone();
             // Blocking: an HTTP fetch, a hash over 11 MB, and `tar`. On the
@@ -435,6 +436,21 @@ fn spawn_update_check() {
             let outcome =
                 tokio::task::spawn_blocking(move || keel_update::check_and_stage(&dir, target))
                     .await;
+
+            // Stamped whatever happened, because "when did this last check"
+            // is the question a version on its own cannot answer, and a check
+            // that has been failing quietly for a month looks exactly like one
+            // that keeps finding nothing (KEEL-227).
+            let failure = match &outcome {
+                Ok(Ok(_)) => None,
+                Ok(Err(e)) => Some(format!("{e:#}")),
+                Err(e) => Some(e.to_string()),
+            };
+            if let Err(e) = keel_update::record_check(&stamp_dir, failure) {
+                // A check that ran is a check that ran. Failing to write the
+                // note about it is not a reason to stop checking.
+                tracing::debug!("could not record the update check: {e:#}");
+            }
 
             match outcome {
                 Ok(Ok(keel_update::Plan::Apply { version, .. })) => tracing::info!(

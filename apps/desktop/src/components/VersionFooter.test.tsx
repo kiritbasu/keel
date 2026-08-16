@@ -11,7 +11,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { VersionFooter } from "./VersionFooter";
+import { VersionFooter, checkStatus } from "./VersionFooter";
 
 afterEach(cleanup);
 
@@ -92,5 +92,166 @@ describe("VersionFooter", () => {
     );
 
     expect(container.innerHTML).toBe("");
+  });
+});
+
+/**
+ * KEEL-227. "Nothing is staged" was rendered as silence, and silence reads as
+ * "you are up to date" — whether the daemon checked an hour ago, has been
+ * failing quietly for a month, or is too old to check at all. Three states, one
+ * appearance, and the further behind you were the less it said.
+ */
+describe("VersionFooter — whether checking is happening at all", () => {
+  it("says a daemon that sends no staged_version at all predates updating entirely", () => {
+    render(
+      <VersionFooter
+        version="0.1.0"
+        stagedVersion={undefined}
+        onApplied={() => {}}
+      />,
+    );
+
+    // The absence of the field *is* the evidence: `staged_version` arrived
+    // with the updater in 0.1.2, so a daemon without it has no updater.
+    // Nothing outbound, nothing compared against a known-latest.
+    expect(screen.getByText(/predates automatic updates/i)).toBeTruthy();
+  });
+
+  it("distinguishes a daemon that checks but cannot say when", () => {
+    render(
+      <VersionFooter
+        version="0.1.4"
+        stagedVersion={null}
+        onApplied={() => {}}
+      />,
+    );
+
+    // It has the updater — it sent `staged_version` — and only lacks the
+    // stamp. Telling this person to reinstall would be false.
+    expect(screen.queryByText(/predates automatic updates/i)).toBeNull();
+    expect(screen.getByText(/cannot say when it last checked/i)).toBeTruthy();
+  });
+
+  it("says so when checks are switched off rather than implying all is well", () => {
+    render(
+      <VersionFooter
+        version="0.1.4"
+        stagedVersion={null}
+        updateCheck={{ enabled: false }}
+        onApplied={() => {}}
+      />,
+    );
+
+    expect(screen.getByText(/KEEL_AUTO_UPDATE=0/)).toBeTruthy();
+  });
+
+  it("reports a check that ran and failed", () => {
+    render(
+      <VersionFooter
+        version="0.1.4"
+        stagedVersion={null}
+        updateCheck={{
+          enabled: true,
+          last_checked_at: new Date().toISOString(),
+          last_error: "could not reach the release manifest",
+        }}
+        onApplied={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByText(/could not reach the release manifest/i),
+    ).toBeTruthy();
+  });
+
+  it("says nothing when a check succeeded recently, because there is nothing to say", () => {
+    render(
+      <VersionFooter
+        version="0.1.4"
+        stagedVersion={null}
+        updateCheck={{
+          enabled: true,
+          last_checked_at: new Date().toISOString(),
+          last_error: null,
+        }}
+        onApplied={() => {}}
+      />,
+    );
+
+    expect(screen.queryByText(/update check/i)).toBeNull();
+    expect(screen.queryByText(/too old/i)).toBeNull();
+  });
+
+  it("does not add a second update notice when one is already staged", () => {
+    render(
+      <VersionFooter
+        version="0.1.0"
+        stagedVersion="0.1.4"
+        onApplied={() => {}}
+      />,
+    );
+
+    // An update sitting there ready is the more useful thing to read, and a
+    // line about checking would be arguing with it.
+    expect(screen.queryByText(/cannot say when/i)).toBeNull();
+    expect(screen.getByRole("button", { name: /restart into it/i })).toBeTruthy();
+  });
+
+  it("names the binary it is running, for a machine with more than one", () => {
+    render(
+      <VersionFooter
+        version="0.1.0"
+        stagedVersion={null}
+        executable="/Users/kb/.cargo/bin/keel-daemon"
+        onApplied={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByTitle("Running /Users/kb/.cargo/bin/keel-daemon"),
+    ).toBeTruthy();
+  });
+});
+
+describe("checkStatus", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it("calls a check that has not run in days stale rather than silent", () => {
+    const status = checkStatus(
+      {
+        enabled: true,
+        last_checked_at: new Date(1_000_000_000_000 - 5 * DAY).toISOString(),
+        last_error: null,
+      },
+      true,
+      1_000_000_000_000,
+    );
+
+    expect(status?.text).toMatch(/Last checked for updates/);
+    expect(status?.tone).toBe("warn");
+  });
+
+  it("is quiet about a check from an hour ago", () => {
+    expect(
+      checkStatus(
+        {
+          enabled: true,
+          last_checked_at: new Date(1_000_000_000_000 - 3600_000).toISOString(),
+          last_error: null,
+        },
+        true,
+        1_000_000_000_000,
+      ),
+    ).toBeNull();
+  });
+
+  it("treats an unparseable timestamp as a check that has not happened", () => {
+    // Failing closed: a stamp nobody can read cannot vouch for the version.
+    const status = checkStatus(
+      { enabled: true, last_checked_at: "not a date", last_error: null },
+      true,
+      1_000_000_000_000,
+    );
+    expect(status).not.toBeNull();
   });
 });
