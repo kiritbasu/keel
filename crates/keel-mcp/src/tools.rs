@@ -552,7 +552,10 @@ pub fn all() -> Vec<Tool> {
                             "description": "Any other column on the type: status, kind, priority, \
                                             labels, target_date, severity, sentiment, url, and so \
                                             on. Invalid values are rejected with the list of \
-                                            valid ones.",
+                                            valid ones.\n\n\
+                                            A `metric_observation` is recorded here too: \
+                                            `metric_id` (the `mtr_…` being measured), `value`, and \
+                                            an optional `observed_at`.",
                             "additionalProperties": true
                         }
                     }
