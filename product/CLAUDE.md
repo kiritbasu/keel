@@ -68,6 +68,14 @@ the new code produces and the check asks the old code. That is not the hook
 being wrong; it is the hook noticing that the tree and the installed generator
 disagree. Run `./plugin/install.sh` and it passes.
 
+**`keel_write_doc` takes the whole document, not a patch.** Changing one
+paragraph of a long file means re-emitting all of it, which is the one editing
+operation here that can go wrong silently: a dropped line in a 900-line
+transcription rewrites the source and nothing downstream notices, because the
+next `keel generate` writes out whatever you sent. After a full-body write, run
+`keel generate keel` and read `git diff` — it should contain your change and
+nothing else. If it contains more, the previous revision is still in Keel.
+
 **One file is not generated and must not be**: the repository root's
 `CLAUDE.md`. Claude Code loads it before anything else and imports this file
 from it, so it is the bootstrap and cannot itself depend on a generation step
@@ -129,7 +137,7 @@ Three consequences worth internalising:
 A task is not done until all of these are true:
 
 - [ ] Code compiles with zero warnings: `cargo clippy --workspace --all-targets -- -D warnings`
-      *(was `--all-features`; dropped 2026-08-09 because no workspace crate declared a feature it changed anything for, while it forced a second full build of the vendored DuckDB and filled the disk. See DECISIONS B-11. Since Phase 9 no workspace crate declares a feature at all — the `bundled` chain existed only to let someone link a system DuckDB instead of the vendored one — so the flag is now a no-op rather than a hazard. It stays dropped because there is nothing left for it to do.)*
+- [ ] **And in the other configuration**: `cargo clippy --workspace --exclude keel-embed --all-targets --no-default-features -- -D warnings`, plus the same suite. That is what two of the three released platforms ship — see "The one feature" below — and without it the configuration most people install is the one nobody runs.
 - [ ] Formatted: `cargo fmt --all --check`
 - [ ] Tests written **and** passing — including at least one failure case, not only the happy path. The one exception is a *forward-looking* test for behaviour a later phase delivers: mark it `#[ignore = "unblocks in Phase N — see STATUS.md KEEL-x"]` so CI stays green and the intent stays visible. Never `#[ignore]` a test for behaviour the current phase is supposed to deliver.
 - [ ] **Reviewed** with `/agent-skills:code-review-and-quality`, against all five axes — correctness, readability, architecture, security, performance — with every Critical and Required finding either fixed or filed as a row that names it
@@ -141,6 +149,13 @@ A task is not done until all of these are true:
 **Two words, and they are not interchangeable.** *The checks* are `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo test --workspace`. *The review* is reading the code against the five axes. Do not call either of them "the gate": one word for two things that catch different failures is how a session reports that something was verified when the other half never happened.
 
 **Run the checks through the pinned toolchain.** `rust-toolchain.toml` pins 1.97, and a Homebrew `cargo` on `PATH` ignores it entirely — so `cargo clippy` can be checking a different compiler from the one CI uses, and pass. That happened on 2026-08-15: a session reported clippy clean all evening against 1.91 while CI failed on a lint 1.97 has. Either put `~/.cargo/bin` ahead of Homebrew on `PATH`, or run them as `rustup run 1.97 cargo …`.
+
+**The one feature.** `embeddings` is declared by `keel` and `keel-daemon`, on by default, and it is the only feature in the workspace. It exists because it decides whether a platform can be *built at all*: the ONNX runtime the embedding model needs has no prebuilt Intel macOS library and wants a newer glibc than the Linux build is pinned to, so two of three release targets could not link while it was in the graph. Released binaries are built without it and cannot do semantic search; keyword search covers every artifact either way.
+
+Two consequences for anyone running the checks:
+
+- **`--exclude keel-embed` is not optional in the second configuration.** That crate is a workspace member, so `--workspace` builds it whatever features anything asked for — and building it *is* building the ONNX runtime. Without the exclusion the no-embeddings run links the very thing it exists to prove absent, and on Linux or an Intel Mac it cannot link at all.
+- **`--all-features` is not used and buys nothing.** The only feature is already on by default. It was dropped on 2026-08-09 for a different reason that has since expired with the storage engine it named; there is simply nothing for it to turn on.
 
 **Why the review is on the list rather than a good habit.** On 2026-08-16 a session ran the review over its own thirty-five commits and found three real defects — a callback that reloaded the whole page when a button only looked for an update, a progress line that cleared only because the parent happened to destroy it, and two writers racing on one staging file. `fmt`, `clippy`, the whole suite and CI were green throughout, and had been for every one of those commits. The checks tell you the code compiles and does what its tests say; they cannot tell you the tests are asking the right question. Nothing but reading finds that, and two of the three were introduced in the last hour of the session, when the work was going fastest and each change looked small.
 
@@ -165,8 +180,9 @@ If you can't tick all of them, the task is `in_progress`.
 **Structure**
 
 - `keel-core` never opens a network socket, never knows about MCP, never reads env vars. Everything it needs is passed in. This boundary is what makes the CLI, daemon, and future surfaces cheap — protect it.
-- Storage access goes through three traits, named here since the spec only names the first: **`GraphStore`** (link traversal), **`DocumentStore`** (documents and blobs — revisions, embeddings, search), **`EntityStore`** (entity CRUD, links, events). No raw SQL outside their implementations. The traits are named for what they hold, never for what holds it — they came through the move from DuckDB-and-Lance to one SQLite file unchanged, which is the whole return on having drawn them in Phase 0.
+- Storage access goes through three traits, named here since the spec only names the first: **`GraphStore`** (link traversal), **`DocumentStore`** (documents and blobs — revisions, embeddings, search), **`EntityStore`** (entity CRUD, links, events). No raw SQL outside their implementations. The traits are named for what they hold, never for what holds it — they came through a complete change of storage engine unchanged, which is the whole return on having drawn them in Phase 0.
 - All graph traversal goes through `GraphStore`. Nobody hand-writes a recursive CTE at a call site. See "Graph direction" below for why.
+- Six crates: `keel` (both binaries), `keel-core`, `keel-daemon`, `keel-mcp`, `keel-update`, `keel-embed`. `keel` builds `keel-daemon` as well as itself, which is why there is one installer rather than two.
 
 **Errors**
 
@@ -187,13 +203,15 @@ Write tests as you go, not in a batch at the end of a phase. Required coverage:
 - **Snapshot tests** (`insta`) for MCP tool responses — they're an API contract, and drift should be visible in a diff.
 - **Property tests** (`proptest`) for the graph traversal and the revision chain, where invariants matter more than examples.
 
+**A test that reads the machine it runs on is a test that passes here and fails on Linux.** Twice in one day: an assertion that a refusal named `Desktop`, when the folder list drops folders that do not exist and a CI runner has none; and a hook that picked its `stat` flags in an order only BSD survives. Both were green on every Mac. If a test touches the home directory, the filesystem layout or a platform tool's flags, construct what it needs rather than inheriting it — and `HOME=/tmp/empty cargo test …` reproduces most of that class locally.
+
 **Git**
 
 - Small, focused commits. One logical change each.
 - Conventional commit prefixes: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`.
 - Short-lived branches off `main`, merged when green. Don't accumulate long-running branches — you're the only developer and they only create merge pain.
-- Never commit secrets, `~/.keel` contents, or model weights.
-- Never force-push `main`.
+- Never commit secrets, `~/.keel` contents, or model weights. **The repository is public**, so a push publishes immediately and rewriting history does not unpublish it. Secret scanning and push protection are on, which is a backstop and not a permission.
+- Never force-push `main`. Enforced rather than asked for since 2026-08-16: branch protection refuses a force-push or a deletion, admins included.
 
 ---
 
@@ -216,7 +234,7 @@ Violating these means rework, not a refactor:
 
 1. **Everything that writes goes through `keel-core`'s write path.** That is the thing being protected, and it is worth saying in those words rather than as "no other process writes to the store" — six of the seven steps in a Keel write are validation, provenance, the event, the revision, the embedding and the index, none of which the database does for you, and a writer that goes round them produces rows that are poorer than every other row without anything failing.
 
-   Only one process may hold the store open for writing at a time, and since B-60 that is enforced rather than asked for: an advisory lock, taken by the daemon for its lifetime and by a CLI command for its duration. DuckDB used to enforce it and SQLite in WAL mode does not, so for a while it was a convention — until a second daemon was started with `--home` forgotten and migrated the store under the one already serving it. Reading takes no lock, because looking at a busy store is when you most need to. `--force` skips it, for the wedged daemon that is the reason the flag exists.
+   Only one process may hold the store open for writing at a time, and since B-60 that is enforced rather than asked for: an advisory lock, taken by the daemon for its lifetime and by a CLI command for its duration. The previous storage engine enforced it by refusing a second read-write connection outright; SQLite in WAL mode does not, so for a while it was a convention — until a second daemon was started with `--home` forgotten and migrated the store under the one already serving it. Reading takes no lock, because looking at a busy store is when you most need to. `--force` skips it, for the wedged daemon that is the reason the flag exists.
 2. **The mirror is one-directional, with no exceptions.** Nothing reads a generated file back into the store on its own. `keel import` exists for deliberate migrations and is run by a person. Any code that diffs mirror state against database state is a bug.
 3. **Soft delete only, for anything that is a record.** Nothing is ever `DELETE`d — rows, links, notes. The one exception is a *derived index*, which is not a record: `fts_source` and `document_chunks` hold nothing that cannot be rebuilt from the revision they came from, and both are deleted when the thing they describe changes or is archived (B-55). The test that keeps the exception honest asserts a passage can always be recomputed byte-for-byte; if that ever fails, the carve-out is unsound and passages go back to being archived like everything else.
 4. **No silent truncation.** Every list that can be cut reports that it was cut, with a total.
@@ -229,6 +247,8 @@ Violating these means rework, not a refactor:
    **Authoring is the half it does not do.** The body of a spec, a decision or a question is written by Claude in the conversation where the thinking happened. That is not squeamishness about forms: the reasoning *is* the product. Keel exists because why-this-and-not-that is the part that normally evaporates, and a person typing into a textarea produces a tracker with an AI feature attached — which is the thing this is trying not to be.
 
    The line, then, is **capture versus authoring**, and it is checkable: an endpoint that accepts a document revision is on the wrong side of it.
+
+   Asking the daemon to *do* something it already knows how to do is on the permitted side, and two endpoints show where that lands: applying a staged update (B-75), and checking whether one exists (KEEL-258). Neither chooses a version, neither takes a body, and both are a person's own action.
 
    This replaces "the desktop app is read-only", which had been amended twice and was about to be a third time. KB has said authoring reaches the interface eventually (B-78), so the sentence says where this is going rather than something everyone had to read three exceptions past. When it does arrive, the question to answer first is not "can we build a form" but "what stops the reasoning becoming a field somebody fills in because the form asked".
 

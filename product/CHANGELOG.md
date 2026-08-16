@@ -1,6 +1,6 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T13:13:49Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T13:27:12Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -956,6 +956,7 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | revised spec “Keel — standing instructions” to v14 |
 | 2026-08-16 | claude | revised decision “The review joins the definition of done, and "the gate" stops being a word” to v1 |
 | 2026-08-16 | claude | created decision “The review joins the definition of done, and "the gate" stops being a word” |
 | 2026-08-16 | claude | revised spec “Keel — standing instructions” to v13 |
@@ -1155,7 +1156,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | evidence [] → (110 characters) |
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (493 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
 
-*Showing the 200 most recent of 1849 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1850 changes. Use `keel_activity` for the rest.*
 
