@@ -9,7 +9,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { subscribe, type ChangeEvent } from "./api";
+import { api, subscribe, type ChangeEvent } from "./api";
 
 class FakeEventSource {
   static last: FakeEventSource | null = null;
@@ -40,7 +40,11 @@ describe("subscribe", () => {
     subscribe((c) => seen.push(c));
     FakeEventSource.last!.emit(
       "change",
-      JSON.stringify({ kind: "note", entity_id: "tsk_1", summary: "keel_note completed" }),
+      JSON.stringify({
+        kind: "note",
+        entity_id: "tsk_1",
+        summary: "keel_note completed",
+      }),
     );
     expect(seen).toHaveLength(1);
     expect(seen[0]!.kind).toBe("note");
@@ -52,7 +56,11 @@ describe("subscribe", () => {
     subscribe((c) => seen.push(c));
     FakeEventSource.last!.emit(
       "change",
-      JSON.stringify({ kind: "entity", event_id: "evt_1", summary: "keel_update completed" }),
+      JSON.stringify({
+        kind: "entity",
+        event_id: "evt_1",
+        summary: "keel_update completed",
+      }),
     );
     expect(seen[0]!.kind).toBe("entity");
   });
@@ -123,5 +131,109 @@ describe("subscribe, on reconnect", () => {
       FakeEventSource.last!.emit("open");
     }).not.toThrow();
     expect(seen).toHaveLength(1);
+  });
+});
+
+// --- Writing, and the token that has to be current ------------------------
+
+describe("a write from the interface", () => {
+  const TOKEN_META = '<meta name="keel-token" content="fresh-token">';
+
+  function pageWithToken(token: string) {
+    document.head.innerHTML = `<meta name="keel-token" content="${token}">`;
+  }
+
+  afterEach(() => {
+    document.head.innerHTML = "";
+    vi.unstubAllGlobals();
+  });
+
+  it("sends the token the daemon put in the page", async () => {
+    pageWithToken("the-current-token");
+    const calls: Array<{ url: string; headers: Record<string, string> }> = [];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      calls.push({
+        url: String(url),
+        headers: (init.headers ?? {}) as Record<string, string>,
+      });
+      return new Response(JSON.stringify({ data: { id: "nte_1" } }), {
+        status: 200,
+      });
+    });
+
+    await api.addNote("tsk_1", "something learned");
+
+    expect(calls[0]?.headers["x-keel-token"]).toBe("the-current-token");
+  });
+
+  /**
+   * A token lives as long as one daemon, and `keel update` restarts the daemon
+   * — so a page left open across an update is holding an expired secret. Every
+   * button on it would fail with a 401 that reads like a broken app.
+   *
+   * Re-reading the token from this origin is exactly as safe as the original
+   * delivery: only a page already on this origin can read that response.
+   */
+  it("fetches a fresh token and retries when the daemon says the old one is dead", async () => {
+    pageWithToken("a-token-from-a-dead-daemon");
+    const sent: string[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init?: RequestInit) => {
+      // The re-read of the served document.
+      if (!init?.method) {
+        return new Response(`<!doctype html><head>${TOKEN_META}</head>`, {
+          status: 200,
+        });
+      }
+      const token =
+        (init.headers as Record<string, string>)["x-keel-token"] ?? "";
+      sent.push(token);
+      return token === "fresh-token"
+        ? new Response(JSON.stringify({ data: { id: "nte_1" } }), {
+            status: 200,
+          })
+        : new Response(JSON.stringify({ error: "stale" }), { status: 401 });
+    });
+
+    await api.addNote("tsk_1", "written across a restart");
+
+    expect(sent).toEqual(["a-token-from-a-dead-daemon", "fresh-token"]);
+  });
+
+  /** Two 401s is a real refusal, not a stale secret. It must not loop. */
+  it("gives up after one retry", async () => {
+    pageWithToken("no-good");
+    let posts = 0;
+    vi.stubGlobal("fetch", async (_url: string, init?: RequestInit) => {
+      if (!init?.method) {
+        return new Response(
+          `<!doctype html><head><meta name="keel-token" content="also-no-good"></head>`,
+          { status: 200 },
+        );
+      }
+      posts += 1;
+      return new Response(JSON.stringify({ error: "nope" }), { status: 401 });
+    });
+
+    await expect(api.addNote("tsk_1", "x")).rejects.toThrow();
+    expect(posts).toBe(2);
+  });
+
+  /**
+   * A page the daemon did not serve has no token and must not pretend. This is
+   * the dev server, and it is also any page that reached this origin some other
+   * way — the message says what to do rather than failing as a 401.
+   */
+  it("refuses before sending anything when the page carries no token", async () => {
+    document.head.innerHTML = "";
+    let called = false;
+    vi.stubGlobal("fetch", async () => {
+      called = true;
+      return new Response("{}", { status: 200 });
+    });
+
+    await expect(api.addNote("tsk_1", "x")).rejects.toThrow(
+      /not served by the Keel daemon/,
+    );
+    expect(called).toBe(false);
   });
 });

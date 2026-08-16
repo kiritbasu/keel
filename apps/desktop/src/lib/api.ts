@@ -52,27 +52,60 @@ async function get<T>(
   return (body?.data ?? body) as T;
 }
 
+/** The token in the document the daemon served, if this page came from one. */
+function currentToken(): string | null {
+  return (
+    document
+      .querySelector('meta[name="keel-token"]')
+      ?.getAttribute("content") ?? null
+  );
+}
+
+function send(url: string, body: unknown, token: string): Promise<Response> {
+  return fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-keel-token": token },
+    body: JSON.stringify(body),
+  });
+}
+
 /**
- * The only POST this client makes, and it is deliberate that there is one.
+ * Read the token out of the page this origin serves *now*.
  *
- * The interface is a read surface: hard constraint 7 gives it no write
- * endpoints, and B-75 amends that for exactly one thing — asking the daemon to
- * apply an update it has already fetched, verified and staged. If a second
- * caller ever appears here, that is the constraint moving again and it needs
- * its own decision, not a reuse of this helper.
+ * Same-origin, so only a page already on this origin can do it — which is the
+ * same boundary that made putting the token in the document safe in the first
+ * place. It also updates the meta tag in place, so the next write does not pay
+ * for this again.
+ */
+async function refetchToken(): Promise<string | null> {
+  try {
+    const html = await (await fetch(`${BASE}/`, { cache: "no-store" })).text();
+    const found = html.match(/<meta name="keel-token" content="([^"]+)"/)?.[1];
+    if (!found) return null;
+    document
+      .querySelector('meta[name="keel-token"]')
+      ?.setAttribute("content", found);
+    return found;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every write this client makes.
+ *
+ * Hard constraint 7 used to say the interface had none; B-78 rewrote it to draw
+ * the line where the argument actually is. The interface writes what a person
+ * **does** — create a task, comment on one, archive a row, close one, and ask
+ * the daemon to restart into an update it already staged. It does not write
+ * what a person **reasons**: there is no call here that sends a document body,
+ * and if one appears, that is the constraint moving again and it needs its own
+ * decision rather than a reuse of this helper.
  */
 async function post<T>(path: string, body: unknown): Promise<T> {
   const url = new URL(`${BASE}${path}`, window.location.origin);
 
-  // The daemon puts its token in the document it serves, and refuses a mutating
-  // request without it (KEEL-238). So a page the daemon did not serve — a dev
-  // server, a copy opened from disk, a hostile page that has somehow reached
-  // this origin — has no token and can only read. That is the point: the
-  // same-origin policy is what keeps the secret, not the header.
-  const token = document
-    .querySelector('meta[name="keel-token"]')
-    ?.getAttribute("content");
-
+  const token = currentToken();
   if (!token) {
     throw new ApiError(
       "This page was not served by the Keel daemon, so it cannot change anything. " +
@@ -83,16 +116,36 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-keel-token": token },
-      body: JSON.stringify(body),
-    });
+    response = await send(url.toString(), body, token);
   } catch {
     throw new ApiError(
       "Cannot reach the Keel daemon. Start it with `keel-daemon` and try again.",
       0,
     );
+  }
+
+  // A token has the lifetime of one daemon, and `keel update` restarts the
+  // daemon — so a page left open across an update is holding a secret that has
+  // expired, and every button on it would fail with a 401 that reads like a
+  // broken app.
+  //
+  // Rather than making the reader reload, fetch the document this origin serves
+  // now and take the token out of it. That is exactly as safe as the original
+  // delivery: only a page on this origin can read that response, which is the
+  // property the whole scheme rests on. One retry, because a second failure is
+  // a real refusal rather than a stale secret.
+  if (response.status === 401) {
+    const fresh = await refetchToken();
+    if (fresh && fresh !== token) {
+      try {
+        response = await send(url.toString(), body, fresh);
+      } catch {
+        throw new ApiError(
+          "Cannot reach the Keel daemon. Start it with `keel-daemon` and try again.",
+          0,
+        );
+      }
+    }
   }
 
   const parsed = await response.json().catch(() => null);
@@ -338,6 +391,41 @@ export const api = {
    */
   applyUpdate: () =>
     post<{ applied: string; restarting: boolean }>("/api/update/apply", {}),
+
+  /** Create a task. What a person types when they think of something. */
+  createTask: (task: {
+    project: string;
+    title: string;
+    summary?: string;
+    priority?: string;
+  }) => post<Entity>("/api/tasks", task),
+
+  /** Add a note to a row — a comment, in the words a person would use. */
+  addNote: (id: string, body: string) =>
+    post<Note>(`/api/entity/${encodeURIComponent(id)}/notes`, { body }),
+
+  /**
+   * Archive a row.
+   *
+   * Named for what it does, not for what the button says. Hard constraint 3 is
+   * soft delete only: the row stays readable and stays in the history, so a
+   * method called `deleteEntity` would be a promise this cannot keep.
+   */
+  archive: (id: string) =>
+    post<Entity>(`/api/entity/${encodeURIComponent(id)}/archive`, {}),
+
+  /**
+   * Close a task, with the reason it needs.
+   *
+   * The reason, the message and — for `done` — the evidence are required by the
+   * storage layer, not by this form. A close without them is refused wherever it
+   * comes from, which is why the form asks for them rather than sending a
+   * status change and hoping.
+   */
+  closeTask: (
+    id: string,
+    close: { reason: string; message: string; evidence?: string[] },
+  ) => post<Entity>(`/api/tasks/${encodeURIComponent(id)}/close`, close),
 
   /** The digest. No `project` gives the cross-project roll-up. */
   context: (project?: string) =>

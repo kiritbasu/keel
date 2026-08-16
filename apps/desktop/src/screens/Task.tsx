@@ -20,8 +20,10 @@ import {
   type Page as PageOf,
 } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
+import { ApiError } from "../lib/api";
 import {
   Badge,
+  Button,
   Card,
   Empty,
   ErrorBox,
@@ -82,14 +84,18 @@ export function TaskScreen({ route, generation }: ScreenProps) {
 
   const rank = useMemo<RankMap>(() => {
     const m: RankMap = new Map();
-    (context.data?.digest as Digest | undefined)?.next_up?.ready.forEach((item, i) =>
-      m.set(item.id, { position: i + 1, why: item.why }),
+    (context.data?.digest as Digest | undefined)?.next_up?.ready.forEach(
+      (item, i) => m.set(item.id, { position: i + 1, why: item.why }),
     );
     return m;
   }, [context.data]);
 
   const siblings = useMemo(
-    () => inBoardOrder((context.data?.tasks as PageOf<Entity> | undefined)?.items ?? [], rank),
+    () =>
+      inBoardOrder(
+        (context.data?.tasks as PageOf<Entity> | undefined)?.items ?? [],
+        rank,
+      ),
     [context.data, rank],
   );
 
@@ -163,9 +169,9 @@ export function TaskScreen({ route, generation }: ScreenProps) {
   const at = siblings.findIndex((t) => String(t.id) === id);
   const previous = at > 0 ? siblings[at - 1] : undefined;
   const next = at !== -1 ? siblings[at + 1] : undefined;
-  const milestone = (context.data?.milestones as PageOf<Entity> | undefined)?.items.find(
-    (m) => m.id === task.milestone_id,
-  );
+  const milestone = (
+    context.data?.milestones as PageOf<Entity> | undefined
+  )?.items.find((m) => m.id === task.milestone_id);
   const ranked = rank.get(id);
   // Until the project has loaded we do not know the key. Showing the ULID for
   // that moment makes the title flicker from a wall of characters to `KEEL-76`
@@ -178,7 +184,9 @@ export function TaskScreen({ route, generation }: ScreenProps) {
       title={
         <span className="flex items-baseline gap-2.5">
           {reference && (
-            <span className="font-mono text-heading text-ink-faint">{reference}</span>
+            <span className="font-mono text-heading text-ink-faint">
+              {reference}
+            </span>
           )}
           <span>{String(task.title)}</span>
         </span>
@@ -189,11 +197,23 @@ export function TaskScreen({ route, generation }: ScreenProps) {
         { label: reference || String(task.title) },
       ]}
       width="wide"
-      meta={<Badge tone={statusTone(String(task.status))}>{String(task.status)}</Badge>}
+      meta={
+        <Badge tone={statusTone(String(task.status))}>
+          {String(task.status)}
+        </Badge>
+      }
       actions={
         <span className="flex items-center gap-2 text-micro text-ink-faint">
           <a
-            href={previous ? href({ screen: "task", project, taskId: taskRef(key, previous) }) : undefined}
+            href={
+              previous
+                ? href({
+                    screen: "task",
+                    project,
+                    taskId: taskRef(key, previous),
+                  })
+                : undefined
+            }
             aria-disabled={!previous}
             className={cx("hover:text-ink", !previous && "opacity-30")}
           >
@@ -202,7 +222,11 @@ export function TaskScreen({ route, generation }: ScreenProps) {
           <kbd className="font-mono">K</kbd>
           <kbd className="font-mono">J</kbd>
           <a
-            href={next ? href({ screen: "task", project, taskId: taskRef(key, next) }) : undefined}
+            href={
+              next
+                ? href({ screen: "task", project, taskId: taskRef(key, next) })
+                : undefined
+            }
             aria-disabled={!next}
             className={cx("hover:text-ink", !next && "opacity-30")}
           >
@@ -244,7 +268,9 @@ export function TaskScreen({ route, generation }: ScreenProps) {
             title="Description"
             actions={
               !task.body && task.summary ? (
-                <span className="text-small text-ink-faint">from the summary</span>
+                <span className="text-small text-ink-faint">
+                  from the summary
+                </span>
               ) : undefined
             }
           >
@@ -255,18 +281,33 @@ export function TaskScreen({ route, generation }: ScreenProps) {
             )}
           </Card>
 
-          <NoteStream notes={core.data?.notes.notes ?? []} />
-          <History events={core.data?.history.events ?? []} truncated={core.data?.history} />
+          {/* The task's own id, not the route's. The app addresses tasks by
+              reference — `KEEL-240` — and the API addresses them by ULID, so
+              handing the route parameter to a write endpoint produces a 400
+              that looks like a broken button. */}
+          <NoteStream
+            notes={core.data?.notes.notes ?? []}
+            entityId={task ? String(task.id) : undefined}
+            onAdded={core.reload}
+          />
+          <History
+            events={core.data?.history.events ?? []}
+            truncated={core.data?.history}
+          />
         </div>
 
         <aside className="space-y-5">
           <Card title="Properties">
             <dl className="space-y-2.5 text-small">
               <Property label="Status">
-                <Badge tone={statusTone(String(task.status))}>{String(task.status)}</Badge>
+                <Badge tone={statusTone(String(task.status))}>
+                  {String(task.status)}
+                </Badge>
               </Property>
               <Property label="Priority">
-                <Badge tone={priorityTone(String(task.priority))}>{String(task.priority)}</Badge>
+                <Badge tone={priorityTone(String(task.priority))}>
+                  {String(task.priority)}
+                </Badge>
               </Property>
               <Property label="Kind">{String(task.kind)}</Property>
               <Property label="Milestone">
@@ -290,29 +331,40 @@ export function TaskScreen({ route, generation }: ScreenProps) {
               {ranked && (
                 <Property label="Next up">
                   <Tooltip align="right" text={ranked.why}>
-                    <Badge tone="border-accent/50 bg-accent/10 text-accent">#{ranked.position}</Badge>
+                    <Badge tone="border-accent/50 bg-accent/10 text-accent">
+                      #{ranked.position}
+                    </Badge>
                   </Tooltip>
                 </Property>
               )}
-              <Property label="Created">{when(String(task.audit.created_at))}</Property>
-              <Property label="Updated">{when(String(task.audit.updated_at))}</Property>
+              <Property label="Created">
+                {when(String(task.audit.created_at))}
+              </Property>
+              <Property label="Updated">
+                {when(String(task.audit.updated_at))}
+              </Property>
               {task.closed_at ? (
-                <Property label="Closed">{when(String(task.closed_at))}</Property>
+                <Property label="Closed">
+                  {when(String(task.closed_at))}
+                </Property>
               ) : null}
-              {((task.external_refs as string[] | undefined) ?? []).length > 0 && (
+              {((task.external_refs as string[] | undefined) ?? []).length >
+                0 && (
                 <Property label="Links">
                   <span className="flex flex-col gap-0.5">
-                    {((task.external_refs as string[] | undefined) ?? []).map((url) => (
-                      <a
-                        key={url}
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="truncate text-accent hover:underline"
-                      >
-                        {url.replace(/^https?:\/\//, "")}
-                      </a>
-                    ))}
+                    {((task.external_refs as string[] | undefined) ?? []).map(
+                      (url) => (
+                        <a
+                          key={url}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="truncate text-accent hover:underline"
+                        >
+                          {url.replace(/^https?:\/\//, "")}
+                        </a>
+                      ),
+                    )}
                   </span>
                 </Property>
               )}
@@ -363,19 +415,29 @@ function Family({
   const parent = task.parent_id
     ? siblings.find((t) => String(t.id) === String(task.parent_id))
     : undefined;
-  const children = siblings.filter((t) => String(t.parent_id) === String(task.id));
+  const children = siblings.filter(
+    (t) => String(t.parent_id) === String(task.id),
+  );
   if (!parent && children.length === 0) return null;
 
-  const done = children.filter((t) => ["done", "wont_do"].includes(String(t.status))).length;
+  const done = children.filter((t) =>
+    ["done", "wont_do"].includes(String(t.status)),
+  ).length;
 
   return (
     <Card title="Part of">
       <div className="space-y-3">
         {parent && (
           <div>
-            <h3 className="mb-1 text-micro tracking-wide text-ink-faint uppercase">Parent</h3>
+            <h3 className="mb-1 text-micro tracking-wide text-ink-faint uppercase">
+              Parent
+            </h3>
             <a
-              href={href({ screen: "task", project, taskId: taskRef(projectKey, parent) })}
+              href={href({
+                screen: "task",
+                project,
+                taskId: taskRef(projectKey, parent),
+              })}
               className="text-small hover:underline"
             >
               {String(parent.title)}
@@ -392,10 +454,19 @@ function Family({
             </h3>
             <ul className="space-y-1">
               {children.map((child) => (
-                <li key={String(child.id)} className="flex items-baseline gap-2">
-                  <Badge tone={statusTone(String(child.status))}>{String(child.status)}</Badge>
+                <li
+                  key={String(child.id)}
+                  className="flex items-baseline gap-2"
+                >
+                  <Badge tone={statusTone(String(child.status))}>
+                    {String(child.status)}
+                  </Badge>
                   <a
-                    href={href({ screen: "task", project, taskId: taskRef(projectKey, child) })}
+                    href={href({
+                      screen: "task",
+                      project,
+                      taskId: taskRef(projectKey, child),
+                    })}
                     className="min-w-0 flex-1 truncate text-small hover:underline"
                   >
                     {String(child.title)}
@@ -410,10 +481,18 @@ function Family({
   );
 }
 
-function Property({ label, children }: { label: string; children: React.ReactNode }) {
+function Property({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-baseline gap-3">
-      <dt className="w-20 shrink-0 text-micro tracking-wide text-ink-faint uppercase">{label}</dt>
+      <dt className="w-20 shrink-0 text-micro tracking-wide text-ink-faint uppercase">
+        {label}
+      </dt>
       <dd className="min-w-0 flex-1">{children}</dd>
     </div>
   );
@@ -427,7 +506,95 @@ function Property({ label, children }: { label: string; children: React.ReactNod
  * session once believed is part of how the row got here, and hiding it rewrites
  * the record.
  */
-function NoteStream({ notes }: { notes: Note[] }) {
+/**
+ * The comment box.
+ *
+ * The first thing a person can write into Keel from the interface, and the
+ * shape of it is the whole of hard constraint 7 as B-78 rewrote it: a note is
+ * what somebody *observed*, which is capture. There is no box on this screen
+ * for rewriting the task's description, because that is authoring and it stays
+ * with Claude.
+ *
+ * The note goes in attributed `human` on the `ui` surface — the daemon decides
+ * that from the token, not from anything sent here, so a page cannot claim to
+ * be a person.
+ */
+function NoteComposer({
+  entityId,
+  onAdded,
+}: {
+  entityId: string;
+  onAdded: () => void;
+}) {
+  const [body, setBody] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  const empty = body.trim() === "";
+
+  async function submit() {
+    if (empty || saving) return;
+    setSaving(true);
+    setFailed(null);
+    try {
+      await api.addNote(entityId, body.trim());
+      setBody("");
+      onAdded();
+    } catch (e) {
+      setFailed(e instanceof ApiError ? e.message : "The note was not saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <textarea
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        // Cmd-Enter, because this is a multi-line box and Enter has to mean
+        // newline in something people write paragraphs into.
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") void submit();
+        }}
+        rows={3}
+        placeholder="What did you find out?"
+        aria-label="Add a note"
+        disabled={saving}
+        className="w-full resize-y rounded-md border border-border-subtle bg-surface px-3 py-2 text-small text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none disabled:opacity-60"
+      />
+      <div className="flex items-center gap-3">
+        <Button
+          size="sm"
+          onClick={() => void submit()}
+          disabled={empty || saving}
+        >
+          {saving ? "Saving…" : "Add note"}
+        </Button>
+        <span className="text-micro text-ink-faint">⌘↵</span>
+        {failed && (
+          <span role="alert" className="text-micro text-bad">
+            {failed}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NoteStream({
+  notes,
+  entityId,
+  onAdded,
+}: {
+  notes: Note[];
+  entityId: string | undefined;
+  onAdded: () => void;
+}) {
+  const composer = entityId ? (
+    <NoteComposer entityId={entityId} onAdded={onAdded} />
+  ) : null;
+
   if (notes.length === 0) {
     return (
       <Card title="Notes">
@@ -435,11 +602,12 @@ function NoteStream({ notes }: { notes: Note[] }) {
           message="Nothing recorded yet."
           hint="Notes are what a session learned while doing the work — the part a status cannot carry."
         />
+        {composer}
       </Card>
     );
   }
   return (
-    <Card title={`Notes (${notes.length})`}>
+    <Card title={`Notes (${notes.length})`} footer={composer}>
       <ol className="space-y-4">
         {notes.map((note) => {
           const retracted = Boolean(note.archived_at);
@@ -448,11 +616,15 @@ function NoteStream({ notes }: { notes: Note[] }) {
               key={note.id}
               className={cx(
                 "border-l-2 pl-3",
-                retracted ? "border-border-subtle opacity-60" : "border-accent/40",
+                retracted
+                  ? "border-border-subtle opacity-60"
+                  : "border-accent/40",
               )}
             >
               <div className="mb-1 flex flex-wrap items-center gap-2 text-micro text-ink-faint">
-                <span className="font-medium text-ink-muted">{note.author}</span>
+                <span className="font-medium text-ink-muted">
+                  {note.author}
+                </span>
                 <span>{when(note.created_at)}</span>
                 {note.session_id ? (
                   <Tooltip align="left" text="The conversation that wrote this">
@@ -461,7 +633,9 @@ function NoteStream({ notes }: { notes: Note[] }) {
                 ) : (
                   <span>written outside a tracked session</span>
                 )}
-                {retracted && <Badge tone="border-bad/40 text-bad">retracted</Badge>}
+                {retracted && (
+                  <Badge tone="border-bad/40 text-bad">retracted</Badge>
+                )}
               </div>
               <div className={cx("min-w-0", retracted && "line-through")}>
                 <Markdown>{note.body}</Markdown>
@@ -502,7 +676,9 @@ function History({
             <span className="w-16 shrink-0 text-right text-micro tabular-nums text-ink-faint">
               {when(e.created_at)}
             </span>
-            <span className="w-14 shrink-0 text-micro text-ink-faint">{e.actor}</span>
+            <span className="w-14 shrink-0 text-micro text-ink-faint">
+              {e.actor}
+            </span>
             <span className="min-w-0 flex-1">
               {e.field ? (
                 <>
@@ -541,7 +717,13 @@ function short(value: unknown): string {
  * two different things depending on which way the edge was walked, and printing
  * the verb states half of them backwards.
  */
-function Relationships({ related, project }: { related: Related[]; project: string }) {
+function Relationships({
+  related,
+  project,
+}: {
+  related: Related[];
+  project: string;
+}) {
   if (related.length === 0) {
     return (
       <Card title="Connected">
@@ -563,7 +745,9 @@ function Relationships({ related, project }: { related: Related[]; project: stri
       <div className="space-y-3">
         {[...groups].map(([phrase, items]) => (
           <div key={phrase}>
-            <h3 className="mb-1 text-micro tracking-wide text-ink-faint uppercase">{phrase}</h3>
+            <h3 className="mb-1 text-micro tracking-wide text-ink-faint uppercase">
+              {phrase}
+            </h3>
             <ul className="space-y-1">
               {items.map((r) => (
                 <li key={`${r.id}-${r.rel}-${r.direction}`}>
@@ -576,8 +760,14 @@ function Relationships({ related, project }: { related: Related[]; project: stri
                     className="flex items-baseline gap-1.5 text-small hover:underline"
                   >
                     <Badge>{r.entity_type}</Badge>
-                    <span className="min-w-0 flex-1">{r.label || <Id value={r.id} />}</span>
-                    {r.anchor && <Badge tone="border-accent/40 text-accent">{r.anchor}</Badge>}
+                    <span className="min-w-0 flex-1">
+                      {r.label || <Id value={r.id} />}
+                    </span>
+                    {r.anchor && (
+                      <Badge tone="border-accent/40 text-accent">
+                        {r.anchor}
+                      </Badge>
+                    )}
                   </a>
                 </li>
               ))}
@@ -615,7 +805,10 @@ function AskClaude({ reference }: { reference: string }) {
     try {
       await navigator.clipboard.writeText(prompt);
       setCopied(prompt);
-      window.setTimeout(() => setCopied((c: string | null) => (c === prompt ? null : c)), 1500);
+      window.setTimeout(
+        () => setCopied((c: string | null) => (c === prompt ? null : c)),
+        1500,
+      );
     } catch {
       // A denied clipboard is not worth an error state on a convenience: the
       // text is on screen and can be selected by hand.

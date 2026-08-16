@@ -95,8 +95,10 @@ export type ButtonSize = "sm" | "md";
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary: "border-accent/60 bg-accent/15 text-accent hover:bg-accent/25",
-  secondary: "border-border-subtle bg-surface-raised text-ink hover:bg-surface-hover",
-  ghost: "border-transparent text-ink-muted hover:bg-surface-hover hover:text-ink",
+  secondary:
+    "border-border-subtle bg-surface-raised text-ink hover:bg-surface-hover",
+  ghost:
+    "border-transparent text-ink-muted hover:bg-surface-hover hover:text-ink",
   danger: "border-bad/40 bg-bad/10 text-bad hover:bg-bad/20",
 };
 
@@ -176,7 +178,9 @@ export function Input({
   className,
   variant = "md",
   ...rest
-}: Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & { variant?: "sm" | "md" | "lg" }) {
+}: Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
+  variant?: "sm" | "md" | "lg";
+}) {
   const sizes = {
     sm: "px-2 py-1 text-small",
     md: "px-3 py-2 text-body",
@@ -279,7 +283,8 @@ export function Menu({
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false);
+      if (wrap.current && !wrap.current.contains(e.target as Node))
+        setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -297,7 +302,12 @@ export function Menu({
 
   return (
     <div ref={wrap} className="relative inline-block">
-      <Button size={size} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+      <Button
+        size={size}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
         {label}
         <span aria-hidden className="text-ink-faint">
           ▾
@@ -331,7 +341,9 @@ export function MenuItem({
       role="menuitem"
       className={cx(
         "block w-full rounded px-2 py-1.5 text-left text-small whitespace-nowrap",
-        selected ? "bg-surface-hover text-ink" : "text-ink-muted hover:bg-surface-hover hover:text-ink",
+        selected
+          ? "bg-surface-hover text-ink"
+          : "text-ink-muted hover:bg-surface-hover hover:text-ink",
         FOCUS,
         className,
       )}
@@ -416,11 +428,15 @@ export function Card({
   title,
   actions,
   children,
+  footer,
   className,
 }: {
   title?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
+  /** Below the content, separated — where an affordance that adds to the card
+   * goes, so it reads as part of the card rather than as a floating control. */
+  footer?: ReactNode;
   className?: string;
 }) {
   return (
@@ -432,11 +448,16 @@ export function Card({
     >
       {title && (
         <header className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-2.5">
-          <h2 className="text-small font-semibold tracking-wide text-ink-muted uppercase">{title}</h2>
+          <h2 className="text-small font-semibold tracking-wide text-ink-muted uppercase">
+            {title}
+          </h2>
           {actions}
         </header>
       )}
       <div className="p-4">{children}</div>
+      {footer && (
+        <div className="border-t border-border-subtle p-4">{footer}</div>
+      )}
     </section>
   );
 }
@@ -473,7 +494,13 @@ export function Spinner({ label = "Loading…" }: { label?: string }) {
  * actually fix, so `ApiError` already carries that instruction and this just
  * shows it.
  */
-export function ErrorBox({ error, retry }: { error: Error; retry?: () => void }) {
+export function ErrorBox({
+  error,
+  retry,
+}: {
+  error: Error;
+  retry?: () => void;
+}) {
   return (
     <div className="rounded-lg border border-bad/40 bg-bad/10 px-4 py-3 text-small">
       <p className="selectable text-bad">{error.message}</p>
@@ -498,8 +525,12 @@ export function Stat({
 }) {
   return (
     <div className="min-w-[72px]">
-      <div className={cx("text-display tabular-nums", tone ?? "text-ink")}>{value}</div>
-      <div className="mt-1 text-micro tracking-wide text-ink-faint uppercase">{label}</div>
+      <div className={cx("text-display tabular-nums", tone ?? "text-ink")}>
+        {value}
+      </div>
+      <div className="mt-1 text-micro tracking-wide text-ink-faint uppercase">
+        {label}
+      </div>
     </div>
   );
 }
@@ -514,7 +545,9 @@ export function Stat({
  */
 export function Id({ value }: { value: string }) {
   return (
-    <code className="selectable font-mono text-micro break-all text-ink-faint">{value}</code>
+    <code className="selectable font-mono text-micro break-all text-ink-faint">
+      {value}
+    </code>
   );
 }
 
@@ -525,7 +558,13 @@ export function Id({ value }: { value: string }) {
  * with a total — an agent or a human shown 10 of 40 with no indication draws
  * confident wrong conclusions.
  */
-export function TruncationNote({ shown, total }: { shown: number; total: number }) {
+export function TruncationNote({
+  shown,
+  total,
+}: {
+  shown: number;
+  total: number;
+}) {
   if (shown >= total) return null;
   return (
     <p className="mt-3 text-small text-ink-faint">
