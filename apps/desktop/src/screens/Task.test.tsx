@@ -338,7 +338,8 @@ describe("when the rest of the project cannot be loaded", () => {
       entities: () => Promise<unknown>;
     };
     const working = api.entities;
-    api.entities = () => Promise.reject(new Error("Cannot reach the Keel daemon."));
+    api.entities = () =>
+      Promise.reject(new Error("Cannot reach the Specline daemon."));
     try {
       await show();
       expect(screen.getByText(/could not be loaded/)).toBeTruthy();

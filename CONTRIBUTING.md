@@ -52,13 +52,13 @@ checking a different compiler from the one CI uses and pass. Either put
 `~/.cargo/bin` ahead of Homebrew on `PATH`, or run each command as
 `rustup run <version> cargo …`.
 
-**On Linux, or an Intel Mac, add `--exclude keel-embed`.** That crate pulls a
+**On Linux, or an Intel Mac, add `--exclude specline-embed`.** That crate pulls a
 prebuilt ONNX runtime which has no Intel macOS build and wants a newer glibc
 than the Linux binaries are built against, so it cannot compile there at all.
 Everything else can:
 
 ```bash
-cargo test --workspace --exclude keel-embed --no-default-features
+cargo test --workspace --exclude specline-embed --no-default-features
 ```
 
 The `embeddings` feature is on by default and that command turns it off, which

@@ -1,6 +1,6 @@
-Keel — the project spine
+Specline — the project spine
 
-Usage: keel [OPTIONS] <COMMAND>
+Usage: specline [OPTIONS] <COMMAND>
 
 Commands:
   fsck              Check the store's referential integrity
@@ -12,12 +12,12 @@ Commands:
   restore           Restore a backup into an empty directory
   migrate           Apply any schema migrations the store is missing
   fixture           Load the realistic fixture corpus into an empty store
-  import            Import markdown files into Keel as versioned documents
-  bootstrap         Seed Keel's own project — the dogfooding switch
+  import            Import markdown files into Specline as versioned documents
+  bootstrap         Seed Specline's own project — the dogfooding switch
   release-manifest  Print what a release of this binary promises, as JSON
   update            Install the latest release, if it cannot change the store's shape
   status            Print a one-line summary of what is in the store
-  generate          Regenerate a project's repository files from Keel
+  generate          Regenerate a project's repository files from Specline
   gate              Score Phase 2's exit criterion from the event log
   render-status     Print the generated tracker for a project to standard output
   note              Append to a row's running commentary, or read it back
@@ -31,11 +31,11 @@ Commands:
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -58,7 +58,7 @@ Archive a row. Soft delete — it stays on disk and stops appearing.
 
 Needed for the same reason `task` is: with MCP down there was no way to retire a row, and a document that has outlived its purpose keeps owning the file path it adopted.
 
-Usage: keel archive [OPTIONS] --version <VERSION> <ID>
+Usage: specline archive [OPTIONS] --version <VERSION> <ID>
 
 Arguments:
   <ID>
@@ -66,11 +66,11 @@ Arguments:
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --version <VERSION>
           The version you believe is current, for optimistic concurrency
@@ -91,18 +91,18 @@ Options:
 
 Back up the store: one consistent snapshot, plus a manifest
 
-Usage: keel backup [OPTIONS]
+Usage: specline backup [OPTIONS]
 
 Options:
       --dest <DEST>
           Where to write it. Defaults to `<home>/backups/<timestamp>`
 
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -118,19 +118,19 @@ Options:
 
 ===== bootstrap =====
 
-Seed Keel's own project — the dogfooding switch.
+Seed Specline's own project — the dogfooding switch.
 
-Imports the real state from the product docs: phases as milestones, the actual task list, the decision log, the open questions and the glossary. After this, `keel render-status keel` generates `product/STATUS.md` rather than a human maintaining it.
+Imports the real state from the product docs: phases as milestones, the actual task list, the decision log, the open questions and the glossary. After this, `specline render-status specline` generates `product/STATUS.md` rather than a human maintaining it.
 
-Usage: keel bootstrap [OPTIONS]
+Usage: specline bootstrap [OPTIONS]
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --repo <REPO>
           Repository path to record on the project, for the markdown mirror
@@ -139,7 +139,7 @@ Options:
           Print machine-readable JSON instead of prose
 
       --only
-          Archive every other project, leaving only Keel visible.
+          Archive every other project, leaving only Specline visible.
           
           Soft delete — the rows stay on disk, they just stop appearing.
 
@@ -158,7 +158,7 @@ Take a task: move it to in_progress and record who is on it.
 
 Refused if another session holds it, unless that claim has gone stale after three days or `--force` is passed. Closing releases it.
 
-Usage: keel claim [OPTIONS] <TASK>
+Usage: specline claim [OPTIONS] <TASK>
 
 Arguments:
   <TASK>
@@ -169,24 +169,24 @@ Options:
           Take a claim another session still holds
 
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
 
       --session <SESSION>
-          The session doing the work. Keel never invents one
+          The session doing the work. Specline never invents one
           
-          [env: KEEL_SESSION=]
+          [env: SPECLINE_SESSION=]
 
       --daemon <DAEMON>
-          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          Daemon base URL. Defaults to `$SPECLINE_DAEMON_URL`, then the local daemon
           
-          [env: KEEL_DAEMON_URL=]
+          [env: SPECLINE_DAEMON_URL=]
           [default: http://127.0.0.1:7654]
 
   -h, --help
@@ -199,7 +199,7 @@ Close a task, saying why and showing the work.
 
 `done` needs a message and at least one piece of evidence; `wont_do` and `no_change` need a message; `duplicate` and `superseded` name the other task and draw the edge themselves.
 
-Usage: keel close [OPTIONS] --reason <REASON> --message <MESSAGE> <TASK>
+Usage: specline close [OPTIONS] --reason <REASON> --message <MESSAGE> <TASK>
 
 Arguments:
   <TASK>
@@ -207,11 +207,11 @@ Arguments:
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --reason <REASON>
           done, wont_do, duplicate, superseded, no_change
@@ -236,12 +236,12 @@ Options:
       --session <SESSION>
           The session closing it, for attribution
           
-          [env: KEEL_SESSION=]
+          [env: SPECLINE_SESSION=]
 
       --daemon <DAEMON>
-          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          Daemon base URL. Defaults to `$SPECLINE_DAEMON_URL`, then the local daemon
           
-          [env: KEEL_DAEMON_URL=]
+          [env: SPECLINE_DAEMON_URL=]
           [default: http://127.0.0.1:7654]
 
   -h, --help
@@ -256,21 +256,21 @@ Composes every read-only check there is — the file's own integrity, referentia
 
 Exits non-zero only for a real problem. A degraded store says so without failing, because a check that cannot tell the two apart is one nobody can put in a hook.
 
-Usage: keel doctor [OPTIONS]
+Usage: specline doctor [OPTIONS]
 
 Options:
       --daemon <DAEMON>
-          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          Daemon base URL. Defaults to `$SPECLINE_DAEMON_URL`, then the local daemon
           
-          [env: KEEL_DAEMON_URL=]
+          [env: SPECLINE_DAEMON_URL=]
           [default: http://127.0.0.1:7654]
 
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -288,15 +288,15 @@ Options:
 
 Load the realistic fixture corpus into an empty store
 
-Usage: keel fixture [OPTIONS]
+Usage: specline fixture [OPTIONS]
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -316,23 +316,23 @@ Check the store's referential integrity.
 
 Exits non-zero if anything is actually broken, so it can gate a backup or a deploy.
 
-Usage: keel fsck [OPTIONS]
+Usage: specline fsck [OPTIONS]
 
 Options:
       --daemon <DAEMON>
-          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+          Daemon base URL. Defaults to `$SPECLINE_DAEMON_URL`, then the local daemon.
           
           Read through the daemon when one is running. It is the single writer, so going through it is what guarantees a consistent read.
           
-          [env: KEEL_DAEMON_URL=]
+          [env: SPECLINE_DAEMON_URL=]
           [default: http://127.0.0.1:7654]
 
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -352,15 +352,15 @@ Score Phase 2's exit criterion from the event log.
 
 Does not run the sessions — "unprompted" is the whole claim and a test that calls the tool has prompted it. This scores what the sessions did.
 
-Usage: keel gate [OPTIONS]
+Usage: specline gate [OPTIONS]
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --project <PROJECT>
           Restrict to one project
@@ -389,9 +389,9 @@ Options:
           [default: 10]
 
       --daemon <DAEMON>
-          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          Daemon base URL. Defaults to `$SPECLINE_DAEMON_URL`, then the local daemon
           
-          [env: KEEL_DAEMON_URL=]
+          [env: SPECLINE_DAEMON_URL=]
           [default: http://127.0.0.1:7654]
 
   -h, --help
@@ -400,13 +400,13 @@ Options:
 
 ===== generate =====
 
-Regenerate a project's repository files from Keel.
+Regenerate a project's repository files from Specline.
 
-Keel is the source of truth; the markdown in the repo is an output. This writes the adopted prose files at their recorded paths, the `.keel/` mirror for everything born in Keel, and the tracker.
+Specline is the source of truth; the markdown in the repo is an output. This writes the adopted prose files at their recorded paths, the `.keel/` mirror for everything born in Specline, and the tracker.
 
 One-directional: nothing here reads a generated file back into the store. It goes through the running daemon, which owns the store — falling back to opening the store directly only when no daemon is up.
 
-Usage: keel generate [OPTIONS] <PROJECT>
+Usage: specline generate [OPTIONS] <PROJECT>
 
 Arguments:
   <PROJECT>
@@ -414,11 +414,11 @@ Arguments:
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --repo <REPO>
           Repository root. Defaults to the project's recorded `root_path`
@@ -432,9 +432,9 @@ Options:
           Print machine-readable JSON instead of prose
 
       --daemon <DAEMON>
-          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          Daemon base URL. Defaults to `$SPECLINE_DAEMON_URL`, then the local daemon
           
-          [env: KEEL_DAEMON_URL=]
+          [env: SPECLINE_DAEMON_URL=]
           [default: http://127.0.0.1:7654]
 
       --force
@@ -450,11 +450,11 @@ Options:
 
 Run a Claude Code session hook. Called by the plugin, not by a person.
 
-These were shell scripts until KEEL-206, and they needed `python3` and `curl` — neither declared anywhere, and `python3` absent on a Mac until the Xcode command line tools arrive. Every failure path exited 0 silently, so on a fresh machine they did nothing and it looked exactly like Keel not working.
+These were shell scripts until KEEL-206, and they needed `python3` and `curl` — neither declared anywhere, and `python3` absent on a Mac until the Xcode command line tools arrive. Every failure path exited 0 silently, so on a fresh machine they did nothing and it looked exactly like Specline not working.
 
 Both read a JSON payload on stdin and write JSON on stdout. Both exit 0 whatever happens: a hook that can block a session is worse than a hook that misses a record.
 
-Usage: keel hook [OPTIONS] <COMMAND>
+Usage: specline hook [OPTIONS] <COMMAND>
 
 Commands:
   session-start  Put the project digest into a session as it starts
@@ -463,11 +463,11 @@ Commands:
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -483,11 +483,11 @@ Options:
 
 ===== import =====
 
-Import markdown files into Keel as versioned documents.
+Import markdown files into Specline as versioned documents.
 
-Re-importing is safe: the same file lands on the same artifact, and unchanged content appends no revision. So the repo copy can stay authoritative for as long as you like with Keel kept in step.
+Re-importing is safe: the same file lands on the same artifact, and unchanged content appends no revision. So the repo copy can stay authoritative for as long as you like with Specline kept in step.
 
-Usage: keel import [OPTIONS] --project <PROJECT> [FILES]...
+Usage: specline import [OPTIONS] --project <PROJECT> [FILES]...
 
 Arguments:
   [FILES]...
@@ -495,11 +495,11 @@ Arguments:
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --project <PROJECT>
           Project id, slug or name
@@ -540,7 +540,7 @@ Three rules arrived after most of this store existed — a task needs a summary,
 
 It does not fix anything, and that is the design: a machine filling in a missing summary would write exactly the confident, plausible, wrong prose the requirement exists to prevent.
 
-Usage: keel lint [OPTIONS] <PROJECT>
+Usage: specline lint [OPTIONS] <PROJECT>
 
 Arguments:
   <PROJECT>
@@ -551,11 +551,11 @@ Options:
           Only this rule: task_without_summary, unexpanded_identifier, closed_without_reason
 
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -566,9 +566,9 @@ Options:
           [default: 40]
 
       --daemon <DAEMON>
-          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          Daemon base URL. Defaults to `$SPECLINE_DAEMON_URL`, then the local daemon
           
-          [env: KEEL_DAEMON_URL=]
+          [env: SPECLINE_DAEMON_URL=]
           [default: http://127.0.0.1:7654]
 
       --force
@@ -586,7 +586,7 @@ Apply any schema migrations the store is missing.
 
 Nothing else applies them to a store that already exists. A migration changes what every process believes the tables look like, so it happens when someone asks for it and the daemon is stopped — not as a side effect of whichever command opened the store first after an upgrade.
 
-Usage: keel migrate [OPTIONS]
+Usage: specline migrate [OPTIONS]
 
 Options:
       --daemon <DAEMON>
@@ -594,15 +594,15 @@ Options:
           
           Same default and same environment variable as every other command with this flag. A migrate pointed at a port nothing is listening on would conclude no daemon is running and change the schema under one that is — which is the exact failure this command exists to prevent, arriving through a typo in its own default.
           
-          [env: KEEL_DAEMON_URL=]
+          [env: SPECLINE_DAEMON_URL=]
           [default: http://127.0.0.1:7654]
 
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --dry-run
           Say what would be applied, and apply nothing
@@ -625,7 +625,7 @@ Append to a row's running commentary, or read it back.
 
 The commentary is what the tracker's prose used to carry. Having it on the CLI matters beyond convenience: it is the only write path that does not go through MCP, so a note can still be recorded when the MCP surface is unavailable.
 
-Usage: keel note [OPTIONS] <COMMAND>
+Usage: specline note [OPTIONS] <COMMAND>
 
 Commands:
   add      Append a note to a row
@@ -635,11 +635,11 @@ Commands:
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -661,7 +661,7 @@ Open work with nothing live in its way. Ordered by what a task unblocks before i
 
 The same computation the MCP tool and the app read. There is one ranking, so the three cannot disagree.
 
-Usage: keel ready [OPTIONS] <PROJECT>
+Usage: specline ready [OPTIONS] <PROJECT>
 
 Arguments:
   <PROJECT>
@@ -669,11 +669,11 @@ Arguments:
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --unclaimed
           Only work nobody is holding
@@ -701,9 +701,9 @@ Options:
           [default: 10]
 
       --daemon <DAEMON>
-          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          Daemon base URL. Defaults to `$SPECLINE_DAEMON_URL`, then the local daemon
           
-          [env: KEEL_DAEMON_URL=]
+          [env: SPECLINE_DAEMON_URL=]
           [default: http://127.0.0.1:7654]
 
   -h, --help
@@ -718,15 +718,15 @@ Embedding happens on the way into a new revision and nowhere else, so turning th
 
 The first run downloads the model, which needs network access.
 
-Usage: keel reembed [OPTIONS]
+Usage: specline reembed [OPTIONS]
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --missing
           Only revisions with no vector at all. The default and, for now, the only mode: re-embedding rows that already have a vector is TQ-3, which is still open
@@ -749,17 +749,17 @@ Print what a release of this binary promises, as JSON.
 
 The updater has to decide whether a new version is safe to apply *before* it downloads it, and it cannot ask the candidate binary — running the thing you are deciding whether to run is the whole problem. So each release publishes this alongside its artifacts and the updater reads it first.
 
-Opens no store, which is the point: it is run in a release job against a freshly built binary on a machine that has no Keel home at all.
+Opens no store, which is the point: it is run in a release job against a freshly built binary on a machine that has no Specline home at all.
 
-Usage: keel release-manifest [OPTIONS]
+Usage: specline release-manifest [OPTIONS]
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -777,7 +777,7 @@ Options:
 
 Print the generated tracker for a project to standard output
 
-Usage: keel render-status [OPTIONS] <PROJECT>
+Usage: specline render-status [OPTIONS] <PROJECT>
 
 Arguments:
   <PROJECT>
@@ -785,17 +785,17 @@ Arguments:
 
 Options:
       --daemon <DAEMON>
-          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon
+          Daemon base URL. Defaults to `$SPECLINE_DAEMON_URL`, then the local daemon
           
-          [env: KEEL_DAEMON_URL=]
+          [env: SPECLINE_DAEMON_URL=]
           [default: http://127.0.0.1:7654]
 
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -814,7 +814,7 @@ Options:
 
 Restore a backup into an empty directory
 
-Usage: keel restore [OPTIONS] <SOURCE> <TARGET>
+Usage: specline restore [OPTIONS] <SOURCE> <TARGET>
 
 Arguments:
   <SOURCE>
@@ -825,11 +825,11 @@ Arguments:
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -847,23 +847,23 @@ Options:
 
 Print a one-line summary of what is in the store
 
-Usage: keel status [OPTIONS]
+Usage: specline status [OPTIONS]
 
 Options:
       --daemon <DAEMON>
-          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+          Daemon base URL. Defaults to `$SPECLINE_DAEMON_URL`, then the local daemon.
           
           Read through the daemon when one is running. It is the single writer, so going through it is what guarantees a consistent read.
           
-          [env: KEEL_DAEMON_URL=]
+          [env: SPECLINE_DAEMON_URL=]
           [default: http://127.0.0.1:7654]
 
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -883,7 +883,7 @@ Create a task row.
 
 Exists because until now the only ways to bring a row into being were MCP and the one-shot `bootstrap`/`import` migrations. With MCP down there was no way at all, which is how four completed pieces of work ended up as lines in a markdown table and nowhere else.
 
-Usage: keel task [OPTIONS] --project <PROJECT> <TITLE>
+Usage: specline task [OPTIONS] --project <PROJECT> <TITLE>
 
 Arguments:
   <TITLE>
@@ -891,11 +891,11 @@ Arguments:
 
 Options:
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --project <PROJECT>
           Project id, slug or name
@@ -933,20 +933,20 @@ The daemon serves the read surface itself, compiled in, so this needs no Node an
 
 It refuses rather than opening a browser at a dead port. A tab showing "cannot connect" is a worse answer than a sentence saying the daemon is not running.
 
-Usage: keel ui [OPTIONS]
+Usage: specline ui [OPTIONS]
 
 Options:
       --daemon <DAEMON>
-          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the address the running daemon recorded, then the local default
+          Daemon base URL. Defaults to `$SPECLINE_DAEMON_URL`, then the address the running daemon recorded, then the local default
           
-          [env: KEEL_DAEMON_URL=]
+          [env: SPECLINE_DAEMON_URL=]
 
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -973,18 +973,18 @@ A release that agrees with this one about the schema is interchangeable as far a
 
 Downloaded from the latest release over plain HTTPS — no account and no token — and checked against the SHA-256 in the release manifest before anything is moved into place.
 
-Usage: keel update [OPTIONS]
+Usage: specline update [OPTIONS]
 
 Options:
       --check
           Say what would happen and change nothing
 
       --home <HOME>
-          Where the store lives. Defaults to `~/.keel`.
+          Where the store lives. Defaults to `~/.specline`.
           
-          `keel-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
           
-          [env: KEEL_HOME=]
+          [env: SPECLINE_HOME=]
 
       --json
           Print machine-readable JSON instead of prose
@@ -995,11 +995,11 @@ Options:
           One generation only, and binaries only. If the update you are undoing migrated the store, this does not undo that — restore a backup.
 
       --daemon <DAEMON>
-          Daemon base URL. Defaults to `$KEEL_DAEMON_URL`, then the local daemon.
+          Daemon base URL. Defaults to `$SPECLINE_DAEMON_URL`, then the local daemon.
           
           Replacing the binaries is half of an update: the daemon is another process and goes on running what it loaded at startup. This is the one asked to restart into the new version afterwards, and the one checked to see which version came back.
           
-          [env: KEEL_DAEMON_URL=]
+          [env: SPECLINE_DAEMON_URL=]
           [default: http://127.0.0.1:7654]
 
       --force

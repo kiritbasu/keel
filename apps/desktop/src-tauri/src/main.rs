@@ -7,7 +7,7 @@
 //! in practice.
 //!
 //! The frontend reaches the daemon at an absolute URL baked in at build time
-//! (`VITE_KEEL_BASE`), because the webview is served from `tauri://localhost`
+//! (`VITE_SPECLINE_BASE`), because the webview is served from `tauri://localhost`
 //! and a relative `/api` would never leave it. In development Vite proxies
 //! `/api` instead, so the same source works both ways — which is the property
 //! SPEC §10 wants: one bundle, different base URL.
@@ -62,7 +62,7 @@ fn main() {
                     // exactly what to do — better than refusing to start.
                     eprintln!(
                         "keel-desktop: could not start the daemon ({e}). \
-                         Start it yourself with `keel-daemon`."
+                         Start it yourself with `specline-daemon`."
                     );
                 }
             }
@@ -100,23 +100,23 @@ fn daemon_is_up() -> bool {
 
 /// Launch the daemon.
 ///
-/// Looks for a sibling binary first — the bundled case, where `keel-daemon`
+/// Looks for a sibling binary first — the bundled case, where `specline-daemon`
 /// ships inside the app — then falls back to `PATH`, which is the development
 /// case and the one where someone installed with `plugin/install.sh`.
 fn start_daemon() -> std::io::Result<Child> {
     let sibling = std::env::current_exe()
         .ok()
-        .and_then(|p| p.parent().map(|d| d.join("keel-daemon")))
+        .and_then(|p| p.parent().map(|d| d.join("specline-daemon")))
         .filter(|p| p.exists());
 
     let program = sibling
         .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "keel-daemon".to_owned());
+        .unwrap_or_else(|| "specline-daemon".to_owned());
 
     Command::new(program)
         // Embeddings are off: the first run downloads a model, and a desktop
         // app that appears to hang on first launch is worse than one whose
         // search is keyword-only until asked otherwise.
-        .env("KEEL_DAEMON_STARTED_BY", "desktop")
+        .env("SPECLINE_DAEMON_STARTED_BY", "desktop")
         .spawn()
 }

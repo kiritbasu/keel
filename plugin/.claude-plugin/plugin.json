@@ -1,7 +1,7 @@
 {
-  "name": "keel",
+  "name": "specline",
   "version": "0.1.5",
-  "description": "Keel — the local-first store for everything about a software project except the code. Adds the Keel MCP server, the skills that teach when to write to it, and the session hooks that put the project's state in front of you.",
+  "description": "Specline — the local-first store for everything about a software project except the code. Adds the Specline MCP server, the skills that teach when to write to it, and the session hooks that put the project's state in front of you.",
   "author": {
     "name": "KB"
   },

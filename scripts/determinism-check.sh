@@ -21,7 +21,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 STORE=/tmp/keel-det/store
 WORK=/tmp/keel-det
 N="${N:-100}"
-DAEMON="${KEEL_DAEMON_URL:-http://127.0.0.1:7654}"
+DAEMON="${SPECLINE_DAEMON_URL:-http://127.0.0.1:7654}"
 
 mkdir -p "$WORK/runs"
 pass=0; fail=0
@@ -85,15 +85,15 @@ http_get() { curl -sf --max-time 10 "$DAEMON$1"; }
 generate_tree() {
   local out="$WORK/gen"
   rm -rf "$out"; mkdir -p "$out"
-  "$KEEL" generate keel --home "$STORE" --repo "$out" >/dev/null 2>&1
+  "$KEEL" generate specline --home "$STORE" --repo "$out" >/dev/null 2>&1
   # Hash the tree's content, not its mtimes: every file's path and bytes.
   find "$out" -type f | sort | while read -r f; do
     printf '%s ' "${f#"$out"/}"; shasum -a 256 "$f" | cut -d' ' -f1
   done
 }
 
-# The same tree, normalised the way `keel generate --check` already normalises
-# it: the `keel:generated` banner line dropped, and the manifest excluded.
+# The same tree, normalised the way `specline generate --check` already normalises
+# it: the `specline:generated` banner line dropped, and the manifest excluded.
 #
 # Both carry a wall-clock timestamp and nothing else that moves, so this
 # separates "the emitter is non-deterministic" from "two fields record when the
@@ -102,10 +102,10 @@ generate_tree() {
 generate_tree_normalised() {
   local out="$WORK/gn"
   rm -rf "$out"; mkdir -p "$out"
-  "$KEEL" generate keel --home "$STORE" --repo "$out" >/dev/null 2>&1
+  "$KEEL" generate specline --home "$STORE" --repo "$out" >/dev/null 2>&1
   find "$out" -type f ! -name manifest.json | sort | while read -r f; do
     printf '%s ' "${f#"$out"/}"
-    grep -v 'keel:generated' "$f" | shasum -a 256 | cut -d' ' -f1
+    grep -v 'specline:generated' "$f" | shasum -a 256 | cut -d' ' -f1
   done
 }
 

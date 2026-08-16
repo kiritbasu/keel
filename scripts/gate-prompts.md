@@ -4,24 +4,24 @@ For when `scripts/gate-run.sh` cannot run — the headless `claude -p` needs its
 own login, separate from the desktop app's.
 
 This is also the *better* version of the test. `claude -p` gives single-turn
-sessions; the gate is about whether Claude reaches for Keel during ordinary
+sessions; the gate is about whether Claude reaches for Specline during ordinary
 back-and-forth work, and a real conversation is what the PRD means by a session.
 
 ## Before you start
 
 ```bash
 curl -s http://127.0.0.1:7654/api/health          # daemon up
-ls ~/.claude/skills/keel/SKILL.md                 # skill installed
+ls ~/.claude/skills/specline/SKILL.md                 # skill installed
 date -u +%Y-%m-%dT%H:%M:%SZ                       # write this down — it is t0
 ```
 
 ## The rules
 
 - **A fresh session per row.** Ten sessions, not one session with ten turns.
-- **Start each one in the project's directory**, listed below. Not in the Keel
-  repo — `CLAUDE.md` there is four hundred lines telling Claude to use Keel,
+- **Start each one in the project's directory**, listed below. Not in the Specline
+  repo — `CLAUDE.md` there is four hundred lines telling Claude to use Specline,
   which is the opposite of unprompted.
-- **Do not mention Keel.** Not once, in any session. No "remember that", no
+- **Do not mention Specline.** Not once, in any session. No "remember that", no
   "record this", no "update the tracker".
 - Work normally otherwise. Argue, follow up, change your mind. A session that
   ends after one exchange is not much of a test.
@@ -52,7 +52,7 @@ what people actually say.
 ## Scoring
 
 ```bash
-keel gate --since <t0>
+specline gate --since <t0>
 ```
 
 Six sessions in `tideline` and four in `pellet`, so if the

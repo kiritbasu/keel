@@ -4,15 +4,15 @@ resolver = "3"
 # tree, and building a webview on every `cargo test --workspace` would make the
 # fast feedback loop slow for no benefit. It is also suspended as of
 # 2026-08-10 — the web build is the surface under development, and the shell's
-# build script refuses to run without KEEL_DESKTOP=1. See its build.rs.
+# build script refuses to run without SPECLINE_DESKTOP=1. See its build.rs.
 exclude = ["apps/desktop/src-tauri"]
 members = [
-    "crates/keel-core",
-    "crates/keel-embed",
-    "crates/keel-daemon",
-    "crates/keel-update",
-    "crates/keel-mcp",
-    "crates/keel",
+    "crates/specline-core",
+    "crates/specline-embed",
+    "crates/specline-daemon",
+    "crates/specline-update",
+    "crates/specline-mcp",
+    "crates/specline",
 ]
 
 [workspace.package]
@@ -33,7 +33,7 @@ license = "Apache-2.0"
 # deny.toml's `private.ignore` came out when this went in.
 #
 # `publish = false` stays, and does not mean what it used to. It no longer says
-# "this is nobody else's"; it says Keel is not a crates.io package. It is two
+# "this is nobody else's"; it says Specline is not a crates.io package. It is two
 # binaries distributed as release artifacts, and a library nobody depends on
 # externally, so the only thing `cargo publish` could do here is succeed by
 # accident.
@@ -85,7 +85,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 # Blocking HTTP for the CLI, which is synchronous and needs to talk to the
 # daemon. `reqwest` would drag a tokio runtime into a process that has no other
 # use for one.
-# `tls` was absent until `keel update` arrived, and correctly so: every other
+# `tls` was absent until `specline update` arrived, and correctly so: every other
 # call this crate makes is to `http://127.0.0.1:<port>`, so a TLS stack was
 # weight for nothing. The updater fetches a release over HTTPS and is the first
 # thing here to need one. Without it `ureq` compiles and fails at runtime with
@@ -97,21 +97,21 @@ ureq = { version = "2", default-features = false, features = ["json", "tls"] }
 clap = { version = "4", features = ["derive"] }
 
 # Internal
-keel-core = { path = "crates/keel-core", version = "0.1.5" }
-keel-mcp = { path = "crates/keel-mcp", version = "0.1.5" }
-keel-embed = { path = "crates/keel-embed", version = "0.1.5" }
+specline-core = { path = "crates/specline-core", version = "0.1.5" }
+specline-mcp = { path = "crates/specline-mcp", version = "0.1.5" }
+specline-embed = { path = "crates/specline-embed", version = "0.1.5" }
 # Checking for and installing a newer release. Depended on by both shipped
-# binaries — see its own manifest for why it is not in `keel-core`.
-keel-update = { path = "crates/keel-update", version = "0.1.5" }
-# A library from the `keel` package's point of view: it holds the daemon, and
-# the `keel-daemon` *binary* is a shim in `keel` so that one installer ships
+# binaries — see its own manifest for why it is not in `specline-core`.
+specline-update = { path = "crates/specline-update", version = "0.1.5" }
+# A library from the `specline` package's point of view: it holds the daemon, and
+# the `specline-daemon` *binary* is a shim in `specline` so that one installer ships
 # both executables. See `crates/keel/Cargo.toml`.
 # `default-features = false` here rather than at the one call site, because
 # Cargo will not let an inheriting member turn a workspace dependency's default
-# features off. Only `keel` depends on this, and its own `embeddings` feature
+# features off. Only `specline` depends on this, and its own `embeddings` feature
 # forwards to the daemon's — so the ordinary build is unchanged and
 # `--no-default-features` reaches all the way down (KEEL-220).
-keel-daemon = { path = "crates/keel-daemon", version = "0.1.5", default-features = false }
+specline-daemon = { path = "crates/specline-daemon", version = "0.1.5", default-features = false }
 
 # Test-only
 insta = { version = "1", features = ["json", "redactions", "filters"] }

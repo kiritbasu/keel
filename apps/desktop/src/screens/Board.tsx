@@ -113,7 +113,7 @@ export function BoardScreen({
 
   // What "blocked" means here is what it means to the ranking: something is
   // linked to it as a blocker. The app must not grow a second opinion, so these
-  // are the ids `keel_core::next::blocked_tasks` returns — the same function the
+  // are the ids `specline_core::next::blocked_tasks` returns — the same function the
   // digest and the generated tracker count from.
   const blockedIds = useMemo(
     () => new Set(next.data?.blocked ?? []),

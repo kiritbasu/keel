@@ -125,7 +125,8 @@ export function SearchScreen({ route, generation }: ScreenProps) {
   // knows its open questions, recent decisions and glossary, so this costs one
   // call and teaches what semantic search is for using material the reader
   // recognises — rather than the billing example, which was lifted from a tool
-  // description written for a generic project and had nothing to do with Keel.
+  // description written for a generic project and had nothing to do with the
+  // project in front of you.
   const digest = useAsync(() => api.context(project), [project, generation]);
   const starters = useMemo(() => starterQueries(digest.data), [digest.data]);
 

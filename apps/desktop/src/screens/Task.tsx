@@ -161,7 +161,7 @@ export function TaskScreen({ route, generation }: ScreenProps) {
       <Page title="Task" crumbs={projectCrumbs(route, "Task")}>
         <Empty
           message="No such task."
-          hint="It may have been archived. Nothing in Keel is deleted, so it is still in the history."
+          hint="It may have been archived. Nothing in Specline is deleted, so it is still in the history."
         />
       </Page>
     );
@@ -734,9 +734,9 @@ function ArchiveDialog({
           Archive this task?
         </h2>
         <p className="text-small text-ink-muted">
-          It stops appearing on the board and stays readable — nothing in Keel
-          is ever deleted, so the row and its history survive. Ask Claude if you
-          need it back; there is no undo here yet.
+          It stops appearing on the board and stays readable — nothing in
+          Specline is ever deleted, so the row and its history survive. Ask
+          Claude if you need it back; there is no undo here yet.
         </p>
         {failed && (
           <p role="alert" className="text-micro text-bad">
@@ -764,7 +764,7 @@ function ArchiveDialog({
 /**
  * The comment box.
  *
- * The first thing a person can write into Keel from the interface, and the
+ * The first thing a person can write into Specline from the interface, and the
  * shape of it is the whole of hard constraint 7 as B-78 rewrote it: a note is
  * what somebody *observed*, which is capture. There is no box on this screen
  * for rewriting the task's description, because that is authoring and it stays
@@ -1037,10 +1037,10 @@ function Relationships({
 /**
  * Prompts you can paste into Claude Code, with this task's identifier in them.
  *
- * The app cannot write — Claude and Keel are the only writers — and a read-only
- * surface can read as either deliberate or inert. The difference is whether it
- * hands you the next move. These are the four things you most often want to do
- * to a task you are looking at, already addressed to the right one.
+ * The app cannot write — Claude and Specline are the only writers — and a
+ * read-only surface can read as either deliberate or inert. The difference is
+ * whether it hands you the next move. These are the four things you most often
+ * want to do to a task you are looking at, already addressed to the right one.
  *
  * Copying rather than deep-linking: there is no URL that puts text into a
  * Claude Code session, and a button that pretended otherwise would be worse

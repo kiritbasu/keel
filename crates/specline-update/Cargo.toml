@@ -1,0 +1,38 @@
+[package]
+# Its own crate because both shipped binaries need it and neither can reach the
+# other's copy. `specline update` is a command in the `specline` binary; the unattended
+# check runs in the daemon. `specline` already depends on `specline-daemon`, so putting
+# this there would be a cycle, and `specline` has no lib target for the daemon to
+# depend on instead.
+#
+# It could not go in `specline-core` either, and that is the more important half:
+# `specline-core` never opens a network socket, and this does nothing else. Keeping
+# that boundary is what makes every other surface cheap to add.
+name = "specline-update"
+description = "Specline: checking for, verifying and installing a newer release."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# For `shipped_schema_version`, which is the number the whole decision turns on.
+specline-core.workspace = true
+anyhow.workspace = true
+# Only to stamp when a check ran. `chrono` and never `jiff`, and never both
+# (B-1) — the workspace has one time library and this is it.
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ureq.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]

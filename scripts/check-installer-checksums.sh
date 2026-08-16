@@ -6,7 +6,7 @@
 #
 # ## Why this exists
 #
-# Keel 0.1.2 shipped an installer that verified nothing. `dist` emits the
+# Specline 0.1.2 shipped an installer that verified nothing. `dist` emits the
 # checksum into the installer from the per-target `dist-manifest.json` files it
 # finds beside the archives; this repository's hand-written release workflow
 # never wrote any, so `_checksum_style` came out empty, every install took the

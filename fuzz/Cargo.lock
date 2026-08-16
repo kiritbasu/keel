@@ -271,7 +271,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "keel-core"
+name = "specline-core"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -290,7 +290,7 @@ dependencies = [
 name = "keel-fuzz"
 version = "0.0.0"
 dependencies = [
- "keel-core",
+ "specline-core",
  "libfuzzer-sys",
  "serde_json",
 ]

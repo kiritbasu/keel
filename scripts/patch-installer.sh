@@ -48,7 +48,7 @@
 #         say "no checksums to verify" 1>&2
 #     fi
 #
-# This is the one that shipped. Keel 0.1.2's installer embedded no checksums —
+# This is the one that shipped. Specline 0.1.2's installer embedded no checksums —
 # `dist` fills them in from the per-target `dist-manifest.json` files it finds
 # beside the archives, and this repository's hand-written release workflow never
 # wrote any (KEEL-228). So every install took the second branch, printed one
@@ -141,7 +141,7 @@ fixed+=("$block")
 markers+=("shasum -a 256 -b ")
 
 # 2. An installer with no checksum in it refuses, rather than announcing the
-#    fact and installing anyway. This is the branch Keel 0.1.2 shipped in.
+#    fact and installing anyway. This is the branch Specline 0.1.2 shipped in.
 names+=("the no-checksum branch")
 read -r -d '' block <<'EOF' || true
         if [ -n "${_checksum_style:-}" ]; then

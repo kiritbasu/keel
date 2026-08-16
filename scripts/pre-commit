@@ -5,7 +5,7 @@
 # This replaces the `PostToolUse` mirror hook, which tried to *recover* such an
 # edit by turning it into a revision. It had three moving parts and two of them
 # did not work: it called `keel mirror`, a command that does not exist, and
-# swallowed the failure with `|| true`; and it read `KEEL_SESSION_ID`, which
+# swallowed the failure with `|| true`; and it read `SPECLINE_SESSION_ID`, which
 # nothing anywhere sets. So every edit it claimed to capture was silently lost,
 # and the guarantee written into it and into the plugin README — "the database
 # wins unconditionally afterwards, the file is regenerated" — was false.
@@ -21,9 +21,9 @@
 
 set -uo pipefail
 
-# The project whose files this repository generates. `keel generate --check`
+# The project whose files this repository generates. `specline generate --check`
 # needs to know which project's outputs to compare against.
-project="${KEEL_PROJECT:-keel}"
+project="${SPECLINE_PROJECT:-keel}"
 
 # Nothing staged under the generated tree means nothing to check. Committing a
 # code change should not pay for a store round-trip.
@@ -48,7 +48,7 @@ staged="$(git diff --cached --name-only --diff-filter=ACM -- 'product/*.md' '.ke
 # committed.
 keel_bin=""
 newest=0
-for candidate in target/release/keel target/debug/keel "$(command -v keel 2>/dev/null || true)"; do
+for candidate in target/release/keel target/debug/keel "$(command -v specline 2>/dev/null || true)"; do
   [ -n "$candidate" ] && [ -x "$candidate" ] || continue
   "$candidate" generate --help >/dev/null 2>&1 || continue
   # `stat -c %Y` on GNU, `stat -f %m` on BSD/macOS — **in that order**, and the
@@ -81,11 +81,11 @@ done
 # A missing or unusable binary must not block a commit — that would make the
 # check worse than the hook it replaces. Say so and get out of the way.
 if [ -z "$keel_bin" ]; then
-  echo "pre-commit: no keel build understands \`generate\`, so generated files were not checked." >&2
+  echo "pre-commit: no specline build understands \`generate\`, so generated files were not checked." >&2
   exit 0
 fi
 
-# The tree the commit is in, which is not always the tree Keel has on file.
+# The tree the commit is in, which is not always the tree Specline has on file.
 #
 # Without `--repo`, `generate --check` resolves the project's recorded
 # `root_path` — the main checkout. From a git worktree that is somebody else's
@@ -114,19 +114,19 @@ esac
 
 cat >&2 <<EOF
 
-  A generated file does not match what Keel would produce.
+  A generated file does not match what Specline would produce.
 
 $drift
 
   Every file under product/ is an output. An edit here is not wrong so much as
-  futile: the next \`keel generate\` overwrites it from the store, and the
+  futile: the next \`specline generate\` overwrites it from the store, and the
   reasoning in it is gone.
 
   Make the change where it lives:
 
     • prose      — ask Claude to write it, or edit it in the app
     • the tracker— change the task rows; product/STATUS.md is rendered from them
-    • then       — keel generate $project --repo "$repo_root"
+    • then       — specline generate $project --repo "$repo_root"
 
   If you are deliberately committing a divergence, use --no-verify.
 

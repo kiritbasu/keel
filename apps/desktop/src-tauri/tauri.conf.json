@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "VITE_KEEL_BASE=http://127.0.0.1:7654 npm run build",
+    "beforeBuildCommand": "VITE_SPECLINE_BASE=http://127.0.0.1:7654 npm run build",
     "frontendDist": "../dist"
   },
   "app": {

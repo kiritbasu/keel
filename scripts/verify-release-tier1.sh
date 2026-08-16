@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
 # Phase 10 §12, tier 1 — does a release install and work on a machine that has
-# never had Keel?
+# never had Specline?
 #
 # Tier 1 is the tier that runs on the build machine, which is also the machine
-# least able to answer the question honestly: it has cargo, it has a `~/.keel`
+# least able to answer the question honestly: it has cargo, it has a `~/.specline`
 # with months of rows in it, and it has a daemon listening on 7654. Every
 # one of those makes a broken release look fine. So the whole script is built
 # around one trick — `env -i HOME=<scratch> PATH=/usr/bin:/bin` — which takes
@@ -59,7 +59,7 @@ SCRATCH="${2:-/tmp/keel-tier1}"
 # The port the scratch daemon binds. Not 7654, and this is not a preference.
 # The build machine has a daemon on 7654 serving the real store, so a health
 # probe against the default would pass by reading somebody else's healthy
-# daemon, and `keel doctor` would report on the real store while claiming to
+# daemon, and `specline doctor` would report on the real store while claiming to
 # describe a fresh install. Every command below that takes `--daemon` is
 # pointed here explicitly for the same reason.
 PORT="${PORT:-7699}"
@@ -117,7 +117,7 @@ caution() { printf '  \033[33mwarn\033[0m  %-34s %s\n' "$1" "${2:-}"; warn=$((wa
 note()    { printf '        %s\n' "$1"; }
 
 # Run something in an environment as close to a stranger's Mac as this machine
-# can offer: no cargo, no rustup, no `~/.keel`, no `~/.cargo/env` sourced by a
+# can offer: no cargo, no rustup, no `~/.specline`, no `~/.cargo/env` sourced by a
 # shell profile, nothing on PATH that the release did not put there.
 clean_run() { env -i "HOME=$CLEAN_HOME" "PATH=$CLEAN_PATH" "$@"; }
 
@@ -133,14 +133,14 @@ cleanup() {
   # Backstop, because the pid was wrong once and the consequence was a daemon
   # left serving a store this script had just deleted. Matched on the scratch
   # home, so it can only ever name a process this run started — the real daemon
-  # on this machine serves `~/.keel` and cannot match.
-  leaked="$(pgrep -f "keel-daemon .*$SCRATCH" 2>/dev/null || true)"
+  # on this machine serves `~/.specline` and cannot match.
+  leaked="$(pgrep -f "specline-daemon .*$SCRATCH" 2>/dev/null || true)"
   if [ -n "$leaked" ]; then
     printf '  cleaning up a daemon that outlived its pid: %s\n' "$(echo "$leaked" | tr '\n' ' ')"
     # shellcheck disable=SC2086
     kill $leaked 2>/dev/null
     sleep 2
-    still="$(pgrep -f "keel-daemon .*$SCRATCH" 2>/dev/null || true)"
+    still="$(pgrep -f "specline-daemon .*$SCRATCH" 2>/dev/null || true)"
     # shellcheck disable=SC2086
     [ -n "$still" ] && kill -9 $still 2>/dev/null
   fi
@@ -184,7 +184,7 @@ else
   SOURCE_MODE="published release"
   # `env` takes no empty argument, so this carries a harmless assignment rather
   # than an empty string that would be parsed as a command name.
-  SOURCE_ENV="KEEL_TIER1_SOURCE=release"
+  SOURCE_ENV="SPECLINE_TIER1_SOURCE=release"
 fi
 
 printf '\n'
@@ -209,10 +209,10 @@ else
   ok "stripped env has no toolchain" "no cargo, rustc or rustup on $CLEAN_PATH"
 fi
 
-if [ -e "$CLEAN_HOME/.keel" ]; then
-  bad "scratch HOME has no store" "$CLEAN_HOME/.keel already exists"
+if [ -e "$CLEAN_HOME/.specline" ]; then
+  bad "scratch HOME has no store" "$CLEAN_HOME/.specline already exists"
 else
-  ok "scratch HOME has no store" "nothing at $CLEAN_HOME/.keel"
+  ok "scratch HOME has no store" "nothing at $CLEAN_HOME/.specline"
 fi
 
 # Nothing may be listening on the scratch port before we start. If something
@@ -238,16 +238,16 @@ else
 fi
 
 # `-type f` matters: `.keel` would match a name search, and a directory that
-# happens to be called keel is not a binary. `-perm -u+x` because a file the
+# happens to be called specline is not a binary. `-perm -u+x` because a file the
 # installer unpacked without the execute bit is a failure that otherwise only
 # shows up as a confusing "permission denied" three checks later.
-KEEL_BIN="$(find "$CLEAN_HOME" -type f -perm -u+x -name keel 2>/dev/null | sort | head -1)"
-DAEMON_BIN="$(find "$CLEAN_HOME" -type f -perm -u+x -name keel-daemon 2>/dev/null | sort | head -1)"
+SPECLINE_BIN="$(find "$CLEAN_HOME" -type f -perm -u+x -name specline 2>/dev/null | sort | head -1)"
+DAEMON_BIN="$(find "$CLEAN_HOME" -type f -perm -u+x -name specline-daemon 2>/dev/null | sort | head -1)"
 
-if [ -n "$KEEL_BIN" ] && [ -n "$DAEMON_BIN" ]; then
-  ok "keel and keel-daemon installed" "${KEEL_BIN#"$CLEAN_HOME"/}, ${DAEMON_BIN#"$CLEAN_HOME"/}"
+if [ -n "$SPECLINE_BIN" ] && [ -n "$DAEMON_BIN" ]; then
+  ok "specline and specline-daemon installed" "${SPECLINE_BIN#"$CLEAN_HOME"/}, ${DAEMON_BIN#"$CLEAN_HOME"/}"
 else
-  bad "keel and keel-daemon installed" "keel=${KEEL_BIN:-missing} keel-daemon=${DAEMON_BIN:-missing}"
+  bad "specline and specline-daemon installed" "specline=${SPECLINE_BIN:-missing} specline-daemon=${DAEMON_BIN:-missing}"
   note "searched $CLEAN_HOME for executable files by name"
 fi
 
@@ -257,20 +257,20 @@ fi
 # an executable with no ad-hoc signature is killed at exec, which arrives as a
 # kill signal and reads to a user like a corrupt download.
 
-if [ -n "$KEEL_BIN" ]; then
-  version_out="$(clean_run "$KEEL_BIN" --version 2>&1)"
+if [ -n "$SPECLINE_BIN" ]; then
+  version_out="$(clean_run "$SPECLINE_BIN" --version 2>&1)"
   version_status=$?
   if [ $version_status -ne 0 ]; then
-    bad "keel --version runs" "exit $version_status: $version_out"
+    bad "specline --version runs" "exit $version_status: $version_out"
     [ $version_status -ge 128 ] && note "killed by a signal — suspect a missing ad-hoc signature (§2), not a bad download"
   elif printf '%s' "$version_out" | grep -Eq '[0-9]+\.[0-9]+'; then
-    ok "keel --version runs" "$version_out"
+    ok "specline --version runs" "$version_out"
   else
     # Exit 0 with nothing version-shaped is ambiguous, so it fails.
-    bad "keel --version runs" "exit 0 but no version in output: $version_out"
+    bad "specline --version runs" "exit 0 but no version in output: $version_out"
   fi
 else
-  bad "keel --version runs" "no keel binary to run"
+  bad "specline --version runs" "no specline binary to run"
 fi
 
 # --- 3. a store is created in the scratch HOME ------------------------------
@@ -281,22 +281,22 @@ fi
 # falls back to a local read instead of asking the machine's real daemon about
 # a store it has never heard of.
 
-KEEL_STORE="$CLEAN_HOME/.keel"
-if [ -n "$KEEL_BIN" ]; then
-  clean_run "$KEEL_BIN" --home "$KEEL_STORE" fsck --daemon "http://127.0.0.1:$PORT" \
+SPECLINE_STORE="$CLEAN_HOME/.specline"
+if [ -n "$SPECLINE_BIN" ]; then
+  clean_run "$SPECLINE_BIN" --home "$SPECLINE_STORE" fsck --daemon "http://127.0.0.1:$PORT" \
     >"$LOGS/fsck.log" 2>&1
   fsck_status=$?
-  if [ $fsck_status -eq 0 ] && [ -f "$KEEL_STORE/keel.sqlite" ]; then
-    ok "store created in scratch HOME" "$KEEL_STORE/keel.sqlite, fsck clean"
-  elif [ ! -f "$KEEL_STORE/keel.sqlite" ]; then
-    bad "store created in scratch HOME" "no keel.sqlite under $KEEL_STORE"
+  if [ $fsck_status -eq 0 ] && [ -f "$SPECLINE_STORE/keel.sqlite" ]; then
+    ok "store created in scratch HOME" "$SPECLINE_STORE/keel.sqlite, fsck clean"
+  elif [ ! -f "$SPECLINE_STORE/keel.sqlite" ]; then
+    bad "store created in scratch HOME" "no keel.sqlite under $SPECLINE_STORE"
     note "see $LOGS/fsck.log"
   else
     bad "store created in scratch HOME" "fsck exit $fsck_status"
     note "see $LOGS/fsck.log"
   fi
 else
-  bad "store created in scratch HOME" "no keel binary to create it with"
+  bad "store created in scratch HOME" "no specline binary to create it with"
 fi
 
 # --- 4. the daemon starts, answers, and stops -------------------------------
@@ -315,7 +315,7 @@ if [ -n "$DAEMON_BIN" ]; then
   #
   # `env` execs its command rather than forking, so `$!` here is the daemon.
   env -i "HOME=$CLEAN_HOME" "PATH=$CLEAN_PATH" \
-    "$DAEMON_BIN" --home "$KEEL_STORE" --bind "127.0.0.1:$PORT" \
+    "$DAEMON_BIN" --home "$SPECLINE_STORE" --bind "127.0.0.1:$PORT" \
     >"$LOGS/daemon.log" 2>&1 &
   DAEMON_PID=$!
 
@@ -338,7 +338,7 @@ if [ -n "$DAEMON_BIN" ]; then
     ok "daemon starts" "pid $DAEMON_PID on 127.0.0.1:$PORT"
   fi
 
-  # A 200 is not enough. The body has to be Keel's health body — anything else
+  # A 200 is not enough. The body has to be Specline's health body — anything else
   # answering on this port would satisfy `curl -sf` and prove nothing.
   if printf '%s' "$health" | grep -q '"status":"ok"' &&
      printf '%s' "$health" | grep -q '"schema"'; then
@@ -351,18 +351,18 @@ if [ -n "$DAEMON_BIN" ]; then
   # checking the store through its owner, which is the state a user is actually
   # in. It exits non-zero only for a real problem, so a degraded line — no
   # embeddings on a fresh store, no backup yet — correctly does not fail here.
-  if [ -n "$KEEL_BIN" ]; then
-    clean_run "$KEEL_BIN" --home "$KEEL_STORE" doctor --daemon "http://127.0.0.1:$PORT" \
+  if [ -n "$SPECLINE_BIN" ]; then
+    clean_run "$SPECLINE_BIN" --home "$SPECLINE_STORE" doctor --daemon "http://127.0.0.1:$PORT" \
       >"$LOGS/doctor.log" 2>&1
     doctor_status=$?
     if [ $doctor_status -eq 0 ]; then
-      ok "keel doctor is happy" "exit 0 against the fresh store"
+      ok "specline doctor is happy" "exit 0 against the fresh store"
     else
-      bad "keel doctor is happy" "exit $doctor_status"
+      bad "specline doctor is happy" "exit $doctor_status"
       note "see $LOGS/doctor.log"
     fi
   else
-    bad "keel doctor is happy" "no keel binary to run it with"
+    bad "specline doctor is happy" "no specline binary to run it with"
   fi
 
   # Stopping is part of the claim, not tidying up. A daemon that ignores TERM
@@ -385,10 +385,10 @@ if [ -n "$DAEMON_BIN" ]; then
     bad "daemon stops on TERM" "it never started"
   fi
 else
-  bad "daemon starts" "no keel-daemon binary"
-  bad "daemon answers /api/health" "no keel-daemon binary"
-  bad "keel doctor is happy" "no daemon to check through"
-  bad "daemon stops on TERM" "no keel-daemon binary"
+  bad "daemon starts" "no specline-daemon binary"
+  bad "daemon answers /api/health" "no specline-daemon binary"
+  bad "specline doctor is happy" "no daemon to check through"
+  bad "daemon stops on TERM" "no specline-daemon binary"
 fi
 
 # --- 5. the quarantine claim, proved rather than cited ----------------------
@@ -520,7 +520,7 @@ else
         "INSTALLER_DOWNLOAD_URL=file://$MIRROR" sh "$INSTALLER" \
         >"$LOGS/corrupt.log" 2>&1
       corrupt_status=$?
-      landed="$(find "$DIRTY_HOME" -type f -perm -u+x -name keel 2>/dev/null | head -1)"
+      landed="$(find "$DIRTY_HOME" -type f -perm -u+x -name specline 2>/dev/null | head -1)"
 
       if [ $corrupt_status -eq 0 ] || [ -n "$landed" ]; then
         # The loud failure. Everything below the install path assumes a

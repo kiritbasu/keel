@@ -1,0 +1,108 @@
+[package]
+# `specline`, not `keel-cli`, and this package now owns both shipped binaries.
+#
+# `dist` names an installer after the package that owns the binaries, and it
+# treats every package with binaries as its own app. As two packages that meant
+# two installers — `keel-cli-installer.sh` and `specline-daemon-installer.sh` —
+# while PHASE-10 §1 advertises one `keel-installer.sh`, and
+# `scripts/verify-release-tier1.sh` asserts that running *one* installer leaves
+# both `specline` and `specline-daemon` on disk. Two installers would have satisfied
+# neither, and there is no `dist` setting that folds one package's binaries into
+# another's archive — `binaries` is a per-platform override, not a manifest.
+#
+# So the daemon's `main.rs` lives here as `src/bin/specline-daemon.rs` and
+# `specline-daemon` is a library this package depends on. That crate is still where
+# the daemon *is*; what moved is 350 lines of argument parsing and process
+# lifecycle, and the two integration tests that drive the real process through
+# `CARGO_BIN_EXE_specline-daemon` — which resolves in the package that declares the
+# binary, and nowhere else. See B-70 and KEEL-208.
+name = "specline"
+description = "Specline: the store's command line and the daemon that serves it."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "specline"
+path = "src/main.rs"
+
+[[bin]]
+name = "specline-daemon"
+path = "src/bin/specline-daemon.rs"
+
+[package.metadata.dist]
+# `publish = false` is set workspace-wide (see the root `Cargo.toml` for why),
+# and `dist` reads that as "this package is not for distribution" — it refused
+# the whole workspace with "no packages with distable binaries" until this said
+# otherwise. The opt-in is per-package and there is no workspace-level form.
+dist = true
+
+# **Every released binary is built without embeddings** (KEEL-252, and KEEL-220
+# for why it is possible at all).
+#
+# The ONNX runtime `fastembed` pulls has no prebuilt Intel macOS library and
+# wants a newer glibc than the Linux binaries are built against, so two of three
+# targets could not link while it was in the graph. This is what takes it out.
+#
+# It applies to all three rather than only the two that need it, because `dist
+# build` takes `--target` and not `--features` and `[package.metadata.dist]` is
+# per package: there is no configuration expressing "arm64 with embeddings, the
+# others without". Given a choice between three platforms with keyword search
+# and one platform that could also do semantic search, three wins — the released
+# binary already defaults `--embeddings` off, and `specline doctor` and `/api/health`
+# both say which build you have.
+#
+# What it costs is real and worth stating: no released binary can do semantic
+# search at all. It survives for anyone building from source, where the feature
+# is on by default. It comes back for everyone if the ONNX prebuilt situation
+# changes, or if someone builds the second release path route 2 describes.
+default-features = false
+
+[lints]
+workspace = true
+
+# Forwards to the daemon's, and both have to move together: this crate builds
+# the `specline-daemon` binary as well as `specline`, so a `specline` without embeddings
+# that still pulled a daemon with them would link the ONNX runtime anyway and
+# the feature would buy nothing. See `specline-daemon/Cargo.toml` for the argument.
+[features]
+default = ["embeddings"]
+embeddings = ["dep:specline-embed", "specline-daemon/embeddings"]
+
+[dependencies]
+specline-core.workspace = true
+# For the protocol's own header names and version string, so `specline claim` and
+# `specline close` talk to the daemon's MCP endpoint without a second copy of the
+# handshake to keep in step. It brings no network dependency with it.
+specline-mcp.workspace = true
+# Only `specline reembed` constructs an embedder. It is the one CLI command whose
+# job is the model, so it is the one place the ONNX dependency is worth having.
+specline-embed = { workspace = true, optional = true }
+# The daemon's library half, for the `specline-daemon` binary above. Nothing in the
+# `specline` binary references it, so the linker drops it there; what it costs is
+# that a `cargo build -p specline` now builds axum and tokio, which a workspace
+# build was doing anyway.
+specline-daemon.workspace = true
+# `specline update` is a thin call into this. It lives in its own crate because the
+# daemon needs the same code and cannot depend on a binary package.
+specline-update.workspace = true
+clap = { workspace = true, features = ["env"] }
+anyhow.workspace = true
+tracing.workspace = true
+ureq.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+# The contracts test reads the store's shape through PRAGMA and hashes the
+# generated tree. Both are test-only: the CLI itself never opens SQLite
+# directly, and keeping it that way is the point of the storage traits.
+rusqlite.workspace = true
+sha2.workspace = true

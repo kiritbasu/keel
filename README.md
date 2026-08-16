@@ -57,7 +57,7 @@ SQLite is compiled in, so the binaries are self-contained — there is no databa
 Then start the daemon and leave it running:
 
 ```bash
-keel-daemon
+specline-daemon
 ```
 
 It binds `127.0.0.1:7654`. Add `--embeddings` if you want semantic search as well as keyword search — the first run downloads the model, which takes a minute. Keyword search works either way.
@@ -251,18 +251,18 @@ The agent sees ten tools: `keel_context`, `keel_search`, `keel_get`, `keel_proje
 Rust, one workspace, five crates.
 
 ```
-crates/keel-core/     domain types, storage, graph, search, generation, backup
-crates/keel-mcp/      the thirteen tools, the digest, protocol handling
-crates/keel-embed/    the local embedding model, kept out of the core
-crates/keel-daemon/   axum: the MCP endpoint and a local read API
+crates/specline-core/     domain types, storage, graph, search, generation, backup
+crates/specline-mcp/      the thirteen tools, the digest, protocol handling
+crates/specline-embed/    the local embedding model, kept out of the core
+crates/specline-daemon/   axum: the MCP endpoint and a local read API
 crates/keel/          fsck, backup, restore, import, generate, notes —
-                      and both shipped binaries, `keel` and `keel-daemon`
+                      and both shipped binaries, `keel` and `specline-daemon`
 apps/desktop/         Tauri + React. Read and search only
 ```
 
 Both binaries are declared by one package because `dist` builds one installer
 per package that owns binaries, and there is meant to be one `keel-installer.sh`.
-The daemon still lives in `keel-daemon`; only its entry point moved.
+The daemon still lives in `specline-daemon`; only its entry point moved.
 
 Storage is **one SQLite file** — entities, links, the event log, document revisions, images and vectors all in the same database. Search is hybrid: FTS5 keyword and `sqlite-vec` similarity, fused by reciprocal rank.
 

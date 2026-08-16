@@ -7,7 +7,7 @@
 # before the SQLite migration and the run after it can be put side by side and
 # the difference read off rather than argued about.
 #
-#   scripts/measure-performance.sh                        # the live daemon, keel
+#   scripts/measure-performance.sh                        # the live daemon, specline
 #   scripts/measure-performance.sh --project harbour      # another project
 #   scripts/measure-performance.sh --rounds 30            # more samples
 #   scripts/measure-performance.sh --base http://127.0.0.1:7655
@@ -35,7 +35,7 @@
 set -euo pipefail
 
 BASE="http://127.0.0.1:7654"
-PROJECT="keel"
+PROJECT="specline"
 ROUNDS=20
 LABEL=""
 
@@ -51,7 +51,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if ! curl -sf "$BASE/api/health" >/dev/null; then
-  echo "No daemon answering at $BASE. Start one with \`keel-daemon\`, or pass --base." >&2
+  echo "No daemon answering at $BASE. Start one with \`specline-daemon\`, or pass --base." >&2
   exit 1
 fi
 
@@ -73,7 +73,7 @@ READS=(
 )
 
 printf '\n'
-printf 'Keel read budget — %s' "$BASE"
+printf 'Specline read budget — %s' "$BASE"
 [[ -n "$LABEL" ]] && printf '  [%s]' "$LABEL"
 printf '\n'
 printf 'project %s · %s rounds · %s\n' "$PROJECT" "$ROUNDS" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"

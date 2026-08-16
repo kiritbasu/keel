@@ -153,7 +153,7 @@ describe("VersionFooter — whether checking is happening at all", () => {
       />,
     );
 
-    expect(screen.getByText(/KEEL_AUTO_UPDATE=0/)).toBeTruthy();
+    expect(screen.getByText(/SPECLINE_AUTO_UPDATE=0/)).toBeTruthy();
   });
 
   it("reports a check that ran and failed", () => {
@@ -216,14 +216,14 @@ describe("VersionFooter — whether checking is happening at all", () => {
       <VersionFooter
         version="0.1.0"
         stagedVersion={null}
-        executable="/Users/kb/.cargo/bin/keel-daemon"
+        executable="/Users/kb/.cargo/bin/specline-daemon"
         onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
 
     expect(
-      screen.getByTitle("Running /Users/kb/.cargo/bin/keel-daemon"),
+      screen.getByTitle("Running /Users/kb/.cargo/bin/specline-daemon"),
     ).toBeTruthy();
   });
 });

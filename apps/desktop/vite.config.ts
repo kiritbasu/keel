@@ -20,7 +20,7 @@ export default defineConfig({
         // is not a hypothetical: checking every screen against a migrated copy
         // is how the move to SQLite was verified, and it cannot be done at all
         // if the port is a literal.
-        target: process.env.KEEL_DAEMON_URL ?? "http://127.0.0.1:7654",
+        target: process.env.SPECLINE_DAEMON_URL ?? "http://127.0.0.1:7654",
         changeOrigin: false,
         // Server-sent events must not be compressed, or the proxy buffers a
         // whole gzip block before anything reaches the browser.

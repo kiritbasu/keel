@@ -39,13 +39,13 @@ jobs:
     env:
       # The suite runs on a machine that may have a real store and a live daemon
       # on it, which the hosted runners never had. Anything reaching for the
-      # default home would find `~/.keel` — KEEL-186 is that exact class of bug,
+      # default home would find `~/.specline` — KEEL-186 is that exact class of bug,
       # and a test suite is the worst place to discover another one.
       #
       # Costs nothing on a hosted runner, where it is a directory that did not
       # exist either way, and on the self-hosted one it is the difference
       # between a test run and an incident.
-      KEEL_HOME: ${{ github.workspace }}/.ci-keel-home
+      SPECLINE_HOME: ${{ github.workspace }}/.ci-keel-home
     steps:
       # Linux is not decoration. This is a local-first SQLite tool, and the two
       # things most likely to differ between platforms are the two it depends on
@@ -94,7 +94,7 @@ jobs:
       && (github.event_name != 'pull_request'
           || github.event.pull_request.head.repo.full_name == github.repository)
     env:
-      KEEL_HOME: ${{ github.workspace }}/.ci-keel-home
+      SPECLINE_HOME: ${{ github.workspace }}/.ci-keel-home
     steps:
       # macOS moved to the self-hosted runner with the release build (B-72):
       # hosted macOS minutes are billed at ten times the Linux rate, and CI runs
@@ -121,7 +121,7 @@ jobs:
     name: fmt · clippy · test (no embeddings)
     runs-on: ubuntu-latest
     env:
-      KEEL_HOME: ${{ github.workspace }}/.ci-keel-home
+      SPECLINE_HOME: ${{ github.workspace }}/.ci-keel-home
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -129,27 +129,27 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
 
-      # `--exclude keel-embed`, and it is the whole trick rather than a detail.
-      # `keel-embed` is a workspace member, so `--workspace` builds it directly
+      # `--exclude specline-embed`, and it is the whole trick rather than a detail.
+      # `specline-embed` is a workspace member, so `--workspace` builds it directly
       # no matter what features anything else asked for — and building it *is*
       # building the ONNX runtime. Without the exclusion this leg would link the
       # thing it exists to prove is absent, and fail on the one platform that
       # cannot link it. The same applies to a Linux developer's `cargo build
       # --workspace`; CONTRIBUTING.md says so.
       - name: Clippy
-        run: cargo clippy --workspace --exclude keel-embed --all-targets --no-default-features -- -D warnings
+        run: cargo clippy --workspace --exclude specline-embed --all-targets --no-default-features -- -D warnings
 
       - name: Test
-        run: cargo test --workspace --exclude keel-embed --no-default-features
+        run: cargo test --workspace --exclude specline-embed --no-default-features
 
       # The point of the whole exercise, asserted rather than assumed: the ONNX
       # runtime is out of the graph, so the targets that cannot link it can be
       # built. A green test suite would not notice `ort` still being pulled in.
       - name: The ONNX runtime is not in this build
         run: |
-          if cargo tree -p keel --no-default-features -e normal | grep -qE 'fastembed|ort v'; then
+          if cargo tree -p specline --no-default-features -e normal | grep -qE 'fastembed|ort v'; then
             echo "::error::fastembed or ort is still in the dependency graph without the embeddings feature"
-            cargo tree -p keel --no-default-features -e normal | grep -E 'fastembed|ort v'
+            cargo tree -p specline --no-default-features -e normal | grep -E 'fastembed|ort v'
             exit 1
           fi
           echo "no fastembed, no ort"

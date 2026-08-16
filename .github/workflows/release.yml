@@ -92,7 +92,7 @@ jobs:
           # build**, not because anything about ONNX changed:
           # `[package.metadata.dist] default-features = false` builds every
           # target without embeddings (KEEL-220, KEEL-252). The cost is that no
-          # released binary can do semantic search; `keel doctor` says so.
+          # released binary can do semantic search; `specline doctor` says so.
           #
           # Intel macOS builds on the same self-hosted Apple Silicon Mac.
           # `--target=x86_64-apple-darwin` on an arm64 host still links with
@@ -140,7 +140,7 @@ jobs:
 
       # --- The site the daemon embeds ---------------------------------------
       #
-      # `keel-daemon` serves the React app from `apps/desktop` compiled into the
+      # `specline-daemon` serves the React app from `apps/desktop` compiled into the
       # binary, so `apps/desktop/dist` must exist before cargo runs. `dist` has
       # no idea this dependency exists and will not do it; a build without these
       # three steps still succeeds and still produces a working MCP server,
@@ -235,7 +235,7 @@ jobs:
       # being shipped. The updater has to decide whether a candidate is safe to
       # apply *before* downloading it, and it cannot ask the candidate — running
       # the thing you are deciding whether to run is the whole problem (KEEL-202).
-      # `release-manifest` opens no store, so it runs on a machine with no Keel
+      # `release-manifest` opens no store, so it runs on a machine with no Specline
       # home at all, which is what this is.
       #
       # Extracted from the archive rather than guessed at under `target/`: the

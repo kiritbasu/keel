@@ -33,15 +33,15 @@
 #  5. **Reachability asserted.** A wedged daemon makes a failed write
 #     indistinguishable from a non-write (Problem 5).
 #
-# Sessions run in throwaway projects that mention Keel nowhere. Prompts are
-# ordinary developer talk. None mentions Keel or asks for anything recorded.
+# Sessions run in throwaway projects that mention Specline nowhere. Prompts are
+# ordinary developer talk. None mentions Specline or asks for anything recorded.
 
 set -uo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 runs_dir="${GATE_RUNS:-$root/.gate-runs}"
-keel="${KEEL_BIN:-$root/target/release/keel}"
-daemon_bin="${KEEL_DAEMON_BIN:-$root/target/release/keel-daemon}"
+specline="${SPECLINE_BIN:-$root/target/release/keel}"
+daemon_bin="${SPECLINE_DAEMON_BIN:-$root/target/release/specline-daemon}"
 run_id="${GATE_RUN_ID:-run-$(date -u +%Y%m%dT%H%M%SZ)}"
 run_dir="$runs_dir/$run_id"
 work="$run_dir/projects"
@@ -74,13 +74,13 @@ if [ -n "${ANTHROPIC_AUTH_TOKEN:-}" ] ||
   exit 1
 fi
 
-[ -f "$HOME/.claude/skills/keel/SKILL.md" ] || {
+[ -f "$HOME/.claude/skills/specline/SKILL.md" ] || {
   echo "The skill is not installed. It is part of what is being measured:"
-  echo "  cp -r $root/plugin/skills/keel ~/.claude/skills/keel"
+  echo "  cp -r $root/plugin/skills/specline ~/.claude/skills/specline"
   exit 1
 }
-[ -x "$keel" ] || { echo "keel binary not found at $keel"; exit 1; }
-[ -x "$daemon_bin" ] || { echo "keel-daemon not found at $daemon_bin"; exit 1; }
+[ -x "$specline" ] || { echo "specline binary not found at $specline"; exit 1; }
+[ -x "$daemon_bin" ] || { echo "specline-daemon not found at $daemon_bin"; exit 1; }
 
 # --- the ten sessions -------------------------------------------------------
 # project | opening prompt | neutral continuation
@@ -234,7 +234,7 @@ for i in $(seq 0 $((launched - 1))); do
     > "$run_dir/logs/daemon-$n.log" 2>&1 &
 
   cat > "$sdir/mcp.json" <<JSON
-{ "mcpServers": { "keel": { "type": "http", "url": "http://127.0.0.1:$port/mcp" } } }
+{ "mcpServers": { "specline": { "type": "http", "url": "http://127.0.0.1:$port/mcp" } } }
 JSON
 
   (
@@ -249,13 +249,13 @@ JSON
       && echo up > "$run_dir/logs/reachable-before-$n" || echo DOWN > "$run_dir/logs/reachable-before-$n"
 
     cd "$sdir/$project" || exit 1
-    KEEL_DAEMON_URL="http://127.0.0.1:$port" \
+    SPECLINE_DAEMON_URL="http://127.0.0.1:$port" \
       claude -p "$prompt" \
         --mcp-config "$sdir/mcp.json" --strict-mcp-config --allowedTools "$tools" \
         </dev/null > "$run_dir/logs/session-$n-turn1.log" 2>&1
 
     # The continuation. The turn the old harness could not supply.
-    KEEL_DAEMON_URL="http://127.0.0.1:$port" \
+    SPECLINE_DAEMON_URL="http://127.0.0.1:$port" \
       claude -p "$followup" --continue \
         --mcp-config "$sdir/mcp.json" --strict-mcp-config --allowedTools "$tools" \
         </dev/null > "$run_dir/logs/session-$n-turn2.log" 2>&1
@@ -309,12 +309,12 @@ done
 [ "$wedged" -gt 0 ] && echo "  ⚠ $wedged reachability check(s) failed — some non-writes may be wedged daemons"
 
 say "Scoring"
-"$keel" gate --run "$run_dir"
+"$specline" gate --run "$run_dir"
 status=$?
 
 say "Stores are still up, and the run is archived at:"
 echo "  $run_dir"
 echo
 echo "  Tear down when you have finished reading:"
-echo "      pkill -f 'keel-daemon --home $run_dir'"
+echo "      pkill -f 'specline-daemon --home $run_dir'"
 exit $status

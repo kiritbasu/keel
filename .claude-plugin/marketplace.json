@@ -1,5 +1,5 @@
 {
-  "name": "keel",
+  "name": "specline",
   "owner": {
     "name": "KB"
   },
@@ -9,7 +9,7 @@
   },
   "plugins": [
     {
-      "name": "keel",
+      "name": "specline",
       "source": "./plugin",
       "description": "The project spine: an MCP server over a local SQLite store, the skills that teach Claude when to write to it, and the session hooks that put the project's state in front of every conversation.",
       "version": "0.1.5",

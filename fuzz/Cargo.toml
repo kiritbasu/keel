@@ -16,7 +16,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-keel-core = { path = "../crates/keel-core" }
+specline-core = { path = "../crates/specline-core" }
 serde_json = "1"
 
 [workspace]

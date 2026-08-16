@@ -1,0 +1,72 @@
+[package]
+name = "specline-daemon"
+description = "The Specline daemon: axum server exposing MCP and a local REST/SSE API. Owns the sole write handle."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "specline_daemon"
+path = "src/lib.rs"
+
+[package.metadata.dist]
+# This crate owns no binaries any more — the `specline-daemon` executable is
+# declared by the `specline` package so that one `dist` app produces one installer
+# carrying both (PHASE-10 §1). Saying so explicitly rather than relying on
+# "no binaries, so nothing to do": if a binary is ever added back here it should
+# fail the plan loudly instead of quietly becoming a second installer.
+dist = false
+
+[lints]
+workspace = true
+
+# The only feature in the workspace, and it exists because it decides whether a
+# platform can be *built at all* rather than which copy of a library gets
+# linked (KEEL-220). `fastembed` pulls a prebuilt ONNX Runtime that has no
+# Intel macOS build and wants a newer glibc than the Linux runner has, so two
+# of three release targets could not link. Without it they can.
+#
+# On by default, so nothing about an ordinary build or an ordinary developer's
+# `cargo test` changes. Off is a supported configuration rather than a broken
+# one: keyword search covers every searchable artifact, prose included, and
+# search degrades rather than failing.
+[features]
+default = ["embeddings"]
+embeddings = ["dep:specline-embed"]
+
+[dependencies]
+specline-core.workspace = true
+# The only crate that constructs the real embedder, because it is the only one
+# that decides whether embeddings are on. specline-core deliberately cannot.
+specline-embed = { workspace = true, optional = true }
+specline-mcp.workspace = true
+axum.workspace = true
+tokio.workspace = true
+tower-http.workspace = true
+async-stream.workspace = true
+futures-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap = { workspace = true, features = ["env"] }
+chrono.workspace = true
+rust-embed.workspace = true
+
+# The unattended half of the update check: the daemon looks for a newer release
+# on its own schedule and stages it, and applies a staged one at startup.
+specline-update.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+# The end-to-end tier drives the real binary over a socket, and a blocking
+# client keeps those tests readable — they are about the process, not about
+# async.
+ureq.workspace = true
+insta.workspace = true
+reqwest.workspace = true

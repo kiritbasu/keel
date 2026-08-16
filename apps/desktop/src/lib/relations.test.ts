@@ -13,7 +13,7 @@ describe("relationPhrase", () => {
   });
 
   it("covers every relation that can be stored", () => {
-    // `depends_on` is deliberately absent: keel-core normalises it to `blocks`
+    // `depends_on` is deliberately absent: specline-core normalises it to `blocks`
     // with the endpoints swapped, so it can never come back from a traversal.
     for (const rel of [
       "blocks",

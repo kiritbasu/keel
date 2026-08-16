@@ -25,7 +25,7 @@
             "type": "string"
           },
           "session_id": {
-            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
             "type": "string"
           },
           "since": {
@@ -68,7 +68,7 @@
             "type": "string"
           },
           "session_id": {
-            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
             "type": "string"
           },
           "since": {
@@ -176,7 +176,7 @@
             "type": "array"
           },
           "session_id": {
-            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
             "type": "string"
           },
           "surface": {
@@ -215,7 +215,7 @@
             "type": "string"
           },
           "session_id": {
-            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
             "type": "string"
           },
           "surface": {
@@ -252,7 +252,7 @@
             "type": "string"
           },
           "session_id": {
-            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
             "type": "string"
           },
           "since": {
@@ -301,7 +301,7 @@
             "type": "string"
           },
           "image_path": {
-            "description": "Design and artifact only: an absolute path to an image on the machine Keel is running on. The daemon reads the file itself, so the bytes never enter your context and a real screenshot costs you nothing.\n\nThis is the right way to attach anything bigger than a small mockup — up to 10 MB. Not a URL: the daemon makes no outbound requests on a model's instruction.\n\nReadable folders only: Desktop, Downloads, Pictures, and the project's own directory. Anywhere else is refused and the refusal lists them. That is not about you — a path can be suggested by text you are reading rather than by the person you are talking to.",
+            "description": "Design and artifact only: an absolute path to an image on the machine Specline is running on. The daemon reads the file itself, so the bytes never enter your context and a real screenshot costs you nothing.\n\nThis is the right way to attach anything bigger than a small mockup — up to 10 MB. Not a URL: the daemon makes no outbound requests on a model's instruction.\n\nReadable folders only: Desktop, Downloads, Pictures, and the project's own directory. Anywhere else is refused and the refusal lists them. That is not about you — a path can be suggested by text you are reading rather than by the person you are talking to.",
             "type": "string"
           },
           "name": {
@@ -313,7 +313,7 @@
             "type": "string"
           },
           "session_id": {
-            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
             "type": "string"
           },
           "slug": {
@@ -371,7 +371,7 @@
       "name": "keel_create"
     },
     {
-      "description": "Change fields on an existing artifact, including status transitions. Returns the updated artifact.\n\n**Not for prose.** A document body belongs to `keel_write_doc`, which versions it; this tool is for the fields around it — title, status, kind. Sending a body here would overwrite without a revision, and the previous author's text would be gone.\n\nPass the `version` you read. If someone else changed it since, the call is rejected with the current state and the events that happened in between, so you can usually merge and retry without asking anyone.\n\nAn accepted decision's content is immutable — supersede it with a new decision linked by `supersedes` rather than editing it. Use `archive: true` to soft-delete; nothing in Keel is ever really deleted.\n\nTo reorder a task, put `rank_after` or `rank_before` in `changes` naming another task — `{\"rank_after\": \"KEEL-12\"}` — rather than choosing a number. To make one task part of another, set `parent_id`; that is composition, and it is a different thing from `blocks`, which means \"must happen first\".\n\n**Two task transitions belong to their own tools.** Starting work is `keel_claim`, which records who is on it; finishing is `keel_close`, which asks for the reason, the message and the evidence together. A `status` of `done` or `wont_do` sent here is refused without all three, so reaching for this tool to close something only costs you a round trip.\n\nTo attach an image to a design or artifact that already exists, put `image_path` in `changes` with an absolute path — the daemon reads the file, so the bytes never enter your context.",
+      "description": "Change fields on an existing artifact, including status transitions. Returns the updated artifact.\n\n**Not for prose.** A document body belongs to `keel_write_doc`, which versions it; this tool is for the fields around it — title, status, kind. Sending a body here would overwrite without a revision, and the previous author's text would be gone.\n\nPass the `version` you read. If someone else changed it since, the call is rejected with the current state and the events that happened in between, so you can usually merge and retry without asking anyone.\n\nAn accepted decision's content is immutable — supersede it with a new decision linked by `supersedes` rather than editing it. Use `archive: true` to soft-delete; nothing in Specline is ever really deleted.\n\nTo reorder a task, put `rank_after` or `rank_before` in `changes` naming another task — `{\"rank_after\": \"KEEL-12\"}` — rather than choosing a number. To make one task part of another, set `parent_id`; that is composition, and it is a different thing from `blocks`, which means \"must happen first\".\n\n**Two task transitions belong to their own tools.** Starting work is `keel_claim`, which records who is on it; finishing is `keel_close`, which asks for the reason, the message and the evidence together. A `status` of `done` or `wont_do` sent here is refused without all three, so reaching for this tool to close something only costs you a round trip.\n\nTo attach an image to a design or artifact that already exists, put `image_path` in `changes` with an absolute path — the daemon reads the file, so the bytes never enter your context.",
       "input_schema": {
         "properties": {
           "archive": {
@@ -392,7 +392,7 @@
             "type": "string"
           },
           "session_id": {
-            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
             "type": "string"
           },
           "surface": {
@@ -435,7 +435,7 @@
             "type": "string"
           },
           "session_id": {
-            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
             "type": "string"
           },
           "surface": {
@@ -471,7 +471,7 @@
             "type": "string"
           },
           "id": {
-            "description": "The artifact to annotate. Any Keel id.",
+            "description": "The artifact to annotate. Any Specline id.",
             "type": "string"
           },
           "list": {
@@ -484,7 +484,7 @@
             "type": "string"
           },
           "session_id": {
-            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
             "type": "string"
           },
           "surface": {
@@ -507,7 +507,7 @@
       "name": "keel_note"
     },
     {
-      "description": "Create or remove a typed edge. Direction matters and reads left to right: `from` does the verb to `to`.\n\nA task **implements** a spec. A blocker **blocks** the thing waiting on it. A newer decision **supersedes** an older one. A decision **resolves** a question. Feedback **informs** a spec. If you find yourself wanting to say 'A depends on B', use `depends_on` and Keel will store it the right way round.\n\nUse `anchor` to link to one requirement inside a spec (`REQ-4`) rather than the whole document — that is what makes traceability answerable per requirement.",
+      "description": "Create or remove a typed edge. Direction matters and reads left to right: `from` does the verb to `to`.\n\nA task **implements** a spec. A blocker **blocks** the thing waiting on it. A newer decision **supersedes** an older one. A decision **resolves** a question. Feedback **informs** a spec. If you find yourself wanting to say 'A depends on B', use `depends_on` and Specline will store it the right way round.\n\nUse `anchor` to link to one requirement inside a spec (`REQ-4`) rather than the whole document — that is what makes traceability answerable per requirement.",
       "input_schema": {
         "properties": {
           "anchor": {
@@ -546,7 +546,7 @@
             "type": "boolean"
           },
           "session_id": {
-            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
             "type": "string"
           },
           "surface": {
@@ -601,7 +601,7 @@
             "type": "string"
           },
           "session_id": {
-            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
             "type": "string"
           },
           "surface": {
@@ -653,7 +653,7 @@
             "type": "string"
           },
           "session_id": {
-            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
             "type": "string"
           },
           "surface": {
@@ -714,7 +714,7 @@
             "type": "string"
           },
           "session_id": {
-            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Keel never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
             "type": "string"
           },
           "surface": {

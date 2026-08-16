@@ -120,12 +120,12 @@ cleanup() {
   # The same backstop tier 1 needed, for the same reason: a pid that turns out
   # to name a subshell leaves a daemon serving a store that is about to be
   # deleted. Matched on the scratch path, so it can only name this run's own.
-  leaked="$(pgrep -f "keel-daemon .*$SCRATCH" 2>/dev/null || true)"
+  leaked="$(pgrep -f "specline-daemon .*$SCRATCH" 2>/dev/null || true)"
   if [ -n "$leaked" ]; then
     printf '  cleaning up a daemon that outlived its pid: %s\n' "$(echo "$leaked" | tr '\n' ' ')"
     # shellcheck disable=SC2086
     kill $leaked 2>/dev/null; sleep 2
-    still="$(pgrep -f "keel-daemon .*$SCRATCH" 2>/dev/null || true)"
+    still="$(pgrep -f "specline-daemon .*$SCRATCH" 2>/dev/null || true)"
     # shellcheck disable=SC2086
     [ -n "$still" ] && kill -9 $still 2>/dev/null
   fi
@@ -157,7 +157,7 @@ if [ -n "$LOCAL_ARCHIVES" ]; then
   SOURCE_ENV="INSTALLER_DOWNLOAD_URL=file://$CONTROL"
 else
   SOURCE_MODE="published release"
-  SOURCE_ENV="KEEL_TIER2_SOURCE=release"
+  SOURCE_ENV="SPECLINE_TIER2_SOURCE=release"
 fi
 
 printf '\n'
@@ -197,26 +197,26 @@ else
   note "see $LOGS/install.log"
 fi
 
-KEEL_BIN="$(find "$CLEAN_HOME" -type f -executable -name keel 2>/dev/null | sort | head -1)"
-DAEMON_BIN="$(find "$CLEAN_HOME" -type f -executable -name keel-daemon 2>/dev/null | sort | head -1)"
+SPECLINE_BIN="$(find "$CLEAN_HOME" -type f -executable -name specline 2>/dev/null | sort | head -1)"
+DAEMON_BIN="$(find "$CLEAN_HOME" -type f -executable -name specline-daemon 2>/dev/null | sort | head -1)"
 
-if [ -n "$KEEL_BIN" ] && [ -n "$DAEMON_BIN" ]; then
-  ok "keel and keel-daemon installed" "${KEEL_BIN#"$CLEAN_HOME"/}, ${DAEMON_BIN#"$CLEAN_HOME"/}"
+if [ -n "$SPECLINE_BIN" ] && [ -n "$DAEMON_BIN" ]; then
+  ok "specline and specline-daemon installed" "${SPECLINE_BIN#"$CLEAN_HOME"/}, ${DAEMON_BIN#"$CLEAN_HOME"/}"
 else
-  bad "keel and keel-daemon installed" "keel=${KEEL_BIN:-missing} keel-daemon=${DAEMON_BIN:-missing}"
+  bad "specline and specline-daemon installed" "specline=${SPECLINE_BIN:-missing} specline-daemon=${DAEMON_BIN:-missing}"
 fi
 
 # --- 2. the binary runs, having compiled nothing ----------------------------
 
-if [ -n "$KEEL_BIN" ]; then
-  version="$(clean_run "$KEEL_BIN" --version 2>&1)"
+if [ -n "$SPECLINE_BIN" ]; then
+  version="$(clean_run "$SPECLINE_BIN" --version 2>&1)"
   if [ $? -eq 0 ] && [ -n "$version" ]; then
-    ok "keel --version runs" "$version"
+    ok "specline --version runs" "$version"
   else
-    bad "keel --version runs" "$version"
+    bad "specline --version runs" "$version"
   fi
 else
-  bad "keel --version runs" "no keel binary"
+  bad "specline --version runs" "no specline binary"
 fi
 
 # --- 3. the glibc floor -----------------------------------------------------
@@ -227,8 +227,8 @@ fi
 # corrupt download. Reading the required versions out of the ELF is better than
 # waiting for someone on Debian stable to report it.
 
-if [ -n "$KEEL_BIN" ] && command -v objdump >/dev/null 2>&1; then
-  needed="$(objdump -T "$KEEL_BIN" 2>/dev/null | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)"
+if [ -n "$SPECLINE_BIN" ] && command -v objdump >/dev/null 2>&1; then
+  needed="$(objdump -T "$SPECLINE_BIN" 2>/dev/null | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)"
   needed="${needed#GLIBC_}"
   if [ -z "$needed" ]; then
     caution "glibc floor is $GLIBC_FLOOR or lower" "no versioned glibc symbols found"
@@ -247,12 +247,12 @@ fi
 
 # --- 4. store, daemon, and the API ------------------------------------------
 
-KEEL_STORE="$CLEAN_HOME/.keel"
+SPECLINE_STORE="$CLEAN_HOME/.specline"
 
-if [ -n "$KEEL_BIN" ]; then
-  clean_run "$KEEL_BIN" --home "$KEEL_STORE" fsck >"$LOGS/fsck.log" 2>&1
-  if [ $? -eq 0 ] && [ -f "$KEEL_STORE/keel.sqlite" ]; then
-    ok "store created in scratch HOME" "$KEEL_STORE/keel.sqlite, fsck clean"
+if [ -n "$SPECLINE_BIN" ]; then
+  clean_run "$SPECLINE_BIN" --home "$SPECLINE_STORE" fsck >"$LOGS/fsck.log" 2>&1
+  if [ $? -eq 0 ] && [ -f "$SPECLINE_STORE/keel.sqlite" ]; then
+    ok "store created in scratch HOME" "$SPECLINE_STORE/keel.sqlite, fsck clean"
   else
     bad "store created in scratch HOME" "see $LOGS/fsck.log"
   fi
@@ -263,7 +263,7 @@ if [ -n "$DAEMON_BIN" ]; then
   # the subshell's pid, and killing that orphans the daemon. Tier 1 shipped that
   # bug and left a daemon serving a deleted store.
   env -i "HOME=$CLEAN_HOME" "PATH=$CLEAN_PATH" \
-    "$DAEMON_BIN" --home "$KEEL_STORE" --bind "127.0.0.1:$PORT" \
+    "$DAEMON_BIN" --home "$SPECLINE_STORE" --bind "127.0.0.1:$PORT" \
     >"$LOGS/daemon.log" 2>&1 &
   DAEMON_PID=$!
 
@@ -296,8 +296,8 @@ if [ -n "$DAEMON_BIN" ]; then
   fi
   DAEMON_PID=""
 else
-  bad "daemon answers /api/health" "no keel-daemon binary"
-  bad "daemon stops on TERM" "no keel-daemon binary"
+  bad "daemon answers /api/health" "no specline-daemon binary"
+  bad "daemon stops on TERM" "no specline-daemon binary"
 fi
 
 # --- 5. systemd: it installs, and it comes back after a kill ----------------
@@ -308,7 +308,7 @@ fi
 # would leave something behind on a machine somebody works on.
 
 if [ -z "$DAEMON_BIN" ]; then
-  bad "systemd unit restarts the daemon" "no keel-daemon binary"
+  bad "systemd unit restarts the daemon" "no specline-daemon binary"
 elif ! command -v systemctl >/dev/null 2>&1 || ! systemctl --user show-environment >/dev/null 2>&1; then
   bad "systemd unit restarts the daemon" "no user systemd session in this VM"
   note "tier 2 is meant to cover the service story; a VM without a user bus cannot answer it"
@@ -317,11 +317,11 @@ else
   mkdir -p "$HOME/.config/systemd/user"
   cat > "$HOME/.config/systemd/user/keel-tier2.service" <<UNIT
 [Unit]
-Description=Keel daemon (tier 2 verification)
+Description=Specline daemon (tier 2 verification)
 
 [Service]
 Environment=HOME=$CLEAN_HOME
-ExecStart=$DAEMON_BIN --home $KEEL_STORE --bind 127.0.0.1:$PORT
+ExecStart=$DAEMON_BIN --home $SPECLINE_STORE --bind 127.0.0.1:$PORT
 Restart=always
 RestartSec=1
 
@@ -425,7 +425,7 @@ else
       "INSTALLER_DOWNLOAD_URL=file://$MIRROR" sh "$INSTALLER" \
       >"$LOGS/corrupt.log" 2>&1
     corrupt_status=$?
-    landed="$(find "$DIRTY_HOME" -type f -executable -name keel 2>/dev/null | head -1)"
+    landed="$(find "$DIRTY_HOME" -type f -executable -name specline 2>/dev/null | head -1)"
     if [ $corrupt_status -eq 0 ] || [ -n "$landed" ]; then
       bad "installer refuses a corrupt archive" "IT ACCEPTED IT (exit $corrupt_status)"
       note "a corrupted archive installed. This release must not ship."

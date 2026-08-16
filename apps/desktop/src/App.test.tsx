@@ -358,7 +358,7 @@ describe("the rail, with the project first", () => {
 describe("the live feed's state is visible", () => {
   it("says nothing while the feed is healthy", async () => {
     render(<App />);
-    await screen.findByText("Keel");
+    await screen.findByText("Specline");
     act(() => feedHooks.onStatus?.("live"));
     expect(screen.queryByRole("status")).toBeNull();
   });
@@ -368,7 +368,7 @@ describe("the live feed's state is visible", () => {
   /// was that the second one was wrong.
   it("says so when the feed drops, and stops saying so when it returns", async () => {
     render(<App />);
-    await screen.findByText("Keel");
+    await screen.findByText("Specline");
 
     act(() => feedHooks.onStatus?.("down"));
     const notice = await screen.findByRole("status");

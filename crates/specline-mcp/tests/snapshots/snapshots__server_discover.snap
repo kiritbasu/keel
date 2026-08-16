@@ -1,0 +1,22 @@
+---
+source: crates/specline-mcp/tests/snapshots.rs
+assertion_line: 86
+expression: "specline_mcp::discover_result()"
+---
+{
+  "capabilities": {
+    "tools": {
+      "listChanged": false
+    }
+  },
+  "instructions": "Specline stores everything about a software project except the code. Call `keel_context` first to orient. Pass the `session_id` your host gave you on every call, so writes are attributed to this conversation. Before creating a project, call `keel_projects` and confirm with the human.",
+  "protocolVersions": [
+    "[date]",
+    "[date]"
+  ],
+  "serverInfo": {
+    "name": "specline",
+    "title": "Specline",
+    "version": "[semver]"
+  }
+}

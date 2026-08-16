@@ -109,7 +109,7 @@ describe("a store with nothing in it", () => {
    */
   it("says the daemon is running, and shows what only a working one could", async () => {
     await show();
-    expect(screen.getByText(/Keel is running/i)).toBeTruthy();
+    expect(screen.getByText(/Specline is running/i)).toBeTruthy();
     expect(screen.getByText(/0\.1\.1/)).toBeTruthy();
     expect(screen.getByText(/schema 4/i)).toBeTruthy();
     expect(screen.getByText("/Users/someone/.keel")).toBeTruthy();
@@ -161,7 +161,7 @@ describe("a store with nothing in it", () => {
   it("still renders when health cannot be read", async () => {
     state.health = null;
     await show();
-    expect(screen.getByText(/Keel is running/i)).toBeTruthy();
+    expect(screen.getByText(/Specline is running/i)).toBeTruthy();
     expect(screen.queryByText(/schema/i)).toBeNull();
   });
 });
@@ -180,7 +180,7 @@ describe("a store with a project in it", () => {
   /** The two states are exclusive, and onboarding does not linger. */
   it("drops the first-run screen entirely", async () => {
     await show();
-    expect(screen.queryByText(/Keel is running/i)).toBeNull();
+    expect(screen.queryByText(/Specline is running/i)).toBeNull();
     expect(screen.queryByText(/Restart Claude Code/i)).toBeNull();
   });
 });

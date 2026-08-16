@@ -8,7 +8,7 @@
  * that a rewrite rather than a config change.
  */
 
-const BASE = import.meta.env.VITE_KEEL_BASE ?? "";
+const BASE = import.meta.env.VITE_SPECLINE_BASE ?? "";
 
 export class ApiError extends Error {
   constructor(
@@ -37,7 +37,7 @@ async function get<T>(
     // The daemon being down is the single most likely failure, and "Failed to
     // fetch" tells a human nothing about what to do. Say what is wrong.
     throw new ApiError(
-      "Cannot reach the Keel daemon. Start it with `keel-daemon` and try again.",
+      "Cannot reach the Specline daemon. Start it with `specline-daemon` and try again.",
       0,
     );
   }
@@ -56,7 +56,7 @@ async function get<T>(
 function currentToken(): string | null {
   return (
     document
-      .querySelector('meta[name="keel-token"]')
+      .querySelector('meta[name="specline-token"]')
       ?.getAttribute("content") ?? null
   );
 }
@@ -64,7 +64,7 @@ function currentToken(): string | null {
 function send(url: string, body: unknown, token: string): Promise<Response> {
   return fetch(url, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-keel-token": token },
+    headers: { "content-type": "application/json", "x-specline-token": token },
     body: JSON.stringify(body),
   });
 }
@@ -80,10 +80,10 @@ function send(url: string, body: unknown, token: string): Promise<Response> {
 async function refetchToken(): Promise<string | null> {
   try {
     const html = await (await fetch(`${BASE}/`, { cache: "no-store" })).text();
-    const found = html.match(/<meta name="keel-token" content="([^"]+)"/)?.[1];
+    const found = html.match(/<meta name="specline-token" content="([^"]+)"/)?.[1];
     if (!found) return null;
     document
-      .querySelector('meta[name="keel-token"]')
+      .querySelector('meta[name="specline-token"]')
       ?.setAttribute("content", found);
     return found;
   } catch {
@@ -108,7 +108,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   const token = currentToken();
   if (!token) {
     throw new ApiError(
-      "This page was not served by the Keel daemon, so it cannot change anything. " +
+      "This page was not served by the Specline daemon, so it cannot change anything. " +
         "Open the interface at the daemon's own address.",
       0,
     );
@@ -119,7 +119,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     response = await send(url.toString(), body, token);
   } catch {
     throw new ApiError(
-      "Cannot reach the Keel daemon. Start it with `keel-daemon` and try again.",
+      "Cannot reach the Specline daemon. Start it with `specline-daemon` and try again.",
       0,
     );
   }
@@ -141,7 +141,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
         response = await send(url.toString(), body, fresh);
       } catch {
         throw new ApiError(
-          "Cannot reach the Keel daemon. Start it with `keel-daemon` and try again.",
+          "Cannot reach the Specline daemon. Start it with `specline-daemon` and try again.",
           0,
         );
       }
@@ -374,7 +374,7 @@ export const api = {
        * its tag, which the release job builds with `--generate-notes`.
        *
        * The daemon mints it rather than the interface composing one, because
-       * the repository is configurable (`KEEL_REPO`) and a template here would
+       * the repository is configurable (`SPECLINE_REPO`) and a template here would
        * be right only for the default.
        */
       release_notes?: string;

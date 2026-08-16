@@ -75,7 +75,7 @@ So a CLI installed this way never meets Gatekeeper: no prompt, no "unidentified 
 
 **This section has a prerequisite and it is open.** `que_01KZSQHK2C0CTKN36WJ9G4ZHQC` — does a browser-served write or intake endpoint require amending hard constraint 7 — is unanswered, and there is a task blocked behind it. An earlier draft shipped a browser-served UI without mentioning either. Because the order is now "Phase 10 in full", that question is a Phase 10 prerequisite: **it gets answered before section 3 starts**, not discovered halfway through it.
 
-The React app already exists, already talks to `/api`, and already builds to `apps/desktop/dist`. Phase 10 compiles that build into `keel-daemon` with `rust-embed` and serves it from the axum server already there. `keel ui` opens `http://127.0.0.1:7654` in the user's browser.
+The React app already exists, already talks to `/api`, and already builds to `apps/desktop/dist`. Phase 10 compiles that build into `specline-daemon` with `rust-embed` and serves it from the axum server already there. `keel ui` opens `http://127.0.0.1:7654` in the user's browser.
 
 **The Tauri shell comes off the install path.** A `.dmg` downloaded through a browser *is* quarantined, and then it needs Developer ID signing plus notarization — $99 a year forever with a signing pipeline to maintain, and macOS Sequoia removed the Control-click bypass. Tauri also wants Node, Xcode command line tools, WebView2 and webkit2gtk, and does not meaningfully cross-compile, so it is a second full release pipeline with a runner per platform.
 
@@ -259,7 +259,7 @@ A bad migration reaching every install before anyone can stop it is the one fail
 
 **The daemon does not wander.** It tries its configured port, default 7654, and:
 
-- **Another `keel-daemon` on the same store** — the single-writer design working. Exit 0 saying so. Not an error.
+- **Another `specline-daemon` on the same store** — the single-writer design working. Exit 0 saying so. Not an error.
 - **Anything else** — fail, naming `--bind` and `KEEL_BIND`.
 
 An earlier draft had it walk up the range to find a free port. That is the seductive wrong answer: `.mcp.json` expands its environment when Claude Code starts and plugin config is written at install time, so a daemon that quietly moves to 7655 leaves both stale and MCP fails with no explanation. **A wandering port and a static configuration file cannot both be right.**
@@ -270,7 +270,7 @@ Collisions are handled at the only moment configuration can still be written. `/
 
 **Binding.** `KEEL_BIND` accepts any address today, so one environment variable exposes an unauthenticated write API to the network. It starts refusing anything that is not loopback unless an explicit flag says otherwise, and the flag's help says what is being agreed to.
 
-The attack that matters is already handled: the Origin and Host checks in `keel-daemon::http` stop a web page reaching the daemon by DNS rebinding, with a test for the rebinding case. The remaining gap is other local processes, which is why `keel ui` opens the site with a per-session token. A read-only unauthenticated API is defensible; it stops being defensible the moment an intake endpoint exists, which is section 3's prerequisite.
+The attack that matters is already handled: the Origin and Host checks in `specline-daemon::http` stop a web page reaching the daemon by DNS rebinding, with a test for the rebinding case. The remaining gap is other local processes, which is why `keel ui` opens the site with a per-session token. A read-only unauthenticated API is defensible; it stops being defensible the moment an intake endpoint exists, which is section 3's prerequisite.
 
 ---
 
@@ -391,7 +391,7 @@ An earlier draft asked for verification "on a Mac that has never had Rust instal
 | Apple Silicon kills unsigned executables | an ad-hoc signature is required at exec; native macOS toolchains add one at link time, cross-compiles do not |
 | A browser-downloaded `.dmg` needs notarization | $99/yr, and macOS Sequoia removed the Control-click bypass |
 | Plugins may declare an HTTP-transport MCP server | the official marketplace ships `linear`, `github` and `vercel` as `"type": "http"`; `./.mcp.json` is the default path and needs no manifest entry |
-| A plugin cannot ship the binaries | a plugin is a git clone of text; `keel` and `keel-daemon` are 37 MB each |
+| A plugin cannot ship the binaries | a plugin is a git clone of text; `keel` and `specline-daemon` are 37 MB each |
 | SQLite keeps `CREATE TABLE` text verbatim | which is why schema is emitted through `PRAGMA` rather than by dumping `sqlite_master` |
 | Nine of ten contract surfaces already emit deterministically | KEEL-193, N=100 against a fixed fixture store; `scratchpad/determinism.sh` |
 | `keel generate` flaps only on two timestamps | the per-file `keel:generated` banner and `manifest.json`'s `generated_at`; normalised, 100 runs give 1 hash |

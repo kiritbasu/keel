@@ -1,5 +1,5 @@
 ---
-description: Install Keel — download the binaries, create the store, and start the daemon.
+description: Install Specline — download the binaries, create the store, and start the daemon.
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh:*)
 ---
 
@@ -19,10 +19,10 @@ Code**: MCP servers are connected at startup, so the `keel_*` tools will not
 appear in this session however well the install went.
 
 Relay the "What leaves your machine" paragraph too, rather than summarising it
-away. Keel checks hourly for a new release and that is the only request it
+away. Specline checks hourly for a new release and that is the only request it
 makes; the person installing a local-first tool is entitled to hear about it
 from the tool rather than find it later. `--no-update-check` turns it off at
-install time and `KEEL_AUTO_UPDATE=0` afterwards — if they say they would rather
+install time and `SPECLINE_AUTO_UPDATE=0` afterwards — if they say they would rather
 not have it, re-run the script with that flag rather than explaining how to edit
 a service file.
 
