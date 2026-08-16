@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T15:48:36Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T16:14:13Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (252)
+## Closed work (253)
 
 ### 2026-08-16
+
+- **KEEL-276** Cut the first Specline release and run the install flow end to end — `done`
+
+  v0.2.0 published and verified from the published artifacts rather than the workflow's exit code: three archives matching their digests, the installer carrying real checksums with all three refusal branches intact, both binaries in each archive, no ONNX in any of them, and a clean install under env -i on a machine with no Rust. The store migration ran from the shipped binary on a Keel-shaped home with 55 tasks either side and fsck clean. Release notes written by hand. Two defects found by running it: KEEL-279 and the earlier KEEL-277.
+
+  <sub>url:https://github.com/kiritbasu/specline/releases/tag/v0.2.0 · commit:9ef3b5d · test:scripts/check-rename.sh</sub>
 
 - **KEEL-275** Prove the rename: both build configurations, fsck on the moved store, and a sweep that finds nothing left — `done`
 
@@ -1034,6 +1040,11 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (113 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (539 characters) |
+| 2026-08-16 | claude | created task “The updater reports a successful update as a failed restart” |
 | 2026-08-16 | claude | revised decision “The rename ships as 0.2.0, and both ends of the plugin handshake move with it” to v1 |
 | 2026-08-16 | claude | created decision “The rename ships as 0.2.0, and both ends of the plugin handshake move with it” |
 | 2026-08-16 | claude | status todo → in_progress |
@@ -1229,11 +1240,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | status todo → in_progress |
 | 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
 | 2026-08-16 | claude | claimed_at none → 2026-08-16T08:41:31.949942Z |
-| 2026-08-16 | claude | created task “Three dependency majors need code changes: rand, ulid and sha2” |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → (120 characters) |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (610 characters) |
 
-*Showing the 200 most recent of 1991 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 1996 changes. Use `specline_activity` for the rest.*
 
