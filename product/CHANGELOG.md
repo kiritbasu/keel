@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T04:51:52Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T05:00:00Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (218)
+## Closed work (219)
 
 ### 2026-08-16
+
+- **KEEL-240** The interface can create a task, comment on one, and archive or close a row — `done`
+
+  All four of KB's use cases, as endpoints and as affordances: create a task from the board, comment on one, close it with the reason the storage layer requires, archive it. Every write goes through keel-core's write path behind the token, attributed actor human and surface ui with no session id, because there is no conversation behind a button. Driven against the real store rather than asserted about — KEEL-243 was created, closed and archived from the interface, and the close was deliberately submitted empty first so the storage layer's refusal could be seen arriving in the dialog.
+
+  <sub>commit:331e826 · commit:983941f · commit:62c0385 · test:cargo test -p keel-daemon --test ui_writes · test:npx vitest run src/lib/api.test.ts</sub>
 
 - **KEEL-241** Hard constraint 7 says the opposite of where the product is going — `done`
 
@@ -834,6 +840,16 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (144 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (588 characters) |
+| 2026-08-16 | human | archived task “Created from the board, by a person” |
+| 2026-08-16 | human | status todo → done |
+| 2026-08-16 | human | evidence [] → ["commit:983941f"] |
+| 2026-08-16 | human | close_reason none → done |
+| 2026-08-16 | human | close_message none → Created and closed from the interface to prove the affordances work end to end. |
+| 2026-08-16 | human | created task “Created from the board, by a person” |
 | 2026-08-16 | claude | status todo → in_progress |
 | 2026-08-16 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
 | 2026-08-16 | claude | claimed_at none → 2026-08-16T04:33:01.191082Z |
@@ -1024,16 +1040,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | evidence [] → (133 characters) |
 | 2026-08-15 | claude | close_reason none → done |
 | 2026-08-15 | claude | close_message none → (559 characters) |
-| 2026-08-15 | claude | created task “Put embeddings behind a feature so Intel macOS and Linux can be built at all” |
-| 2026-08-15 | claude | unlinked “ONNX Runtime blocks two of the three release targets. Which…” blocks “Ship the plugin: a marketplace entry and a setup command…” |
-| 2026-08-15 | claude | status open → answered |
-| 2026-08-15 | claude | revised question “ONNX Runtime blocks two of the three release targets. Which platforms does 0.1.0 actually support?” to v2 |
-| 2026-08-15 | claude | “ONNX Runtime blocks two of the three release targets. Which…” blocks “Ship the plugin: a marketplace entry and a setup command…” |
-| 2026-08-15 | claude | revised question “ONNX Runtime blocks two of the three release targets. Which platforms does 0.1.0 actually support?” to v1 |
-| 2026-08-15 | claude | created question “ONNX Runtime blocks two of the three release targets. Which platforms does 0.1.0 actually support?” |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_0d013ca6-a51f-4bcf-b118-1f9720d86d0e |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T06:37:45.699356Z |
 
-*Showing the 200 most recent of 1667 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1677 changes. Use `keel_activity` for the rest.*
 
