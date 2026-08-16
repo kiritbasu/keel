@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-16T15:41:48.223816+00:00",
+  "generated_at": "2026-08-16T15:48:36.792349+00:00",
   "files": [
     {
       "path": ".specline/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".specline/decisions/the-rename-ships-as-0-2-0-and-both-ends-of-the-plugin-handshake-move-with-it.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M05M4BG07J97TBZVBRSEWX2P",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "c062e011f63612cbba5f9bdeaea9790699b299be7b455a5a63d0c5165432dc86"
         }
       ]
     },

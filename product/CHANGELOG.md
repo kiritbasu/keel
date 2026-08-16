@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T15:41:48Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T15:48:36Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1034,6 +1034,11 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | revised decision “The rename ships as 0.2.0, and both ends of the plugin handshake move with it” to v1 |
+| 2026-08-16 | claude | created decision “The rename ships as 0.2.0, and both ends of the plugin handshake move with it” |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T15:43:34.474517Z |
 | 2026-08-16 | claude | evidence ["commit:4141565","test:dist plan"] → (87 characters) |
 | 2026-08-16 | claude | close_message (305 characters) → (229 characters) |
 | 2026-08-16 | claude | created task “Import matches a file to an artifact by its heading, so a drifted title makes a duplicate” |
@@ -1229,11 +1234,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | evidence [] → (120 characters) |
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (610 characters) |
-| 2026-08-16 | claude | created task “Dependabot opened twelve pull requests at once, and every one queued a build on the laptop” |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → (149 characters) |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (663 characters) |
 
-*Showing the 200 most recent of 1986 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 1991 changes. Use `specline_activity` for the rest.*
 

@@ -57,7 +57,13 @@ pub const STORE_FILE: &str = "specline.sqlite";
 /// cosmetic change makes a working install report itself broken, and a version
 /// warning that fires when nothing is wrong is one people learn to ignore
 /// exactly as fast as any other false alarm.
-pub const MIN_PLUGIN_VERSION: &str = "0.1.0";
+///
+/// Raised to 0.2.0 for the rename, which is the clearest case there has been:
+/// from a 0.1.x plugin's point of view all thirteen tools were removed at
+/// once. It also declares its MCP server under the old name, and its hooks
+/// call a script that no longer exists. Both directions are broken, so both
+/// halves of the handshake moved together.
+pub const MIN_PLUGIN_VERSION: &str = "0.2.0";
 
 /// Where a running daemon records the address it actually bound.
 ///
