@@ -339,7 +339,7 @@ expression: "keel_mcp::list_result()"
             "type": "string"
           },
           "image_path": {
-            "description": "Design and artifact only: an absolute path to an image on the machine Keel is running on. The daemon reads the file itself, so the bytes never enter your context and a real screenshot costs you nothing.\n\nThis is the right way to attach anything bigger than a small mockup — up to 10 MB. Not a URL: the daemon makes no outbound requests on a model's instruction.",
+            "description": "Design and artifact only: an absolute path to an image on the machine Keel is running on. The daemon reads the file itself, so the bytes never enter your context and a real screenshot costs you nothing.\n\nThis is the right way to attach anything bigger than a small mockup — up to 10 MB. Not a URL: the daemon makes no outbound requests on a model's instruction.\n\nReadable folders only: Desktop, Downloads, Pictures, and the project's own directory. Anywhere else is refused and the refusal lists them. That is not about you — a path can be suggested by text you are reading rather than by the person you are talking to.",
             "type": "string"
           },
           "name": {

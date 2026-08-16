@@ -18,6 +18,7 @@
 //! live on its own.
 
 pub mod dispatch;
+pub mod image_roots;
 pub mod links;
 pub mod protocol;
 pub mod tools;

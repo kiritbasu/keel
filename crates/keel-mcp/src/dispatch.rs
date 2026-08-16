@@ -893,6 +893,30 @@ const MAX_IMAGE_BYTES: usize = 1_048_576;
 /// screenshot is 300 KB to 2 MB and is the case this exists for.
 const MAX_FILE_BYTES: usize = 10 * 1_048_576;
 
+/// The folders this call may read a picture from.
+///
+/// `HOME` is read here rather than in [`crate::image_roots`] so that module
+/// stays a pure function a test can drive. `keel-core` is the crate that may
+/// not read the environment; this one is where the process's shape is already
+/// known.
+///
+/// The project's own directory joins the list when the call names a project
+/// that has one — a diagram committed beside the code is exactly as legitimate
+/// as a screenshot on the Desktop, and refusing it would push people back to
+/// base64 for the case the path argument exists to serve.
+fn image_roots_for(store: &Store, project: Option<&EntityId>) -> Vec<std::path::PathBuf> {
+    let home = std::env::var("HOME").ok().map(std::path::PathBuf::from);
+    let project_root = project
+        .and_then(|id| store.get(id).ok().flatten())
+        .and_then(|entity| match entity {
+            Entity::Project(project) => project.root_path,
+            _ => None,
+        })
+        .map(std::path::PathBuf::from);
+
+    crate::image_roots::roots(home.as_deref(), project_root.as_deref())
+}
+
 /// Read an image the caller named by path, if they named one.
 ///
 /// TQ-33, KB's call: the daemon may read a file that is already on the same
@@ -908,7 +932,10 @@ const MAX_FILE_BYTES: usize = 10 * 1_048_576;
 /// talk to the internet, which TQ-6 declined. So anything URL-shaped is refused
 /// here explicitly rather than left to whatever the filesystem makes of it — if
 /// that check ever goes, TQ-33 has been reversed by accident.
-fn read_image_file(args: &Value) -> Result<Option<(Vec<u8>, String)>, RpcError> {
+fn read_image_file(
+    args: &Value,
+    roots: &[std::path::PathBuf],
+) -> Result<Option<(Vec<u8>, String)>, RpcError> {
     let Some(raw) = opt_str(args, "image_path") else {
         return Ok(None);
     };
@@ -944,7 +971,35 @@ fn read_image_file(args: &Value) -> Result<Option<(Vec<u8>, String)>, RpcError> 
         ));
     }
 
-    let bytes = std::fs::read(file).map_err(|e| {
+    // Resolved before anything is read, so `..` and symlinks are settled as
+    // locations rather than as spellings — and so a file outside the allowed
+    // folders is refused without its bytes ever being opened.
+    let resolved = file.canonicalize().map_err(|e| {
+        bad_arg(
+            "image_path",
+            &format!("could not read `{path}`: {e}"),
+            "a readable file on this machine. If the image is somewhere the daemon cannot \
+             reach, pass it as base64 in `image` instead",
+        )
+    })?;
+
+    if !crate::image_roots::contains(roots, &resolved) {
+        return Err(bad_arg(
+            "image_path",
+            &format!(
+                "`{path}` is outside the folders Keel reads pictures from. The model choosing \
+                 this path may be acting on text it did not write, so the answer is a list \
+                 rather than a judgement"
+            ),
+            &format!(
+                "a file in one of: {}. Anywhere else, read the image yourself and pass it as \
+                 base64 in `image`",
+                crate::image_roots::describe(roots)
+            ),
+        ));
+    }
+
+    let bytes = std::fs::read(&resolved).map_err(|e| {
         bad_arg(
             "image_path",
             &format!("could not read `{path}`: {e}"),
@@ -1141,7 +1196,7 @@ fn keel_create(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     // fails without leaving a half-made design behind for someone to find.
     let image = match decode_image(args)? {
         Some(inline) => Some(inline),
-        None => read_image_file(args)?,
+        None => read_image_file(args, &image_roots_for(store, project_id.as_ref()))?,
     };
     if image.is_some() && !matches!(entity_type, EntityType::Design | EntityType::Artifact) {
         return Err(bad_arg(
@@ -1606,7 +1661,17 @@ fn keel_update(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
                     "a design or an artifact",
                 ));
             }
-            read_image_file(&json!({ "image_path": path }))?
+            // The project this row belongs to, so a diagram committed beside
+            // the code counts as being somewhere Keel may read from.
+            let owner = store
+                .get(&id)
+                .ok()
+                .flatten()
+                .and_then(|e| e.project_id().cloned());
+            read_image_file(
+                &json!({ "image_path": path }),
+                &image_roots_for(store, owner.as_ref()),
+            )?
         }
         Some(other) => {
             return Err(bad_arg(

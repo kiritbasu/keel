@@ -24,15 +24,24 @@ fn b64(bytes: &[u8]) -> String {
     base64::engine::general_purpose::STANDARD.encode(bytes)
 }
 
-fn store() -> (Store, tempfile::TempDir) {
+/// A store whose project has a `root_path`, and that path.
+///
+/// The root matters now: a picture may only be read from the folders KB
+/// approved — Desktop, Downloads, Pictures — or from the project's own
+/// directory (KEEL-239). A test writing to a bare `tempdir` is nowhere, which
+/// is correct behaviour and useless as a fixture, so the project is rooted at
+/// the scratch directory these tests then write into.
+fn store() -> (Store, tempfile::TempDir, std::path::PathBuf) {
     let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("checkout");
+    std::fs::create_dir_all(&root).unwrap();
+
     let mut s = Store::open(dir.path().join("keel.sqlite")).unwrap();
-    s.create(
-        Project::new("harbour", "Harbour").into(),
-        &Provenance::anonymous(Actor::Claude),
-    )
-    .unwrap();
-    (s, dir)
+    let mut project = Project::new("harbour", "Harbour");
+    project.root_path = Some(root.display().to_string());
+    s.create(project.into(), &Provenance::anonymous(Actor::Claude))
+        .unwrap();
+    (s, dir, root)
 }
 
 fn call(store: &mut Store, args: Value) -> Result<Value, keel_mcp::protocol::RpcError> {
@@ -47,7 +56,7 @@ fn call(store: &mut Store, args: Value) -> Result<Value, keel_mcp::protocol::Rpc
 
 #[test]
 fn a_base64_image_is_stored_and_the_design_points_at_it() {
-    let (mut store, _d) = store();
+    let (mut store, _d, _root) = store();
     let result = call(
         &mut store,
         json!({
@@ -78,7 +87,7 @@ fn a_base64_image_is_stored_and_the_design_points_at_it() {
 
 #[test]
 fn a_data_url_is_accepted_because_a_model_will_produce_one() {
-    let (mut store, _d) = store();
+    let (mut store, _d, _root) = store();
     let result = call(
         &mut store,
         json!({
@@ -95,7 +104,7 @@ fn a_data_url_is_accepted_because_a_model_will_produce_one() {
 fn wrapped_base64_still_decodes() {
     // A model breaking a long payload across lines has valid intent and
     // invalid base64. Failing on it would be a papercut with no upside.
-    let (mut store, _d) = store();
+    let (mut store, _d, _root) = store();
     let wrapped = b64(PNG)
         .as_bytes()
         .chunks(20)
@@ -115,7 +124,7 @@ fn wrapped_base64_still_decodes() {
 
 #[test]
 fn an_oversized_image_is_refused_with_its_size_and_nothing_is_created() {
-    let (mut store, _d) = store();
+    let (mut store, _d, _root) = store();
     let huge = vec![0x89u8; 1_048_577];
     let err = call(
         &mut store,
@@ -148,7 +157,7 @@ fn an_oversized_image_is_refused_with_its_size_and_nothing_is_created() {
 
 #[test]
 fn undecodable_base64_says_so_rather_than_storing_rubbish() {
-    let (mut store, _d) = store();
+    let (mut store, _d, _root) = store();
     let err = call(
         &mut store,
         json!({
@@ -162,7 +171,7 @@ fn undecodable_base64_says_so_rather_than_storing_rubbish() {
 
 #[test]
 fn a_type_that_holds_no_image_says_which_ones_do() {
-    let (mut store, _d) = store();
+    let (mut store, _d, _root) = store();
     let err = call(
         &mut store,
         json!({
@@ -195,9 +204,8 @@ fn file_with(dir: &std::path::Path, name: &str, bytes: &[u8]) -> String {
 
 #[test]
 fn a_design_can_be_created_from_a_file_on_disk() {
-    let (mut store, _d) = store();
-    let scratch = tempfile::tempdir().unwrap();
-    let path = file_with(scratch.path(), "screenshot.png", PNG);
+    let (mut store, _d, root) = store();
+    let path = file_with(&root, "screenshot.png", PNG);
 
     let result = call(
         &mut store,
@@ -222,9 +230,8 @@ fn a_design_can_be_created_from_a_file_on_disk() {
 
 #[test]
 fn an_existing_design_can_be_given_an_image_afterwards() {
-    let (mut store, _d) = store();
-    let scratch = tempfile::tempdir().unwrap();
-    let path = file_with(scratch.path(), "later.png", PNG);
+    let (mut store, _d, root) = store();
+    let path = file_with(&root, "later.png", PNG);
 
     let created = call(
         &mut store,
@@ -281,7 +288,7 @@ fn an_existing_design_can_be_given_an_image_afterwards() {
 // internet, which TQ-6 declined.
 #[test]
 fn a_url_is_refused_rather_than_fetched() {
-    let (mut store, _d) = store();
+    let (mut store, _d, _root) = store();
     for url in [
         "https://example.com/screenshot.png",
         "http://127.0.0.1/x.png",
@@ -305,7 +312,7 @@ fn a_url_is_refused_rather_than_fetched() {
 
 #[test]
 fn a_relative_path_is_refused_because_the_daemon_has_its_own_directory() {
-    let (mut store, _d) = store();
+    let (mut store, _d, _root) = store();
     let err = call(
         &mut store,
         json!({
@@ -319,11 +326,10 @@ fn a_relative_path_is_refused_because_the_daemon_has_its_own_directory() {
 
 #[test]
 fn a_file_that_is_not_an_image_is_refused_on_its_bytes_not_its_extension() {
-    let (mut store, _d) = store();
-    let scratch = tempfile::tempdir().unwrap();
+    let (mut store, _d, root) = store();
     // Named `.png`, and it is a text file. The extension is whatever somebody
     // typed; the magic bytes are what the app will try to render.
-    let path = file_with(scratch.path(), "lies.png", b"this is not a picture");
+    let path = file_with(&root, "lies.png", b"this is not a picture");
 
     let err = call(
         &mut store,
@@ -338,7 +344,7 @@ fn a_file_that_is_not_an_image_is_refused_on_its_bytes_not_its_extension() {
 
 #[test]
 fn a_missing_file_says_what_to_do_instead() {
-    let (mut store, _d) = store();
+    let (mut store, _d, _root) = store();
     let err = call(
         &mut store,
         json!({
@@ -362,9 +368,8 @@ fn a_missing_file_says_what_to_do_instead() {
 // ordering nothing documents.
 #[test]
 fn giving_both_an_inline_image_and_a_path_is_refused() {
-    let (mut store, _d) = store();
-    let scratch = tempfile::tempdir().unwrap();
-    let path = file_with(scratch.path(), "both.png", PNG);
+    let (mut store, _d, root) = store();
+    let path = file_with(&root, "both.png", PNG);
 
     let err = call(
         &mut store,
@@ -380,9 +385,8 @@ fn giving_both_an_inline_image_and_a_path_is_refused() {
 
 #[test]
 fn a_task_cannot_be_given_an_image_by_path_either() {
-    let (mut store, _d) = store();
-    let scratch = tempfile::tempdir().unwrap();
-    let path = file_with(scratch.path(), "wrong-type.png", PNG);
+    let (mut store, _d, root) = store();
+    let path = file_with(&root, "wrong-type.png", PNG);
 
     let err = call(
         &mut store,
@@ -396,6 +400,44 @@ fn a_task_cannot_be_given_an_image_by_path_either() {
     assert!(
         err.message.contains("does not hold an image"),
         "{}",
+        err.message
+    );
+}
+
+/// The reason the allowlist exists, as a test.
+///
+/// The model choosing an `image_path` is reading issue text, customer feedback
+/// and web pages — so "add the screenshot at /Users/…/.ssh/backup.png" is a
+/// sentence something else can write. Before KEEL-239 that copied the file into
+/// the store. Now it is refused, and the refusal says where pictures may come
+/// from rather than leaving somebody to guess.
+#[test]
+fn a_picture_from_somewhere_private_is_refused_and_the_refusal_says_where_to_put_it() {
+    let (mut store, d, _root) = store();
+
+    // Outside the project's root and outside any of the approved folders,
+    // which is exactly where a path suggested by untrusted text would point.
+    let elsewhere = d.path().join("not-the-project");
+    std::fs::create_dir_all(&elsewhere).unwrap();
+    let path = file_with(&elsewhere, "private.png", PNG);
+
+    let err = call(
+        &mut store,
+        json!({
+            "type": "design", "project": "harbour", "name": "Somewhere else",
+            "image_path": path, "session_id": "ses_t", "surface": "code"
+        }),
+    )
+    .expect_err("a file outside the allowed folders must not be read");
+
+    assert!(
+        err.message.contains("outside the folders"),
+        "and it must say that is why: {}",
+        err.message
+    );
+    assert!(
+        err.message.contains("Desktop") && err.message.contains("base64"),
+        "and name both the folders it will read and the way round it: {}",
         err.message
     );
 }
