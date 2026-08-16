@@ -7,6 +7,34 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
+### Seven rows have no reasoning in them. Reconstruct them, or leave them empty and say so?
+
+`que_01M04PW3ZCQJ37M7EC27K58HC0` · question · open
+
+KEEL-171 has closed the hole that let a question or a decision land with a title and nothing else. It does not deal with the rows already in that state, and there are more than anyone thought: ten, not three, and **six of them are accepted decisions**. Three are now written, seven are not:
+
+- `que_01KZN2P3QJ…` — "ZZ write probe after repair" (a test artifact; wants archiving, not prose)
+- `que_01KZZFF8R4…` — Is the Claude Code plugin the front door for Phase 10, and what licence ships with it?
+- `dec_01KZZJAD96…` — Keel ships as a product: Apache-2.0, 0.x, and the Claude Code plugin as the front door
+- `dec_01KZZJATJZ…` — Updates apply themselves when compatible, and stop and ask across a schema change
+- `dec_01KZZPATJ8…` — Phase 10 runs after Phase 11, drops Windows, and plans for a release cadence that starts fast and slows down
+- `dec_01M00V2TMZ…` — Mutation testing comes out of CI until there is traction worth protecting
+- `dec_01M00Y20C7…` — Serving a read-only page does not touch hard constraint 7, the repo stays private for now, and the package becomes keel
+
+Every one of those titles names a real choice, and every one of them is silent about why.
+
+**The question is whether a later session should write them.** It is not a mechanical question, because it runs straight into what this project is for. The decision log exists to hold why-this-and-not-that, and a reconstruction is not that: it is a machine reading the code and the commits and inferring an argument that sounded plausible afterwards. That is exactly the confident, plausible, wrong prose the summary rule was written to avoid — the same reasoning that left ninety-four rows unlabelled rather than have a machine invent summaries for them.
+
+Against that: an empty decision row is not neutral. It reads as though nothing was thought, and the next session either re-litigates the choice or follows it without knowing what it cost.
+
+**Three options.**
+
+1. **Reconstruct, clearly labelled.** Each body opens by saying it was reconstructed, on what date, from what evidence, and that the original reasoning is gone. Three rows are already written this way — read one before deciding; they are the concrete version of this question.
+2. **Leave them empty and mark them.** A `keel lint` rule for "prose-bearing row with no prose", the way `closed_without_reason` reports the hundred and ten historical closes. Honest, costs nothing, and the gap stays visible instead of being papered over.
+3. **Ask you per row.** Five of the seven are decisions you made, and you may remember the argument. That produces the real thing rather than a reconstruction, at the cost of your time.
+
+**Recommendation: 2 as the floor, 1 where the record genuinely carries the answer, 3 for the five accepted decisions.** The lint should exist either way — it is what stops this being a one-off cleanup that quietly recurs. The three already written are cases where the answer sits in another row or in the code and the reconstruction adds no invention. The five accepted decisions are the ones where a reconstruction would be inventing your reasoning, and those are worth a few minutes of yours instead.
+
 ### Should Keel write a CLAUDE.md into a user's repository, and on whose say-so?
 
 `que_01M032CNQT67QRCD9RTJAWY4HZ` · question · open · severity medium
@@ -430,9 +458,36 @@ Recommending 1. The distinction it rests on is one the codebase already makes an
 
 `que_01KZSQHK2C0CTKN36WJ9G4ZHQC` · question · answered
 
+**Reconstructed on 2026-08-16, and it should be read as that.** This row landed with a title and no body — the create path allowed it, which is the bug KEEL-171 has now closed. What follows is what the record shows, not what the session asking it was thinking.
+
+The question: hard constraint 7 said the desktop app is read-only. The app was about to serve a page in a browser and, before long, to accept something from it. Does that need the constraint amended, or does it fit inside what the constraint already meant?
+
+**Answered, in three steps, and the answer moved each time.**
+
+1. **Serving a read-only page did not touch it.** A page that only reads is the same app in a different window, so nothing was amended.
+2. **Applying an update did.** B-75 permitted exactly one write from the interface — apply what the daemon already staged — and amended the constraint to say so. One endpoint, no version to choose, nothing for a caller to point elsewhere.
+3. **Then the constraint was rewritten rather than amended a third time.** The line is now capture versus authoring: the interface may write what a person *does* — create a task, comment, close a row, move a status — through `keel-core`'s write path, attributed `actor: human`, `surface: ui`. It does not author. The body of a spec, a decision or a question is written by Claude in the conversation where the thinking happened, because the reasoning is the product and a person typing into a textarea produces a tracker with an AI feature attached.
+
+The test that keeps it checkable: an endpoint that accepts a document revision is on the wrong side of the line.
+
+Where the reasoning actually lives: B-75, the question "How far does hard constraint 7 move, now that the app needs to write?", and the decision rewriting constraint 7. This row asked the question first and holds none of the argument.
+
 ### Enforce the single-writer rule with an advisory lock file, or rely on the health probe alone?
 
 `que_01KZSQHFQ454B2S53T3SCYN4TC` · question · answered
+
+**Reconstructed on 2026-08-16, and it should be read as that.** This row landed with a title and no body at all — the create path allowed it, which is the bug KEEL-171 has now closed. What follows is what the record shows, not what the session asking it was thinking. The original reasoning is gone.
+
+The question: under DuckDB the single-writer rule was enforced by the engine, which refused a second read-write connection outright. SQLite in WAL mode allows one, so the rule became a convention. Two candidates for putting it back:
+
+- **An advisory lock file** on the store, held by whoever is writing. Per-store, and it answers the exact question — is *this* store busy.
+- **The health probe alone**, which asks whether a daemon is listening on a URL. Cheap, and already there.
+
+**Answered: both, with the lock as the authority.** B-60 took the lock — held by the daemon for its lifetime and by a CLI command for its duration, with `--force` as the escape for a wedged daemon. Reading takes no lock, because looking at a busy store is when you most need to.
+
+The probe was kept, for what it is good at rather than for deciding: its refusal names the daemon and says to ask it instead, which is a far better message than a lock error. The two disagreeing about *scope* was then its own bug — the probe refused writes to stores the daemon had never opened (KEEL-194), fixed by having it ask which store rather than whether anything is listening.
+
+Where the reasoning actually lives: TQ-36 asks this question in full and carries the argument, and B-60 is the decision. This row duplicates TQ-36 and is kept rather than deleted because nothing here is ever deleted.
 
 ### TQ-37 — Six rows of SPEC §13 argue from DuckDB and Lance. Reword, annotate, or leave?
 

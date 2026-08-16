@@ -1,15 +1,27 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T06:16:20Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T07:20:54Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (227)
+## Closed work (229)
 
 ### 2026-08-16
+
+- **KEEL-204** Tell people the update check phones home, and let them turn it off — `done`
+
+  `setup.sh` discloses the hourly release-manifest request on every install — what it fetches, that it sends nothing from the store, and both ways to turn it off — and `--no-update-check` writes `KEEL_AUTO_UPDATE=0` into the service's own environment rather than a shell profile the daemon never reads. `keel doctor` reports which it is and when the last check ran. It tells rather than asks: `/keel:setup` runs through Claude Code's Bash tool with nobody on stdin, and a prompt that only fires on a TTY would be a consent path almost no install ever reaches.
+
+  <sub>commit:f268b5a · test:cargo test -p keel --bin keel doctor</sub>
+
+- **KEEL-171** A question or decision can be created with no prose in it at all — `done`
+
+  A spec, decision, question or feedback now has to arrive with prose, checked in `create_with_document` before anything is prepared or written — so a refusal cannot leave the headless row that was the second route to the same state. Design is exempt, because its content is the image. The three rows the task named have bodies, each labelled as a reconstruction with its sources. The other seven are a question rather than a chore: reconstructing an accepted decision means a machine inventing KB's reasoning, which is the thing this log exists to hold.
+
+  <sub>commit:c7f8e0f · test:cargo test -p keel-core --test composite · doc:que_01M04PW3ZCQJ37M7EC27K58HC0</sub>
 
 - **KEEL-227** A daemon too old to check for updates says nothing, which is when you most need telling — `done`
 
@@ -885,6 +897,25 @@ What has finished. What is happening now is in the tracker beside this file.
 | Date | Actor | Change |
 |---|---|---|
 | 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:f268b5a","test:cargo test -p keel --bin keel doctor"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (557 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T07:17:19.458565Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (103 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (552 characters) |
+| 2026-08-16 | claude | revised question “Seven rows have no reasoning in them. Reconstruct them, or leave them empty and say so?” to v1 |
+| 2026-08-16 | claude | created question “Seven rows have no reasoning in them. Reconstruct them, or leave them empty and say so?” |
+| 2026-08-16 | claude | revised decision “The write-path atomicity fix: &Connection primitives, transaction-of-one, one typed composite on Store” to v1 |
+| 2026-08-16 | claude | revised question “Does a browser-served write/intake endpoint require amending hard constraint 7?” to v1 |
+| 2026-08-16 | claude | revised question “Enforce the single-writer rule with an advisory lock file, or rely on the health probe alone?” to v1 |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T06:59:41.072209Z |
+| 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → (125 characters) |
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (617 characters) |
@@ -1065,25 +1096,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | revised question “STATUS.md is 87% closed tasks and too large to read. What should it be?” to v1 |
 | 2026-08-15 | claude | created question “STATUS.md is 87% closed tasks and too large to read. What should it be?” |
 | 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → ["commit:3a5efaa","doc:spc_01KZKSME2TCPVARX9M04836XD6"] |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (371 characters) |
-| 2026-08-15 | claude | revised spec “Keel — standing instructions” to v10 |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T21:09:38.827957Z |
-| 2026-08-15 | claude | “The daemon restarts itself for the CLI too, and the update…” references “keel update leaves the daemon running the old version and…” |
-| 2026-08-15 | claude | status todo → done |
-| 2026-08-15 | claude | evidence [] → (105 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (359 characters) |
-| 2026-08-15 | claude | created task “keel update leaves the daemon running the old version and tells you to fix it yourself” |
-| 2026-08-15 | claude | created task “Work that arrives mid-session with no row never reaches the board” |
-| 2026-08-15 | claude | “The daemon restarts itself for the CLI too, and the update…” references “Hard constraint 7 is amended: the interface may ask the…” |
-| 2026-08-15 | claude | revised decision “The daemon restarts itself for the CLI too, and the update says which version came back” to v1 |
-| 2026-08-15 | claude | created decision “The daemon restarts itself for the CLI too, and the update says which version came back” |
-| 2026-08-15 | claude | “An installer with no checksum in it refuses to install, and…” resolves “0.1.2's published installer still verifies nothing. Re-cut,…” |
-| 2026-08-15 | claude | status open → answered |
 
-*Showing the 200 most recent of 1747 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1766 changes. Use `keel_activity` for the rest.*
 
