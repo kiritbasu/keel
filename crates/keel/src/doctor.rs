@@ -685,7 +685,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let home = dir.path().join("Dropbox").join(".keel");
         std::fs::create_dir_all(&home).unwrap();
-        let _ = crate::open(&home).unwrap();
+        let _ = crate::create_or_open(&home).unwrap();
 
         let report = examine(&home, NO_DAEMON).unwrap();
         let location = find(&report, "location");
@@ -708,7 +708,7 @@ mod tests {
     fn an_ordinary_home_reports_its_location_as_fine() {
         let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
-        let _ = crate::open(dir.path()).unwrap();
+        let _ = crate::create_or_open(dir.path()).unwrap();
 
         let report = examine(dir.path(), NO_DAEMON).unwrap();
         assert_eq!(find(&report, "location").level, Level::Ok);
@@ -762,7 +762,7 @@ mod tests {
     fn a_fresh_store_has_no_problems() {
         let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
-        let _ = crate::open(dir.path()).unwrap();
+        let _ = crate::create_or_open(dir.path()).unwrap();
 
         let report = examine(dir.path(), NO_DAEMON).unwrap();
         assert!(
@@ -792,7 +792,7 @@ mod tests {
         use keel_core::{Actor, EntityStore, Project, Provenance, Spec};
 
         let dir = tempfile::tempdir().unwrap();
-        let mut store = crate::open(dir.path()).unwrap();
+        let mut store = crate::create_or_open(dir.path()).unwrap();
         let prov = Provenance::anonymous(Actor::Claude);
         let project = store
             .create(Project::new("demo", "Demo").into(), &prov)
@@ -831,7 +831,7 @@ mod tests {
     fn a_coherent_passage_index_reports_itself_coherent() {
         let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
-        let mut store = crate::open(dir.path()).unwrap();
+        let mut store = crate::create_or_open(dir.path()).unwrap();
         store.set_embedder(std::sync::Arc::new(keel_core::HashEmbedder::new()));
         let id = seed_spec(&mut store, "Coherent", "Prose that gets passages.\n");
         assert!(id.as_str().starts_with("spc_"));
@@ -848,7 +848,7 @@ mod tests {
     fn a_passage_left_behind_by_an_edit_is_reported() {
         let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
-        let mut store = crate::open(dir.path()).unwrap();
+        let mut store = crate::create_or_open(dir.path()).unwrap();
         store.set_embedder(std::sync::Arc::new(keel_core::HashEmbedder::new()));
         let id = seed_spec(&mut store, "Edited", "The original prose.\n");
 
@@ -921,7 +921,7 @@ mod tests {
         use keel_core::{Actor, EntityStore, Project, Provenance, Spec};
 
         let dir = tempfile::tempdir().unwrap();
-        let mut store = crate::open(dir.path()).unwrap();
+        let mut store = crate::create_or_open(dir.path()).unwrap();
         let prov = Provenance::anonymous(Actor::Claude);
         let project = store
             .create(Project::new("demo", "Demo").into(), &prov)
@@ -962,7 +962,7 @@ mod tests {
         // gets a future one in its own store.
         let _serial = CLOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
-        let store = crate::open(dir.path()).unwrap();
+        let store = crate::create_or_open(dir.path()).unwrap();
 
         // A ULID whose timestamp is an hour ahead. Written directly, because
         // the generator takes its stamp from the clock and there is no way to

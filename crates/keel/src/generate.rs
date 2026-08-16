@@ -20,12 +20,12 @@
 //! writing to it.
 
 use anyhow::{Context, Result, bail};
-use keel_core::{Mode, Store, generate};
-use std::path::PathBuf;
+use keel_core::{Mode, generate};
+use std::path::{Path, PathBuf};
 
 /// Run a generation, preferring the daemon.
 pub fn run(
-    home: &PathBuf,
+    home: &Path,
     project: &str,
     repo: Option<PathBuf>,
     check: bool,
@@ -119,7 +119,7 @@ struct WireReport {
 }
 
 fn via_daemon(
-    home: &std::path::Path,
+    home: &Path,
     base: &str,
     project: &str,
     repo: Option<&std::path::Path>,
@@ -181,18 +181,16 @@ fn via_daemon(
 }
 
 fn directly(
-    home: &PathBuf,
+    home: &Path,
     project: &str,
     repo: Option<PathBuf>,
     check: bool,
 ) -> Result<keel_core::GenerateReport> {
-    let path = keel_core::store_path(home);
-    let store = Store::open(&path).with_context(|| {
-        format!(
-            "open the store at {}. No daemon answered either, so there is no way to read Keel",
-            path.display()
-        )
-    })?;
+    // Not `Store::open`, which creates when the file is absent — generating
+    // from a store that was made a microsecond ago writes an empty mirror over
+    // a full one (KEEL-137).
+    let store =
+        crate::open(home).context("no daemon answered either, so there is no way to read Keel")?;
     let found = crate::resolve_project(&store, project)?;
     let root = repo_root_for(&found, repo)?;
     let mode = if check { Mode::Check } else { Mode::Write };
