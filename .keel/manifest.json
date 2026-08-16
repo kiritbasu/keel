@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-16T13:27:12.126972+00:00",
+  "generated_at": "2026-08-16T13:46:41.654366+00:00",
   "files": [
     {
       "path": ".keel/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/keel-becomes-specline-the-store-migrates-itself-the-task-key-does-not-change-and-everything-else-is-a-clean-break.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M05D3X5QVJ0S6B4R9BY54MAK",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "128e792659bcce00528977008f2ae148d7444c5a5ff9849ec3b63fb8126e8553"
         }
       ]
     },

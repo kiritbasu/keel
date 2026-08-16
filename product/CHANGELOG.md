@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T13:27:12Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T13:46:41Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (239)
+## Closed work (240)
 
 ### 2026-08-16
+
+- **KEEL-263** Scope the Specline rename and file the phase — `done`
+
+  Surveyed every surface the name is load-bearing on and filed Phase 13 with thirteen task rows, twelve blocking edges and the decision that shapes them. KB settled four questions: the task key stays KEEL, the store migrates itself, everything else is a clean break, and the repository is renamed in place.
+
+  <sub>doc:dec_01M05D3X5QVJ0S6B4R9BY54MAK · url:http://127.0.0.1:7654/#/projects/keel/milestones/mst_01M05CWTRS0J8D012KC1NZQK06</sub>
 
 - **KEEL-259** Taking an update leaves "Restarting the daemon into …" on screen for ever, and keeps the old interface running — `done`
 
@@ -956,6 +962,41 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (124 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (304 characters) |
+| 2026-08-16 | claude | “Rename the plugin, the skills, the hooks and the background…” blocks “Retire the old install from this Mac so two binaries cannot…” |
+| 2026-08-16 | claude | “Retire the old install from this Mac so two binaries cannot…” blocks “Cut the first Specline release and run the install flow end…” |
+| 2026-08-16 | claude | “Prove the rename: both build configurations, fsck on the…” blocks “Cut the first Specline release and run the install flow end…” |
+| 2026-08-16 | claude | “Rename the GitHub repository and put the release plumbing…” blocks “Cut the first Specline release and run the install flow end…” |
+| 2026-08-16 | claude | “Move the store to ~/.specline, and migrate an existing one…” blocks “Retire the old install from this Mac so two binaries cannot…” |
+| 2026-08-16 | claude | “Rename the .keel mirror directory, and migrate a repository…” blocks “Rewrite the prose by classifying every mention, not by…” |
+| 2026-08-16 | claude | “Rename the project row to Specline, and keep KEEL as the…” blocks “Rewrite the prose by classifying every mention, not by…” |
+| 2026-08-16 | claude | “Rename the six crates and the two binaries” blocks “Rewrite the prose by classifying every mention, not by…” |
+| 2026-08-16 | claude | “Rename the six crates and the two binaries” blocks “Rename the thirteen MCP tools and the server they answer on” |
+| 2026-08-16 | claude | “Rename the six crates and the two binaries” blocks “Rename the 27 KEEL_ environment variables, with no fallback” |
+| 2026-08-16 | claude | “Rename the six crates and the two binaries” blocks “Move the store to ~/.specline, and migrate an existing one…” |
+| 2026-08-16 | claude | revised decision “Keel becomes Specline: the store migrates itself, the task key does not change, and everything else is a clean break” to v1 |
+| 2026-08-16 | claude | created decision “Keel becomes Specline: the store migrates itself, the task key does not change, and everything else is a clean break” |
+| 2026-08-16 | claude | created task “Cut the first Specline release and run the install flow end to end” |
+| 2026-08-16 | claude | created task “Prove the rename: both build configurations, fsck on the moved store, and a sweep that finds nothing left” |
+| 2026-08-16 | claude | created task “Retire the old install from this Mac so two binaries cannot open one store” |
+| 2026-08-16 | claude | created task “Rename the GitHub repository and put the release plumbing back together” |
+| 2026-08-16 | claude | created task “Rewrite the prose by classifying every mention, not by running sed” |
+| 2026-08-16 | claude | created task “Rename the desktop app and every string a person reads on screen” |
+| 2026-08-16 | claude | created task “Rename the plugin, the skills, the hooks and the background service” |
+| 2026-08-16 | claude | created task “Rename the project row to Specline, and keep KEEL as the task-id key” |
+| 2026-08-16 | claude | created task “Rename the .keel mirror directory, and migrate a repository that has one” |
+| 2026-08-16 | claude | created task “Rename the thirteen MCP tools and the server they answer on” |
+| 2026-08-16 | claude | created task “Rename the 27 KEEL_ environment variables, with no fallback” |
+| 2026-08-16 | claude | created task “Move the store to ~/.specline, and migrate an existing one on first run” |
+| 2026-08-16 | claude | created task “Rename the six crates and the two binaries” |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T13:41:36.705380Z |
+| 2026-08-16 | claude | created milestone “Phase 13 — Rename to Specline” |
+| 2026-08-16 | claude | created task “Scope the Specline rename and file the phase” |
 | 2026-08-16 | claude | revised spec “Keel — standing instructions” to v14 |
 | 2026-08-16 | claude | revised decision “The review joins the definition of done, and "the gate" stops being a word” to v1 |
 | 2026-08-16 | claude | created decision “The review joins the definition of done, and "the gate" stops being a word” |
@@ -1121,41 +1162,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | created task “Labels should be found by typing, not by scanning ten chips” |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → ["commit:2dc0d59","test:npm test --prefix apps/desktop"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (481 characters) |
-| 2026-08-16 | human | archived task “Check the phase and label defaults land on the row” |
-| 2026-08-16 | human | created task “Check the phase and label defaults land on the row” |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:06:37.495225Z |
-| 2026-08-16 | claude | created task “The new-task dialog is the wrong width and asks too little” |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → (144 characters) |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (588 characters) |
-| 2026-08-16 | human | archived task “Created from the board, by a person” |
-| 2026-08-16 | human | status todo → done |
-| 2026-08-16 | human | evidence [] → ["commit:983941f"] |
-| 2026-08-16 | human | close_reason none → done |
-| 2026-08-16 | human | close_message none → Created and closed from the interface to prove the affordances work end to end. |
-| 2026-08-16 | human | created task “Created from the board, by a person” |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T04:33:01.191082Z |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:eab13ae","doc:dec_01M04DBTX99VPTD5X477XWEM9F"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (524 characters) |
-| 2026-08-16 | claude | revised spec “Keel — standing instructions” to v12 |
-| 2026-08-16 | claude | revised decision “Hard constraint 7 is rewritten: the interface writes what a person does, and Claude keeps the reasoning” to v1 |
-| 2026-08-16 | claude | created decision “Hard constraint 7 is rewritten: the interface writes what a person does, and Claude keeps the reasoning” |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T04:30:10.980535Z |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → (110 characters) |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (493 characters) |
 
-*Showing the 200 most recent of 1850 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1885 changes. Use `keel_activity` for the rest.*
 
