@@ -37,6 +37,8 @@ keep="$keep"'|\bKEEL\b'
 #    was a real command that was renamed out from under a hook. Rewriting these
 #    produces a record of decisions nobody made.
 keep="$keep"'|keel-cli|keel-daemon|keel-cli-installer|`keel mirror`'
+#    And decision titles quoted verbatim: a renamed quote is a misquote.
+keep="$keep"'|Keel ships as a product|the package becomes keel'
 
 # 3. Compatibility constants, each of which exists so that something written
 #    under the old name still works: an old backup, an old store directory, an
@@ -93,6 +95,134 @@ while IFS= read -r file; do
     fi
   done < <(grep -niE 'keel' -- "$file" 2>/dev/null)
 done < <(git ls-files)
+
+
+# --- The store, which is the other half of the surface ----------------------
+#
+# The tree was never the whole answer and this script said so only by omission.
+# `.specline/` is excluded above because a mention there is a mention in a
+# document body — but that reasoning holds only for documents that *also* have
+# a file elsewhere. Every decision, question and glossary term renders into the
+# mirror and nowhere else, so excluding the mirror removed their only copy from
+# view and nothing reported them at all. The check was green from the day it
+# was written while 124 stored bodies still said the old name (KEEL-282).
+#
+# **History is excluded here, not allowlisted.** A decision records what was
+# decided at the time, a closed task records work that was done, an answered
+# question records a thing that was settled — all under the old name, all
+# true. Rewriting them produces a record of decisions nobody made. So this
+# pass reads only prose that describes the product *now*: open questions, open
+# tasks, the glossary, and specs that are not dated snapshots or phase plans.
+# Specs that are records of a moment rather than descriptions of the product,
+# named individually because the distinction is a judgement and not a query.
+# A phase plan, a dated snapshot, a build journal, a frozen measurement and an
+# outside review all describe what was true when they were written, under the
+# name it had. Their titles are handled separately — a title is a label you
+# navigate by today, a body is the record.
+store_history="
+  'spc_01KZR487EHQGGE3HV3JH3XN213',  -- Phase 8 plan
+  'spc_01KZR487RKNSTBD8V9WXV27NBP',  -- Phase 9 plan
+  'spc_01KZR4882HZTJ4HHGZ5Y6HQDPM',  -- Phase 10 plan
+  'spc_01KZPJXC5RG006KJANQ6G4TBQS',  -- dependency verification, dated snapshot
+  'spc_01KZNA1ZQPM0MGY86BHKE98DZA',  -- the build journal
+  'spc_01KZPDVA3THNZG533KZZ6772JX',  -- the gate, frozen by decision
+  'spc_01KZYFPFNZEZT5VEZMDRTZV83N'   -- the outside review, a snapshot of findings
+"
+
+store="${SPECLINE_HOME:-$HOME/.specline}/specline.sqlite"
+
+# Python rather than shell, and not for elegance. A document body contains
+# pipes, tabs and newlines, so every shell-friendly separator appears in the
+# data; two attempts at this in bash produced a loop that silently read 15
+# rows of 60 and a query that failed into an empty result. Both reported
+# clean. A scanner for "is the check lying" must not be the easiest thing in
+# the file to make lie.
+if [ -r "$store" ]; then
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "check-rename: no python3, so stored prose was NOT checked." >&2
+    exit 2
+  fi
+  store_out="$(python3 - "$store" "$keep" <<'PYEOF'
+import re, sqlite3, sys
+
+store, keep = sys.argv[1], sys.argv[2]
+
+# Specs that record a moment rather than describe the product. Named one by
+# one because the distinction is a judgement: a phase plan, a dated snapshot,
+# a build journal, a frozen measurement and an outside review all say what was
+# true when they were written, under the name it had then.
+HISTORY = {
+    "spc_01KZR487EHQGGE3HV3JH3XN213": "Phase 8 plan",
+    "spc_01KZR487RKNSTBD8V9WXV27NBP": "Phase 9 plan",
+    "spc_01KZR4882HZTJ4HHGZ5Y6HQDPM": "Phase 10 plan",
+    "spc_01KZPJXC5RG006KJANQ6G4TBQS": "dependency verification, a dated snapshot",
+    "spc_01KZNA1ZQPM0MGY86BHKE98DZA": "the build journal",
+    "spc_01KZPDVA3THNZG533KZZ6772JX": "the gate, frozen by decision",
+    "spc_01KZYFPFNZEZT5VEZMDRTZV83N": "the outside review, a snapshot of findings",
+    # Not history — their subject *is* the rename, so naming the old product
+    # is what makes them accurate.
+    "mst_01M05CWTRS0J8D012KC1NZQK06": "Phase 13, the rename itself",
+    "tsk_01M05YT4Z5SDYQ7QBNZSFJAMW7": "KEEL-282, which counts the old name on purpose",
+}
+
+con = sqlite3.connect(f"file:{store}?mode=ro", uri=True)
+
+def rows(sql):
+    return con.execute(sql).fetchall()
+
+items = []
+for i, t, b in rows("""
+    select q.id, q.title, d.body from questions q
+      left join documents d on d.entity_id = q.id and d.status = 'current'
+      where q.archived_at is null and q.status = 'open'"""):
+    items.append(("question", i, t, f"{t} {b or ''}"))
+
+for i, t, sm, b in rows("""
+    select id, title, coalesce(summary,''), coalesce(body,'') from tasks
+      where archived_at is null and closed_at is null"""):
+    items.append(("task", i, t, f"{t} {sm} {b}"))
+
+for i, t, d in rows("""
+    select id, term, coalesce(definition,'') from terms where archived_at is null"""):
+    items.append(("term", i, t, f"{t} {d}"))
+
+for i, t, sm in rows("""
+    select id, name, coalesce(summary,'') from milestones
+      where archived_at is null and shipped_at is null"""):
+    items.append(("milestone", i, t, f"{t} {sm}"))
+
+for i, t, b in rows("""
+    select s.id, s.title, d.body from specs s
+      left join documents d on d.entity_id = s.id and d.status = 'current'
+      where s.archived_at is null"""):
+    items.append(("spec", i, t, f"{t} {b or ''}"))
+
+pat = re.compile(keep)
+found = 0
+for kind, ident, label, text in items:
+    if ident in HISTORY:
+        continue
+    if "keel" not in text.lower():
+        continue
+    stripped = pat.sub("", text)
+    if "keel" not in stripped.lower():
+        continue
+    m = re.search(r".{0,60}keel.{0,60}", stripped, re.I | re.S)
+    snippet = " ".join(m.group(0).split()) if m else ""
+    print(f"store {kind} {ident} ({label})")
+    print(f"      …{snippet}…")
+    found += 1
+print(f"__HITS__ {found}")
+PYEOF
+)" || { echo "check-rename: the store scan failed, so stored prose was NOT checked." >&2; exit 2; }
+
+  store_hits="$(printf '%s' "$store_out" | sed -n 's/^__HITS__ //p')"
+  [ "$list_only" -eq 0 ] && printf '%s' "$store_out" | grep -v '^__HITS__' | sed '/^$/d'
+  hits=$((hits + ${store_hits:-0}))
+else
+  echo "check-rename: no store at $store, so stored prose was NOT checked." >&2
+  exit 2
+fi
 
 if [ "$list_only" -eq 1 ]; then
   echo "kept mentions, by shape:"

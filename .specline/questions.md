@@ -30,49 +30,49 @@ Against that: an empty decision row is not neutral. It reads as though nothing w
 **Three options.**
 
 1. **Reconstruct, clearly labelled.** Each body opens by saying it was reconstructed, on what date, from what evidence, and that the original reasoning is gone. Three rows are already written this way — read one before deciding; they are the concrete version of this question.
-2. **Leave them empty and mark them.** A `keel lint` rule for "prose-bearing row with no prose", the way `closed_without_reason` reports the hundred and ten historical closes. Honest, costs nothing, and the gap stays visible instead of being papered over.
+2. **Leave them empty and mark them.** A `specline lint` rule for "prose-bearing row with no prose", the way `closed_without_reason` reports the hundred and ten historical closes. Honest, costs nothing, and the gap stays visible instead of being papered over.
 3. **Ask you per row.** Five of the seven are decisions you made, and you may remember the argument. That produces the real thing rather than a reconstruction, at the cost of your time.
 
 **Recommendation: 2 as the floor, 1 where the record genuinely carries the answer, 3 for the five accepted decisions.** The lint should exist either way — it is what stops this being a one-off cleanup that quietly recurs. The three already written are cases where the answer sits in another row or in the code and the reconstruction adds no invention. The five accepted decisions are the ones where a reconstruction would be inventing your reasoning, and those are worth a few minutes of yours instead.
 
-### Should Keel write a CLAUDE.md into a user's repository, and on whose say-so?
+### Should Specline write a CLAUDE.md into a user's repository, and on whose say-so?
 
 `que_01M032CNQT67QRCD9RTJAWY4HZ` · question · open · severity medium
 
 **Needs KB, but not yet — measure first.**
 
-Asked after KEEL-224: the reason claiming works in this repository and nowhere else is `product/CLAUDE.md`, which is loaded every session and says to claim before starting. No other project has one. Should `/keel:setup` create or update a `CLAUDE.md` in the project being set up?
+Asked after KEEL-224: the reason claiming works in this repository and nowhere else is `product/CLAUDE.md`, which is loaded every session and says to claim before starting. No other project has one. Should `/specline:setup` create or update a `CLAUDE.md` in the project being set up?
 
 ## Why this may already be answered
 
 KEEL-224 was the actual cause and it is fixed. The skill now leads with claiming and its description covers build requests, so a session on a fresh project has the same instruction this repository gets — via a different route.
 
-**So the first thing to do is not build anything.** Re-run the case on the second Mac with the updated plugin and look at whether tasks move. If they do, this question closes as `no_change` and Keel never touches anybody's `CLAUDE.md`. That is worth an hour of waiting, because every option below is a write into somebody else's repository and the bar for that should be "the cheaper thing did not work".
+**So the first thing to do is not build anything.** Re-run the case on the second Mac with the updated plugin and look at whether tasks move. If they do, this question closes as `no_change` and Specline never touches anybody's `CLAUDE.md`. That is worth an hour of waiting, because every option below is a write into somebody else's repository and the bar for that should be "the cheaper thing did not work".
 
 ## If it is still needed
 
-**A managed block, never the whole file.** `CLAUDE.md` belongs to the user and may be hundreds of lines of their own standing instructions. Anything Keel writes goes between markers it can find again, so a second run updates its own block and leaves everything else untouched. Appending unmarked text means the second run duplicates it and no run can ever remove it.
+**A managed block, never the whole file.** `CLAUDE.md` belongs to the user and may be hundreds of lines of their own standing instructions. Anything Specline writes goes between markers it can find again, so a second run updates its own block and leaves everything else untouched. Appending unmarked text means the second run duplicates it and no run can ever remove it.
 
-**Written by a command, never by `generate`.** Two reasons, and the second is the load-bearing one. Constraint 2 says the mirror is one-directional and `generate` writes only what Keel owns; a user's `CLAUDE.md` is not that. And this project already decided that a root `CLAUDE.md` cannot be generated at all — Keel's own is excluded on purpose, because Claude Code loads it before anything else, so it is the bootstrap and cannot depend on a generation step having run. The same argument holds in somebody else's repository.
+**Written by a command, never by `generate`.** Two reasons, and the second is the load-bearing one. Constraint 2 says the mirror is one-directional and `generate` writes only what Specline owns; a user's `CLAUDE.md` is not that. And this project already decided that a root `CLAUDE.md` cannot be generated at all — Specline's own is excluded on purpose, because Claude Code loads it before anything else, so it is the bootstrap and cannot depend on a generation step having run. The same argument holds in somebody else's repository.
 
-**Say what it did.** A tool that silently edits a file in a repository is the thing people find later and distrust. `/keel:setup` should print the path and the block, and adding it should be a yes/no rather than a default.
+**Say what it did.** A tool that silently edits a file in a repository is the thing people find later and distrust. `/specline:setup` should print the path and the block, and adding it should be a yes/no rather than a default.
 
 ## Options
 
 1. **Do nothing; the skill fix is the fix.** Cheapest, and the only one that writes nothing into a user's tree. *(Recommended, pending the measurement.)*
-2. **`/keel:setup` offers a managed block**, creating `CLAUDE.md` if absent and updating its own markers if present, on an explicit yes.
-3. **Detect and tell, write nothing.** The session-start digest notices there is no `CLAUDE.md` mentioning Keel and says so once, with the two lines to paste. Keeps the write in the user's hands at the cost of being ignorable.
+2. **`/specline:setup` offers a managed block**, creating `CLAUDE.md` if absent and updating its own markers if present, on an explicit yes.
+3. **Detect and tell, write nothing.** The session-start digest notices there is no `CLAUDE.md` mentioning Specline and says so once, with the two lines to paste. Keeps the write in the user's hands at the cost of being ignorable.
 4. **Write it silently at setup.** Rejected — it is the version people find later and distrust, and it is how a tool acquires a reputation for editing files it was not asked to edit.
 
 Recommending 1 until the measurement says otherwise, and 2 over 3 if it does, because the failure being fixed is that people do not read the thing telling them to act.
 
-### Keel models chat and cowork surfaces it has never been used from. Support them, or say so?
+### Specline models chat and cowork surfaces it has never been used from. Support them, or say so?
 
 `que_01M02R01Z5H9MD2E596D20593C` · question · open · severity low
 
 Raised after a confusion worth recording, because the same confusion will happen again.
 
-Asked how someone would install Keel "using Claude Desktop", I answered about the general-purpose Claude chat app: no Claude Code plugins, no session hooks, so the tools without the orientation. KB's reply was that Keel has been used exclusively in "Claude Desktop" all along — and both statements were true, about different products.
+Asked how someone would install Specline "using Claude Desktop", I answered about the general-purpose Claude chat app: no Claude Code plugins, no session hooks, so the tools without the orientation. KB's reply was that Specline has been used exclusively in "Claude Desktop" all along — and both statements were true, about different products.
 
 **Claude Code ships as a Mac desktop app as well as a terminal CLI.** Plugins, hooks and slash commands all work there; it is Claude Code with a window. **Claude Desktop** is the separate chat client. One word covers both, and this project has a `surface` enum that quietly depends on telling them apart.
 
@@ -80,7 +80,7 @@ The store settles which has been in use: **1,182 events at surface `code`, 99 `c
 
 ## The question this leaves
 
-`Surface` has five values and two of them describe places Keel has never meaningfully run. `chat` has four events, which is a rounding error and probably an experiment. `cowork` has none at all. TQ-18 said as much at the time — "Chat and Cowork have neither hook and are entirely untested" — and nothing has changed since.
+`Surface` has five values and two of them describe places Specline has never meaningfully run. `chat` has four events, which is a rounding error and probably an experiment. `cowork` has none at all. TQ-18 said as much at the time — "Chat and Cowork have neither hook and are entirely untested" — and nothing has changed since.
 
 That is not obviously wrong. A provenance enum that anticipates a surface is cheap, and B-8 already argued for keeping `cli` because the CLI demonstrably writes. But there is a difference between *anticipating* a surface and *claiming* one, and right now nothing distinguishes them: a reader of `Surface` has no way to tell that `code` is the whole product and `cowork` is an aspiration.
 
@@ -94,7 +94,7 @@ That is not obviously wrong. A provenance enum that anticipates a surface is che
 
 Recommending 1. The interesting half is not the enum, it is that "desktop" names two products and this project has now been bitten by it once. Whatever is decided, the distinction belongs somewhere a future session will read — most likely the glossary, which already earns its place on exactly this kind of ambiguity.
 
-### What should Keel measure, and should it measure anything by itself?
+### What should Specline measure, and should it measure anything by itself?
 
 `que_01KZTTC4VTBVG7KZ7H00RDQ4ZB` · question · open · severity low
 
@@ -108,11 +108,11 @@ The consequence was visible in the data: the newest reading was two days old, `T
 
 ## Recording one was effectively impossible
 
-`keel_create` reads `metric_id`, `value` and `observed_at` from the top level of its arguments, and its published schema declares none of them. A model following the tool's own documentation cannot record a measurement; it gets `argument metric_id: missing or not a string`. That is KEEL-172, and it is very likely the whole explanation for the staleness. The data was not neglected — it was unreachable.
+`specline_create` reads `metric_id`, `value` and `observed_at` from the top level of its arguments, and its published schema declares none of them. A model following the tool's own documentation cannot record a measurement; it gets `argument metric_id: missing or not a string`. That is KEEL-172, and it is very likely the whole explanation for the staleness. The data was not neglected — it was unreachable.
 
-## Three of the four metrics were about Keel, not about a project
+## Three of the four metrics were about Specline, not about a project
 
-`Projects tracked` and `Sessions where Claude writes unprompted` are hardcoded in `bootstrap.rs` and mean nothing for any other project. `Agent orientation cost` is about Keel's own digest budget. Only `Tests passing` generalises, and Keel cannot compute even that.
+`Projects tracked` and `Sessions where Claude writes unprompted` are hardcoded in `bootstrap.rs` and mean nothing for any other project. `Agent orientation cost` is about Specline's own digest budget. Only `Tests passing` generalises, and Specline cannot compute even that.
 
 So the screen presented itself as a general feature while displaying this repository's dogfooding.
 
@@ -120,9 +120,9 @@ So the screen presented itself as a general feature while displaying this reposi
 
 Two quite different products are hiding in here, and the choice matters more than the screen did.
 
-**A log a person keeps.** Metrics are whatever someone decides to track, recorded by hand or by their CI. Keel stores and charts them and computes nothing. Honest, general, and only as good as the discipline behind it — which measured zero out of four over three days.
+**A log a person keeps.** Metrics are whatever someone decides to track, recorded by hand or by their CI. Specline stores and charts them and computes nothing. Honest, general, and only as good as the discipline behind it — which measured zero out of four over three days.
 
-**Something Keel derives itself.** There is a real opportunity here that nobody has taken: Keel already computes open and blocked task counts for the digest, documents missing embeddings for `doctor`, `fsck` finding counts, and the digest's own token size against its budget — several times a day, throwing every one away. A `keel measure` command could record those as observations for any project, and it would be generic by construction because it only uses what Keel already knows.
+**Something Specline derives itself.** There is a real opportunity here that nobody has taken: Specline already computes open and blocked task counts for the digest, documents missing embeddings for `doctor`, `fsck` finding counts, and the digest's own token size against its budget — several times a day, throwing every one away. A `specline measure` command could record those as observations for any project, and it would be generic by construction because it only uses what Specline already knows.
 
 The second is more interesting and more work. It also changes what a metric *is*: derived and trustworthy rather than asserted. Worth deciding before either is built.
 

@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T18:54:53Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T19:24:58Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (254)
+## Closed work (255)
 
 ### 2026-08-16
+
+- **KEEL-282** 124 stored documents still say Keel, and the sweep is structurally blind to all of them — `done`
+
+  The sweep now reads the store as well as the tree, and 34 artifacts of current prose were renamed mechanically through the write path. History is excluded by name rather than allowlisted: phase plans, dated snapshots, the journal, the frozen gate and the outside review keep the name they were written with.
+
+  <sub>test:scripts/check-rename.sh</sub>
 
 - **KEEL-281** Finish the rename outside the repository: the checkout, the trust settings and the runner — `done`
 
@@ -1046,6 +1052,54 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["test:scripts/check-rename.sh"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (307 characters) |
+| 2026-08-16 | claude | body (3136 characters) → (3144 characters) |
+| 2026-08-16 | claude | revised question “Should Specline write a CLAUDE.md into a user's repository, and on whose say-so?” to v3 |
+| 2026-08-16 | claude | definition (986 characters) → (990 characters) |
+| 2026-08-16 | claude | body (1780 characters) → (1784 characters) |
+| 2026-08-16 | claude | body (1143 characters) → (1147 characters) |
+| 2026-08-16 | claude | body (958 characters) → (962 characters) |
+| 2026-08-16 | claude | body (3120 characters) → (3136 characters) |
+| 2026-08-16 | claude | summary (323 characters) → (327 characters) |
+| 2026-08-16 | claude | body (3262 characters) → (3278 characters) |
+| 2026-08-16 | claude | revised spec “Phase gates that cannot be verified without a human” to v2 |
+| 2026-08-16 | claude | revised question “Seven rows have no reasoning in them. Reconstruct them, or leave them empty and say so?” to v2 |
+| 2026-08-16 | claude | revised question “Should Specline write a CLAUDE.md into a user's repository, and on whose say-so?” to v2 |
+| 2026-08-16 | claude | revised question “Specline models chat and cowork surfaces it has never been used from. Support them, or say so?” to v2 |
+| 2026-08-16 | claude | revised question “What should Specline measure, and should it measure anything by itself?” to v2 |
+| 2026-08-16 | claude | title Should Keel write a CLAUDE.md into a user's repository, and on whose say-so? → Should Specline write a CLAUDE.md into a user's repository, and on whose say-so? |
+| 2026-08-16 | claude | title (90 characters) → (94 characters) |
+| 2026-08-16 | claude | title What should Keel measure, and should it measure anything by itself? → What should Specline measure, and should it measure anything by itself? |
+| 2026-08-16 | claude | summary (263 characters) → (267 characters) |
+| 2026-08-16 | claude | definition (974 characters) → (986 characters) |
+| 2026-08-16 | claude | definition (87 characters) → (91 characters) |
+| 2026-08-16 | claude | definition (94 characters) → (98 characters) |
+| 2026-08-16 | claude | definition (86 characters) → (90 characters) |
+| 2026-08-16 | claude | body (1768 characters) → (1780 characters) |
+| 2026-08-16 | claude | body (1787 characters) → (1799 characters) |
+| 2026-08-16 | claude | title keel_search promises hybrid retrieval and runs keyword-only, without saying so → (82 characters) |
+| 2026-08-16 | claude | body (1695 characters) → (1707 characters) |
+| 2026-08-16 | claude | title keel bootstrap is the last writer that goes round the daemon probe and the lock → (83 characters) |
+| 2026-08-16 | claude | summary (475 characters) → (483 characters) |
+| 2026-08-16 | claude | title (82 characters) → (86 characters) |
+| 2026-08-16 | claude | summary (433 characters) → (437 characters) |
+| 2026-08-16 | claude | body (3100 characters) → (3120 characters) |
+| 2026-08-16 | claude | summary (319 characters) → (323 characters) |
+| 2026-08-16 | claude | body (3226 characters) → (3262 characters) |
+| 2026-08-16 | claude | body (2559 characters) → (2571 characters) |
+| 2026-08-16 | claude | summary (300 characters) → (304 characters) |
+| 2026-08-16 | claude | body (1245 characters) → (1249 characters) |
+| 2026-08-16 | claude | summary (288 characters) → (292 characters) |
+| 2026-08-16 | claude | body (1852 characters) → (1880 characters) |
+| 2026-08-16 | claude | summary (1301 characters) → (1305 characters) |
+| 2026-08-16 | claude | body (1011 characters) → (1031 characters) |
+| 2026-08-16 | claude | body (863 characters) → (871 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T19:09:54.510497Z |
 | 2026-08-16 | claude | created task “124 stored documents still say Keel, and the sweep is structurally blind to all of them” |
 | 2026-08-16 | human | revised spec “Specline — Build journal” to v5 |
 | 2026-08-16 | claude | status todo → done |
@@ -1198,54 +1252,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | created task “Rename the six crates and the two binaries” |
 | 2026-08-16 | claude | status todo → in_progress |
 | 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T13:41:36.705380Z |
-| 2026-08-16 | claude | created milestone “Phase 13 — Rename to Specline” |
-| 2026-08-16 | claude | created task “Scope the Specline rename and file the phase” |
-| 2026-08-16 | claude | revised spec “Keel — standing instructions” to v14 |
-| 2026-08-16 | claude | revised decision “The review joins the definition of done, and "the gate" stops being a word” to v1 |
-| 2026-08-16 | claude | created decision “The review joins the definition of done, and "the gate" stops being a word” |
-| 2026-08-16 | claude | revised spec “Keel — standing instructions” to v13 |
-| 2026-08-16 | claude | created task “Four files are past two thousand lines, and today's work added to three of them” |
-| 2026-08-16 | claude | created task “Two update checks can stage at once, and the marker can end up describing binaries it did not come with” |
-| 2026-08-16 | human | created task “Task's in the next area are not clickable” |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:df948dc","test:npx vitest run src/components/VersionFooter.test.tsx"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (512 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T12:49:35.032229Z |
-| 2026-08-16 | claude | created task “Taking an update leaves "Restarting the daemon into …" on screen for ever, and keeps the old interface running” |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → (125 characters) |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (740 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T12:05:54.529130Z |
-| 2026-08-16 | claude | created task “There is no way to ask for an update check, so finding out means waiting up to an hour” |
-| 2026-08-16 | claude | created task “Release notes generate themselves from pull requests, and this project does not use pull requests” |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → (143 characters) |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (783 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T11:37:43.507125Z |
-| 2026-08-16 | claude | created task “Cut v0.1.5 — three platforms, and the first release whose binaries cannot do semantic search” |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → (148 characters) |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (625 characters) |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → (148 characters) |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (571 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T10:15:08.590432Z |
-| 2026-08-16 | claude | created task “Cut v0.1.5-rc.1 to exercise the release path before a real version depends on it” |
-| 2026-08-16 | claude | status in_progress → done |
 
-*Showing the 200 most recent of 2005 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2053 changes. Use `specline_activity` for the rest.*
 

@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-16T18:54:53.340452+00:00",
+  "generated_at": "2026-08-16T19:24:58.567401+00:00",
   "files": [
     {
       "path": ".specline/specs/keel-what-needs-to-happen.md",
@@ -19,8 +19,8 @@
         {
           "entity_id": "spc_01KZKMPVP6MN27N10M3PPD6EVK",
           "entity_type": "spec",
-          "version": 1,
-          "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+          "version": 2,
+          "hash": "8693e49c88fc2ad31cb195dd2fc89dca7a4eb1266ca568fb37bda5f231c92ea3"
         }
       ]
     },
@@ -932,26 +932,26 @@
         {
           "entity_id": "que_01M04PW3ZCQJ37M7EC27K58HC0",
           "entity_type": "question",
-          "version": 1,
-          "hash": "0d404836397a782098106c1b983e9eae42502d1d4e7fc183d623d3c9c009c8fc"
+          "version": 2,
+          "hash": "c95eaada23f6f97a1202de5098189d4b1054d652f1888cb714e86ef0678bfe8f"
         },
         {
           "entity_id": "que_01M032CNQT67QRCD9RTJAWY4HZ",
           "entity_type": "question",
-          "version": 1,
-          "hash": "e6f2cc236aa0f73e26207f8ae34cc307d63c84057b4a341ef85c07322934ef51"
+          "version": 3,
+          "hash": "3096aa501815785f8af8543342e2925db58a8702f8808aa11bad8d402fe43c4e"
         },
         {
           "entity_id": "que_01M02R01Z5H9MD2E596D20593C",
           "entity_type": "question",
-          "version": 1,
-          "hash": "1e03fcc965aa29e7cde1faa9822b4a5ecf33772ab768b1cae39ded9ba3fcc49e"
+          "version": 2,
+          "hash": "d425927141a77efe38eb0c45fcecec452fc51a4d3528b13495754b71128111f8"
         },
         {
           "entity_id": "que_01KZTTC4VTBVG7KZ7H00RDQ4ZB",
           "entity_type": "question",
-          "version": 1,
-          "hash": "57d53624352f6eefffc2a2f79665956e125725e78e2dec25e34d976c72aa988d"
+          "version": 2,
+          "hash": "33ccd1ab750829d6ec0b584f053589ac4c569d728ba501ffc1d658746f1fa57b"
         },
         {
           "entity_id": "que_01KZSR3XB74PTHFCKKGGCP9BDR",
@@ -1358,13 +1358,13 @@
           "entity_id": "trm_01M02R0DDNSW6WG819CGKN27Q2",
           "entity_type": "term",
           "version": 0,
-          "hash": "df0aec875e36f5d01aaac5d4d72ed4bbf7695f9eca8354f36d45dda644f3a809"
+          "hash": "db703110d5cc96141c977b3b8e48c14ad1cdfa9fd0380b32da7f864b8d39d01e"
         },
         {
           "entity_id": "trm_01KZKMPW412KEQTG588K88F87C",
           "entity_type": "term",
           "version": 0,
-          "hash": "34f6d1f7142d2e58bb665120da19d87e3b40db28ad0cc6a72f05d7b178bd15f7"
+          "hash": "bc6a3e52c97889f13b9b26c0b0813e2cf28bf65000ea46c97efe475c9b76cd25"
         },
         {
           "entity_id": "trm_01KZKMPW4J7V9K81QEP8THGRBG",
@@ -1394,7 +1394,7 @@
           "entity_id": "trm_01KZKMPW4MAVGPWMC78GSRMKTK",
           "entity_type": "term",
           "version": 0,
-          "hash": "40c0527114ffc6ea4a7094fb0811eac509da1de2e4840fe188a2bbdd6c3e0cc1"
+          "hash": "fb965899419c5bb5310248f021197b5841ff4fa191d93466bd975286d1bcc149"
         },
         {
           "entity_id": "trm_01KZKMPW452GP4PS63BRMFMCJQ",
@@ -1406,7 +1406,7 @@
           "entity_id": "trm_01KZKMPW46G504FMS7JZTZY5FR",
           "entity_type": "term",
           "version": 0,
-          "hash": "e80d6fab93dba56ddc2684d6317a6dcd63a329bb9665eb8f030dfa2369871877"
+          "hash": "a54d47be3227011a9e12edc60474066540222b52f3702209eb85780dd413a537"
         },
         {
           "entity_id": "trm_01KZKMPW4A63611NC6X1VDENVT",
