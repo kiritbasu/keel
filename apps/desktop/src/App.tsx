@@ -452,11 +452,12 @@ export function App() {
             stagedReleaseNotes={health?.staged_release_notes}
             updateCheck={health?.update_check}
             executable={health?.executable}
-            // A reload rather than `refresh`. The daemon serves this page, so
-            // the binary it just restarted into serves a different bundle —
-            // refetching data would leave the old interface running against the
-            // new daemon, which works and is not the version just installed
+            // Two callbacks because two things can happen. A check that finds
+            // something only needs the data refetched; an applied update has
+            // replaced the binary serving this page, so the bundle in the
+            // browser is the one it replaced and only a reload fixes that
             // (KEEL-259).
+            onStaged={refresh}
             onApplied={() => window.location.reload()}
           />
           <div className="mt-cosy">

@@ -139,6 +139,7 @@ export function VersionFooter({
   stagedReleaseNotes,
   updateCheck,
   executable,
+  onStaged,
   onApplied,
 }: {
   version: string | undefined;
@@ -147,6 +148,15 @@ export function VersionFooter({
   stagedReleaseNotes?: string | null;
   updateCheck?: UpdateCheck;
   executable?: string | null;
+  /**
+   * A check found something and staged it. Refetch, so the offer appears.
+   *
+   * Separate from `onApplied` because they are separate events, and collapsing
+   * them made *checking* reload the whole page — the parent reloads on apply,
+   * and one prop carrying both meanings inherited that.
+   */
+  onStaged: () => void;
+  /** The daemon has restarted into the update. The parent reloads. */
   onApplied: () => void;
 }) {
   // The version being taken, or null. A string rather than a boolean because
@@ -165,9 +175,10 @@ export function VersionFooter({
       const r = await api.checkForUpdate();
       switch (r.outcome) {
         case "staged":
-          // Nothing to say here: the offer below appears on the refresh, and
-          // announcing it twice would be the interface talking over itself.
-          onApplied();
+          // Nothing to say here: the offer below appears once the data comes
+          // back, and announcing it twice would be the interface talking over
+          // itself. A refetch, not a reload — nothing has restarted.
+          onStaged();
           break;
         case "up_to_date":
           setCheckResult(`${r.version ?? version} is the latest release.`);
@@ -226,12 +237,18 @@ export function VersionFooter({
       // a page-level navigation inside a footer.
       onApplied();
     } catch (e) {
-      setApplying(null);
       setFailed(
         e instanceof ApiError
           ? e.message
           : "The update could not be applied. Nothing has changed.",
       );
+    } finally {
+      // Cleared here rather than left to the parent's reload to destroy. The
+      // original bug was a progress line that never went away, and "it goes
+      // away because the page is replaced" is the same bug with a reload
+      // standing in front of it — give this component a parent that does not
+      // reload and it comes straight back.
+      setApplying(null);
     }
   }
 

@@ -28,6 +28,7 @@ describe("VersionFooter", () => {
         version="0.1.3"
         stagedVersion={null}
         releaseNotes={NOTES}
+        onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
@@ -44,6 +45,7 @@ describe("VersionFooter", () => {
       <VersionFooter
         version="0.1.3"
         stagedVersion={null}
+        onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
@@ -59,6 +61,7 @@ describe("VersionFooter", () => {
         stagedVersion="0.1.4"
         releaseNotes={NOTES}
         stagedReleaseNotes={STAGED_NOTES}
+        onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
@@ -75,6 +78,7 @@ describe("VersionFooter", () => {
       <VersionFooter
         version="0.1.3"
         stagedVersion="0.1.4"
+        onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
@@ -90,6 +94,7 @@ describe("VersionFooter", () => {
       <VersionFooter
         version={undefined}
         stagedVersion={null}
+        onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
@@ -110,6 +115,7 @@ describe("VersionFooter — whether checking is happening at all", () => {
       <VersionFooter
         version="0.1.0"
         stagedVersion={undefined}
+        onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
@@ -125,6 +131,7 @@ describe("VersionFooter — whether checking is happening at all", () => {
       <VersionFooter
         version="0.1.4"
         stagedVersion={null}
+        onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
@@ -141,6 +148,7 @@ describe("VersionFooter — whether checking is happening at all", () => {
         version="0.1.4"
         stagedVersion={null}
         updateCheck={{ enabled: false }}
+        onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
@@ -158,6 +166,7 @@ describe("VersionFooter — whether checking is happening at all", () => {
           last_checked_at: new Date().toISOString(),
           last_error: "could not reach the release manifest",
         }}
+        onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
@@ -177,6 +186,7 @@ describe("VersionFooter — whether checking is happening at all", () => {
           last_checked_at: new Date().toISOString(),
           last_error: null,
         }}
+        onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
@@ -190,6 +200,7 @@ describe("VersionFooter — whether checking is happening at all", () => {
       <VersionFooter
         version="0.1.0"
         stagedVersion="0.1.4"
+        onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
@@ -206,6 +217,7 @@ describe("VersionFooter — whether checking is happening at all", () => {
         version="0.1.0"
         stagedVersion={null}
         executable="/Users/kb/.cargo/bin/keel-daemon"
+        onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
@@ -279,14 +291,16 @@ describe("VersionFooter — asking for a check", () => {
 
   it("offers a check when nothing is staged", () => {
     render(
-      <VersionFooter version="0.1.5" stagedVersion={null} onApplied={() => {}} />,
+      <VersionFooter version="0.1.5" stagedVersion={null} onStaged={() => {}}
+        onApplied={() => {}} />,
     );
     expect(screen.getByRole("button", { name: /check for updates/i })).toBeTruthy();
   });
 
   it("does not offer one when an update is already downloaded", () => {
     render(
-      <VersionFooter version="0.1.4" stagedVersion="0.1.5" onApplied={() => {}} />,
+      <VersionFooter version="0.1.4" stagedVersion="0.1.5" onStaged={() => {}}
+        onApplied={() => {}} />,
     );
     // The useful button at that point is the one that takes it. A second look
     // asks a question the daemon has already answered.
@@ -297,7 +311,8 @@ describe("VersionFooter — asking for a check", () => {
   it("says so when there is nothing new, rather than staying silent", async () => {
     answers({ outcome: "up_to_date", version: "0.1.5" });
     render(
-      <VersionFooter version="0.1.5" stagedVersion={null} onApplied={() => {}} />,
+      <VersionFooter version="0.1.5" stagedVersion={null} onStaged={() => {}}
+        onApplied={() => {}} />,
     );
 
     await userEvent.click(screen.getByRole("button", { name: /check for updates/i }));
@@ -315,7 +330,8 @@ describe("VersionFooter — asking for a check", () => {
       schema_to: 5,
     });
     render(
-      <VersionFooter version="0.1.5" stagedVersion={null} onApplied={() => {}} />,
+      <VersionFooter version="0.1.5" stagedVersion={null} onStaged={() => {}}
+        onApplied={() => {}} />,
     );
 
     await userEvent.click(screen.getByRole("button", { name: /check for updates/i }));
@@ -329,7 +345,8 @@ describe("VersionFooter — asking for a check", () => {
   it("reports a failed check with its reason rather than as silence", async () => {
     answers({ outcome: "failed", error: "could not reach the release manifest" });
     render(
-      <VersionFooter version="0.1.5" stagedVersion={null} onApplied={() => {}} />,
+      <VersionFooter version="0.1.5" stagedVersion={null} onStaged={() => {}}
+        onApplied={() => {}} />,
     );
 
     await userEvent.click(screen.getByRole("button", { name: /check for updates/i }));
@@ -339,24 +356,30 @@ describe("VersionFooter — asking for a check", () => {
     ).toBeTruthy();
   });
 
-  it("refreshes rather than announcing it, when the check stages something", async () => {
+  it("refetches when a check stages something, and does not reload", async () => {
     answers({ outcome: "staged", version: "0.1.6" });
     let refreshed = 0;
+    let reloaded = 0;
     render(
       <VersionFooter
         version="0.1.5"
         stagedVersion={null}
-        onApplied={() => {
+        onStaged={() => {
           refreshed += 1;
+        }}
+        onApplied={() => {
+          reloaded += 1;
         }}
       />,
     );
 
     await userEvent.click(screen.getByRole("button", { name: /check for updates/i }));
 
-    // The offer appears on the refresh. Saying it here as well would be the
-    // interface talking over itself.
+    // The offer appears once the data comes back. Nothing has restarted, so
+    // reloading the page here would be a full navigation for a check — which
+    // is what one prop carrying both meanings caused.
     expect(refreshed).toBe(1);
+    expect(reloaded).toBe(0);
   });
 });
 
@@ -379,7 +402,8 @@ describe("VersionFooter — taking an update", () => {
     vi.spyOn(api, "health").mockRejectedValue(new Error("restarting"));
 
     render(
-      <VersionFooter version="0.1.4" stagedVersion="0.1.5" onApplied={() => {}} />,
+      <VersionFooter version="0.1.4" stagedVersion="0.1.5" onStaged={() => {}}
+        onApplied={() => {}} />,
     );
     await userEvent.click(screen.getByRole("button", { name: /restart into it/i }));
 
@@ -404,6 +428,7 @@ describe("VersionFooter — taking an update", () => {
       <VersionFooter
         version="0.1.4"
         stagedVersion="0.1.5"
+        onStaged={() => {}}
         onApplied={() => {
           applied += 1;
         }}
@@ -440,11 +465,52 @@ describe("VersionFooter — taking an update", () => {
     );
 
     render(
-      <VersionFooter version="0.1.4" stagedVersion="0.1.5" onApplied={() => {}} />,
+      <VersionFooter version="0.1.4" stagedVersion="0.1.5" onStaged={() => {}}
+        onApplied={() => {}} />,
     );
     await userEvent.click(screen.getByRole("button", { name: /restart into it/i }));
 
     expect(await screen.findByRole("alert")).toHaveProperty("textContent");
     expect(screen.queryByText(/Restarting the daemon into/)).toBeNull();
+  });
+});
+
+/**
+ * Both found reviewing this session's own work, and both were mine.
+ */
+describe("VersionFooter — what the review caught", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("clears the progress line itself, without the parent reloading", async () => {
+    vi.spyOn(api, "applyUpdate").mockResolvedValue({
+      applied: "0.1.5",
+      restarting: true,
+    });
+    vi.spyOn(api, "health").mockResolvedValue({
+      status: "ok",
+      protocol: "x",
+      version: "0.1.5",
+      projects: 1,
+      store_busy: false,
+    });
+
+    // A parent that does nothing. The first fix worked only because the real
+    // parent reloads and destroys the state — which is the same bug with a
+    // reload standing in front of it.
+    render(
+      <VersionFooter
+        version="0.1.4"
+        stagedVersion="0.1.5"
+        onStaged={() => {}}
+        onApplied={() => {}}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /restart into it/i }));
+
+    await vi.waitFor(() =>
+      expect(screen.queryByText(/Restarting the daemon into/)).toBeNull(),
+    );
   });
 });
