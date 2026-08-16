@@ -27,90 +27,76 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  check:
-    name: fmt · clippy · test (${{ matrix.name }})
-    runs-on: ${{ fromJSON(matrix.runner) }}
+  # One gate, two platforms, two jobs. It was a matrix until the repository went
+  # public, and the thing a matrix could not express is the reason it is not one
+  # any more — see the macOS job below.
+  #
+  # The steps themselves live in `.github/actions/rust-check`, so the two cannot
+  # drift apart.
+  check-linux:
+    name: fmt · clippy · test (linux)
+    runs-on: ubuntu-latest
+    env:
+      # The suite runs on a machine that may have a real store and a live daemon
+      # on it, which the hosted runners never had. Anything reaching for the
+      # default home would find `~/.keel` — KEEL-186 is that exact class of bug,
+      # and a test suite is the worst place to discover another one.
+      #
+      # Costs nothing on a hosted runner, where it is a directory that did not
+      # exist either way, and on the self-hosted one it is the difference
+      # between a test run and an incident.
+      KEEL_HOME: ${{ github.workspace }}/.ci-keel-home
+    steps:
+      # Linux is not decoration. This is a local-first SQLite tool, and the two
+      # things most likely to differ between platforms are the two it depends on
+      # most: file locking, and path handling. The path-traversal finding that
+      # produced `safe_path` was in exactly that area, and it was only ever
+      # exercised on macOS.
+      #
+      # Hosted, and it stays hosted: it is billed at the base rate, and it is
+      # the only check in this repository that runs on a machine nobody develops
+      # on. It is also the only leg a fork's pull request gets, which makes it
+      # the one that has to be reliable.
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust-check
+
+  check-macos:
+    name: fmt · clippy · test (macos)
+    runs-on: ["self-hosted", "macOS", "ARM64"]
     # **A fork's pull request never reaches the self-hosted runner.**
     #
     # That runner is a personal laptop with the author's own files on it, and a
     # pull request is arbitrary code — a build script, a test, a dependency's
     # `build.rs`. While the repository was private the population able to open
-    # one was "nobody", so the matrix could name a self-hosted runner without
-    # thinking about it. It is public now and that population is "anyone".
+    # one was "nobody", so naming a self-hosted runner cost nothing to think
+    # about. It is public now and that population is "anyone".
     #
-    # GitHub's fork-PR approval policy is set to require a click for every
-    # outside contributor, which helps and is not enough on its own: it makes a
+    # GitHub's fork-PR approval policy requires a click for every outside
+    # contributor, which helps and is not enough on its own: it makes a
     # dangerous default survivable by asking a human to be careful every time,
-    # and the whole argument of this codebase is that a safety mechanism which
-    # depends on somebody remembering is not one.
+    # and the argument this codebase makes everywhere else is that a safety
+    # mechanism depending on somebody remembering is not one.
     #
-    # So a fork's PR gets the Linux leg and nothing else. macOS coverage comes
-    # from the push build once the change is on main — later than ideal, and the
-    # right trade against running a stranger's code on your own machine.
+    # So a fork's pull request gets Linux and nothing else. macOS coverage
+    # arrives with the push build once the change is on main — later than ideal,
+    # and the right trade against running a stranger's code on your own machine.
+    #
+    # This condition is why the two platforms are two jobs rather than a matrix:
+    # a job-level `if` can read `github` and cannot read `matrix`.
     if: >-
-      matrix.name != 'macos'
-      || github.event_name != 'pull_request'
+      github.event_name != 'pull_request'
       || github.event.pull_request.head.repo.full_name == github.repository
-    strategy:
-      # Both finish. A failure on one platform should not hide the result on
-      # the other, which is the whole reason for testing two.
-      fail-fast: false
-      matrix:
-        include:
-          # Linux is not decoration. This is a local-first SQLite tool, and the
-          # two things most likely to differ between platforms are the two it
-          # depends on most: file locking, and path handling. The path-traversal
-          # finding that produced `safe_path` was in exactly that area, and it
-          # was only ever exercised on macOS.
-          #
-          # Hosted, and it stays hosted: it is billed at the base rate, and it
-          # is the only check in this repository that runs on a machine nobody
-          # develops on.
-          - name: linux
-            runner: '"ubuntu-latest"'
-          # macOS moved to the self-hosted runner with the release build (B-72),
-          # for the same reason: hosted macOS minutes are billed at ten times
-          # the Linux rate on a private repository, and CI runs on every push.
-          #
-          # **A job with no runner queues rather than failing.** If this leg
-          # sits at "waiting for a runner", the Mac is asleep.
-          - name: macos
-            runner: '["self-hosted", "macOS", "ARM64"]'
     env:
-      # The suite now runs on a machine with a real store and a live daemon on
-      # it, which the hosted runners never had. Anything that reaches for the
-      # default home would find `~/.keel` — KEEL-186 is that exact class of bug,
-      # and a test suite is the worst place to discover another one.
-      #
-      # Pointing the whole job at a scratch home costs nothing on a hosted
-      # runner, where it is a directory that did not exist either way, and on
-      # the self-hosted one it is the difference between a test run and an
-      # incident.
       KEEL_HOME: ${{ github.workspace }}/.ci-keel-home
     steps:
+      # macOS moved to the self-hosted runner with the release build (B-72):
+      # hosted macOS minutes are billed at ten times the Linux rate, and CI runs
+      # on every push.
+      #
+      # **A job with no runner queues rather than failing.** If this sits at
+      # "waiting for a runner", the Mac is asleep.
       - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      # Dependencies dominate a cold build on a hosted runner; the workspace's
-      # own crates are quick. The self-hosted runner keeps `target/` between
-      # runs, so a cache there would download gigabytes it already has.
-      - uses: Swatinem/rust-cache@v2
-        if: runner.environment == 'github-hosted'
-
-      - name: Format
-        run: cargo fmt --all --check
-
-      - name: Clippy
-        # Not --all-features: no workspace crate declares a feature, so the flag
-        # buys nothing and only costs a second full build (DECISIONS B-11).
-        run: cargo clippy --workspace --all-targets -- -D warnings
-
-      - name: Test
-        run: cargo test --workspace
+      - uses: ./.github/actions/rust-check
 
   snapshots:
     name: snapshots · no drift, no strays
