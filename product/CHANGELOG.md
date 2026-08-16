@@ -1,15 +1,31 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T05:28:16Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T05:52:52Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (221)
+## Closed work (224)
 
 ### 2026-08-16
+
+- **KEEL-186** A running daemon blocks writes to stores it is not serving — `duplicate`
+
+  Already fixed. KEEL-194 was filed the next day against the same symptom and closed on 2026-08-14: `/api/health` reports the store the daemon holds, and the CLI's write guard compares stores rather than presence. Verified rather than assumed — `keel --home <scratch> fixture` with the real daemon up on 7654 seeded 99 rows and exited 0, no `--force`.
+
+- **KEEL-136** The pre-commit check reads the wrong tree from a git worktree — `done`
+
+  The hook now passes `--repo "$(git rev-parse --show-toplevel)"`, so the check reads the tree the commit is in rather than the checkout Keel has on file. Three tests run the script itself against a real git worktree with a stub `keel` on PATH recording its argv; the worktree one fails without the flag, which is what makes it a regression test rather than a description.
+
+  <sub>commit:464c883 · test:cargo test -p keel --test hooks</sub>
+
+- **KEEL-217** A task can be created directly in a terminal status, skipping the rule that guards closing one — `done`
+
+  A create into a terminal status now runs the same check a close does — reason, message, and evidence when the reason is `done` — and stamps `closed_at` and releases any claim on the way in. Held to the rule rather than refused outright, because `keel bootstrap`, `keel fixture` and adopting a finished backlog all legitimately write rows that are already closed, and `keel import` cannot do it for them. KEEL-216, the row that found this, has had its missing `closed_at` filled in.
+
+  <sub>commit:1ab66ab · test:cargo test --workspace</sub>
 
 - **KEEL-246** Labels should be found by typing, not by scanning ten chips — `done`
 
@@ -198,6 +214,12 @@ What has finished. What is happening now is in the tracker beside this file.
   Event summaries now quote a field's value only when it is short and not prose; longer or prose values are reported by size. Applied at write time so new events are clean, and again at render time through `Event::publishable_summary`, which rebuilds the line from the stored field and values — that second half is what covers the events already in the log, since they are immutable and could not otherwise be fixed. Verified end to end: the machine path that prompted this is gone from the whole tracked tree, and the changelog line now reads `body (1237 characters) → (1223 characters)`.
 
   <sub>test:cargo test -p keel-core --lib event:: · doc:dec_01M01F8R621R79SSKGCV4D4G34</sub>
+
+- **KEEL-216** The contract gate failed every day for a calendar reason, not a code one — `done`
+
+  The contract descriptions now redact bare calendar dates before hashing, the way they already redacted ids, so the demo corpus dating itself relative to today no longer changes six hashes a day. Three tests, including one asserting directly that the same line a day apart redacts identically.
+
+  <sub>test:cargo test -p keel --test contracts</sub>
 
 ### 2026-08-14
 
@@ -838,20 +860,42 @@ What has finished. What is happening now is in the tracker beside this file.
 - **KEEL-3** Domain types, ULID prefixes, the audit block — `done`
 - **KEEL-2** Verify fast-moving dependencies — `done`
 - **KEEL-1** Cargo workspace scaffold, CI, lint/fmt/deny gates — `done`
-### Before close dates were recorded
-
-- **KEEL-216** The contract gate failed every day for a calendar reason, not a code one — `done`
-
-  The contract descriptions now redact bare calendar dates before hashing, the way they already redacted ids, so the demo corpus dating itself relative to today no longer changes six hashes a day. Three tests, including one asserting directly that the same line a day apart redacts identically.
-
-  <sub>test:cargo test -p keel --test contracts</sub>
-
 ---
 
 ## Every change
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | claude | revised decision “A create into a terminal status is held to the closing rule, not refused” to v1 |
+| 2026-08-16 | claude | created decision “A create into a terminal status is held to the closing rule, not refused” |
+| 2026-08-16 | claude | status in_progress → todo |
+| 2026-08-16 | claude | claimed_by ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 → none |
+| 2026-08-16 | claude | claimed_at 2026-08-16T05:50:51.735297Z → none |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:50:51.735297Z |
+| 2026-08-16 | claude | “A running daemon blocks writes to stores it is not serving” duplicates “A write to one store is refused because a daemon is serving…” |
+| 2026-08-16 | claude | status in_progress → wont_do |
+| 2026-08-16 | claude | close_reason none → duplicate |
+| 2026-08-16 | claude | close_message none → (349 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:50:10.520067Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:464c883","test:cargo test -p keel --test hooks"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (370 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:47:10.608849Z |
+| 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:1ab66ab","test:cargo test --workspace"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (481 characters) |
+| 2026-08-16 | claude | closed_at none → 2026-08-15T01:28:39.706405Z |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T05:33:13.207755Z |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → ["commit:0b9a9f1","test:npx vitest run src/components/LabelPicker.test.tsx"] |
 | 2026-08-16 | claude | close_reason none → done |
@@ -1022,36 +1066,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | status todo → in_progress |
 | 2026-08-15 | claude | claimed_by none → ses_834b8828-e87e-45a2-b922-dc407a2538a1 |
 | 2026-08-15 | claude | claimed_at none → 2026-08-15T19:37:47.694457Z |
-| 2026-08-15 | claude | revised decision “Hard constraint 7 is amended: the interface may ask the daemon to apply an update it already staged” to v1 |
-| 2026-08-15 | claude | created decision “Hard constraint 7 is amended: the interface may ask the daemon to apply an update it already staged” |
-| 2026-08-15 | claude | created task “Make every artifact Claude mentions a link into the interface” |
-| 2026-08-15 | claude | created task “Ask before restarting into an update, and check often enough to matter” |
-| 2026-08-15 | claude | revised feedback “The rail's `·1` markers read as unclear, and ⌘ was the expected fix” to v1 |
-| 2026-08-15 | claude | created feedback “The rail's `·1` markers read as unclear, and ⌘ was the expected fix” |
-| 2026-08-15 | claude | revised question “Should Keel write a CLAUDE.md into a user's repository, and on whose say-so?” to v1 |
-| 2026-08-15 | claude | created question “Should Keel write a CLAUDE.md into a user's repository, and on whose say-so?” |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → ["commit:5401f6d","test:cargo test -p keel --test plugin"] |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (1053 characters) |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_834b8828-e87e-45a2-b922-dc407a2538a1 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T15:57:10.987375Z |
-| 2026-08-15 | claude | created task “The plugin skill never mentions claiming, so tasks stay in todo on every project but this one” |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → (119 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (1004 characters) |
-| 2026-08-15 | claude | “The repository is public, and the self-hosted runner stays…” supersedes “The repository stays private and macOS builds run on a…” |
-| 2026-08-15 | claude | revised decision “The repository is public, and the self-hosted runner stays behind an all-external-contributors approval gate” to v1 |
-| 2026-08-15 | claude | created decision “The repository is public, and the self-hosted runner stays behind an all-external-contributors approval gate” |
-| 2026-08-15 | claude | revised decision “The updater verifies a checksum and nothing else, because provenance is not available to a private repository” to v1 |
-| 2026-08-15 | claude | created decision “The updater verifies a checksum and nothing else, because provenance is not available to a private repository” |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_834b8828-e87e-45a2-b922-dc407a2538a1 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T15:09:17.202107Z |
-| 2026-08-15 | claude | revised question “Should the interface tell people an update exists, and may it ask the internet itself?” to v1 |
-| 2026-08-15 | claude | created question “Should the interface tell people an update exists, and may it ask the internet itself?” |
 
-*Showing the 200 most recent of 1695 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1725 changes. Use `keel_activity` for the rest.*
 

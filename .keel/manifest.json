@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-16T05:28:16.676017+00:00",
+  "generated_at": "2026-08-16T05:52:52.298335+00:00",
   "files": [
     {
       "path": ".keel/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "86d33e0b91af82746aaade13e91974635e9f3ef256a503465866c1c5d1f435a4"
+        }
+      ]
+    },
+    {
+      "path": ".keel/decisions/a-create-into-a-terminal-status-is-held-to-the-closing-rule-not-refused.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M04J2FKE9S4F3H7HDFRKM1NB",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "6dff5b332916f27b58237d2befab003a12a4431e06e5098f048460193eed8365"
         }
       ]
     },
