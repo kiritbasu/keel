@@ -21,10 +21,19 @@ project is being discussed.
 
 ## Enforcement
 
-There is one maintainer. Report a problem privately at kiritb@gmail.com, or
-through GitHub's own reporting if it involves the maintainer. Reports stay
-confidential.
+There is one maintainer, and it is worth being plain about what that means
+rather than describing a committee that does not exist.
 
-Consequences are proportionate and at the maintainer's discretion: a request to
-stop, a deleted comment, or a block. Nothing more elaborate is promised, because
-nothing more elaborate would be true.
+- **Something in this repository**: report it with GitHub's own
+  [report abuse](https://github.com/contact/report-abuse) flow, which is
+  available from the `⋯` menu on any comment. That reaches GitHub, and GitHub
+  acts on it independently of me.
+- **Something involving the maintainer**: the same route, for the same reason —
+  it does not depend on me to be handled.
+- **Something you would rather raise quietly and that is not urgent**: open an
+  issue saying only that you want to discuss conduct privately, and I will find
+  a way to do that. Do not put the details in it.
+
+Consequences are proportionate and at my discretion: a request to stop, a
+deleted comment, or a block. Nothing more elaborate is promised, because nothing
+more elaborate would be true.
