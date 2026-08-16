@@ -83,9 +83,16 @@ jobs:
     #
     # This condition is why the two platforms are two jobs rather than a matrix:
     # a job-level `if` can read `github` and cannot read `matrix`.
+    # Dependabot is excluded for a second reason, learned the hard way: its
+    # branches live *in* this repository, so the fork test above passes and
+    # eleven dependency bumps queued eleven cold Rust builds on the laptop at
+    # once. A dependency bump is also code somebody else wrote, arriving
+    # unattended and on a schedule — which is the same argument as the fork one
+    # with the volume turned up. Linux covers them; macOS covers the merge.
     if: >-
-      github.event_name != 'pull_request'
-      || github.event.pull_request.head.repo.full_name == github.repository
+      github.actor != 'dependabot[bot]'
+      && (github.event_name != 'pull_request'
+          || github.event.pull_request.head.repo.full_name == github.repository)
     env:
       KEEL_HOME: ${{ github.workspace }}/.ci-keel-home
     steps:
