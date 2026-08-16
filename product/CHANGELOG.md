@@ -1,15 +1,21 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T12:12:24Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T12:53:12Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (238)
+## Closed work (239)
 
 ### 2026-08-16
+
+- **KEEL-259** Taking an update leaves "Restarting the daemon into …" on screen for ever, and keeps the old interface running — `done`
+
+  The message now names the version it is taking — captured at the click rather than read back after the restart, which is why it rendered as a bare ellipsis — and clears, because `applying` holds the version instead of a boolean nothing reset. The larger fix is that `onApplied` reloads in App.tsx rather than refetching: the daemon serves this interface, so the browser had been running the build the update replaced. The fixed 1500ms wait is now a poll of health, so a slow restart is not reported as a failure.
+
+  <sub>commit:df948dc · test:npx vitest run src/components/VersionFooter.test.tsx</sub>
 
 - **KEEL-258** There is no way to ask for an update check, so finding out means waiting up to an hour — `done`
 
@@ -951,6 +957,14 @@ What has finished. What is happening now is in the tracker beside this file.
 | Date | Actor | Change |
 |---|---|---|
 | 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → ["commit:df948dc","test:npx vitest run src/components/VersionFooter.test.tsx"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (512 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T12:49:35.032229Z |
+| 2026-08-16 | claude | created task “Taking an update leaves "Restarting the daemon into …" on screen for ever, and keeps the old interface running” |
+| 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → (125 characters) |
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (740 characters) |
@@ -1142,14 +1156,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | evidence [] → (94 characters) |
 | 2026-08-15 | claude | close_reason none → done |
 | 2026-08-15 | claude | close_message none → (502 characters) |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T23:07:03.365743Z |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → (107 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (517 characters) |
-| 2026-08-15 | claude | created task “The MCP endpoint is the one writer a rebinding attack could still reach” |
 
-*Showing the 200 most recent of 1835 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1843 changes. Use `keel_activity` for the rest.*
 
