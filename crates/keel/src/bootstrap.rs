@@ -24,10 +24,11 @@
 use anyhow::Result;
 use chrono::{NaiveDate, TimeZone, Utc};
 use keel_core::{
-    Actor, Decision, DecisionStatus, Document, EntityId, EntityStore, EntityType, Environment,
-    EnvironmentStatus, Metric, MetricDirection, MetricObservation, Milestone, MilestoneStatus,
-    NewLink, Project, Provenance, Question, QuestionKind, QuestionStatus, Relation, RiskSeverity,
-    Spec, SpecKind, SpecStatus, Store, Surface, Task, TaskKind, TaskPriority, TaskStatus, Term,
+    Actor, CloseReason, Decision, DecisionStatus, Document, EntityId, EntityStore, EntityType,
+    Environment, EnvironmentStatus, Metric, MetricDirection, MetricObservation, Milestone,
+    MilestoneStatus, NewLink, Project, Provenance, Question, QuestionKind, QuestionStatus,
+    Relation, RiskSeverity, Spec, SpecKind, SpecStatus, Store, Surface, Task, TaskKind,
+    TaskPriority, TaskStatus, Term,
 };
 
 /// What the bootstrap created.
@@ -647,6 +648,16 @@ pub fn run(store: &mut Store, repo_path: Option<String>) -> Result<Summary> {
         t.milestone_id = milestones.get(phase).cloned();
         if status == TaskStatus::Done {
             t.closed_at = Some(Utc.with_ymd_and_hms(2026, 8, 9, 12, 0, 0).unwrap());
+            // A create into a terminal status is held to the same rule as a
+            // close (KEEL-217), so these rows say why they are finished. The
+            // body is the message because it is what was written about the work
+            // at the time. The evidence is the repository rather than a commit
+            // per row: this is a transcription of Phases 0–3 from `STATUS.md`,
+            // which recorded no shas, and inventing forty of them would put
+            // fiction in the one field that exists to be checkable.
+            t.close_reason = Some(CloseReason::Done);
+            t.close_message = Some(body.to_owned());
+            t.evidence = vec!["url:https://github.com/kb/keel".to_owned()];
         }
         tasks.push((
             title.to_owned(),

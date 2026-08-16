@@ -66,6 +66,32 @@ impl Fixture {
         id
     }
 
+    /// Apply a hand-built change, the way `keel_update` does.
+    fn set(&mut self, id: &EntityId, changes: serde_json::Value) {
+        let map = changes.as_object().unwrap().clone();
+        let version = match self.store.get(id).unwrap() {
+            Some(Entity::Task(t)) => t.audit.version,
+            _ => panic!("the task exists"),
+        };
+        self.store
+            .update(id, version, &map, &Provenance::anonymous(Actor::Human))
+            .unwrap();
+    }
+
+    /// Close a row the way the rules require, so a test can then take something
+    /// away and see what the lint says about what is left.
+    fn close_properly(&mut self, id: &EntityId) {
+        self.set(
+            id,
+            serde_json::json!({
+                "status": "done",
+                "close_reason": "done",
+                "close_message": "Finished, with a reason.",
+                "evidence": ["commit:abc1234"],
+            }),
+        );
+    }
+
     fn report(&self, limit: Option<usize>) -> keel_core::LintReport {
         lint(&self.store, &self.project, limit).unwrap()
     }
@@ -126,42 +152,27 @@ fn a_close_that_predates_the_reason_rule_is_reported() {
     );
     // Straight into a terminal status through a hand-built change, the way the
     // hundred and seven historical rows got there.
-    let mut changes = serde_json::Map::new();
-    changes.insert("status".to_owned(), serde_json::json!("done"));
-    changes.insert("close_reason".to_owned(), serde_json::json!("done"));
-    changes.insert(
-        "close_message".to_owned(),
-        serde_json::json!("Finished, with a reason."),
-    );
-    changes.insert("evidence".to_owned(), serde_json::json!(["commit:abc1234"]));
-    let version = match f.store.get(&old).unwrap() {
-        Some(Entity::Task(t)) => t.audit.version,
-        _ => panic!("the task exists"),
-    };
-    f.store
-        .update(
-            &old,
-            version,
-            &changes,
-            &Provenance::anonymous(Actor::Human),
-        )
-        .unwrap();
+    f.close_properly(&old);
     assert_eq!(
         f.report(None).count_of(CLOSED_WITHOUT_REASON),
         0,
         "a close that stated its reason is not a finding"
     );
 
-    // And one that never did, which is what the rule is looking for.
-    let mut bare = Task::new(
-        f.project.clone(),
+    // And one that never did, which is what the rule is looking for. Built by
+    // closing it and stripping the reason, because since KEEL-217 no door into
+    // a terminal status accepts a row without one — the same shape as
+    // `task_without_summary` above, and for the same reason.
+    let bare = f.task(
         "Closed with nothing said",
         "A row that reached done before a reason was required.",
+        None,
     );
-    bare.status = keel_core::TaskStatus::Done;
-    f.store
-        .create(bare.into(), &Provenance::anonymous(Actor::Human))
-        .unwrap();
+    f.close_properly(&bare);
+    f.set(
+        &bare,
+        serde_json::json!({"close_reason": null, "close_message": null, "evidence": []}),
+    );
     assert_eq!(f.report(None).count_of(CLOSED_WITHOUT_REASON), 1);
 }
 
