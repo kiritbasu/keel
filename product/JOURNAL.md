@@ -13,6 +13,26 @@ Newest first.
 
 ---
 
+## Keel became Specline, and the rename found its own bugs
+
+Thirteen rows, one release, and about six thousand mentions of a word. The mechanical half took an afternoon. Everything worth writing down came from the parts that were not substitution.
+
+**The name was load-bearing in more places than it was visible.** The sweep that finally answered "is this finished" found nine misses the earlier passes could not, and they were all one shape: the old name composed at runtime, or sitting behind a separator a word-boundary regex will not cross. `format!("keel-{target}.tar.xz")` in the updater is the one that mattered — grepping for the archive name found nothing while the updater went on asking GitHub for a file that would no longer exist. `${SPECLINE_PROJECT:-keel}` in the pre-commit hook is the same trick with a dash. Neither is findable by searching for the string you are renaming, which is the whole lesson: **a rename is not a search-and-replace problem, it is a "what composes this name" problem.**
+
+**Two collisions between things that had never had to differ.** The crate `keel-update` and the tool `keel_update` share an underscored form, so renaming the crate silently renamed the tool inside the gate scorer's write-tool list. And `rubric.rs` filtered transcript tool calls on the product name — renaming it would have made the scorer read every session ever recorded as "never noticed the store", L1, the worst level, awarded silently and for the wrong reason. The frozen measurement in `GATE.md` would have become unreproducible without anything failing.
+
+**The store was the only thing that could fail quietly, so it is the only thing with a migration.** Everything else — 27 environment variables, thirteen tool names, two binaries — is missing in the first second. A store that is not where you look produces an empty one, a clean startup and a healthy report. It moves itself, once, refusing while anything holds the lock, and carrying the write-ahead log with the database because a database renamed without its log comes up internally consistent and merely older.
+
+**The review found three defects in that migration, and none of them were the rename.** The advisory lock was bound inside an `if` block and dropped two statements before the rename it was protecting. A move interrupted between its two syscalls was indistinguishable from a completed one, so the next start would have created an empty database beside the real data — the module's own failure shape, reachable through its own partial failure. And the relocation notice went to stdout, which is the payload stream for every `--json` command. `fmt`, `clippy`, both suite configurations and CI were green on all three, throughout.
+
+**Then the test for the third one failed in CI and not here.** It set `HOME` to a scratch directory and asserted a relocation happened — but CI sets `SPECLINE_HOME`, an explicit home is deliberately never relocated, and so the test's subject never ran there. The contract warns in as many words that a test reading the machine it runs on passes here and fails elsewhere; I had checked that class for the filesystem and not for the environment, on a change whose entire subject is where the code resolves its paths from.
+
+**What was deliberately not renamed is the more interesting list.** Task ids stay `KEEL-nn`, because 908 references resolve and the rule that an id is stable outlived the product's own name. `_keel_migrations` stays, because renaming a migration ledger makes a migrated store look unmigrated. Backups accept either snapshot name, because a backup is what you reach for when something has already gone wrong. And every historical sentence keeps the name it was written with — `keel-cli` really was a package, `keel mirror` really was a command — because rewriting those produces a record of decisions nobody made.
+
+**Three things had no row while they were being done**, and all three were outside the repository: the checkout directory, the Claude Code trust settings, and the self-hosted runner. The settings held ten references rather than the three a path grep found, two of which were not stale paths at all — session hooks pointing at forwarders the rename had deleted, and three entries telling autoMode the repository was private when it had been public for weeks. The sweep could not have caught any of it, because the sweep reads the tracked tree and none of this is in it.
+
+---
+
 ## Phase 8's working loop, and the instruction that became a mechanism
 
 Twenty-one of Phase 8's twenty-three rows are closed. What landed is the loop itself — `specline ready`, `specline claim`, `specline close` — plus the last of §8C, `specline lint`, and the image path that makes a real screenshot possible.

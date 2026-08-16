@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T18:16:57Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T18:20:12Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1046,6 +1046,7 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-16 | human | revised spec “Specline — Build journal” to v5 |
 | 2026-08-16 | claude | status todo → done |
 | 2026-08-16 | claude | evidence [] → (87 characters) |
 | 2026-08-16 | claude | close_reason none → done |
@@ -1245,7 +1246,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | created task “Cut v0.1.5-rc.1 to exercise the release path before a real version depends on it” |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → (121 characters) |
-| 2026-08-16 | claude | close_reason none → done |
 
-*Showing the 200 most recent of 2003 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2004 changes. Use `specline_activity` for the rest.*
 
