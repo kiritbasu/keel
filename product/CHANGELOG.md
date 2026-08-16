@@ -1,15 +1,33 @@
 # Keel — Changelog
 
-<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T07:20:54Z -->
+<!-- keel:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T08:16:54Z -->
 > **Generated from the task rows and the event log. Do not edit — Keel is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (229)
+## Closed work (232)
 
 ### 2026-08-16
+
+- **KEEL-220** Put embeddings behind a feature so Intel macOS and Linux can be built at all — `done`
+
+  `embeddings` is a cargo feature on `keel` and `keel-daemon`, on by default, and `cargo tree -p keel --no-default-features` has no `fastembed` and no `ort` — which is what makes the two targets linkable. Both configurations are green locally and CI runs the second one, with the ONNX-absence asserted directly because a passing suite would not notice it. The capability is reported by `/api/health` and `keel doctor`, and `keel reembed` refuses with the reason. Restoring the release targets is split into KEEL-252: `dist build` has no per-target feature selection, so which of three routes to take is a decision, and it cannot be proved without cutting a release.
+
+  <sub>commit:e0f2a7d · test:cargo test --workspace --exclude keel-embed --no-default-features · test:cargo tree -p keel --no-default-features -e normal</sub>
+
+- **KEEL-250** CI has been red on main because a test asserts the machine has a Desktop folder — `done`
+
+  Merged to main and CI is green — four checks passing, including the Linux leg that had been failing every run. The test now asserts the refusal names the project's own checkout, which is a root on every platform, rather than `Desktop`, which only exists on a machine somebody works on. The Linux-only failure is reproducible on a Mac with `HOME=/tmp/empty`, so the next one like it does not need a Linux box to diagnose.
+
+  <sub>commit:852f3e7 · url:https://github.com/kiritbasu/keel/actions/runs/31934838843 · test:HOME=/tmp/empty cargo test -p keel-mcp --test images</sub>
+
+- **KEEL-248** Delete the phase-10 branch on GitHub, or say why it stays — `done`
+
+  Deleted. `git push origin --delete phase-10` — `origin` now has `main` and nothing else. Every commit on it was already in main and main was 69 ahead, so nothing was lost. Delete-branch-on-merge is now on, which makes the cleanup structural rather than something to remember.
+
+  <sub>url:https://github.com/kiritbasu/keel/branches</sub>
 
 - **KEEL-204** Tell people the update check phones home, and let them turn it off — `done`
 
@@ -897,6 +915,30 @@ What has finished. What is happening now is in the tracker beside this file.
 | Date | Actor | Change |
 |---|---|---|
 | 2026-08-16 | claude | status in_progress → done |
+| 2026-08-16 | claude | evidence [] → (149 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (663 characters) |
+| 2026-08-16 | claude | “Restore the Intel macOS and Linux release targets, now that…” depends on “Put embeddings behind a feature so Intel macOS and Linux…” (stored as “Put embeddings behind a feature so Intel macOS and Linux…” blocks “Restore the Intel macOS and Linux release targets, now that…”) |
+| 2026-08-16 | claude | created task “Restore the Intel macOS and Linux release targets, now that a build without embeddings exists” |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T08:01:26.964465Z |
+| 2026-08-16 | claude | created task “keel_search promises hybrid retrieval and runs keyword-only, without saying so” |
+| 2026-08-16 | claude | status todo → done |
+| 2026-08-16 | claude | evidence [] → (143 characters) |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (420 characters) |
+| 2026-08-16 | claude | created task “CI has been red on main because a test asserts the machine has a Desktop folder” |
+| 2026-08-16 | claude | status todo → done |
+| 2026-08-16 | claude | evidence [] → ["url:https://github.com/kiritbasu/keel/branches"] |
+| 2026-08-16 | claude | close_reason none → done |
+| 2026-08-16 | claude | close_message none → (275 characters) |
+| 2026-08-16 | claude | status todo → in_progress |
+| 2026-08-16 | claude | claimed_by none → ses_d50a6f55-d9a1-4d2f-bb79-ac0f98b9fdf1 |
+| 2026-08-16 | claude | claimed_at none → 2026-08-16T07:31:02.227206Z |
+| 2026-08-16 | claude | created task “Set the public repository up the way a public repository should be” |
+| 2026-08-16 | claude | created task “Delete the phase-10 branch on GitHub, or say why it stays” |
+| 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → ["commit:f268b5a","test:cargo test -p keel --bin keel doctor"] |
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (557 characters) |
@@ -1072,30 +1114,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-15 | claude | created task “A dev install and a release install land in different directories, and one shadows the other” |
 | 2026-08-15 | claude | status open → answered |
 | 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → ["doc:spc_01KZKSME2TCPVARX9M04836XD6","doc:tsk_01M03NFEJ3XY8P0R74AH4NCSE2"] |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (424 characters) |
-| 2026-08-15 | claude | status todo → done |
-| 2026-08-15 | claude | evidence [] → (117 characters) |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (373 characters) |
-| 2026-08-15 | claude | created task “Release 0.1.3 — the installer verifies what it downloads” |
-| 2026-08-15 | claude | revised spec “Keel — standing instructions” to v11 |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T21:31:15.591549Z |
-| 2026-08-15 | claude | status in_progress → done |
-| 2026-08-15 | claude | evidence [] → ["commit:ff1ec63","test:cargo test -p keel-core --test generate"] |
-| 2026-08-15 | claude | close_reason none → done |
-| 2026-08-15 | claude | close_message none → (493 characters) |
-| 2026-08-15 | claude | status todo → in_progress |
-| 2026-08-15 | claude | claimed_by none → ses_c0073322-85a4-4315-bd2b-121cc74b1564 |
-| 2026-08-15 | claude | claimed_at none → 2026-08-15T21:16:35.033777Z |
-| 2026-08-15 | claude | created task “A release is a task, so cutting one shows on the board and in the changelog” |
-| 2026-08-15 | claude | created task “STATUS.md renders current state, and closed work gets its own changelog” |
-| 2026-08-15 | claude | revised question “STATUS.md is 87% closed tasks and too large to read. What should it be?” to v1 |
-| 2026-08-15 | claude | created question “STATUS.md is 87% closed tasks and too large to read. What should it be?” |
-| 2026-08-15 | claude | status in_progress → done |
 
-*Showing the 200 most recent of 1766 changes. Use `keel_activity` for the rest.*
+*Showing the 200 most recent of 1790 changes. Use `keel_activity` for the rest.*
 
