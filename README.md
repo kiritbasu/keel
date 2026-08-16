@@ -109,6 +109,19 @@ Everything has a working default. Override with environment variables:
 | `KEEL_BIND` | `127.0.0.1:7654` | What the daemon binds |
 | `KEEL_BIN_DIR` | `$CARGO_HOME/bin`, else `~/.cargo/bin` | Where `install.sh` puts binaries — the release installer's own default |
 | `KEEL_SKILL_DIR` | `~/.claude/skills/keel` | Where the skill and hooks are installed |
+| `KEEL_AUTO_UPDATE` | on | Set to `0` to stop the hourly check for a new release |
+
+### What leaves your machine
+
+One request, and it is worth naming rather than leaving to be discovered: the
+daemon fetches the latest release manifest once an hour so it can tell you a new
+version exists. It sends nothing from your store — no project names, no counts,
+no identifier — and nothing is installed without you agreeing to the restart.
+
+`--no-update-check` on `/keel:setup` turns it off at install time,
+`KEEL_AUTO_UPDATE=0` turns it off afterwards, and `keel doctor` reports which it
+is and when the last check ran. With it off, Keel makes no network requests at
+all.
 
 After editing anything under `plugin/`, re-run `./plugin/install.sh --skill-only`. It skips the build and copies the three files. **The copies under `~/.claude` are what actually run** — a change to the repo that isn't copied across does nothing at all.
 

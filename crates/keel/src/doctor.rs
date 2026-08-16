@@ -369,6 +369,9 @@ pub fn examine(home: &Path, daemon: &str) -> Result<Report> {
     // --- The repository beside the store ---------------------------------
     checks.extend(mirror_drift(&store)?);
 
+    // --- The one thing that leaves this machine ---------------------------
+    checks.push(update_check());
+
     // --- Backups ----------------------------------------------------------
     checks.push(backup_age(home));
 
@@ -505,6 +508,56 @@ fn mirror_drift(store: &Store) -> Result<Vec<Check>> {
         }
     }
     Ok(out)
+}
+
+/// Whether Keel is calling out, and when it last did.
+///
+/// The one outbound request this product makes, reported as a check rather than
+/// left in the source. The pitch is that your project's history lives on your
+/// machine, and an undisclosed network request undermines that claim whether or
+/// not it carries anything — so "is this thing phoning home?" should be a
+/// command with an answer, not a reading of the code (KEEL-204).
+///
+/// It says what the request *is*, in the detail line, because the honest answer
+/// is narrower and better than a reassurance: a plain GET of a release manifest,
+/// with nothing from the store attached.
+///
+/// Never a problem, at either setting. Checking is not a fault and switching it
+/// off is a choice somebody made; a doctor that scolds you for your own
+/// configuration is a doctor people stop running.
+fn update_check() -> Check {
+    if !keel_update::auto_update_enabled() {
+        return Check::ok(
+            "update_check",
+            "off (KEEL_AUTO_UPDATE=0) — Keel makes no network requests at all",
+        );
+    }
+
+    let last = keel_update::install_dir()
+        .ok()
+        .and_then(|dir| keel_update::last_check(&dir));
+
+    let detail = match last {
+        Some(stamp) if stamp.error.is_none() => format!(
+            "on — fetches the release manifest hourly, sending nothing from the store. \
+             Last checked {}",
+            stamp.at
+        ),
+        Some(stamp) => format!(
+            "on — last check at {} did not complete: {}",
+            stamp.at,
+            stamp.error.unwrap_or_default()
+        ),
+        // No stamp is the ordinary state for a daemon that has not been up an
+        // hour, and also what a daemon too old to record one looks like. Both
+        // mean the same thing to a reader: nothing here can tell you the check
+        // is working.
+        None => "on — fetches the release manifest hourly, sending nothing from the store. \
+                 No completed check on record"
+            .to_owned(),
+    };
+
+    Check::ok("update_check", detail)
 }
 
 /// When the most recent backup was taken.
@@ -775,6 +828,18 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert_eq!(find(&report, "schema").level, Level::Ok);
+        // KEEL-204. The one request Keel makes should be answerable with a
+        // command rather than by reading the source, and reporting it is not
+        // the same as complaining about it — a doctor that scolds you for your
+        // own configuration is a doctor people stop running.
+        let network = find(&report, "update_check");
+        assert_eq!(network.level, Level::Ok);
+        assert!(
+            network.detail.contains("sending nothing from the store")
+                || network.detail.contains("no network requests at all"),
+            "the check should say what the request carries, not only that it happens: {}",
+            network.detail
+        );
         assert_eq!(find(&report, "page_integrity").level, Level::Ok);
         assert_eq!(find(&report, "fsck").level, Level::Ok);
         assert_eq!(
