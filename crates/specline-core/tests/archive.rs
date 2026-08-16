@@ -13,7 +13,7 @@ use specline_core::{
 #[test]
 fn listing_projects_still_works_after_one_is_archived() {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Human);
 
     let keep = store
@@ -68,7 +68,7 @@ fn a_checkpointed_store_reopens_and_accepts_writes() {
     let prov = Provenance::anonymous(Actor::Human);
 
     let id = {
-        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
         let id = store
             .create(Project::new("p", "P").into(), &prov)
             .unwrap()
@@ -90,7 +90,7 @@ fn a_checkpointed_store_reopens_and_accepts_writes() {
         id
     };
 
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let page = store
         .list(&EntityQuery::in_project(id.clone()).of_type(EntityType::Task))
         .unwrap();
@@ -120,7 +120,7 @@ fn a_task_claimed_and_left_is_reported_as_stale() {
     // A stale claim is worse than an empty column. Empty says "nothing is
     // tracked here"; stale says "this is happening right now" and is wrong.
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Human);
     let project = store
         .create(Project::new("p", "P").into(), &prov)

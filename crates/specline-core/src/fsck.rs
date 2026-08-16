@@ -956,7 +956,7 @@ pub fn check(store: &Store) -> Result<FsckReport> {
                  return the wrong answer rather than an error"
             ),
             remedy: "restore from the most recent backup (`specline restore`). If there is none, \
-                     `sqlite3 keel.sqlite .recover` salvages what it can. Then find out why: \
+                     `sqlite3 specline.sqlite .recover` salvages what it can. Then find out why: \
                      the usual cause is ~/.specline sitting in a Dropbox, iCloud or network folder \
                      that copies the .sqlite, -wal and -shm files at different moments"
                 .to_owned(),

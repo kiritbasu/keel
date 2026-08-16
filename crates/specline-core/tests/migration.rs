@@ -28,7 +28,7 @@ fn forget_a_migration(path: &std::path::Path) {
 #[test]
 fn a_store_this_call_creates_is_migrated() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("keel.sqlite");
+    let path = dir.path().join("specline.sqlite");
 
     let store =
         Store::open(&path).expect("a store that does not exist yet is created and migrated");
@@ -40,7 +40,7 @@ fn a_store_this_call_creates_is_migrated() {
 #[test]
 fn an_existing_store_with_migrations_pending_is_refused() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("keel.sqlite");
+    let path = dir.path().join("specline.sqlite");
     drop(Store::open(&path).unwrap());
     forget_a_migration(&path);
 
@@ -68,7 +68,7 @@ fn an_existing_store_with_migrations_pending_is_refused() {
 #[test]
 fn the_owner_may_apply_them() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("keel.sqlite");
+    let path = dir.path().join("specline.sqlite");
     std::fs::File::create(&path).unwrap();
 
     assert_eq!(
@@ -96,7 +96,7 @@ fn the_owner_may_apply_them() {
 #[test]
 fn what_is_pending_can_be_read_without_opening_a_store() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("keel.sqlite");
+    let path = dir.path().join("specline.sqlite");
     drop(Store::open(&path).unwrap());
     forget_a_migration(&path);
 
@@ -156,7 +156,7 @@ fn pretend_a_newer_binary_migrated_it(path: &std::path::Path) -> i32 {
 #[test]
 fn a_store_newer_than_this_binary_is_refused() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("keel.sqlite");
+    let path = dir.path().join("specline.sqlite");
     drop(Store::open(&path).unwrap());
     let future = pretend_a_newer_binary_migrated_it(&path);
 
@@ -185,7 +185,7 @@ fn a_store_newer_than_this_binary_is_refused() {
 #[test]
 fn a_store_newer_than_this_binary_is_refused_to_a_writer_as_well() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("keel.sqlite");
+    let path = dir.path().join("specline.sqlite");
     drop(Store::open(&path).unwrap());
     pretend_a_newer_binary_migrated_it(&path);
 

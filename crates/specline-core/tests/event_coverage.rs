@@ -20,7 +20,7 @@ use std::collections::HashSet;
 #[test]
 fn every_action_variant_is_emitted_by_some_write() {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Claude).with_session("ses_event_coverage");
 
     // Created — any create.

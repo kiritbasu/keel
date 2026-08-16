@@ -22,7 +22,7 @@ use specline_core::*;
 
 fn store() -> (Store, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     (store, dir)
 }
 

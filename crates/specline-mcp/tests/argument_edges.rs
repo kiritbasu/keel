@@ -22,7 +22,7 @@ struct Fixture {
 
 fn fixture() -> Fixture {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Claude);
     let project = store
         .create(Project::new("edges", "Edges").into(), &prov)

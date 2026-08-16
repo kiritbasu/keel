@@ -15,7 +15,7 @@ use specline_daemon::{AppState, http::router};
 /// A daemon with one project whose checkout is `repo`.
 async fn daemon(repo: &std::path::Path) -> (String, String, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
 
     let mut project = Project::new("demo", "Demo");
     project.root_path = Some(repo.display().to_string());

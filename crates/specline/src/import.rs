@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn importing_the_same_file_twice_does_not_duplicate_or_re_version() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
         let project = store
             .create(
                 specline_core::Project::new("specline", "Specline").into(),
@@ -400,7 +400,7 @@ mod tests {
     #[test]
     fn the_whole_body_is_stored_not_a_summary() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
         let project = store
             .create(
                 specline_core::Project::new("specline", "Specline").into(),
@@ -548,7 +548,7 @@ mod preview_tests {
     /// A store with one project, and a directory to put files in.
     fn fixture() -> (Store, EntityId, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
         let project = store
             .create(
                 Project::new("demo", "Demo").into(),
@@ -644,7 +644,7 @@ mod preview_tests {
     #[test]
     fn a_preview_runs_while_another_process_holds_the_write_lock() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("keel.sqlite");
+        let path = dir.path().join("specline.sqlite");
         let mut writer = Store::open_exclusive(&path).unwrap();
         let project = writer
             .create(
@@ -687,7 +687,7 @@ mod adopted_path_tests {
     /// makes `repo_relative` produce a path at all.
     fn rooted() -> (Store, EntityId, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
         let mut project = Project::new("demo", "Demo");
         project.root_path = Some(dir.path().to_string_lossy().into_owned());
         let id = store

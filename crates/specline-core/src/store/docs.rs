@@ -920,7 +920,7 @@ mod tests {
     #[test]
     fn a_five_megabyte_blob_round_trips_byte_identically() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
 
         // Not all one byte: a compressible run would measure something SQLite
         // is not being asked to do. This is cheap and varied.

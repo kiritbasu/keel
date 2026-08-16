@@ -93,7 +93,21 @@ pub async fn run() -> Result<()> {
             let base = std::env::var_os("HOME")
                 .map(PathBuf::from)
                 .context("HOME is not set; pass --home")?;
-            base.join(".keel")
+            let home = base.join(specline_core::relocate::HOME_DIR);
+            // Before the store is opened, and before this process takes the
+            // lock on it — the relocation takes that same lock to prove nobody
+            // else is writing, and a daemon that had already claimed the store
+            // would be refused by its own guard.
+            //
+            // An explicit `--home` is never relocated. See `resolve_home` in
+            // the CLI for why.
+            if let Some(moved) = specline_core::relocate::relocate(
+                &base.join(specline_core::relocate::LEGACY_HOME_DIR),
+                &home,
+            )? {
+                tracing::info!(from = %moved.from.display(), to = %moved.to.display(), "relocated the store");
+            }
+            home
         }
     };
 

@@ -12,7 +12,7 @@ use specline_core::Store;
 #[test]
 fn a_second_writer_is_refused_while_the_first_holds_the_store() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("keel.sqlite");
+    let path = dir.path().join("specline.sqlite");
 
     let first = Store::open_exclusive(&path).unwrap();
     let err = Store::open_exclusive(&path).unwrap_err().to_string();
@@ -29,7 +29,7 @@ fn a_second_writer_is_refused_while_the_first_holds_the_store() {
 #[test]
 fn a_second_writer_cannot_migrate_under_the_first() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("keel.sqlite");
+    let path = dir.path().join("specline.sqlite");
 
     let serving = Store::open_exclusive(&path).unwrap();
     let err = Store::open_and_migrate_exclusive(&path)
@@ -49,7 +49,7 @@ fn a_second_writer_cannot_migrate_under_the_first() {
 #[test]
 fn a_reader_opens_happily_alongside_the_writer() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("keel.sqlite");
+    let path = dir.path().join("specline.sqlite");
 
     let writer = Store::open_exclusive(&path).unwrap();
     let reader = Store::open(&path).expect("reading must not need the lock");
@@ -60,7 +60,7 @@ fn a_reader_opens_happily_alongside_the_writer() {
 #[test]
 fn the_store_can_be_claimed_again_once_the_holder_is_gone() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("keel.sqlite");
+    let path = dir.path().join("specline.sqlite");
 
     drop(Store::open_exclusive(&path).unwrap());
     Store::open_exclusive(&path).expect("the claim should have been released on drop");
@@ -81,7 +81,7 @@ fn two_stores_do_not_block_each_other() {
 #[test]
 fn the_lock_is_a_file_of_its_own_beside_the_store() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("keel.sqlite");
+    let path = dir.path().join("specline.sqlite");
     let held = Store::open_exclusive(&path).unwrap();
 
     let lock = specline_core::lock::lock_path(&path);
@@ -128,7 +128,7 @@ fn a_killed_holder_leaves_nothing_behind() {
     use std::process::{Command, Stdio};
 
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("keel.sqlite");
+    let path = dir.path().join("specline.sqlite");
 
     let mut child = Command::new(std::env::current_exe().unwrap())
         .args([

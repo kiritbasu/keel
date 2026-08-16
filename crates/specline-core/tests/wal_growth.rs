@@ -25,7 +25,7 @@ const CEILING: i64 = 4_000;
 
 fn fixture() -> (Store, EntityId, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let project = store
         .create(
             Project::new("wal", "Wal").into(),
@@ -79,7 +79,7 @@ fn the_log_does_not_grow_without_bound_under_ordinary_writing() {
 #[test]
 fn a_long_lived_reader_does_not_pin_the_log() {
     let (mut store, project, dir) = fixture();
-    let path = dir.path().join("keel.sqlite");
+    let path = dir.path().join("specline.sqlite");
 
     let reader = Store::open(&path).expect("a second reader is safe in WAL mode, and always was");
 
@@ -143,7 +143,7 @@ fn the_shutdown_checkpoint_empties_the_log() {
         "a truncating checkpoint with no other reader should leave nothing behind"
     );
 
-    let wal = dir.path().join("keel.sqlite-wal");
+    let wal = dir.path().join("specline.sqlite-wal");
     if wal.exists() {
         assert_eq!(
             std::fs::metadata(&wal).unwrap().len(),

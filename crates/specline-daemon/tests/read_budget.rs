@@ -50,8 +50,8 @@ impl Daemon {
     async fn start() -> Self {
         let dir = tempfile::tempdir().unwrap();
         {
-            let mut store =
-                specline_core::Store::open(dir.path().join("keel.sqlite")).expect("open the store");
+            let mut store = specline_core::Store::open(dir.path().join("specline.sqlite"))
+                .expect("open the store");
             specline_core::fixture::load(&mut store).expect("load the fixture");
 
             let project = project_id(&store, "harbour");

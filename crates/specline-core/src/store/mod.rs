@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// The store file's name inside a Specline home directory.
-pub const STORE_FILE: &str = "keel.sqlite";
+pub const STORE_FILE: &str = "specline.sqlite";
 
 /// The oldest plugin release this daemon can serve.
 ///
@@ -1757,7 +1757,7 @@ mod tests {
     #[test]
     fn opening_an_existing_store_is_idempotent() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("keel.sqlite");
+        let path = dir.path().join("specline.sqlite");
 
         let first = Store::open(&path).unwrap();
         let applied: i64 = first
@@ -1783,7 +1783,7 @@ mod tests {
     #[test]
     fn a_file_store_uses_write_ahead_logging() {
         let dir = tempfile::tempdir().unwrap();
-        let store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let store = Store::open(dir.path().join("specline.sqlite")).unwrap();
         let mode: String = store
             .connection()
             .query_row("PRAGMA journal_mode", [], |r| r.get(0))
@@ -1830,7 +1830,7 @@ mod tests {
     #[test]
     fn the_store_reports_where_it_lives() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("nested").join("keel.sqlite");
+        let path = dir.path().join("nested").join("specline.sqlite");
         let store = Store::open(&path).unwrap();
         assert_eq!(store.path(), path);
         assert!(

@@ -268,7 +268,7 @@ fn every_surface_matches_its_recorded_description() {
     // One fixture store, built fresh, so nothing here depends on the machine it
     // runs on or on whatever the author's own store happens to contain.
     let dir = tempfile::tempdir().unwrap();
-    let store_path = dir.path().join("keel.sqlite");
+    let store_path = dir.path().join("specline.sqlite");
     let mut store = Store::open(&store_path).unwrap();
     fixture::load(&mut store).unwrap();
 
@@ -496,7 +496,7 @@ fn short_hash(text: &str) -> String {
 #[test]
 fn the_same_state_produces_the_same_description_every_time() {
     let dir = tempfile::tempdir().unwrap();
-    let store_path = dir.path().join("keel.sqlite");
+    let store_path = dir.path().join("specline.sqlite");
     let mut store = Store::open(&store_path).unwrap();
     fixture::load(&mut store).unwrap();
     drop(store);

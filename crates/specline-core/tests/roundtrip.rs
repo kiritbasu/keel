@@ -15,7 +15,7 @@ use specline_core::*;
 /// A store in a fresh temporary directory, plus the directory's guard.
 fn store() -> (Store, tempfile::TempDir) {
     let dir = tempfile::tempdir().expect("create a temp dir");
-    let store = Store::open(dir.path().join("keel.sqlite")).expect("open the store");
+    let store = Store::open(dir.path().join("specline.sqlite")).expect("open the store");
     (store, dir)
 }
 
@@ -164,10 +164,10 @@ fn a_fresh_store_opens_and_migrates() {
 fn opening_an_existing_store_is_idempotent() {
     let dir = tempfile::tempdir().unwrap();
     {
-        let mut s = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut s = Store::open(dir.path().join("specline.sqlite")).unwrap();
         project(&mut s);
     }
-    let s = Store::open(dir.path().join("keel.sqlite")).expect("re-open");
+    let s = Store::open(dir.path().join("specline.sqlite")).expect("re-open");
     let applied: i64 = s
         .connection()
         .query_row("SELECT count(*) FROM _keel_migrations", [], |r| r.get(0))
@@ -555,7 +555,7 @@ fn a_row_with_no_number_is_still_readable_and_gets_repaired() {
 fn a_binary_older_than_the_store_refuses_to_open_it() {
     let dir = tempfile::tempdir().expect("temp dir");
     {
-        let store = Store::open(dir.path().join("keel.sqlite")).expect("open a fresh store");
+        let store = Store::open(dir.path().join("specline.sqlite")).expect("open a fresh store");
         store
             .connection()
             .execute(
@@ -565,7 +565,7 @@ fn a_binary_older_than_the_store_refuses_to_open_it() {
             .expect("record a migration this binary does not ship");
     }
 
-    let err = Store::open(dir.path().join("keel.sqlite"))
+    let err = Store::open(dir.path().join("specline.sqlite"))
         .expect_err("a store newer than the binary must not open")
         .to_string();
 
@@ -590,12 +590,12 @@ fn a_binary_older_than_the_store_refuses_to_open_it() {
 fn a_store_at_the_current_schema_opens_normally() {
     let dir = tempfile::tempdir().expect("temp dir");
     {
-        let mut store = Store::open(dir.path().join("keel.sqlite")).expect("first open");
+        let mut store = Store::open(dir.path().join("specline.sqlite")).expect("first open");
         store
             .create(Project::new("specline", "Specline").into(), &claude())
             .expect("write to it");
     }
-    let store = Store::open(dir.path().join("keel.sqlite"))
+    let store = Store::open(dir.path().join("specline.sqlite"))
         .expect("reopening at the same schema must work");
     let page = store
         .list(&EntityQuery::default().of_type(EntityType::Project))

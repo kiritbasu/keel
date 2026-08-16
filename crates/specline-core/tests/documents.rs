@@ -22,7 +22,7 @@ impl Fixture {
         // A hash embedder rather than the real model: the test suite must not
         // download 130 MB before it can assert anything. This exercises the
         // plumbing, not retrieval quality — see embed.rs.
-        let mut store = Store::open(dir.path().join("keel.sqlite"))
+        let mut store = Store::open(dir.path().join("specline.sqlite"))
             .unwrap()
             .with_embedder(Arc::new(HashEmbedder::new()));
         let project_id = store
@@ -265,7 +265,7 @@ fn embeddings_are_written_when_an_embedder_is_attached() {
 fn a_store_without_an_embedder_still_stores_and_searches() {
     // G8 and R-3: no embedder must degrade search, not break the store.
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let project_id = store
         .create(Project::new("specline", "Specline").into(), &prov())
         .unwrap()
@@ -625,7 +625,7 @@ fn a_full_size_specification_round_trips_byte_for_byte() {
 fn a_document_survives_reopening_the_store() {
     let dir = tempfile::tempdir().unwrap();
     let (project_id, spec_id) = {
-        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
         let p = store
             .create(Project::new("specline", "Specline").into(), &prov())
             .unwrap()
@@ -655,7 +655,7 @@ fn a_document_survives_reopening_the_store() {
         (p, s)
     };
 
-    let store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let doc = store.revision(&spec_id, None).unwrap().unwrap();
     assert_eq!(doc.body, "This must survive a restart.");
     assert_eq!(doc.project_id, Some(project_id));
@@ -676,7 +676,7 @@ fn reembed_gives_every_vectorless_revision_a_vector() {
     // Written with no embedder attached, which is exactly how the live store
     // came to hold 227 documents with null embeddings.
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let project = store
         .create(Project::new("demo", "Demo").into(), &prov())
         .unwrap()
@@ -742,7 +742,7 @@ fn reembed_gives_every_vectorless_revision_a_vector() {
 #[test]
 fn a_second_reembed_pass_has_nothing_to_do() {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let project = store
         .create(Project::new("demo", "Demo").into(), &prov())
         .unwrap()
@@ -776,7 +776,7 @@ fn a_second_reembed_pass_has_nothing_to_do() {
 #[test]
 fn reembed_leaves_archived_documents_alone() {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let project = store
         .create(Project::new("demo", "Demo").into(), &prov())
         .unwrap()

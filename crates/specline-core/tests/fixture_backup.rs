@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 fn loaded_store() -> (Store, tempfile::TempDir, fixture::FixtureSummary) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite"))
+    let mut store = Store::open(dir.path().join("specline.sqlite"))
         .unwrap()
         .with_embedder(Arc::new(HashEmbedder::new()));
     let summary = fixture::load(&mut store).expect("load the fixture");
@@ -196,7 +196,7 @@ fn the_fixture_records_more_than_one_actor() {
 fn loading_the_fixture_twice_creates_nothing_new() {
     // Because it goes through the ordinary write path, idempotency applies.
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     fixture::load(&mut store).unwrap();
 
     let before: i64 = store
@@ -348,7 +348,7 @@ fn a_backup_restores_and_diffs_clean() {
 
     // Restore into a fresh directory.
     let target = tempfile::tempdir().unwrap();
-    let restored_root = target.path().join("restored").join("keel.sqlite");
+    let restored_root = target.path().join("restored").join("specline.sqlite");
     let restored_manifest = backup::restore(backup_dir.path(), &restored_root).expect("restore");
     assert_eq!(restored_manifest, manifest);
 
@@ -387,7 +387,7 @@ fn a_restored_document_keeps_its_embedding() {
     backup::backup(&store, backup_dir.path()).unwrap();
 
     let target = tempfile::tempdir().unwrap();
-    let root = target.path().join("restored").join("keel.sqlite");
+    let root = target.path().join("restored").join("specline.sqlite");
     backup::restore(backup_dir.path(), &root).unwrap();
 
     let restored = Store::open(&root).unwrap();
@@ -421,7 +421,7 @@ fn restoring_over_an_existing_store_is_refused() {
     backup::backup(&store, backup_dir.path()).unwrap();
 
     let occupied = tempfile::tempdir().unwrap();
-    let occupied_store = occupied.path().join("keel.sqlite");
+    let occupied_store = occupied.path().join("specline.sqlite");
     Store::open(&occupied_store).unwrap();
 
     let err = backup::restore(backup_dir.path(), &occupied_store).unwrap_err();
@@ -442,12 +442,12 @@ fn a_backup_with_no_snapshot_in_it_is_refused_at_restore() {
     let backup_dir = tempfile::tempdir().unwrap();
     backup::backup(&store, backup_dir.path()).unwrap();
 
-    std::fs::remove_file(backup_dir.path().join("keel.sqlite")).unwrap();
+    std::fs::remove_file(backup_dir.path().join("specline.sqlite")).unwrap();
 
     let target = tempfile::tempdir().unwrap();
     let err = backup::restore(backup_dir.path(), target.path().join("restored")).unwrap_err();
     assert!(
-        err.to_string().contains("no `keel.sqlite`"),
+        err.to_string().contains("no `specline.sqlite`"),
         "the error must say what is missing: {err}"
     );
 }
@@ -606,7 +606,7 @@ fn a_write_at_the_seam_cannot_make_the_manifest_disagree_with_the_snapshot() {
         .unwrap();
 
     let restored_dir = tempfile::tempdir().unwrap();
-    let target = restored_dir.path().join("restored").join("keel.sqlite");
+    let target = restored_dir.path().join("restored").join("specline.sqlite");
     let restored_manifest = backup::restore(&dest, &target).unwrap();
     let restored = Store::open(&target).unwrap();
 
@@ -630,7 +630,7 @@ fn a_backup_verifies_the_snapshot_it_just_wrote() {
     assert!(manifest.total_rows() > 0);
 
     // The counts came from the snapshot, so they have to match what is in it.
-    let snapshot = rusqlite::Connection::open(dest.join("keel.sqlite")).unwrap();
+    let snapshot = rusqlite::Connection::open(dest.join("specline.sqlite")).unwrap();
     let tasks: i64 = snapshot
         .query_row("SELECT count(*) FROM tasks", [], |r| r.get(0))
         .unwrap();
@@ -657,7 +657,7 @@ fn a_backup_verifies_the_snapshot_it_just_wrote() {
 #[test]
 fn a_backup_from_an_older_schema_restores_and_migrates_forward() {
     let (store, source_dir, _summary) = loaded_store();
-    let source_path = source_dir.path().join("keel.sqlite");
+    let source_path = source_dir.path().join("specline.sqlite");
 
     // What the older release could see: everything, minus the knowledge that
     // the newest migration exists.
@@ -690,7 +690,7 @@ fn a_backup_from_an_older_schema_restores_and_migrates_forward() {
 
     // Restore with the current binary, which is a release ahead.
     let target = tempfile::tempdir().unwrap();
-    let restored_path = target.path().join("restored").join("keel.sqlite");
+    let restored_path = target.path().join("restored").join("specline.sqlite");
     let restored_manifest = backup::restore(backup_dir.path(), &restored_path).expect("restore");
     assert_eq!(restored_manifest, manifest);
 

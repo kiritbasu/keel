@@ -23,7 +23,7 @@ use std::process::Command;
 /// which is exactly the shape of condition under test.
 fn unopenable_home() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(dir.path().join("keel.sqlite")).unwrap();
+    std::fs::create_dir_all(dir.path().join("specline.sqlite")).unwrap();
     dir
 }
 
@@ -75,7 +75,7 @@ fn an_unopenable_store_exits_zero_and_says_why() {
 fn a_synced_home_is_warned_about_at_startup() {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path().join("Dropbox").join(".keel");
-    std::fs::create_dir_all(home.join("keel.sqlite")).unwrap();
+    std::fs::create_dir_all(home.join("specline.sqlite")).unwrap();
 
     let output = Command::new(env!("CARGO_BIN_EXE_specline-daemon"))
         .arg("--home")

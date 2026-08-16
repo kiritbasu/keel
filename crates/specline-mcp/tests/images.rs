@@ -36,7 +36,7 @@ fn store() -> (Store, tempfile::TempDir, std::path::PathBuf) {
     let root = dir.path().join("checkout");
     std::fs::create_dir_all(&root).unwrap();
 
-    let mut s = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut s = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let mut project = Project::new("harbour", "Harbour");
     project.root_path = Some(root.display().to_string());
     s.create(project.into(), &Provenance::anonymous(Actor::Claude))

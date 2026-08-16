@@ -2418,7 +2418,7 @@ mod tests {
     #[test]
     fn a_second_writer_cannot_lose_the_first_writers_update() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("keel.sqlite");
+        let path = dir.path().join("specline.sqlite");
 
         let mut writer_a = Store::open(&path).unwrap();
         let mut writer_b = Store::open(&path).unwrap();

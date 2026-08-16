@@ -63,7 +63,7 @@ struct Seed {
 
 fn seeded() -> Seed {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Claude).with_session("ses_snapshot");
 
     let project = store

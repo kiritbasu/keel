@@ -29,7 +29,7 @@ fn prov() -> Provenance {
 
 fn fixture() -> (tempfile::TempDir, Store, EntityId) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let project = store
         .create(Project::new("specline", "Specline").into(), &prov())
         .unwrap()

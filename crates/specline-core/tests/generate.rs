@@ -26,7 +26,7 @@ use specline_core::{
 /// the directory out from under the store the rest of the test is using.
 fn fixture(repo: &std::path::Path, body: &str) -> (tempfile::TempDir, Store, EntityId, EntityId) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let prov = Provenance::anonymous(Actor::Human);
 
     let mut project = Project::new("demo", "Demo");
@@ -91,7 +91,7 @@ fn the_fixture_takes_its_store_with_it_when_dropped() {
         let (home, _store, _project_id, _spec_id) = fixture(repo.path(), BODY);
         let path = home.path().to_path_buf();
         assert!(
-            path.join("keel.sqlite").exists(),
+            path.join("specline.sqlite").exists(),
             "the fixture should have built a store to begin with"
         );
         path

@@ -48,7 +48,14 @@ pub struct BackupManifest {
     /// When the backup ran, RFC 3339.
     pub created_at: String,
     /// The `specline-core` version that wrote it.
-    pub keel_version: String,
+    ///
+    /// The alias is what lets a manifest written under the name Keel still be
+    /// read. Dropping it would not fail loudly — `serde` would fill the field
+    /// with a default and the restore would report the wrong writer version,
+    /// which is exactly the sort of quietly-wrong provenance a backup exists to
+    /// avoid.
+    #[serde(alias = "keel_version")]
+    pub specline_version: String,
     /// Migration ids applied at the time.
     ///
     /// A restore into a newer binary is fine, because migrations are
@@ -67,7 +74,16 @@ impl BackupManifest {
 }
 
 /// The file the snapshot is written as, inside the backup directory.
-const SNAPSHOT: &str = "keel.sqlite";
+const SNAPSHOT: &str = "specline.sqlite";
+
+/// What backups taken under the name Keel call their snapshot.
+///
+/// Restore accepts it; nothing writes it. A backup is what somebody reaches for
+/// when something has already gone wrong, and "your backups are unreadable
+/// because the product was renamed" is the worst possible moment to find out
+/// about a naming decision. Old archives stay restorable indefinitely, which
+/// costs one filename and one branch.
+const LEGACY_SNAPSHOT: &str = "keel.sqlite";
 
 /// The manifest's filename.
 const MANIFEST: &str = "manifest.json";
@@ -212,18 +228,25 @@ pub fn restore(source: impl AsRef<Path>, target: impl AsRef<Path>) -> Result<Bac
     let source = source.as_ref().to_path_buf();
     let target = target.as_ref().to_path_buf();
 
-    let snapshot = source.join(SNAPSHOT);
-    if !snapshot.exists() {
+    // Either name. A backup written before the rename calls its snapshot
+    // `keel.sqlite`, and refusing those would make the recovery path the one
+    // thing the rename broke.
+    let snapshot = [SNAPSHOT, LEGACY_SNAPSHOT]
+        .iter()
+        .map(|name| source.join(name))
+        .find(|p| p.exists());
+    let Some(snapshot) = snapshot else {
         return Err(Error::Invariant {
             operation: format!("restore a backup from {}", source.display()),
             problem: format!(
-                "there is no `{SNAPSHOT}` in that directory. A Specline backup is one SQLite file \
-                 plus a `{MANIFEST}`; if what is there instead is `duckdb/` and `lance/`, this \
-                 is a backup from before the store became a single SQLite file, and no build \
-                 since then can read it — it needs a Specline binary from before that change"
+                "there is no `{SNAPSHOT}` or `{LEGACY_SNAPSHOT}` in that directory. A Specline \
+                 backup is one SQLite file plus a `{MANIFEST}`; if what is there instead is \
+                 `duckdb/` and `lance/`, this is a backup from before the store became a single \
+                 SQLite file, and no build since then can read it — it needs a Specline binary \
+                 from before that change"
             ),
         });
-    }
+    };
 
     if target.exists() {
         return Err(Error::Invariant {
@@ -330,7 +353,7 @@ fn read_manifest(conn: &rusqlite::Connection) -> Result<BackupManifest> {
 
     Ok(BackupManifest {
         created_at: chrono::Utc::now().to_rfc3339(),
-        keel_version: env!("CARGO_PKG_VERSION").to_owned(),
+        specline_version: env!("CARGO_PKG_VERSION").to_owned(),
         migrations,
         counts,
     })
@@ -402,10 +425,44 @@ mod tests {
         store
     }
 
+    /// A backup taken under the name Keel must still restore.
+    ///
+    /// This is the one place in the rename where refusing the old name would
+    /// break the thing somebody reaches for *because* something else already
+    /// broke. Written by taking a real backup and renaming the snapshot and the
+    /// manifest field to what a pre-rename build would have produced, rather
+    /// than by hand-building a fixture that might not match.
+    #[test]
+    fn a_backup_written_under_the_old_name_still_restores() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = seeded(&dir.path().join("specline.sqlite"));
+        let dest = dir.path().join("backup");
+        let taken = backup(&store, &dest).unwrap();
+
+        std::fs::rename(dest.join(SNAPSHOT), dest.join(LEGACY_SNAPSHOT)).unwrap();
+        let manifest = std::fs::read_to_string(dest.join(MANIFEST))
+            .unwrap()
+            .replace("\"specline_version\"", "\"keel_version\"");
+        std::fs::write(dest.join(MANIFEST), manifest).unwrap();
+
+        let target = dir.path().join("restored").join("specline.sqlite");
+        let restored = restore(&dest, &target).unwrap();
+
+        assert_eq!(
+            restored.counts, taken.counts,
+            "an old backup must restore the same rows as a new one"
+        );
+        assert_eq!(
+            restored.specline_version, taken.specline_version,
+            "the writer version must survive the field's rename, not default to empty"
+        );
+        assert!(target.is_file());
+    }
+
     #[test]
     fn a_backup_is_one_file_and_a_manifest() {
         let dir = tempfile::tempdir().unwrap();
-        let store = seeded(&dir.path().join("keel.sqlite"));
+        let store = seeded(&dir.path().join("specline.sqlite"));
         let dest = dir.path().join("backup");
 
         let manifest = backup(&store, &dest).unwrap();
@@ -452,7 +509,7 @@ mod tests {
     #[test]
     fn search_still_works_after_a_restore() {
         let dir = tempfile::tempdir().unwrap();
-        let store = seeded(&dir.path().join("keel.sqlite"));
+        let store = seeded(&dir.path().join("specline.sqlite"));
 
         let found_before: i64 = store
             .connection()
@@ -471,7 +528,7 @@ mod tests {
         backup(&store, &dest).unwrap();
         drop(store);
 
-        let restored_path = dir.path().join("restored").join("keel.sqlite");
+        let restored_path = dir.path().join("restored").join("specline.sqlite");
         restore(&dest, &restored_path).unwrap();
         let restored = Store::open(&restored_path).unwrap();
 
@@ -520,12 +577,12 @@ mod tests {
     #[test]
     fn a_backup_restores_to_a_store_holding_the_same_rows() {
         let dir = tempfile::tempdir().unwrap();
-        let store = seeded(&dir.path().join("keel.sqlite"));
+        let store = seeded(&dir.path().join("specline.sqlite"));
         let dest = dir.path().join("backup");
         let manifest = backup(&store, &dest).unwrap();
         drop(store);
 
-        let restored_path = dir.path().join("restored").join("keel.sqlite");
+        let restored_path = dir.path().join("restored").join("specline.sqlite");
         let read_back = restore(&dest, &restored_path).unwrap();
         assert_eq!(read_back.counts, manifest.counts);
 
@@ -539,7 +596,7 @@ mod tests {
     #[test]
     fn blob_bytes_survive_the_round_trip() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("keel.sqlite");
+        let path = dir.path().join("specline.sqlite");
         let store = seeded(&path);
 
         let big: Vec<u8> = (0..5 * 1024 * 1024).map(|i| (i % 251) as u8).collect();
@@ -559,7 +616,7 @@ mod tests {
         backup(&store, &dest).unwrap();
         drop(store);
 
-        let restored_path = dir.path().join("restored").join("keel.sqlite");
+        let restored_path = dir.path().join("restored").join("specline.sqlite");
         restore(&dest, &restored_path).unwrap();
         let restored = Store::open(&restored_path).unwrap();
         let back: Vec<u8> = restored
@@ -581,7 +638,7 @@ mod tests {
     #[test]
     fn restoring_over_an_existing_store_is_refused() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("keel.sqlite");
+        let path = dir.path().join("specline.sqlite");
         let store = seeded(&path);
         let dest = dir.path().join("backup");
         backup(&store, &dest).unwrap();
@@ -621,7 +678,7 @@ mod tests {
     #[test]
     fn verification_fails_when_a_row_is_missing() {
         let dir = tempfile::tempdir().unwrap();
-        let store = seeded(&dir.path().join("keel.sqlite"));
+        let store = seeded(&dir.path().join("specline.sqlite"));
         let dest = dir.path().join("backup");
         let mut manifest = backup(&store, &dest).unwrap();
 

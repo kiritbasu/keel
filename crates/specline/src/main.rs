@@ -1250,16 +1250,31 @@ fn run_task_add(home: &Path, draft: TaskDraft<'_>, force: bool, json: bool) -> R
     Ok(())
 }
 
-/// Resolve the store directory.
+/// Resolve the store directory, moving a Keel one across on the way.
+///
+/// An explicit `--home` is taken as given and never relocated: somebody naming
+/// a directory has said which one they mean, and quietly moving a different one
+/// because it happens to sit beside it would be the opposite of what they
+/// asked. The relocation only applies to the default, which is the only path
+/// the rename actually changed.
 fn resolve_home(explicit: Option<PathBuf>) -> Result<PathBuf> {
     if let Some(p) = explicit {
         return Ok(p);
     }
     // Q-2's working assumption: `~/.specline`, local, no remote.
-    let home = std::env::var_os("HOME").map(PathBuf::from).context(
+    let base = std::env::var_os("HOME").map(PathBuf::from).context(
         "HOME is not set, so the default store location cannot be resolved. Pass --home",
     )?;
-    Ok(home.join(".keel"))
+    let home = base.join(specline_core::relocate::HOME_DIR);
+    if let Some(moved) = specline_core::relocate::relocate(
+        &base.join(specline_core::relocate::LEGACY_HOME_DIR),
+        &home,
+    )? {
+        // Printed, not logged. Somebody whose store just moved should find that
+        // out from the thing that moved it.
+        println!("specline: {}", moved.describe());
+    }
+    Ok(home)
 }
 
 /// Open a store that is already there.
@@ -1461,7 +1476,11 @@ fn run_backup(home: &Path, dest: Option<PathBuf>, json: bool) -> Result<()> {
             manifest.total_rows(),
             dest.display()
         );
-        println!("  store    → {}/keel.sqlite", dest.display());
+        println!(
+            "  store    → {}/{}",
+            dest.display(),
+            specline_core::store::STORE_FILE
+        );
         println!("  manifest → {}/manifest.json", dest.display());
     }
     Ok(())
@@ -1927,7 +1946,7 @@ mod restore_git_tests {
             return;
         }
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("keel.sqlite"), b"not really a database").unwrap();
+        std::fs::write(dir.path().join("specline.sqlite"), b"not really a database").unwrap();
 
         assert!(init_store_git(dir.path()).unwrap(), "it created the repo");
         assert!(dir.path().join(".git").exists());
@@ -1994,7 +2013,7 @@ mod render_status_tests {
 
     fn store_with(slugs: &[(&str, &str)]) -> (tempfile::TempDir, Store) {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
         for (slug, name) in slugs {
             store
                 .create(

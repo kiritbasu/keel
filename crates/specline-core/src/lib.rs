@@ -46,6 +46,7 @@ pub mod lock;
 pub mod mirror;
 pub mod next;
 pub mod note;
+pub mod relocate;
 pub mod render_changelog;
 pub mod render_decisions;
 pub mod render_status;

@@ -582,7 +582,7 @@ fn backup_age(home: &Path) -> Check {
         .into_iter()
         .flatten()
         .filter_map(std::result::Result::ok)
-        .filter(|e| e.path().join("keel.sqlite").is_file())
+        .filter(|e| e.path().join("specline.sqlite").is_file())
         .filter_map(|e| e.metadata().ok()?.modified().ok())
         .max();
 

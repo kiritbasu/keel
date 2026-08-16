@@ -15,7 +15,7 @@ use specline_core::{
 
 fn store() -> (Store, EntityId, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let id = store
         .create(
             Project::new("demo", "Demo").into(),

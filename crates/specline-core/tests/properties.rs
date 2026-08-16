@@ -33,7 +33,7 @@ const NODES: usize = 6;
 
 fn store_with_project() -> (Store, EntityId, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let project = store
         .create(
             Project::new("props", "Properties").into(),

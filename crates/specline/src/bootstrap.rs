@@ -1279,7 +1279,7 @@ mod tests {
     #[test]
     fn the_bootstrap_seeds_a_coherent_project() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
         let summary = run(&mut store, None).unwrap();
 
         assert!(summary.entities > 80, "got {}", summary.entities);
@@ -1298,7 +1298,7 @@ mod tests {
     #[test]
     fn running_the_bootstrap_twice_creates_nothing_new() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
         run(&mut store, None).unwrap();
         let before: i64 = store
             .connection()
@@ -1315,7 +1315,7 @@ mod tests {
     #[test]
     fn archiving_other_projects_leaves_the_named_one_alone() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+        let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
         specline_core::fixture::load(&mut store).unwrap();
         let projects_before: i64 = store
             .connection()

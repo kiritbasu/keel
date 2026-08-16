@@ -448,7 +448,7 @@ fn close_without_a_daemon_reports_the_reference_it_closed() {
 #[test]
 fn a_read_against_a_home_with_no_store_says_so_and_creates_nothing() {
     let home = tempfile::tempdir().unwrap();
-    let store = home.path().join("keel.sqlite");
+    let store = home.path().join("specline.sqlite");
 
     let out = specline(home.path(), &["ready", "specline", "--daemon", NO_DAEMON])
         .expect_failure("a read cannot answer from a store that does not exist");
@@ -477,7 +477,7 @@ fn a_read_against_a_home_with_no_store_says_so_and_creates_nothing() {
 fn the_commands_that_are_asked_to_make_a_store_still_do() {
     let home = tempfile::tempdir().unwrap();
     specline(home.path(), &["--force", "fixture"]).expect_ok("fixture makes a store");
-    assert!(home.path().join("keel.sqlite").exists());
+    assert!(home.path().join("specline.sqlite").exists());
 }
 
 /// KEEL-220. `reembed` is the one command whose whole job is the model, so a

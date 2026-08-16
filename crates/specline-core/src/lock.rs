@@ -129,14 +129,14 @@ mod tests {
 
     #[test]
     fn the_lock_file_sits_beside_the_store() {
-        let p = lock_path(Path::new("/tmp/keel/keel.sqlite"));
-        assert_eq!(p, Path::new("/tmp/keel/keel.sqlite.lock"));
+        let p = lock_path(Path::new("/tmp/specline/specline.sqlite"));
+        assert_eq!(p, Path::new("/tmp/specline/specline.sqlite.lock"));
     }
 
     #[test]
     fn a_second_claim_is_refused_and_says_why() {
         let dir = tempfile::tempdir().unwrap();
-        let store = dir.path().join("keel.sqlite");
+        let store = dir.path().join("specline.sqlite");
 
         let first = StoreLock::acquire(&store).unwrap();
         let err = StoreLock::acquire(&store).unwrap_err().to_string();
@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn dropping_the_claim_releases_it() {
         let dir = tempfile::tempdir().unwrap();
-        let store = dir.path().join("keel.sqlite");
+        let store = dir.path().join("specline.sqlite");
 
         let first = StoreLock::acquire(&store).unwrap();
         drop(first);

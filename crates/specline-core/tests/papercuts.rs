@@ -11,7 +11,7 @@ use specline_core::*;
 
 fn fixture() -> (Store, EntityId, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(dir.path().join("keel.sqlite")).unwrap();
+    let mut store = Store::open(dir.path().join("specline.sqlite")).unwrap();
     let project = store
         .create(
             Project::new("papercuts", "Papercuts").into(),
