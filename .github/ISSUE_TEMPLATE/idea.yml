@@ -1,5 +1,5 @@
 name: Idea or change
-description: Something Keel should do differently, or not do at all.
+description: Something Specline should do differently, or not do at all.
 labels: ["idea"]
 body:
   - type: markdown

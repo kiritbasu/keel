@@ -38,28 +38,28 @@ describe("the decision register", () => {
   ];
 
   it("is a table, because a numbered register is something you scan", () => {
-    render(<LibraryIndex type="decision" items={decisions} project="keel" />);
+    render(<LibraryIndex type="decision" items={decisions} project="specline" />);
     expect(screen.getByRole("table")).toBeTruthy();
     expect(screen.getByRole("columnheader", { name: "Ref" })).toBeTruthy();
   });
 
   it("counts down from the newest, and shows the readable number", () => {
-    render(<LibraryIndex type="decision" items={decisions} project="keel" />);
+    render(<LibraryIndex type="decision" items={decisions} project="specline" />);
     const rows = screen.getAllByRole("row").slice(1); // drop the header
     expect(within(rows[0]!).getByText("B-12")).toBeTruthy();
     expect(within(rows[1]!).getByText("B-3")).toBeTruthy();
   });
 
   it("says when one was overturned, which is what supersedes means to a reader", () => {
-    render(<LibraryIndex type="decision" items={decisions} project="keel" />);
+    render(<LibraryIndex type="decision" items={decisions} project="specline" />);
     expect(screen.getByText("superseded")).toBeTruthy();
   });
 
   it("sends every row to the reader, so revision history is never lost", () => {
-    render(<LibraryIndex type="decision" items={decisions} project="keel" />);
+    render(<LibraryIndex type="decision" items={decisions} project="specline" />);
     expect(
       screen.getByRole("link", { name: "Use a separate vector store" }).getAttribute("href"),
-    ).toBe("#/projects/keel/documents/dec_1");
+    ).toBe("#/projects/specline/documents/dec_1");
   });
 });
 
@@ -73,7 +73,7 @@ describe("questions", () => {
   // question from "what did we decide", and one ordered list makes the reader
   // do the separating.
   it("puts the undecided ones in their own section, counted", () => {
-    render(<LibraryIndex type="question" items={questions} project="keel" />);
+    render(<LibraryIndex type="question" items={questions} project="specline" />);
     const headings = screen.getAllByRole("heading");
     expect(headings[0]!.textContent).toContain("Open");
     expect(headings[0]!.textContent).toContain("1");
@@ -81,7 +81,7 @@ describe("questions", () => {
   });
 
   it("drops a section rather than showing an empty heading", () => {
-    render(<LibraryIndex type="question" items={[questions[0]!]} project="keel" />);
+    render(<LibraryIndex type="question" items={[questions[0]!]} project="specline" />);
     expect(screen.queryByText(/Settled/)).toBeNull();
   });
 });
@@ -92,7 +92,7 @@ describe("designs", () => {
       <LibraryIndex
         type="design"
         items={[entity({ id: "dsg_1", type: "design", name: "Task page", blob_id: "blb_9" })]}
-        project="keel"
+        project="specline"
       />,
     );
     const img = screen.getByRole("img", { name: "Task page" });
@@ -106,7 +106,7 @@ describe("designs", () => {
       <LibraryIndex
         type="design"
         items={[entity({ id: "dsg_2", type: "design", name: "No picture", blob_id: null })]}
-        project="keel"
+        project="specline"
       />,
     );
     expect(screen.getByText("no image")).toBeTruthy();
@@ -128,7 +128,7 @@ describe("feedback", () => {
             sentiment: "negative",
           }),
         ]}
-        project="keel"
+        project="specline"
       />,
     );
     expect(screen.getByText("interview")).toBeTruthy();
@@ -138,7 +138,7 @@ describe("feedback", () => {
 
 describe("an empty kind", () => {
   it("names the kind rather than saying 'no documents'", () => {
-    render(<LibraryIndex type="feedback" items={[]} project="keel" />);
+    render(<LibraryIndex type="feedback" items={[]} project="specline" />);
     expect(screen.getByText(/No feedback yet/)).toBeTruthy();
   });
 });

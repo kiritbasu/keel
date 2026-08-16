@@ -67,7 +67,7 @@ describe("the theme the user chose", () => {
   it("falls back to system when the stored value is not a theme", () => {
     // A value left by an older build, or edited by hand. Rendering with no
     // colour scheme at all would be worse than ignoring it.
-    localStorage.setItem("keel.theme", "solarized");
+    localStorage.setItem("specline.theme", "solarized");
     expect(readTheme()).toBe("system");
   });
 

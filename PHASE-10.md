@@ -1,6 +1,6 @@
-<!-- keel:generated spec spc_01KZR4882HZTJ4HHGZ5Y6HQDPM
-     Keel is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
-     An edit made here is overwritten on the next `keel generate`. -->
+<!-- specline:generated spec spc_01KZR4882HZTJ4HHGZ5Y6HQDPM
+     Specline is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
+     An edit made here is overwritten on the next `specline generate`. -->
 
 # Keel — Phase 10
 ## Release, distribution and install

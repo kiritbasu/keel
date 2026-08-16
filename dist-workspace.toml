@@ -45,7 +45,7 @@ ci = ["github"]
 # This said three until 0.1.0 was actually cut, at which point two of them
 # failed and both failures were `ort-sys` — the ONNX Runtime binding `fastembed`
 # pulls in. `ort` does not compile ONNX Runtime, it downloads a prebuilt static
-# library, so the platforms Keel can ship to are the platforms that library is
+# library, so the platforms Specline can ship to are the platforms that library is
 # built for:
 #
 #   x86_64-apple-darwin        "no prebuilt binaries available for target"
@@ -76,7 +76,7 @@ ci = ["github"]
 # when someone asks, with test coverage from the first commit (§10).
 # **Three again, since KEEL-252.** The `ort-sys` failures below were real and are
 # now avoided rather than worked around: `[package.metadata.dist] default-features
-# = false` in `crates/keel/Cargo.toml` takes the ONNX runtime out of the release
+# = false` in `crates/specline/Cargo.toml` takes the ONNX runtime out of the release
 # build entirely, so every one of these links. The comment above is kept because
 # it is the reason this list was ever one item, and because the constraint it
 # describes has not gone away — it is only no longer in the way.
@@ -112,7 +112,7 @@ installers = ["shell"]
 checksum = "sha256"
 
 # Build provenance, so a downloaded archive can be traced to the workflow run
-# and commit that produced it (`gh attestation verify <file> --repo <owner>/keel`).
+# and commit that produced it (`gh attestation verify <file> --repo <owner>/specline`).
 #
 # Confirmed: `github_attestations`, and workspace-level only — `dist` warns and
 # ignores it if it appears under `[package.metadata.dist]`, which is why it is
@@ -123,8 +123,8 @@ checksum = "sha256"
 # this key being honoured. Set anyway, so the config says what the release does.
 github-attestations = true
 
-# No updater binary beside the app. Keel does its own updating: §6 specifies
-# `keel update`, which refuses to cross a schema version without asking and has
+# No updater binary beside the app. Specline does its own updating: §6 specifies
+# `specline update`, which refuses to cross a schema version without asking and has
 # `--rollback`. A second updater that knows nothing about the store would be a
 # way to walk straight through that guard.
 install-updater = false
@@ -153,7 +153,7 @@ allow-dirty = ["ci"]
 #
 # `install-path` is unset, so the shell installer uses its default of
 # `CARGO_HOME` (`~/.cargo/bin`). PHASE-10 does not specify one, and the default
-# is arguably wrong for Keel: §12 tier 1 runs the installer under
+# is arguably wrong for Specline: §12 tier 1 runs the installer under
 # `env -i PATH=/usr/bin:/bin` on a machine with no Rust, where creating
 # `~/.cargo` says something untrue about how the binary got there. Changing it
 # to `~/.keel/bin` is a decision for KB, not for this file.
@@ -171,22 +171,22 @@ allow-dirty = ["ci"]
 #    installer after the package that owns the binaries and treats every package
 #    with binaries as its own app. With `keel-cli` and `keel-daemon` as separate
 #    packages the plan produced `keel-cli-installer.sh` *and*
-#    `keel-daemon-installer.sh` — two installers, while §1 advertises one
-#    `keel-installer.sh` and `scripts/verify-release-tier1.sh` asserts that
+#    `keel-daemon-installer.sh` — two installers, while §1 advertised one
+#    installer and `scripts/verify-release-tier1.sh` asserts that
 #    running one leaves both binaries on disk.
 #
 #    There is no setting that folds one package's binaries into another's
 #    archive; `binaries` is a per-platform override, not a manifest. So the
-#    packages were merged: `keel-cli` is now `keel` (B-69) and declares both
-#    binaries, with the daemon's entry point a shim over `keel_daemon::run`.
-#    The plan now announces one app, `keel`, with `keel` and `keel-daemon` in
+#    packages were merged: `keel-cli` is now `specline` (B-69) and declares both
+#    binaries, with the daemon's entry point a shim over `specline_daemon::run`.
+#    The plan now announces one app, `specline`, with `specline` and `specline-daemon` in
 #    each of the three archives.
 #
 # 2. **`publish = false`.** Real, and it hid everything: `dist plan` refused the
 #    whole workspace with "no packages in your workspace with distable
 #    binaries". The opt-in is `[package.metadata.dist] dist = true`, per package,
-#    with no workspace-level form — it is in `crates/keel/Cargo.toml`, and
-#    `crates/keel-daemon/Cargo.toml` sets `dist = false` so that a binary added
+#    with no workspace-level form — it is in `crates/specline/Cargo.toml`, and
+#    `crates/specline-daemon/Cargo.toml` sets `dist = false` so that a binary added
 #    back there fails the plan instead of quietly becoming a second installer.
 #
 # And the bugs from §10, now patched rather than only recorded. The generated
@@ -211,13 +211,13 @@ allow-dirty = ["ci"]
 # attesting, so provenance covers the bytes people download. It fails the
 # release if the text it expects is not there, which is how a `dist` upgrade
 # that fixes this upstream gets noticed instead of being papered over.
-# `crates/keel/tests/installer_checksum.rs` is the proof, including a test that
+# `crates/specline/tests/installer_checksum.rs` is the proof, including a test that
 # pins the unpatched behaviour so the patch can be deleted with evidence.
 #
 # The second is the one that actually reached a user, and it is worse: with no
 # checksum embedded at all the installer says "no checksums to verify" and
 # unpacks the archive. That branch is now a refusal too, because the installer
 # should not depend on the release having been built correctly to be safe — and
-# on 0.1.2 it was not. `crates/keel/tests/installer_embedded_checksums.rs`
+# on 0.1.2 it was not. `crates/specline/tests/installer_embedded_checksums.rs`
 # covers the other half, the release-time check that the digest in the installer
 # is the digest of the archive being published.

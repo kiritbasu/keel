@@ -8,7 +8,7 @@ vi.mock("../lib/api", () => ({
   subscribe: () => () => {},
   api: {
     projects: async () => ({
-      projects: [{ id: "prj_1", type: "project", name: "Keel", slug: "keel", audit: {} }],
+      projects: [{ id: "prj_1", type: "project", name: "Specline", slug: "specline", audit: {} }],
     }),
     entities: async ({ type }: { type?: string }) => ({
       items:
@@ -23,7 +23,7 @@ vi.mock("../lib/api", () => ({
                 audit: {},
               },
             ]
-          : [{ id: "spc_1", type: "spec", title: "Keel — Spec", audit: {} }],
+          : [{ id: "spc_1", type: "spec", title: "Specline — Spec", audit: {} }],
       total: 1,
       truncated: false,
     }),
@@ -36,7 +36,7 @@ function item(label: string, hint?: string): PaletteItem {
     label,
     kind: "task",
     ...(hint ? { hint } : {}),
-    route: { screen: "board", project: "keel" },
+    route: { screen: "board", project: "specline" },
   };
 }
 
@@ -120,21 +120,21 @@ describe("screenItems", () => {
   });
 
   it("offers every screen once a project is named, and carries the project into the route", () => {
-    const items = screenItems("keel");
+    const items = screenItems("specline");
     expect(items).toHaveLength(7);
     const board = items.find((i) => i.route.screen === "board");
-    expect(board?.route.project).toBe("keel");
-    expect(board?.hint).toBe("keel");
+    expect(board?.route.project).toBe("specline");
+    expect(board?.hint).toBe("specline");
   });
 
   it("does not put a project on the screens that are global", () => {
-    const home = screenItems("keel").find((i) => i.route.screen === "home");
+    const home = screenItems("specline").find((i) => i.route.screen === "home");
     expect(home?.route.project).toBeUndefined();
   });
 });
 
 describe("the palette, driven by the keyboard", () => {
-  const route: Route = { screen: "board", project: "keel", query: {} };
+  const route: Route = { screen: "board", project: "specline", query: {} };
 
   beforeEach(() => {
     window.location.hash = "";
@@ -157,7 +157,7 @@ describe("the palette, driven by the keyboard", () => {
     expect(screen.getByRole("option", { selected: true }).textContent).toContain("The task detail view");
 
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(window.location.hash).toBe("#/projects/keel/tasks/tsk_1");
+    expect(window.location.hash).toBe("#/projects/specline/tasks/tsk_1");
   });
 
   it("moves the selection with the arrow keys", async () => {
@@ -167,7 +167,7 @@ describe("the palette, driven by the keyboard", () => {
     fireEvent.keyDown(input, { key: "ArrowUp" });
     fireEvent.keyDown(input, { key: "Enter" });
     // Second entry in the screen list, which is the project dashboard.
-    expect(window.location.hash).toBe("#/projects/keel");
+    expect(window.location.hash).toBe("#/projects/specline");
   });
 
   it("will not run off either end of the list", async () => {

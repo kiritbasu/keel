@@ -29,7 +29,7 @@ const RESPONSE = {
           entity_id: "tsk_1",
           entity_type: "task",
           reference: "KEEL-108",
-          summary: "created task “keel ready”",
+          summary: "created task “specline ready”",
           at: NOW,
         },
         {
@@ -92,7 +92,7 @@ vi.mock("../lib/api", () => ({
 const { ChangedScreen } = await import("./Changed");
 
 function at(query: Record<string, string>): Route {
-  return { screen: "changed", project: "keel", query };
+  return { screen: "changed", project: "specline", query };
 }
 
 async function show(query: Record<string, string> = {}) {
@@ -103,7 +103,7 @@ async function show(query: Record<string, string> = {}) {
 }
 
 beforeEach(() => {
-  window.location.hash = "#/projects/keel/changed";
+  window.location.hash = "#/projects/specline/changed";
   window.localStorage.clear();
   calls.length = 0;
   state.response = RESPONSE;
@@ -119,9 +119,9 @@ describe("sessions", () => {
 
   it("keeps a session collapsed until it is asked to open", async () => {
     await show();
-    expect(screen.queryByText(/created task “keel ready”/)).toBeNull();
+    expect(screen.queryByText(/created task “specline ready”/)).toBeNull();
     fireEvent.click(screen.getByText("created 1 thing, 4 changes, wrote 2 notes"));
-    expect(screen.getByText(/created task “keel ready”/)).toBeTruthy();
+    expect(screen.getByText(/created task “specline ready”/)).toBeTruthy();
   });
 
   it("says when a session recorded no conversation, without pretending it is an error", async () => {
@@ -135,15 +135,15 @@ describe("where a row leads", () => {
   it("sends a task change to the task, by its readable identifier", async () => {
     await show();
     fireEvent.click(screen.getByText("created 1 thing, 4 changes, wrote 2 notes"));
-    const link = screen.getByText(/created task “keel ready”/).closest("a");
-    expect(link?.getAttribute("href")).toBe("#/projects/keel/tasks/KEEL-108");
+    const link = screen.getByText(/created task “specline ready”/).closest("a");
+    expect(link?.getAttribute("href")).toBe("#/projects/specline/tasks/KEEL-108");
   });
 
   it("sends a prose change to the document reader", async () => {
     await show();
     fireEvent.click(screen.getByText("created 1 thing, 4 changes, wrote 2 notes"));
     const link = screen.getByText(/status proposed/).closest("a");
-    expect(link?.getAttribute("href")).toBe("#/projects/keel/documents/dec_1");
+    expect(link?.getAttribute("href")).toBe("#/projects/specline/documents/dec_1");
   });
 
   // The defect this screen was rebuilt for. `Activity.tsx` had no anchor of any
@@ -201,7 +201,7 @@ describe("the range and the actor", () => {
 
 describe("the new-since marker", () => {
   it("marks a session that landed after the last visit", async () => {
-    window.localStorage.setItem("keel.changed.lastSeen", YESTERDAY);
+    window.localStorage.setItem("specline.changed.lastSeen", YESTERDAY);
     await show();
     expect(screen.getByText("new")).toBeTruthy();
     expect(screen.getByText(/1 new since you were last here/)).toBeTruthy();
@@ -214,7 +214,7 @@ describe("the new-since marker", () => {
 
   it("remembers this visit, so the same rows are not new next time", async () => {
     await show();
-    expect(window.localStorage.getItem("keel.changed.lastSeen")).toBeTruthy();
+    expect(window.localStorage.getItem("specline.changed.lastSeen")).toBeTruthy();
   });
 });
 

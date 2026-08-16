@@ -1,0 +1,27 @@
+---
+source: crates/specline-mcp/tests/snapshots.rs
+expression: result
+---
+{
+  "content": [
+    {
+      "text": "Noted on [id]. The duplicate rows all came from one retrying client.",
+      "type": "text"
+    }
+  ],
+  "isError": false,
+  "structuredContent": {
+    "note": {
+      "archived_at": null,
+      "author": "claude",
+      "body": "The duplicate rows all came from one retrying client.",
+      "created_at": "[timestamp]",
+      "entity_id": "[id]",
+      "entity_type": "task",
+      "id": "[id]",
+      "project_id": "[id]",
+      "session_id": "ses_snapshot",
+      "surface": null
+    }
+  }
+}

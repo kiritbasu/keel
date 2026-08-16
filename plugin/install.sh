@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Build Keel, install the binaries and the skill, and print the Claude Code
+# Build Specline, install the binaries and the skill, and print the Claude Code
 # configuration.
 #
 # Two kinds of file live under ~/.claude, and this script treats them
@@ -11,7 +11,7 @@
 #   indistinguishable from damage the one time it gets it wrong, so this prints
 #   what to add and lets you paste it.
 #
-#   ~/.claude/skills/keel/ is *Keel's*. Its contents are this repository's
+#   ~/.claude/skills/specline/ is *Specline's*. Its contents are this repository's
 #   files and nothing else authors them, so copying them there is installation
 #   rather than interference.
 #
@@ -40,14 +40,14 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # (KEEL-234). A development install that lands somewhere a release never touches
 # is not a rehearsal of the thing users get; it is a second installation to keep
 # in step by hand.
-bin_dir="${KEEL_BIN_DIR:-${CARGO_HOME:-$HOME/.cargo}/bin}"
-keel_home="${KEEL_HOME:-$HOME/.keel}"
-skill_dir="${KEEL_SKILL_DIR:-$HOME/.claude/skills/keel}"
+bin_dir="${SPECLINE_BIN_DIR:-${CARGO_HOME:-$HOME/.cargo}/bin}"
+specline_home="${SPECLINE_HOME:-$HOME/.specline}"
+skill_dir="${SPECLINE_SKILL_DIR:-$HOME/.claude/skills/specline}"
 # Adoption is its own skill because it is used once per project and the everyday
 # one is loaded in every project conversation. Folding eighty lines about
 # backfilling a repository into that would tax every session for a workflow
 # nobody runs twice.
-adopt_dir="${KEEL_ADOPT_SKILL_DIR:-$HOME/.claude/skills/keel-adopt}"
+adopt_dir="${SPECLINE_ADOPT_SKILL_DIR:-$HOME/.claude/skills/specline-adopt}"
 
 skill_only=false
 case "${1:-}" in
@@ -78,14 +78,14 @@ install_file() {
 install_skill() {
   say "Installing the skill and hooks to $skill_dir"
   mkdir -p "$skill_dir"
-  install_file "$repo_root/plugin/skills/keel/SKILL.md" "$skill_dir/SKILL.md" 644
+  install_file "$repo_root/plugin/skills/specline/SKILL.md" "$skill_dir/SKILL.md" 644
   mkdir -p "$adopt_dir"
-  install_file "$repo_root/plugin/skills/keel-adopt/SKILL.md" "$adopt_dir/SKILL.md" 644
+  install_file "$repo_root/plugin/skills/specline-adopt/SKILL.md" "$adopt_dir/SKILL.md" 644
   # One shim now, not two scripts. KEEL-206 moved the logic into the binary as
-  # `keel hook session-start` and `keel hook stop`; what is left here is the
+  # `specline hook session-start` and `specline hook stop`; what is left here is the
   # only part that has to run *without* the binary, so a session between
   # installing the plugin and running setup can say the binary is missing.
-  install_file "$repo_root/plugin/hooks/keel-hook.sh" "$skill_dir/keel-hook.sh" 755
+  install_file "$repo_root/plugin/hooks/specline-hook.sh" "$skill_dir/specline-hook.sh" 755
 
   # The two scripts this replaced become forwarders rather than disappearing.
   #
@@ -106,18 +106,18 @@ install_skill() {
 #!/bin/sh
 # Compatibility forwarder. The hooks moved into the binary in KEEL-206; this
 # exists so a settings.json written before that keeps working unchanged.
-# Nothing needs it once settings.json points at keel-hook.sh directly.
-exec "\$(dirname "\$0")/keel-hook.sh" $event
+# Nothing needs it once settings.json points at specline-hook.sh directly.
+exec "\$(dirname "\$0")/specline-hook.sh" $event
 FORWARD
     chmod 755 "$skill_dir/$stale"
-    note "$stale — forwards to keel-hook.sh"
+    note "$stale — forwards to specline-hook.sh"
   done
 
   # Read-only inspection, not a rewrite. A settings file that does not mention
   # these paths means the hooks are installed and never run, which looks
   # exactly like the hooks not working.
   local settings="$HOME/.claude/settings.json"
-  if [ -f "$settings" ] && ! grep -q "$skill_dir/keel-hook.sh" "$settings" 2>/dev/null; then
+  if [ -f "$settings" ] && ! grep -q "$skill_dir/specline-hook.sh" "$settings" 2>/dev/null; then
     note ""
     note "NOTE: $settings does not reference these hooks, so they will not run."
     note "See the settings snippet printed at the end."
@@ -131,7 +131,7 @@ if [ "$skill_only" = true ]; then
   exit 0
 fi
 
-say "Building Keel"
+say "Building Specline"
 note "SQLite is compiled in, so the installed binary is self-contained: there"
 note "is no database to install alongside it and nothing to keep in step."
 cd "$repo_root"
@@ -139,12 +139,12 @@ cargo build --release --workspace
 
 say "Installing binaries to $bin_dir"
 mkdir -p "$bin_dir"
-install -m 755 target/release/keel "$bin_dir/keel"
-install -m 755 target/release/keel-daemon "$bin_dir/keel-daemon"
-note "keel"
-note "keel-daemon"
+install -m 755 target/release/specline "$bin_dir/specline"
+install -m 755 target/release/specline-daemon "$bin_dir/specline-daemon"
+note "specline"
+note "specline-daemon"
 
-if ! command -v keel >/dev/null 2>&1; then
+if ! command -v specline >/dev/null 2>&1; then
   note ""
   note "WARNING: $bin_dir is not on your PATH. Add it:"
   note "  export PATH=\"$bin_dir:\$PATH\""
@@ -153,31 +153,31 @@ if ! command -v keel >/dev/null 2>&1; then
 # did not write — which is how a CLI and a daemon ended up hours apart with
 # nothing saying so (KEEL-234). Checked by resolution rather than by directory,
 # so a symlink farm or a shim is caught too.
-elif [ "$(command -v keel)" != "$bin_dir/keel" ]; then
+elif [ "$(command -v specline)" != "$bin_dir/specline" ]; then
   note ""
-  note "WARNING: this is not the keel your shell will run."
-  note "  installed:  $bin_dir/keel"
-  note "  PATH finds: $(command -v keel)"
+  note "WARNING: this is not the specline your shell will run."
+  note "  installed:  $bin_dir/specline"
+  note "  PATH finds: $(command -v specline)"
   note ""
   note "Remove the other copy, or put $bin_dir earlier on PATH. Until then the"
   note "binaries this script just built are installed and not in use."
 fi
 
-say "Creating the store at $keel_home"
-"$bin_dir/keel" --home "$keel_home" status >/dev/null
+say "Creating the store at $specline_home"
+"$bin_dir/specline" --home "$specline_home" status >/dev/null
 note "done"
 
-# ~/.keel is its own git repo, which is recovery tier 1 (SPEC §11): full
+# ~/.specline is its own git repo, which is recovery tier 1 (SPEC §11): full
 # fidelity, including revision history. No remote — that is KB's call (Q-2).
-if [ ! -d "$keel_home/.git" ]; then
-  say "Initialising $keel_home as a git repository"
-  git -C "$keel_home" init -q
-  cat > "$keel_home/.gitignore" <<'GITIGNORE'
+if [ ! -d "$specline_home/.git" ]; then
+  say "Initialising $specline_home as a git repository"
+  git -C "$specline_home" init -q
+  cat > "$specline_home/.gitignore" <<'GITIGNORE'
 # Model weights are large and re-downloadable.
 models/
 GITIGNORE
-  git -C "$keel_home" add -A
-  git -C "$keel_home" commit -q -m "chore: initialise the Keel store" || true
+  git -C "$specline_home" add -A
+  git -C "$specline_home" commit -q -m "chore: initialise the Specline store" || true
   note "done — no remote configured, which is deliberate (QUESTIONS Q-2)"
 fi
 
@@ -191,15 +191,15 @@ install_skill
 # wrong component.
 #
 # KEEL-206 removed the need rather than correcting the warning. The hooks are
-# `keel hook session-start` and `keel hook stop` now, and the only shell left is
-# `keel-hook.sh`, which is POSIX `sh` and shells out to nothing. There is
+# `specline hook session-start` and `specline hook stop` now, and the only shell left is
+# `specline-hook.sh`, which is POSIX `sh` and shells out to nothing. There is
 # nothing here to warn about, so there is no warning.
 
 say "Next"
 cat <<EOF
   1. Start the daemon, and leave it running:
 
-       keel-daemon
+       specline-daemon
 
      Add --embeddings for semantic search. The first run downloads the model;
      keyword search works either way.
@@ -212,11 +212,11 @@ cat <<EOF
          "hooks": {
            "SessionStart": [
              { "hooks": [ { "type": "command", "timeout": 10,
-                 "command": "$skill_dir/keel-hook.sh session-start" } ] }
+                 "command": "$skill_dir/specline-hook.sh session-start" } ] }
            ],
            "Stop": [
              { "hooks": [ { "type": "command", "timeout": 15,
-                 "command": "$skill_dir/keel-hook.sh stop" } ] }
+                 "command": "$skill_dir/specline-hook.sh stop" } ] }
            ]
          }
        }
@@ -228,7 +228,7 @@ cat <<EOF
 
   4. Or wire up the MCP server alone, without the skill or hooks:
 
-       claude mcp add --transport http keel http://127.0.0.1:7654/mcp
+       claude mcp add --transport http specline http://127.0.0.1:7654/mcp
 
   5. Check it:
 
@@ -236,8 +236,8 @@ cat <<EOF
 
   6. Load the sample corpus into a scratch store to see what it looks like:
 
-       keel --home /tmp/keel-demo fixture
-       keel --home /tmp/keel-demo render-status keel
+       specline --home /tmp/specline-demo fixture
+       specline --home /tmp/specline-demo render-status specline
 
   After editing anything under plugin/, re-run:
 
@@ -247,7 +247,7 @@ EOF
 
 say "Phase 2's gate"
 cat <<'EOF'
-  Met and frozen. ">=9 of 10 unprompted sessions write to Keel" closed at 18 of
+  Met and frozen. ">=9 of 10 unprompted sessions write to Specline" closed at 18 of
   20 across two independent draws, and nobody is running it any more. The
   harness is kept and still tested, because the next time the agent's
   orientation changes it is the only way to find out what that did.

@@ -40,7 +40,7 @@ export function HomeScreen({ generation }: ScreenProps) {
 
   // A store with no projects in it is a new install, not an empty list, and the
   // two want different screens. The roll-up below is a scanning surface — it
-  // assumes you know what Keel is and want the state of it. Somebody who has
+  // assumes you know what Specline is and want the state of it. Somebody who has
   // just installed it wants neither, and giving them three "nothing yet"
   // messages inside two bordered panels answered no question they had.
   //

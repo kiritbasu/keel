@@ -18,8 +18,8 @@ import * as footer from "./VersionFooter";
 
 afterEach(cleanup);
 
-const NOTES = "https://github.com/kiritbasu/keel/releases/tag/v0.1.3";
-const STAGED_NOTES = "https://github.com/kiritbasu/keel/releases/tag/v0.1.4";
+const NOTES = "https://github.com/kiritbasu/specline/releases/tag/v0.1.3";
+const STAGED_NOTES = "https://github.com/kiritbasu/specline/releases/tag/v0.1.4";
 
 describe("VersionFooter", () => {
   it("links the running version to its release notes", () => {
@@ -153,7 +153,7 @@ describe("VersionFooter — whether checking is happening at all", () => {
       />,
     );
 
-    expect(screen.getByText(/KEEL_AUTO_UPDATE=0/)).toBeTruthy();
+    expect(screen.getByText(/SPECLINE_AUTO_UPDATE=0/)).toBeTruthy();
   });
 
   it("reports a check that ran and failed", () => {
@@ -216,14 +216,14 @@ describe("VersionFooter — whether checking is happening at all", () => {
       <VersionFooter
         version="0.1.0"
         stagedVersion={null}
-        executable="/Users/kb/.cargo/bin/keel-daemon"
+        executable="/Users/kb/.cargo/bin/specline-daemon"
         onStaged={() => {}}
         onApplied={() => {}}
       />,
     );
 
     expect(
-      screen.getByTitle("Running /Users/kb/.cargo/bin/keel-daemon"),
+      screen.getByTitle("Running /Users/kb/.cargo/bin/specline-daemon"),
     ).toBeTruthy();
   });
 });
@@ -339,7 +339,7 @@ describe("VersionFooter — asking for a check", () => {
     const status = await screen.findByRole("status");
     expect(status.textContent).toMatch(/0\.2\.0/);
     expect(status.textContent).toMatch(/schema 4 → 5/);
-    expect(status.textContent).toMatch(/keel update/);
+    expect(status.textContent).toMatch(/specline update/);
   });
 
   it("reports a failed check with its reason rather than as silence", async () => {

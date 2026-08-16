@@ -8,7 +8,7 @@
  * that a rewrite rather than a config change.
  */
 
-const BASE = import.meta.env.VITE_KEEL_BASE ?? "";
+const BASE = import.meta.env.VITE_SPECLINE_BASE ?? "";
 
 export class ApiError extends Error {
   constructor(
@@ -37,7 +37,7 @@ async function get<T>(
     // The daemon being down is the single most likely failure, and "Failed to
     // fetch" tells a human nothing about what to do. Say what is wrong.
     throw new ApiError(
-      "Cannot reach the Keel daemon. Start it with `keel-daemon` and try again.",
+      "Cannot reach the Specline daemon. Start it with `specline-daemon` and try again.",
       0,
     );
   }
@@ -56,7 +56,7 @@ async function get<T>(
 function currentToken(): string | null {
   return (
     document
-      .querySelector('meta[name="keel-token"]')
+      .querySelector('meta[name="specline-token"]')
       ?.getAttribute("content") ?? null
   );
 }
@@ -64,7 +64,7 @@ function currentToken(): string | null {
 function send(url: string, body: unknown, token: string): Promise<Response> {
   return fetch(url, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-keel-token": token },
+    headers: { "content-type": "application/json", "x-specline-token": token },
     body: JSON.stringify(body),
   });
 }
@@ -80,10 +80,10 @@ function send(url: string, body: unknown, token: string): Promise<Response> {
 async function refetchToken(): Promise<string | null> {
   try {
     const html = await (await fetch(`${BASE}/`, { cache: "no-store" })).text();
-    const found = html.match(/<meta name="keel-token" content="([^"]+)"/)?.[1];
+    const found = html.match(/<meta name="specline-token" content="([^"]+)"/)?.[1];
     if (!found) return null;
     document
-      .querySelector('meta[name="keel-token"]')
+      .querySelector('meta[name="specline-token"]')
       ?.setAttribute("content", found);
     return found;
   } catch {
@@ -108,7 +108,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   const token = currentToken();
   if (!token) {
     throw new ApiError(
-      "This page was not served by the Keel daemon, so it cannot change anything. " +
+      "This page was not served by the Specline daemon, so it cannot change anything. " +
         "Open the interface at the daemon's own address.",
       0,
     );
@@ -119,12 +119,12 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     response = await send(url.toString(), body, token);
   } catch {
     throw new ApiError(
-      "Cannot reach the Keel daemon. Start it with `keel-daemon` and try again.",
+      "Cannot reach the Specline daemon. Start it with `specline-daemon` and try again.",
       0,
     );
   }
 
-  // A token has the lifetime of one daemon, and `keel update` restarts the
+  // A token has the lifetime of one daemon, and `specline update` restarts the
   // daemon — so a page left open across an update is holding a secret that has
   // expired, and every button on it would fail with a 401 that reads like a
   // broken app.
@@ -141,7 +141,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
         response = await send(url.toString(), body, fresh);
       } catch {
         throw new ApiError(
-          "Cannot reach the Keel daemon. Start it with `keel-daemon` and try again.",
+          "Cannot reach the Specline daemon. Start it with `specline-daemon` and try again.",
           0,
         );
       }
@@ -374,7 +374,7 @@ export const api = {
        * its tag, which the release job builds with `--generate-notes`.
        *
        * The daemon mints it rather than the interface composing one, because
-       * the repository is configurable (`KEEL_REPO`) and a template here would
+       * the repository is configurable (`SPECLINE_REPO`) and a template here would
        * be right only for the default.
        */
       release_notes?: string;
@@ -485,7 +485,7 @@ export const api = {
   /**
    * What can be worked on right now, ranked.
    *
-   * The same `keel_ready` a session calls, not a second ranking computed here.
+   * The same `specline_ready` a session calls, not a second ranking computed here.
    * That is the point of the endpoint existing at all — an app that ordered the
    * work differently from the tool would make "what next" a question with two
    * answers.
@@ -551,7 +551,7 @@ export const api = {
    * The event log has always held this and nothing has ever shown it.
    *
    * Its own endpoint rather than `/api/activity?entity=`, because that route is
-   * the `keel_activity` tool and the tool no longer takes an entity (TQ-24).
+   * the `specline_activity` tool and the tool no longer takes an entity (TQ-24).
    * B-15 is the rule this follows: the local API has more endpoints than the
    * tool surface has tools, since a UI knows what it wants and a model chooses
    * worse among more options.
@@ -617,7 +617,7 @@ export const api = {
    * What changed, grouped by the session that changed it.
    *
    * Its own endpoint rather than a shape on `/api/activity`, because that URL is
-   * the `keel_activity` tool and this is a different question: the tool pages
+   * the `specline_activity` tool and this is a different question: the tool pages
    * every mutation from a cursor for a model catching up, and this answers "what
    * did each session do" for a person who left Claude working.
    *

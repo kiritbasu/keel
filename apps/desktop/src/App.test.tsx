@@ -41,8 +41,8 @@ vi.mock("./lib/api", () => {
           {
             id: "prj_1",
             type: "project",
-            name: "Keel",
-            slug: "keel",
+            name: "Specline",
+            slug: "specline",
             audit: {},
           },
         ],
@@ -50,8 +50,8 @@ vi.mock("./lib/api", () => {
       context: async () => ({
         project: {
           id: "prj_1",
-          name: "Keel",
-          slug: "keel",
+          name: "Specline",
+          slug: "specline",
           status: "active",
           open_tasks: 3,
           urgent_tasks: 1,
@@ -244,12 +244,12 @@ describe("navigation keys", () => {
   });
 
   it("carries the current project onto a project-scoped screen", async () => {
-    window.location.hash = "#/projects/keel";
+    window.location.hash = "#/projects/specline";
     render(<App />);
     await settle();
     fireEvent.keyDown(window, { key: "3" });
     await waitFor(() =>
-      expect(window.location.hash).toBe("#/projects/keel/board"),
+      expect(window.location.hash).toBe("#/projects/specline/board"),
     );
   });
 
@@ -261,7 +261,7 @@ describe("navigation keys", () => {
     await settle();
     fireEvent.keyDown(window, { key: "3" });
     await waitFor(() =>
-      expect(window.location.hash).toBe("#/projects/keel/board"),
+      expect(window.location.hash).toBe("#/projects/specline/board"),
     );
   });
 
@@ -280,7 +280,7 @@ describe("navigation keys", () => {
 
 describe("addresses", () => {
   it("renders the screen the address names, not Home", async () => {
-    window.location.hash = "#/projects/keel/board";
+    window.location.hash = "#/projects/specline/board";
     render(<App />);
     await settle();
     await waitFor(() =>
@@ -299,11 +299,11 @@ describe("addresses", () => {
   });
 
   it("gives the sidebar real links, so copy-link and middle-click work", async () => {
-    window.location.hash = "#/projects/keel";
+    window.location.hash = "#/projects/specline";
     render(<App />);
     await settle();
     const board = screen.getByRole("link", { name: /Board/ });
-    expect(board.getAttribute("href")).toBe("#/projects/keel/board");
+    expect(board.getAttribute("href")).toBe("#/projects/specline/board");
   });
 });
 
@@ -332,10 +332,10 @@ describe("the rail, with the project first", () => {
     expect(window.location.hash).toBe("#/");
     expect(
       screen.getByRole("link", { name: /Board/ }).getAttribute("href"),
-    ).toBe("#/projects/keel/board");
+    ).toBe("#/projects/specline/board");
     expect(
       screen.getByRole("link", { name: /Library/ }).getAttribute("href"),
-    ).toBe("#/projects/keel/documents");
+    ).toBe("#/projects/specline/documents");
   });
 
   it("names the project you are in, as one row rather than one per project", async () => {
@@ -343,7 +343,7 @@ describe("the rail, with the project first", () => {
     await settle();
     // A button, not a list: the old rail grew a row for every project, so the
     // shell got taller as the store did.
-    expect(screen.getByRole("button", { name: /Keel/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Specline/ })).toBeTruthy();
   });
 
   it("keeps Roadmap with the project, though the router does not demand one", async () => {
@@ -351,14 +351,14 @@ describe("the rail, with the project first", () => {
     await settle();
     expect(
       screen.getByRole("link", { name: /Roadmap/ }).getAttribute("href"),
-    ).toBe("#/projects/keel/roadmap");
+    ).toBe("#/projects/specline/roadmap");
   });
 });
 
 describe("the live feed's state is visible", () => {
   it("says nothing while the feed is healthy", async () => {
     render(<App />);
-    await screen.findByText("Keel");
+    await screen.findByText("Specline");
     act(() => feedHooks.onStatus?.("live"));
     expect(screen.queryByRole("status")).toBeNull();
   });
@@ -368,7 +368,7 @@ describe("the live feed's state is visible", () => {
   /// was that the second one was wrong.
   it("says so when the feed drops, and stops saying so when it returns", async () => {
     render(<App />);
-    await screen.findByText("Keel");
+    await screen.findByText("Specline");
 
     act(() => feedHooks.onStatus?.("down"));
     const notice = await screen.findByRole("status");

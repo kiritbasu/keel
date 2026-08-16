@@ -1,0 +1,824 @@
+---
+source: crates/specline-mcp/tests/snapshots.rs
+expression: "specline_mcp::list_result()"
+---
+{
+  "cacheScope": "public",
+  "tools": [
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": true
+      },
+      "description": "START HERE in any new conversation about a project. Returns a compact digest: what the project is, the active milestone, urgent and blocked work, recent decisions, every unresolved question, the glossary, what is deployed, and a suggested next action.\n\nCall this before reading files or asking the human what is going on — it is one call and roughly 3–4k tokens. With no `project`, returns a one-line roll-up of every project plus anything at risk.\n\nPass `cwd` when you are in a repository. It scopes the digest to whichever project owns that checkout, and if none does it tells you so directly — rather than returning other projects and leaving you to conclude that yours is missing.\n\nOpen questions and glossary terms are never truncated. A missing open question makes you re-litigate something already settled; a missing glossary term makes you use the wrong word for a domain concept. Everything else degrades and the response reports what it dropped.",
+      "inputSchema": {
+        "properties": {
+          "cwd": {
+            "description": "The absolute directory you are working in. Resolves to the project whose checkout contains it, and — when nothing matches — says so plainly instead of leaving you to infer it from a list of other projects. Always pass this when you are working in a repository.",
+            "type": "string"
+          },
+          "depth": {
+            "default": "standard",
+            "description": "How much to include. `brief` is a few hundred tokens; `full` drops most limits.",
+            "enum": [
+              "brief",
+              "standard",
+              "full"
+            ],
+            "type": "string"
+          },
+          "project": {
+            "description": "Project id, slug or name. Omit for a cross-project roll-up.",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "since": {
+            "description": "Only summarise activity after this instant. Useful when resuming a conversation you already have context for.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "specline_context",
+      "title": "Orient on a project"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Hybrid keyword and semantic search across every artifact that carries text, in every project. Use it to answer 'what do we know about X', 'has anyone raised this before', or 'what did customers say about onboarding'.\n\nSearches specs, decisions, questions, feedback and design captions by meaning and by keyword together, and tasks, milestones, terms, environments, artifacts and projects by keyword. Metrics are deliberately excluded — they are numbers, and reaching them is a filter rather than a search.\n\nPrefer a natural question over keywords; the semantic half is what makes 'why is billing slow' find a decision titled 'Aggregate hourly, not per-minute'.",
+      "inputSchema": {
+        "properties": {
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "project": {
+            "description": "Restrict to one project.",
+            "type": "string"
+          },
+          "query": {
+            "description": "What you are looking for.",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "since": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          },
+          "types": {
+            "description": "Restrict to these artifact types.",
+            "items": {
+              "enum": [
+                "project",
+                "milestone",
+                "task",
+                "spec",
+                "decision",
+                "question",
+                "term",
+                "feedback",
+                "design",
+                "environment",
+                "metric",
+                "metric_observation",
+                "artifact"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "until": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "specline_search",
+      "title": "Search everything"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Fetch one or more artifacts by id, optionally with their prose body, their linked neighbours, or a diff between two revisions.\n\nUse `depth` to pull in the graph around something — `specline_get(ids: [spec_id], depth: 2)` answers 'what implements this spec, and what do those things depend on' in one call. Use `version` to read an older revision and `diff_against` to see what changed between two.",
+      "inputSchema": {
+        "properties": {
+          "depth": {
+            "default": 0,
+            "description": "Also return linked neighbours to this depth. 0 means no traversal; 6 is the usual maximum worth asking for.",
+            "maximum": 16,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "diff_against": {
+            "description": "Also return a unified diff between `version` (or the current revision) and this one.",
+            "type": "integer"
+          },
+          "direction": {
+            "default": "both",
+            "description": "Which way to walk. Outbound follows edges away from the artifact ('what does this implement'); inbound follows edges into it ('what implements this').",
+            "enum": [
+              "outbound",
+              "inbound",
+              "both"
+            ],
+            "type": "string"
+          },
+          "ids": {
+            "description": "Prefixed ULIDs, e.g. tsk_01H8… The prefix says what the artifact is, so you never need to say.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "include_body": {
+            "default": true,
+            "description": "Include the prose body for artifacts that have one.",
+            "type": "boolean"
+          },
+          "rels": {
+            "description": "Restrict the traversal to these relations.",
+            "items": {
+              "enum": [
+                "implements",
+                "blocks",
+                "depends_on",
+                "supersedes",
+                "derived_from",
+                "resolves",
+                "references",
+                "duplicates",
+                "informs"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "description": "Read this document revision instead of the current one.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "type": "object"
+      },
+      "name": "specline_get",
+      "title": "Fetch by id"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": true
+      },
+      "description": "List projects, or resolve a name to one. **Call this before creating a project, every time.** It fuzzy-matches on name, slug, aliases and repository URL, and when anything plausible matches it returns `requires_confirmation: true` with the candidates.\n\nWhen that happens, ask the human before creating anything. Nine near-duplicate projects is the failure mode that quietly ruins the cross-project view, and it is much cheaper to ask than to merge later.",
+      "inputSchema": {
+        "properties": {
+          "include_archived": {
+            "default": false,
+            "type": "boolean"
+          },
+          "query": {
+            "description": "A name, slug, alias or repo URL to match against. Omit to list everything.",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "specline_projects",
+      "title": "List and resolve projects"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Every mutation since a timestamp or an event cursor, oldest first. Use it to catch up: 'what happened since I last looked', or to see what another session did while you were working.\n\nPass the `cursor` from a previous response to continue exactly where you left off, with no gaps and no repeats.\n\nFor one row's own story, read its notes with `specline_get` — a note says what was learned, where an event says only which field moved.",
+      "inputSchema": {
+        "properties": {
+          "cursor": {
+            "description": "An event id from a previous response. Takes precedence over `since`.",
+            "type": "string"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 500,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "project": {
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "since": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "specline_activity",
+      "title": "What changed"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Create any of the thirteen artifact types. Returns the created artifact, so you never need to read it back.\n\nCreates are idempotent: calling twice with the same project, type and title returns the existing artifact with `created: false` rather than making a duplicate. Whitespace and capitalisation are normalised, so 'Add login page' and 'add  Login  Page' are one task.\n\nBefore creating a **project**, call `specline_projects` first and confirm with the human (see that tool). Prefer consolidating into fewer, larger artifacts: a project with forty trivial tasks that should be eight is worse than useless.",
+      "inputSchema": {
+        "properties": {
+          "body": {
+            "description": "For prose-bearing types (spec, decision, question, feedback, design) this is written as the first document revision. For a task it is the short detail field — anything long-form belongs in a spec.\n\nWrite it the way you would say it to a colleague. Plain words, no padding, no sentence that exists to sound considered. Avoid \"leverage\", \"utilize\", \"robust\", \"seamless\", \"delve\", \"in order to\", \"it's worth noting\" — these are refused. Quoting an error message or what someone actually said is fine: put it in a code fence or a block quote and it is exempt.",
+            "type": "string"
+          },
+          "definition": {
+            "description": "Glossary entries only: what the word means in this project. `body` is accepted for the same thing.",
+            "type": "string"
+          },
+          "fields": {
+            "additionalProperties": true,
+            "description": "Any other column on the type: status, kind, priority, labels, target_date, severity, sentiment, url, and so on. Invalid values are rejected with the list of valid ones.\n\nA `metric_observation` is recorded here too: `metric_id` (the `mtr_…` being measured), `value`, and an optional `observed_at`.",
+            "type": "object"
+          },
+          "idempotency_key": {
+            "description": "Makes a retry a no-op instead of a duplicate. Derived from the project, type and normalised title when omitted, which is usually what you want — supply one only when two genuinely different things share a title.",
+            "type": "string"
+          },
+          "image": {
+            "description": "Design and artifact only: a small image, base64 encoded, or a `data:image/png;base64,…` URL.\n\n**Keep this under about 100 KB.** You have to emit every base64 character, so 100 KB costs you roughly 35,000–45,000 output tokens and 1 MB costs 350,000 or more. The hard limit is 1 MB decoded and it is not a target. If the file is on the same machine, use `image_path` instead and none of this applies.\n\nPut a Figma or web link in `body` when the image already lives somewhere.",
+            "type": "string"
+          },
+          "image_path": {
+            "description": "Design and artifact only: an absolute path to an image on the machine Specline is running on. The daemon reads the file itself, so the bytes never enter your context and a real screenshot costs you nothing.\n\nThis is the right way to attach anything bigger than a small mockup — up to 10 MB. Not a URL: the daemon makes no outbound requests on a model's instruction.\n\nReadable folders only: Desktop, Downloads, Pictures, and the project's own directory. Anywhere else is refused and the refusal lists them. That is not about you — a path can be suggested by text you are reading rather than by the person you are talking to.",
+            "type": "string"
+          },
+          "name": {
+            "description": "An alias for `title`, for the types whose column is called `name`.",
+            "type": "string"
+          },
+          "project": {
+            "description": "Project id or slug. Required for everything except `project` itself, and optional for `term` — omitting it there defines the term globally.",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "slug": {
+            "description": "Projects only, and required for them: the URL-safe short name, unique across the store.",
+            "type": "string"
+          },
+          "summary": {
+            "description": "Tasks and milestones: REQUIRED. One or two plain sentences a colleague could read cold six weeks from now, without having been in this conversation. For a task: what is wrong or wanted, what it affects, and what done looks like. For a milestone: what the phase covers. It is what lists show, so a row without one means something only to whoever wrote it.\n\nWrite it like a person, not like a release note. No section references, no internal names, no rule-of-three lists, no sentence that exists to sound considered.\n\nGood: \"The board shows a task's priority but never which phase it belongs to, so you have to open each one to find out. Done when every row shows its milestone and you can group by it.\"\n\nBad: \"Implement milestone surfacing on the board view per TQ-31 to improve organisational legibility.\"",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          },
+          "term": {
+            "description": "An alias for `title`, for glossary entries.",
+            "type": "string"
+          },
+          "title": {
+            "description": "The name. Called `name` on some types and `term` on glossary entries; `title` is accepted for all of them.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Which artifact type to create.",
+            "enum": [
+              "project",
+              "milestone",
+              "task",
+              "spec",
+              "decision",
+              "question",
+              "term",
+              "feedback",
+              "design",
+              "environment",
+              "metric",
+              "metric_observation",
+              "artifact"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "name": "specline_create",
+      "title": "Create an artifact"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Change fields on an existing artifact, including status transitions. Returns the updated artifact.\n\n**Not for prose.** A document body belongs to `specline_write_doc`, which versions it; this tool is for the fields around it — title, status, kind. Sending a body here would overwrite without a revision, and the previous author's text would be gone.\n\nPass the `version` you read. If someone else changed it since, the call is rejected with the current state and the events that happened in between, so you can usually merge and retry without asking anyone.\n\nAn accepted decision's content is immutable — supersede it with a new decision linked by `supersedes` rather than editing it. Use `archive: true` to soft-delete; nothing in Specline is ever really deleted.\n\nTo reorder a task, put `rank_after` or `rank_before` in `changes` naming another task — `{\"rank_after\": \"KEEL-12\"}` — rather than choosing a number. To make one task part of another, set `parent_id`; that is composition, and it is a different thing from `blocks`, which means \"must happen first\".\n\n**Two task transitions belong to their own tools.** Starting work is `specline_claim`, which records who is on it; finishing is `specline_close`, which asks for the reason, the message and the evidence together. A `status` of `done` or `wont_do` sent here is refused without all three, so reaching for this tool to close something only costs you a round trip.\n\nTo attach an image to a design or artifact that already exists, put `image_path` in `changes` with an absolute path — the daemon reads the file, so the bytes never enter your context.",
+      "inputSchema": {
+        "properties": {
+          "archive": {
+            "default": false,
+            "description": "Soft-delete instead of updating.",
+            "type": "boolean"
+          },
+          "changes": {
+            "additionalProperties": true,
+            "description": "Fields to set. Unknown fields are rejected with the list of real ones.\n\nTwo are not fields but placements, for tasks: `rank_after` and `rank_before` each name another task and put this one next to it in the deliberate order. They resolve to `rank`, which you should not set directly.\n\nOne more is an instruction rather than a value: `image_path`, on a design or artifact, is an absolute path the daemon reads the image from. Do not set `blob_id` yourself.",
+            "type": "object"
+          },
+          "id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "description": "Makes a retry a no-op instead of a duplicate. Derived from the project, type and normalised title when omitted, which is usually what you want — supply one only when two genuinely different things share a title.",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "description": "The `version` from when you read it. Not the document revision — that is `current_doc_version`.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version"
+        ],
+        "type": "object"
+      },
+      "name": "specline_update",
+      "title": "Update an artifact"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Append a new revision of an artifact's prose body — for specs, decisions, questions, feedback and design captions.\n\nUse this whenever the *content* of a document changes. Use `specline_update` instead for the fields around it: title, status, kind. The two are separate because a body is versioned and a status is not, and conflating them would either version every status flip or lose the history of every edit.\n\nAlways send the **full** body, not a patch — the revision is a snapshot. The previous one is kept and stays readable by version, and `specline_get` will diff any two. Writing content identical to the current revision is a no-op rather than a new version, so regenerating a document you have not changed is safe.",
+      "inputSchema": {
+        "properties": {
+          "body": {
+            "description": "The full markdown body.\n\nWrite it the way you would say it to a colleague. Plain words, no padding, no sentence that exists to sound considered. Avoid \"leverage\", \"utilize\", \"robust\", \"seamless\", \"delve\", \"in order to\", \"it's worth noting\" — these are refused. Quoting an error message or what someone actually said is fine: put it in a code fence or a block quote and it is exempt.",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "description": "Makes a retry a no-op instead of a duplicate. Derived from the project, type and normalised title when omitted, which is usually what you want — supply one only when two genuinely different things share a title.",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "description": "Update the title alongside the body. Omit to keep it.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "type": "object"
+      },
+      "name": "specline_write_doc",
+      "title": "Write a document revision"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Append a note to any artifact — a finding, a gotcha, a measurement, a reason something was harder than expected. Use it the moment you learn something worth the next session knowing, not at the end.\n\nThis is the tool for the sentence that starts 'turns out…'. A task's status says a colour; its notes say what actually happened. Prefer a note over rewriting the artifact's body: notes accumulate and stay attributed to the conversation that wrote them, whereas a body is overwritten and the previous author's finding is gone.\n\nDo not ask permission first — record it, then say in one line that you did. Notes are append-only: to withdraw one, pass `retract` with its id.\n\n`body` is required unless you are passing `list` or `retract`.",
+      "inputSchema": {
+        "properties": {
+          "body": {
+            "description": "The note. One or two sentences beats a heading — say what you found and why it matters.\n\nWrite it the way you would say it to a colleague. Plain words, no padding, no sentence that exists to sound considered. Avoid \"leverage\", \"utilize\", \"robust\", \"seamless\", \"delve\", \"in order to\", \"it's worth noting\" — these are refused. Quoting an error message or what someone actually said is fine: put it in a code fence or a block quote and it is exempt.",
+            "type": "string"
+          },
+          "id": {
+            "description": "The artifact to annotate. Any Specline id.",
+            "type": "string"
+          },
+          "list": {
+            "default": false,
+            "description": "Return the artifact's existing notes instead of adding one.",
+            "type": "boolean"
+          },
+          "retract": {
+            "description": "A note id (`nte_…`) to withdraw. Soft — it stays readable as a record of what was once believed.",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "specline_note",
+      "title": "Record what you learned about something"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Create or remove a typed edge. Direction matters and reads left to right: `from` does the verb to `to`.\n\nA task **implements** a spec. A blocker **blocks** the thing waiting on it. A newer decision **supersedes** an older one. A decision **resolves** a question. Feedback **informs** a spec. If you find yourself wanting to say 'A depends on B', use `depends_on` and Specline will store it the right way round.\n\nUse `anchor` to link to one requirement inside a spec (`REQ-4`) rather than the whole document — that is what makes traceability answerable per requirement.",
+      "inputSchema": {
+        "properties": {
+          "anchor": {
+            "description": "A block inside the target, e.g. `REQ-4`. Omit for a whole-artifact link.",
+            "type": "string"
+          },
+          "from": {
+            "description": "The artifact doing the verb.",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "description": "Makes a retry a no-op instead of a duplicate. Derived from the project, type and normalised title when omitted, which is usually what you want — supply one only when two genuinely different things share a title.",
+            "type": "string"
+          },
+          "note": {
+            "description": "Why this link exists.",
+            "type": "string"
+          },
+          "rel": {
+            "enum": [
+              "implements",
+              "blocks",
+              "depends_on",
+              "supersedes",
+              "derived_from",
+              "resolves",
+              "references",
+              "duplicates",
+              "informs"
+            ],
+            "type": "string"
+          },
+          "remove": {
+            "default": false,
+            "description": "Archive the edge instead of creating it.",
+            "type": "boolean"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "description": "The artifact it is done to.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "rel",
+          "to"
+        ],
+        "type": "object"
+      },
+      "name": "specline_link",
+      "title": "Link two artifacts"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": true
+      },
+      "description": "The answer to 'what should I do next', ranked. Open work with nothing live in its way, best first.\n\nCall this rather than `specline_context` when the project is already familiar and the question is only what to pick up — the digest costs roughly 3,500 tokens and this costs a fraction of it.\n\nThe order is deliberate: **what a task unblocks comes before its priority**, so a p1 that releases three other tasks ranks above a p0 that releases nothing. Each row carries the reason it is where it is.\n\nParents are excluded, because their children are the actual work. Decisions waiting on a human are excluded too — they are in `specline_context`'s open questions, and nothing can start on them until someone answers.\n\nThen `specline_claim` the one you pick, so the row says who is on it.",
+      "inputSchema": {
+        "properties": {
+          "labels": {
+            "description": "Only tasks carrying **all** of these labels.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "default": 10,
+            "description": "How many to return. The response says how many were ready in total, so a cut list is never mistaken for the whole one.",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "milestone": {
+            "description": "Only work under this milestone — 'what is next in Phase 8' in one argument. An id or its name.",
+            "type": "string"
+          },
+          "project": {
+            "description": "Project id, slug or name.",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          },
+          "unclaimed": {
+            "default": false,
+            "description": "Only work nobody is holding. Pass this when another session may be running alongside you.",
+            "type": "boolean"
+          },
+          "without_labels": {
+            "description": "Skip tasks carrying any of these labels.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "project"
+        ],
+        "type": "object"
+      },
+      "name": "specline_ready",
+      "title": "What can be worked on right now"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Move a task to `in_progress` and record that this session is doing it. Call this **before** the work, not after — the point is that someone looking at the board can see what is happening now rather than only what has finished.\n\nRefused if another session is already holding it, and the refusal names that session. A claim releases itself after three days, so a conversation that died mid-task does not hold work hostage, and `force` takes a live claim deliberately. Closing releases it immediately.\n\nRe-claiming your own task is a no-op, so a retry costs nothing.\n\nThis needs your `session_id`. It is the one call that is refused without one: everywhere else an anonymous write is merely less traceable, but a claim naming nobody says the task is taken and not by whom.",
+      "inputSchema": {
+        "properties": {
+          "force": {
+            "default": false,
+            "description": "Take a claim another session still holds. Use it when you know that session is gone.",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "The task — `KEEL-42` or a `tsk_…` id.",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "description": "Makes a retry a no-op instead of a duplicate. Derived from the project, type and normalised title when omitted, which is usually what you want — supply one only when two genuinely different things share a title.",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "specline_claim",
+      "title": "Take a task, so the row says who is on it"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Close a task with a reason, a message, and — for `done` — evidence. This is the tool for finishing work; `specline_update` can move a status but will refuse a terminal one without all of this, so use this instead of working around it.\n\nThe five reasons:\n- `done` — finished. Needs a message and at least one piece of evidence.\n- `wont_do` — deliberately not doing it. Needs a message.\n- `duplicate` — the same work as another task. Names it, and draws a `duplicates` edge.\n- `superseded` — replaced by another task. Names it, and draws a `supersedes` edge.\n- `no_change` — looked at it, nothing needed doing. Needs a message.\n\nEvidence is typed so that 'what shipped this week, with the commits' is a query rather than prose: `commit:<sha>`, `pr:<url>`, `test:<command>`, `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`. A bare sha is refused.\n\nThe message is the one sentence that belongs to the transition. Anything else you learned along the way belongs in `specline_note`, which keeps accumulating.",
+      "inputSchema": {
+        "properties": {
+          "evidence": {
+            "description": "Typed proof, at least one for `done`: `commit:<sha>`, `pr:<url>`, `test:<command>`, `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "description": "The task — `KEEL-42` or a `tsk_…` id.",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "description": "Makes a retry a no-op instead of a duplicate. Derived from the project, type and normalised title when omitted, which is usually what you want — supply one only when two genuinely different things share a title.",
+            "type": "string"
+          },
+          "message": {
+            "description": "What actually happened, in a sentence or two. What was built, or why it is not being done — it is what the next session reads instead of guessing from a status.\n\nWrite it the way you would say it to a colleague. Plain words, no padding, no sentence that exists to sound considered. Avoid \"leverage\", \"utilize\", \"robust\", \"seamless\", \"delve\", \"in order to\", \"it's worth noting\" — these are refused. Quoting an error message or what someone actually said is fine: put it in a code fence or a block quote and it is exempt.",
+            "type": "string"
+          },
+          "other": {
+            "description": "For `duplicate` and `superseded` only: the task this one duplicates, or the one that replaced it.",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Which of the five.",
+            "enum": [
+              "done",
+              "wont_do",
+              "duplicate",
+              "superseded",
+              "no_change"
+            ],
+            "type": "string"
+          },
+          "session_id": {
+            "description": "A stable identifier for this conversation, minted once at first use and passed on every call. Specline never invents one: a stateless transport has no session to borrow, so provenance is cooperative. Omitting it still works, but the write is attributed only to 'some Claude session'.",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Where this call came from.",
+            "enum": [
+              "chat",
+              "cowork",
+              "code",
+              "ui",
+              "cli"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reason",
+          "message"
+        ],
+        "type": "object"
+      },
+      "name": "specline_close",
+      "title": "Finish a task, saying why and showing the work"
+    }
+  ],
+  "ttlMs": 86400000
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# `/keel:setup` — get from "the plugin is installed" to "Keel is running".
+# `/specline:setup` — get from "the plugin is installed" to "Specline is running".
 #
 # ## Why this is a script and not a list of steps in a prompt
 #
@@ -10,14 +10,14 @@
 # is one line that runs this file, and every decision that matters lives here,
 # where it can be read and tested.
 #
-#   /keel:setup                    what the slash command runs
+#   /specline:setup                    what the slash command runs
 #   plugin/scripts/setup.sh        the same thing, by hand
 #   plugin/scripts/setup.sh --dry-run    say what would happen, change nothing
 #
 # ## What it does, in order
 #
 #   1. Refuses early if something is already listening on the port and it is
-#      not Keel.
+#      not Specline.
 #   2. Downloads and verifies the release for this platform.
 #   3. Creates the store, and migrates one that already exists.
 #   4. Installs a service so the daemon comes back after a reboot.
@@ -28,7 +28,7 @@
 # One thing: an hourly GET of the latest release manifest, so the daemon can
 # tell you a new version exists. It sends nothing from your store — not a
 # project name, not a count, not an identifier. `--no-update-check` turns it off
-# at install time, `KEEL_AUTO_UPDATE=0` turns it off afterwards, and `keel
+# at install time, `SPECLINE_AUTO_UPDATE=0` turns it off afterwards, and `specline
 # doctor` reports which it is and when the last check ran.
 #
 # Said out loud in the output rather than left here, because a tool whose pitch
@@ -50,21 +50,21 @@
 
 set -uo pipefail
 
-REPO="${KEEL_REPO:-kiritbasu/keel}"
-PORT="${KEEL_PORT:-7654}"
+REPO="${SPECLINE_REPO:-kiritbasu/specline}"
+PORT="${SPECLINE_PORT:-7654}"
 # The release installer's own default — `CARGO_HOME`, falling back to
 # `~/.cargo/bin`. Kept identical to `plugin/install.sh` deliberately: two
 # install paths meant two copies of every binary, one shadowing the other on
 # PATH, and a daemon serving a different build from the CLI beside it
 # (KEEL-234).
-BIN_DIR="${KEEL_BIN_DIR:-${CARGO_HOME:-$HOME/.cargo}/bin}"
-KEEL_HOME_DIR="${KEEL_HOME:-$HOME/.keel}"
+BIN_DIR="${SPECLINE_BIN_DIR:-${CARGO_HOME:-$HOME/.cargo}/bin}"
+SPECLINE_HOME_DIR="${SPECLINE_HOME:-$HOME/.specline}"
 DAEMON_URL="http://127.0.0.1:$PORT"
 
 DRY_RUN=false
 EMBEDDINGS=false
 INSTALL_SERVICE=true
-# The one thing Keel does that leaves this machine, and the one thing somebody
+# The one thing Specline does that leaves this machine, and the one thing somebody
 # installing a local-first tool would want to be asked about. On by default and
 # off with a flag, disclosed either way — see "What leaves your machine" below.
 UPDATE_CHECK=true
@@ -103,7 +103,7 @@ run() {
 # --- 0. is the port already taken, and by what? -----------------------------
 #
 # Asked first, because everything below is wasted if the answer is "something
-# else is on 7654" — and because a Keel already running is a *success*, not a
+# else is on 7654" — and because a Specline already running is a *success*, not a
 # collision. Re-running setup is the ordinary thing someone does when they are
 # not sure it worked, and it must not punish them.
 
@@ -111,16 +111,16 @@ step "Checking the port"
 
 health="$(curl -sf --max-time 3 "$DAEMON_URL/api/health" 2>/dev/null)"
 if [ -n "$health" ] && printf '%s' "$health" | grep -q '"status"'; then
-    ok "a Keel daemon is already answering on $PORT"
+    ok "a Specline daemon is already answering on $PORT"
     info "setup will reinstall the binaries and restart it"
     ALREADY_RUNNING=true
 elif command -v nc >/dev/null 2>&1 && nc -z 127.0.0.1 "$PORT" 2>/dev/null; then
-    die "something is listening on $PORT and it is not Keel." \
-        "Keel does not pick another port: the plugin's MCP entry names this one" \
+    die "something is listening on $PORT and it is not Specline." \
+        "Specline does not pick another port: the plugin's MCP entry names this one" \
         "and is read when Claude Code starts, so a daemon that moved would leave" \
         "the config stale with nothing to explain the failure." \
         "" \
-        "Stop whatever is on $PORT, or set KEEL_PORT and pass the same value to" \
+        "Stop whatever is on $PORT, or set SPECLINE_PORT and pass the same value to" \
         "the daemon and to the MCP config."
 else
     ok "port $PORT is free"
@@ -131,7 +131,7 @@ fi
 
 step "Installing the binaries"
 
-installer_url="https://github.com/$REPO/releases/latest/download/keel-installer.sh"
+installer_url="https://github.com/$REPO/releases/latest/download/specline-installer.sh"
 
 # **A token does not make the ordinary download URL work.**
 #
@@ -150,7 +150,7 @@ installer_url="https://github.com/$REPO/releases/latest/download/keel-installer.
 # It is two downloads, not one. Fetching the installer through the API is half
 # the problem: the installer then fetches the *archive* from the same shape of
 # URL. Both have to come through the API, which is why the assets are pulled
-# into a directory and the installer is pointed at it with `KEEL_DOWNLOAD_URL` —
+# into a directory and the installer is pointed at it with `SPECLINE_DOWNLOAD_URL` —
 # the generator's own override, and the same route `verify-release-tier1.sh`
 # uses to test a release before it is published.
 #
@@ -176,11 +176,11 @@ else
     install_log="$(mktemp)"
     assets="$(mktemp -d)"
 
-    if download_via_api "$assets" && [ -f "$assets/keel-installer.sh" ]; then
+    if download_via_api "$assets" && [ -f "$assets/specline-installer.sh" ]; then
         # Private or public, this route works for both, so it is tried first
         # rather than kept as a fallback — the failure it avoids is silent.
         info "fetched the release through the GitHub API"
-        if KEEL_DOWNLOAD_URL="file://$assets" sh "$assets/keel-installer.sh" \
+        if SPECLINE_DOWNLOAD_URL="file://$assets" sh "$assets/specline-installer.sh" \
             >>"$install_log" 2>&1
         then
             ok "binaries installed"
@@ -210,14 +210,14 @@ else
     fi
 fi
 
-keel_bin="$BIN_DIR/keel"
-daemon_bin="$BIN_DIR/keel-daemon"
+specline_bin="$BIN_DIR/specline"
+daemon_bin="$BIN_DIR/specline-daemon"
 
 if [ "$DRY_RUN" = false ]; then
     # The installer's own default is `$CARGO_HOME/bin`, falling back to
     # `~/.cargo/bin`, so both are looked for and `CARGO_HOME` comes first —
     # anyone with it set puts the binary somewhere none of the other candidates
-    # name, and this found a *different* `keel` further down the list instead.
+    # name, and this found a *different* `specline` further down the list instead.
     # An install that reports the version of a binary it did not install is
     # worse than one that fails.
     # `~/.local/bin` was on this list until KEEL-234. It was never a place a
@@ -227,15 +227,15 @@ if [ "$DRY_RUN" = false ]; then
     # looks.
     for candidate in "${CARGO_HOME:+$CARGO_HOME/bin}" "$BIN_DIR" "$HOME/.cargo/bin"; do
         [ -n "$candidate" ] || continue
-        if [ -x "$candidate/keel" ] && [ -x "$candidate/keel-daemon" ]; then
-            keel_bin="$candidate/keel"
-            daemon_bin="$candidate/keel-daemon"
+        if [ -x "$candidate/specline" ] && [ -x "$candidate/specline-daemon" ]; then
+            specline_bin="$candidate/specline"
+            daemon_bin="$candidate/specline-daemon"
             break
         fi
     done
-    [ -x "$keel_bin" ] || die "keel is not where the installer said it would be" \
+    [ -x "$specline_bin" ] || die "specline is not where the installer said it would be" \
         "Looked in: $BIN_DIR, $HOME/.cargo/bin"
-    ok "keel $("$keel_bin" --version 2>/dev/null | awk '{print $2}') at $keel_bin"
+    ok "specline $("$specline_bin" --version 2>/dev/null | awk '{print $2}') at $specline_bin"
 fi
 
 # --- 2. the store -----------------------------------------------------------
@@ -243,8 +243,8 @@ fi
 step "Preparing the store"
 
 if [ "$DRY_RUN" = true ]; then
-    info "would create or migrate $KEEL_HOME_DIR"
-elif [ -f "$KEEL_HOME_DIR/keel.sqlite" ]; then
+    info "would create or migrate $SPECLINE_HOME_DIR"
+elif [ -f "$SPECLINE_HOME_DIR/keel.sqlite" ]; then
     # An existing store may be behind this binary. Migrating is the daemon's
     # precondition, not an optional tidy-up — it refuses to open a store newer
     # than itself and will not silently upgrade one that is older.
@@ -252,24 +252,24 @@ elif [ -f "$KEEL_HOME_DIR/keel.sqlite" ]; then
         info "a daemon is holding the store; it will be stopped before migrating"
         stop_daemon_for_migrate=true
     fi
-    ok "store exists at $KEEL_HOME_DIR"
+    ok "store exists at $SPECLINE_HOME_DIR"
 else
     # `--daemon "$DAEMON_URL"`, never the default, and this is the second thing
     # the first real install got wrong.
     #
     # Read commands go *through* a daemon when one answers, and `--daemon`
-    # defaults to 127.0.0.1:7654. So on a machine that already runs Keel, this
+    # defaults to 127.0.0.1:7654. So on a machine that already runs Specline, this
     # asked the live daemon about the store it serves, got a cheerful exit 0
     # about somebody else's data, and created nothing here — then the check
     # below failed with "the store was not created", which is true and explains
     # nothing. Pointing it at the port being set up means it opens this store
     # directly when nothing is listening, which is the case on a clean machine
     # and the case that matters.
-    run "$keel_bin" --home "$KEEL_HOME_DIR" fsck --daemon "$DAEMON_URL" >/dev/null 2>&1
-    if [ -f "$KEEL_HOME_DIR/keel.sqlite" ]; then
-        ok "store created at $KEEL_HOME_DIR"
+    run "$specline_bin" --home "$SPECLINE_HOME_DIR" fsck --daemon "$DAEMON_URL" >/dev/null 2>&1
+    if [ -f "$SPECLINE_HOME_DIR/keel.sqlite" ]; then
+        ok "store created at $SPECLINE_HOME_DIR"
     else
-        die "the store was not created at $KEEL_HOME_DIR" \
+        die "the store was not created at $SPECLINE_HOME_DIR" \
             "The daemon creates one on first start, so this is recoverable —" \
             "but something is wrong if opening it directly did not."
     fi
@@ -279,7 +279,7 @@ fi
 
 if [ "$DRY_RUN" = false ] && [ "$ALREADY_RUNNING" = true ]; then
     step "Stopping the running daemon"
-    pkill -f "keel-daemon" 2>/dev/null
+    pkill -f "specline-daemon" 2>/dev/null
     for _ in $(seq 1 10); do
         curl -sf --max-time 1 "$DAEMON_URL/api/health" >/dev/null 2>&1 || break
         sleep 1
@@ -289,7 +289,7 @@ fi
 
 if [ "$DRY_RUN" = false ]; then
     step "Applying migrations"
-    if "$keel_bin" --home "$KEEL_HOME_DIR" migrate --daemon "$DAEMON_URL" >/dev/null 2>&1; then
+    if "$specline_bin" --home "$SPECLINE_HOME_DIR" migrate --daemon "$DAEMON_URL" >/dev/null 2>&1; then
         ok "store is at the schema this binary ships"
     else
         info "nothing to migrate, or the store is already current"
@@ -298,16 +298,16 @@ fi
 
 # --- 4. the service ---------------------------------------------------------
 #
-# So the daemon survives a reboot. Everything Keel does depends on it being up,
+# So the daemon survives a reboot. Everything Specline does depends on it being up,
 # and "start it yourself after every restart" is a step people stop doing.
 
 install_launchd() {
-    local plist="$HOME/Library/LaunchAgents/sh.keel.daemon.plist"
+    local plist="$HOME/Library/LaunchAgents/sh.specline.daemon.plist"
     # Written into the service's own environment, not a shell profile: the
     # daemon is started by launchd at login and never reads one.
     local update_env=""
     [ "$UPDATE_CHECK" = false ] && update_env="
-        <key>KEEL_AUTO_UPDATE</key><string>0</string>"
+        <key>SPECLINE_AUTO_UPDATE</key><string>0</string>"
     local args="<string>$daemon_bin</string>"
     [ "$EMBEDDINGS" = true ] && args="$args
         <string>--embeddings</string>"
@@ -318,7 +318,7 @@ install_launchd() {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>Label</key><string>sh.keel.daemon</string>
+    <key>Label</key><string>sh.specline.daemon</string>
     <key>ProgramArguments</key>
     <array>
         $args
@@ -326,12 +326,12 @@ install_launchd() {
     <key>KeepAlive</key>
     <dict><key>SuccessfulExit</key><false/></dict>
     <key>RunAtLoad</key><true/>
-    <key>StandardOutPath</key><string>$KEEL_HOME_DIR/daemon.log</string>
-    <key>StandardErrorPath</key><string>$KEEL_HOME_DIR/daemon.log</string>
+    <key>StandardOutPath</key><string>$SPECLINE_HOME_DIR/daemon.log</string>
+    <key>StandardErrorPath</key><string>$SPECLINE_HOME_DIR/daemon.log</string>
     <key>EnvironmentVariables</key>
     <dict>
-        <key>KEEL_HOME</key><string>$KEEL_HOME_DIR</string>
-        <key>KEEL_BIND</key><string>127.0.0.1:$PORT</string>$update_env
+        <key>SPECLINE_HOME</key><string>$SPECLINE_HOME_DIR</string>
+        <key>SPECLINE_BIND</key><string>127.0.0.1:$PORT</string>$update_env
     </dict>
 </dict>
 </plist>
@@ -342,21 +342,21 @@ PLIST
 }
 
 install_systemd() {
-    local unit="$HOME/.config/systemd/user/keel.service"
+    local unit="$HOME/.config/systemd/user/specline.service"
     local update_env=""
-    [ "$UPDATE_CHECK" = false ] && update_env="Environment=KEEL_AUTO_UPDATE=0"
+    [ "$UPDATE_CHECK" = false ] && update_env="Environment=SPECLINE_AUTO_UPDATE=0"
     local exec="$daemon_bin"
     [ "$EMBEDDINGS" = true ] && exec="$exec --embeddings"
 
     mkdir -p "$HOME/.config/systemd/user"
     cat > "$unit" <<UNIT
 [Unit]
-Description=Keel daemon
+Description=Specline daemon
 After=network.target
 
 [Service]
-Environment=KEEL_HOME=$KEEL_HOME_DIR
-Environment=KEEL_BIND=127.0.0.1:$PORT
+Environment=SPECLINE_HOME=$SPECLINE_HOME_DIR
+Environment=SPECLINE_BIND=127.0.0.1:$PORT
 $update_env
 ExecStart=$exec
 Restart=always
@@ -366,7 +366,7 @@ RestartSec=2
 WantedBy=default.target
 UNIT
     systemctl --user daemon-reload 2>/dev/null
-    systemctl --user enable --now keel.service 2>/dev/null
+    systemctl --user enable --now specline.service 2>/dev/null
     info "systemd user unit at $unit"
 }
 
@@ -381,7 +381,7 @@ if [ "$INSTALL_SERVICE" = true ]; then
         install_systemd
         ok "the daemon will start at login"
     else
-        # Not fatal. A machine with no user systemd session can still run Keel;
+        # Not fatal. A machine with no user systemd session can still run Specline;
         # it just has to be started by hand, and saying so is better than
         # failing an install over it.
         fail "no supported service manager found — start the daemon yourself:"
@@ -402,9 +402,9 @@ else
         [ "$EMBEDDINGS" = true ] && embed_flag="--embeddings"
         auto_update=1
         [ "$UPDATE_CHECK" = false ] && auto_update=0
-        KEEL_HOME="$KEEL_HOME_DIR" KEEL_AUTO_UPDATE="$auto_update" \
+        SPECLINE_HOME="$SPECLINE_HOME_DIR" SPECLINE_AUTO_UPDATE="$auto_update" \
             nohup "$daemon_bin" --bind "127.0.0.1:$PORT" $embed_flag \
-            >>"$KEEL_HOME_DIR/daemon.log" 2>&1 &
+            >>"$SPECLINE_HOME_DIR/daemon.log" 2>&1 &
     fi
 
     answered=false
@@ -420,38 +420,38 @@ else
         ok "answering on $DAEMON_URL"
     else
         die "the daemon did not answer within 20 seconds." \
-            "Log: $KEEL_HOME_DIR/daemon.log"
+            "Log: $SPECLINE_HOME_DIR/daemon.log"
     fi
 fi
 
 # --- done -------------------------------------------------------------------
 
 step "Done"
-printf '  Store      %s\n' "$KEEL_HOME_DIR"
+printf '  Store      %s\n' "$SPECLINE_HOME_DIR"
 printf '  Daemon     %s\n' "$DAEMON_URL"
-printf '  Interface  keel ui\n'
+printf '  Interface  specline ui\n'
 printf '  Embeddings %s\n' \
     "$([ "$EMBEDDINGS" = true ] && echo "on" || echo "off — keyword search works either way")"
 printf '  Updates    %s\n\n' \
     "$([ "$UPDATE_CHECK" = true ] \
         && echo "checks hourly for a new release — see below" \
-        || echo "off — Keel makes no network requests at all")"
+        || echo "off — Specline makes no network requests at all")"
 
 # Said plainly, every install, whichever way it is set. A tool whose pitch is
 # that your project stays on your machine has to be the one that mentions its
 # own network request; discovering it later is the version that costs trust.
 if [ "$UPDATE_CHECK" = true ]; then
     printf '  \033[1mWhat leaves your machine:\033[0m one hourly request, fetching the latest\n'
-    printf '  release manifest so Keel can tell you a new version exists. It sends\n'
+    printf '  release manifest so Specline can tell you a new version exists. It sends\n'
     printf '  nothing from your store — no project names, no counts, no identifier.\n'
-    printf '  Turn it off with KEEL_AUTO_UPDATE=0, or re-run this with\n'
-    printf '  --no-update-check. `keel doctor` says which it is and when it last ran.\n\n'
+    printf '  Turn it off with SPECLINE_AUTO_UPDATE=0, or re-run this with\n'
+    printf '  --no-update-check. `specline doctor` says which it is and when it last ran.\n\n'
 fi
 # `printf`, not a heredoc: a heredoc does not interpret escapes, so the bold
 # sequence printed literally as \033[1m — in the one line that most needs to be
 # read, which is a fair demonstration of why the dry run exists.
 printf '  \033[1mRestart Claude Code now.\033[0m MCP servers are connected at startup,\n'
-printf '  and nothing was listening when this session began — so the keel_* tools\n'
+printf '  and nothing was listening when this session began — so the specline_* tools\n'
 printf '  will not appear until you do.\n\n'
 
 [ "$EMBEDDINGS" = false ] && printf '  For semantic search as well as keyword: re-run with --embeddings\n  (the first start downloads a 133 MB model).\n\n'

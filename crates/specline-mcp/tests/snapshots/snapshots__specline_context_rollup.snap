@@ -1,0 +1,49 @@
+---
+source: crates/specline-mcp/tests/snapshots.rs
+expression: result
+---
+{
+  "content": [
+    {
+      "text": "# All projects\n- Harbour (harbour) — active · 1 open, 0 urgent, 0 blocked · 0 question(s)\n\n## Recently\n- [date] — created task “Dedupe usage events by idempotency key” (claude)\n- [date] — created spec “Usage metering” (claude)\n- [date] — created project “Harbour” (claude)\n",
+      "type": "text"
+    }
+  ],
+  "isError": false,
+  "structuredContent": {
+    "active": [],
+    "attention": [],
+    "budget_exceeded": false,
+    "decisions": [],
+    "environments": [],
+    "estimated_tokens": 77,
+    "next": [],
+    "next_up": null,
+    "project": null,
+    "projects": [
+      {
+        "active_milestone": null,
+        "blocked_tasks": 0,
+        "id": "[id]",
+        "key": "HARB",
+        "milestone_noun": null,
+        "name": "Harbour",
+        "open_questions": 0,
+        "open_tasks": 1,
+        "slug": "harbour",
+        "status": "active",
+        "urgent_tasks": 0
+      }
+    ],
+    "questions": [],
+    "recent": [
+      "[date] — created task “Dedupe usage events by idempotency key” (claude)",
+      "[date] — created spec “Usage metering” (claude)",
+      "[date] — created project “Harbour” (claude)"
+    ],
+    "session_id": null,
+    "specs": [],
+    "terms": [],
+    "truncated": []
+  }
+}

@@ -17,7 +17,7 @@
 #
 # ## What this does to your machine
 #
-# Creates `~/.keel-runner`, downloads GitHub's runner release into it, registers
+# Creates `~/.specline-runner`, downloads GitHub's runner release into it, registers
 # it against this repository, and — unless `--no-service` — installs a launchd
 # agent so it starts with your login. `--remove` reverses all of it.
 #
@@ -38,8 +38,8 @@
 
 set -euo pipefail
 
-REPO="${KEEL_RUNNER_REPO:-kiritbasu/keel}"
-RUNNER_DIR="${KEEL_RUNNER_DIR:-$HOME/.keel-runner}"
+REPO="${SPECLINE_RUNNER_REPO:-kiritbasu/specline}"
+RUNNER_DIR="${SPECLINE_RUNNER_DIR:-$HOME/.specline-runner}"
 SERVICE=1
 
 for arg in "$@"; do

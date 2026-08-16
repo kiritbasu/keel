@@ -10,7 +10,7 @@
  *
  * **The hash, not the path.** A path-based router needs the server to fall back
  * to `index.html` for any deep URL. Vite's dev server does that; Tauri's asset
- * protocol does not, so `/projects/keel/board` would 404 on reload in the built
+ * protocol does not, so `/projects/specline/board` would 404 on reload in the built
  * app — the exact thing routing was added to fix. The hash never reaches a
  * server, so the same bundle behaves identically in dev, in the Tauri webview
  * and in a future static web build, which is what SPEC §10 asks for.

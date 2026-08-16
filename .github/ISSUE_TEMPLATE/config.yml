@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: Security problem
-    url: https://github.com/kiritbasu/keel/security/advisories/new
+    url: https://github.com/kiritbasu/specline/security/advisories/new
     about: Report it privately instead. Please do not open a public issue.
-  - name: How Keel works, and why
-    url: https://github.com/kiritbasu/keel/tree/main/product
+  - name: How Specline works, and why
+    url: https://github.com/kiritbasu/specline/tree/main/product
     about: The PRD, the spec and the decision log. Most "why is it like this" questions are answered there.

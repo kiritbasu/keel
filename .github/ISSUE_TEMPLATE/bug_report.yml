@@ -14,8 +14,8 @@ body:
       label: What happened
       description: What you ran, and what it did.
       placeholder: |
-        keel ready keel
-        → Error: no project matches `keel`. Expected: one of:
+        specline ready specline
+        → Error: no project matches `specline`. Expected: one of:
     validations:
       required: true
 
@@ -29,7 +29,7 @@ body:
   - type: textarea
     id: doctor
     attributes:
-      label: keel doctor
+      label: specline doctor
       description: >
         Paste the output if the problem is with the store, the daemon or the
         install. Read it first — it names paths on your machine.
@@ -39,7 +39,7 @@ body:
     id: version
     attributes:
       label: Version
-      description: "`keel --version`, and which binary it is if you have more than one."
+      description: "`specline --version`, and which binary it is if you have more than one."
     validations:
       required: true
 

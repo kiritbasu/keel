@@ -3,9 +3,9 @@
  *
  * Two things live here for one reason: you cannot tell what you are running
  * without leaving the interface, and the first person to install a second copy
- * of Keel could not work out which version it was. `keel --version` answers it,
- * but only if you know the binary is on your path — and the case where it is
- * not is exactly the case you are trying to diagnose.
+ * of Specline could not work out which version it was. `specline --version` answers
+ * it, but only if you know the binary is on your path — and the case where it
+ * is not is exactly the case you are trying to diagnose.
  *
  * The update half is the interface's one write (B-75, amending hard constraint
  * 7). It cannot choose a version: the daemon checks on its own schedule and
@@ -67,7 +67,7 @@ export async function waitForDaemon(
     }
   }
   throw new Error(
-    "The daemon did not come back after restarting. Check `keel-daemon`'s output.",
+    "The daemon did not come back after restarting. Check `specline-daemon`'s output.",
   );
 }
 
@@ -102,7 +102,7 @@ export function checkStatus(
   }
   if (updateCheck.enabled === false) {
     return {
-      text: "Update checks are off (KEEL_AUTO_UPDATE=0).",
+      text: "Update checks are off (SPECLINE_AUTO_UPDATE=0).",
       tone: "faint",
     };
   }
@@ -192,7 +192,7 @@ export function VersionFooter({
           break;
         case "needs_a_person":
           setCheckResult(
-            `${r.version} changes the store's shape (schema ${r.schema_from} → ${r.schema_to}), so it is not applied automatically. Run \`keel update\` to see what it involves.`,
+            `${r.version} changes the store's shape (schema ${r.schema_from} → ${r.schema_to}), so it is not applied automatically. Run \`specline update\` to see what it involves.`,
           );
           break;
         case "failed":
@@ -269,7 +269,7 @@ export function VersionFooter({
         // exists for, and a version alone cannot tell them apart.
         title={executable ? `Running ${executable}` : undefined}
       >
-        Keel{" "}
+        Specline{" "}
         {releaseNotes ? (
           // A version with no way to find out what is in it is a number. The
           // link is the release's own notes, which the release job generates,

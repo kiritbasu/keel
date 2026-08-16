@@ -1,0 +1,37 @@
+[package]
+name = "specline-core"
+description = "Domain types, validation, storage and provenance for Specline. Never opens a socket."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+rusqlite.workspace = true
+sqlite-vec.workspace = true
+ulid.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+similar.workspace = true
+sha2.workspace = true
+rand.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+proptest.workspace = true
+tempfile.workspace = true
+# `hooks` gets rusqlite's authorizer and progress-handler callbacks, which is
+# how `tests/support/faults.rs` simulates a crash between two statements and a
+# killed process mid-statement. A dev-dependency rather than a workspace
+# feature: cargo turns it on for test builds and leaves it off in the shipped
+# binaries, which have no use for an API that only exists to make writes fail.
+rusqlite = { workspace = true, features = ["hooks"] }

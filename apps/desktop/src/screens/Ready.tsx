@@ -3,7 +3,7 @@
  *
  * The ranking has existed since TQ-16 and had no front door: the only way to
  * reach it was inside the digest, which nothing in the app showed. This is the
- * third door onto one computation — `keel ready` and `keel_ready` are the other
+ * third door onto one computation — `specline ready` and `specline_ready` are the other
  * two, and a daemon test asserts all of them return the same list in the same
  * order. That is the property worth protecting: an app that disagreed with the
  * session about what to do next would be worse than one that stayed silent.

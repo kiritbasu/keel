@@ -64,7 +64,7 @@ const HEALTH = {
   version: "0.1.1",
   projects: 0,
   store_busy: false,
-  home: "/Users/someone/.keel",
+  home: "/Users/someone/.specline",
   schema: 4,
 };
 
@@ -109,10 +109,10 @@ describe("a store with nothing in it", () => {
    */
   it("says the daemon is running, and shows what only a working one could", async () => {
     await show();
-    expect(screen.getByText(/Keel is running/i)).toBeTruthy();
+    expect(screen.getByText(/Specline is running/i)).toBeTruthy();
     expect(screen.getByText(/0\.1\.1/)).toBeTruthy();
     expect(screen.getByText(/schema 4/i)).toBeTruthy();
-    expect(screen.getByText("/Users/someone/.keel")).toBeTruthy();
+    expect(screen.getByText("/Users/someone/.specline")).toBeTruthy();
   });
 
   /** Empty is the expected state before first use, and should read that way. */
@@ -136,7 +136,7 @@ describe("a store with nothing in it", () => {
   });
 
   /**
-   * The one failure a fresh install actually hits: `/keel:setup` succeeds, and
+   * The one failure a fresh install actually hits: `/specline:setup` succeeds, and
    * the session that ran it still has no tools, because MCP servers connect at
    * startup.
    */
@@ -161,7 +161,7 @@ describe("a store with nothing in it", () => {
   it("still renders when health cannot be read", async () => {
     state.health = null;
     await show();
-    expect(screen.getByText(/Keel is running/i)).toBeTruthy();
+    expect(screen.getByText(/Specline is running/i)).toBeTruthy();
     expect(screen.queryByText(/schema/i)).toBeNull();
   });
 });
@@ -180,7 +180,7 @@ describe("a store with a project in it", () => {
   /** The two states are exclusive, and onboarding does not linger. */
   it("drops the first-run screen entirely", async () => {
     await show();
-    expect(screen.queryByText(/Keel is running/i)).toBeNull();
+    expect(screen.queryByText(/Specline is running/i)).toBeNull();
     expect(screen.queryByText(/Restart Claude Code/i)).toBeNull();
   });
 });

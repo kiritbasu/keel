@@ -113,7 +113,7 @@ export function BoardScreen({
 
   // What "blocked" means here is what it means to the ranking: something is
   // linked to it as a blocker. The app must not grow a second opinion, so these
-  // are the ids `keel_core::next::blocked_tasks` returns — the same function the
+  // are the ids `specline_core::next::blocked_tasks` returns — the same function the
   // digest and the generated tracker count from.
   const blockedIds = useMemo(
     () => new Set(next.data?.blocked ?? []),
@@ -389,7 +389,7 @@ export function BoardScreen({
  * about what is wanted, not the reasoning behind it.
  *
  * The summary is asked for rather than optional-by-omission, because a row that
- * is only a title is the kind that nobody can pick up later — and `keel_ready`
+ * is only a title is the kind that nobody can pick up later — and `specline_ready`
  * ranks on what a task says about itself.
  */
 function NewTaskDialog({

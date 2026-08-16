@@ -1,0 +1,36 @@
+---
+source: crates/specline-mcp/tests/snapshots.rs
+expression: cases
+---
+{
+  "bad_timestamp": {
+    "error": {
+      "code": -32602,
+      "message": "argument `since`: `last tuesday` is not a timestamp. Expected: an RFC 3339 timestamp such as [timestamp]"
+    }
+  },
+  "missing_argument": {
+    "error": {
+      "code": -32602,
+      "message": "argument `query`: missing or not a string. Expected: a string"
+    }
+  },
+  "unknown_field": {
+    "error": {
+      "code": -32602,
+      "message": "no task with id `[id]`"
+    }
+  },
+  "unknown_project": {
+    "error": {
+      "code": -32602,
+      "message": "argument `project`: no project matches `does-not-exist`. Expected: one of: harbour. Call specline_projects to list them"
+    }
+  },
+  "unknown_tool": {
+    "error": {
+      "code": -32602,
+      "message": "no tool named `specline_delete`. Available: specline_context, specline_search, specline_get, specline_projects, specline_activity, specline_create, specline_update, specline_write_doc, specline_note, specline_link, specline_ready, specline_claim, specline_close"
+    }
+  }
+}

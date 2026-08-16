@@ -2,13 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "keel-desktop",
+      "name": "specline-desktop",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "apps/desktop"],
       "port": 1420
     },
     {
-      "name": "keel-desktop-1421",
+      "name": "specline-desktop-1421",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "apps/desktop", "--", "--port", "1421"],
       "port": 1421

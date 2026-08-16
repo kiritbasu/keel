@@ -1,6 +1,6 @@
-<!-- keel:generated spec spc_01KZR487RKNSTBD8V9WXV27NBP
-     Keel is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
-     An edit made here is overwritten on the next `keel generate`. -->
+<!-- specline:generated spec spc_01KZR487RKNSTBD8V9WXV27NBP
+     Specline is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
+     An edit made here is overwritten on the next `specline generate`. -->
 
 # Keel — Phase 9
 ## One database

@@ -1,6 +1,6 @@
-<!-- keel:generated spec spc_01KZPDVA3THNZG533KZZ6772JX
-     Keel is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
-     An edit made here is overwritten on the next `keel generate`. -->
+<!-- specline:generated spec spc_01KZPDVA3THNZG533KZZ6772JX
+     Specline is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
+     An edit made here is overwritten on the next `specline generate`. -->
 
 # The gate — what it measured, and why it is frozen
 
@@ -10,7 +10,7 @@
 
 ## The question
 
-Phase 2's gate asked one thing: **will a coding agent write to Keel without being told to?**
+Phase 2's gate asked one thing: **will a coding agent write to Specline without being told to?**
 
 Everything else is downstream of it. The desktop app is a read surface by decision, so if the agent does not write, nothing does — a store that requires prompting is a filing cabinet with extra steps. The criterion KB set was deliberately hard: **nine of ten unprompted sessions record at least one artifact worth keeping.**
 
@@ -45,7 +45,7 @@ Thirty-nine `create` calls, thirty distinct artifacts, twenty-six worth keeping 
 Two of the four drops are failures the recall metric scores as *successes*, and both turned out to be real:
 
 - **Near-duplicate titles defeat the idempotency key.** Run B wrote *"Validate constituent phases to 0–360 degrees"*; Run C wrote *"Validate constituent phases to 0–360"*. The key hashes a normalised title, and normalisation lowercases and collapses whitespace — it does not know those are the same task. One store per session hid it completely; a real shared store would have accumulated the pair. Fixed: `create` now falls back to a similarity check on overlap **plus containment**, so only added words merge and substituted ones never do (KEEL-65).
-- **One artifact fabricated a cross-reference.** A row filed under a different project cited "D-9", which is a *Keel* decision, and referenced columns that project's storage does not have. A reader following that citation finds nothing, and a store whose references cannot be trusted is worse than one with fewer rows. Partly addressed: `fsck` now resolves `B-n`/`D-n`/`Q-n`-style citations in artifact bodies against live entities in the same project, and found six genuine dangling references on the first scoped run (KEEL-66). **It does not catch the case that motivated it** — no project titles artifacts `D-n`, because Keel's own decisions live as a numbered table inside a prose document rather than as rows, so a lexical check cannot tell "cites a convention documented in prose" from "cites nothing". That is the two-decision-registers problem, and it is why unifying them is worth doing.
+- **One artifact fabricated a cross-reference.** A row filed under a different project cited "D-9", which is a *Specline* decision, and referenced columns that project's storage does not have. A reader following that citation finds nothing, and a store whose references cannot be trusted is worse than one with fewer rows. Partly addressed: `fsck` now resolves `B-n`/`D-n`/`Q-n`-style citations in artifact bodies against live entities in the same project, and found six genuine dangling references on the first scoped run (KEEL-66). **It does not catch the case that motivated it** — no project titles artifacts `D-n`, because Specline's own decisions live as a numbered table inside a prose document rather than as rows, so a lexical check cannot tell "cites a convention documented in prose" from "cites nothing". That is the two-decision-registers problem, and it is why unifying them is worth doing.
 
 The gate scored both of those writes as successes. That is the argument for hand-judging a sample at least once: a recall metric cannot see a row that is confidently wrong.
 
@@ -72,7 +72,7 @@ In either case a run measures the *changed* thing against Run C, not against the
 
 ## Where the six documents went
 
-`PROBLEMS.md`, `WAY-FORWARD.md`, `VALIDITY-AUDIT.md`, `RUN-A.md`, `RUN-B-C.md` and `KEEP-RATE.md` are archived in Keel with their revisions intact and searchable. Their files are gone from the repository.
+`PROBLEMS.md`, `WAY-FORWARD.md`, `VALIDITY-AUDIT.md`, `RUN-A.md`, `RUN-B-C.md` and `KEEP-RATE.md` are archived in Specline with their revisions intact and searchable. Their files are gone from the repository.
 
 Two of them were wrong by the time anyone read them. `PROBLEMS.md` was written for outside review and its central claim — *"the agent will not write to it"* — was refuted by the review it was commissioned for, but it stayed in `product/` reading as current for a week afterwards. `WAY-FORWARD.md` then specified a five-part treatment bundle designed against a 3-of-10 baseline that turned out not to exist; most of it was never built, and the run that met the criterion applied one part of it.
 

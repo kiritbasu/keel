@@ -18,9 +18,9 @@ fuzz_target!(|data: &[u8]| {
     let Ok(relative) = std::str::from_utf8(data) else {
         return;
     };
-    let root = Path::new("/tmp/keel-fuzz-root");
+    let root = Path::new("/tmp/specline-fuzz-root");
 
-    if let Ok(joined) = keel_core::safe_path::confine(root, relative) {
+    if let Ok(joined) = specline_core::safe_path::confine(root, relative) {
         assert!(
             joined.starts_with(root),
             "confine accepted `{relative}` and produced {joined:?}, which is outside the root"

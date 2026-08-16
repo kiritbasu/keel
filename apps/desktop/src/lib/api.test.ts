@@ -43,7 +43,7 @@ describe("subscribe", () => {
       JSON.stringify({
         kind: "note",
         entity_id: "tsk_1",
-        summary: "keel_note completed",
+        summary: "specline_note completed",
       }),
     );
     expect(seen).toHaveLength(1);
@@ -59,7 +59,7 @@ describe("subscribe", () => {
       JSON.stringify({
         kind: "entity",
         event_id: "evt_1",
-        summary: "keel_update completed",
+        summary: "specline_update completed",
       }),
     );
     expect(seen[0]!.kind).toBe("entity");
@@ -137,10 +137,10 @@ describe("subscribe, on reconnect", () => {
 // --- Writing, and the token that has to be current ------------------------
 
 describe("a write from the interface", () => {
-  const TOKEN_META = '<meta name="keel-token" content="fresh-token">';
+  const TOKEN_META = '<meta name="specline-token" content="fresh-token">';
 
   function pageWithToken(token: string) {
-    document.head.innerHTML = `<meta name="keel-token" content="${token}">`;
+    document.head.innerHTML = `<meta name="specline-token" content="${token}">`;
   }
 
   afterEach(() => {
@@ -163,11 +163,11 @@ describe("a write from the interface", () => {
 
     await api.addNote("tsk_1", "something learned");
 
-    expect(calls[0]?.headers["x-keel-token"]).toBe("the-current-token");
+    expect(calls[0]?.headers["x-specline-token"]).toBe("the-current-token");
   });
 
   /**
-   * A token lives as long as one daemon, and `keel update` restarts the daemon
+   * A token lives as long as one daemon, and `specline update` restarts the daemon
    * — so a page left open across an update is holding an expired secret. Every
    * button on it would fail with a 401 that reads like a broken app.
    *
@@ -185,7 +185,7 @@ describe("a write from the interface", () => {
         });
       }
       const token =
-        (init.headers as Record<string, string>)["x-keel-token"] ?? "";
+        (init.headers as Record<string, string>)["x-specline-token"] ?? "";
       sent.push(token);
       return token === "fresh-token"
         ? new Response(JSON.stringify({ data: { id: "nte_1" } }), {
@@ -206,7 +206,7 @@ describe("a write from the interface", () => {
     vi.stubGlobal("fetch", async (_url: string, init?: RequestInit) => {
       if (!init?.method) {
         return new Response(
-          `<!doctype html><head><meta name="keel-token" content="also-no-good"></head>`,
+          `<!doctype html><head><meta name="specline-token" content="also-no-good"></head>`,
           { status: 200 },
         );
       }
@@ -232,7 +232,7 @@ describe("a write from the interface", () => {
     });
 
     await expect(api.addNote("tsk_1", "x")).rejects.toThrow(
-      /not served by the Keel daemon/,
+      /not served by the Specline daemon/,
     );
     expect(called).toBe(false);
   });

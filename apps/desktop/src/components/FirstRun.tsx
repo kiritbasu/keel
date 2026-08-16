@@ -1,5 +1,5 @@
 /**
- * What the interface shows before Keel has anything in it.
+ * What the interface shows before Specline has anything in it.
  *
  * # Why this is not an empty state
  *
@@ -16,9 +16,9 @@
  * could not produce.
  *
  * The second question is harder than it looks, because the honest answer is
- * "nothing, here". Keel fills up as a side effect of talking to Claude, and the
- * app cannot write by design (hard constraint 7). So the useful move is not a
- * call to action on this page but a sentence to say somewhere else, which is
+ * "nothing, here". Specline fills up as a side effect of talking to Claude, and
+ * the app cannot write by design (hard constraint 7). So the useful move is not
+ * a call to action on this page but a sentence to say somewhere else, which is
  * why the prompts are copyable rather than clickable — the same reasoning, and
  * the same idiom, as `AskClaude` on the task screen. There is no URL that puts
  * text into a Claude Code session, and a button pretending otherwise would be
@@ -87,7 +87,7 @@ export function FirstRun({
             className="h-2 w-2 shrink-0 rounded-full bg-accent"
             aria-hidden="true"
           />
-          <span className="text-heading font-medium">Keel is running</span>
+          <span className="text-heading font-medium">Specline is running</span>
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-small text-ink-muted">
           {version && <span>version {version}</span>}
@@ -106,8 +106,8 @@ export function FirstRun({
         </div>
         <p className="mt-3 text-small text-ink-muted">
           The store is empty, which is what it should be before you have used
-          it. Keel fills up as a side effect of working with Claude — you never
-          type into it, and this page only ever reads.
+          it. Specline fills up as a side effect of working with Claude — you
+          never type into it, and this page only ever reads.
         </p>
       </div>
 
@@ -139,14 +139,14 @@ export function FirstRun({
       </Card>
 
       {/* The one failure a new install actually hits, and the only one this
-          page can pre-empt. `/keel:setup` installs the binaries, but MCP
+          page can pre-empt. `/specline:setup` installs the binaries, but MCP
           servers are connected when Claude Code starts — so a session opened
-          before setup finished has no `keel_*` tools however well it went, and
+          before setup finished has no `specline_*` tools however well it went, and
           the symptom is Claude saying it cannot find them. */}
       <p className="text-small text-ink-faint">
-        No <span className="font-mono text-micro">keel_*</span> tools in your
+        No <span className="font-mono text-micro">specline_*</span> tools in your
         session? Restart Claude Code. MCP servers connect at startup, so a
-        session that was already open when Keel was installed will not have
+        session that was already open when Specline was installed will not have
         them.
       </p>
     </div>

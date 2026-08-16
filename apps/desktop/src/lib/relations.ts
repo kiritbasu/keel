@@ -20,7 +20,7 @@ export type Direction = "outbound" | "inbound";
  * The heading a group of neighbours sits under.
  *
  * Outbound is the subject doing the verb; inbound is the subject receiving it.
- * `depends_on` never appears — `keel-core` normalises it to `blocks` with the
+ * `depends_on` never appears — `specline-core` normalises it to `blocks` with the
  * endpoints swapped, so it can never be stored and can never come back.
  */
 const PHRASES: Record<string, { outbound: string; inbound: string }> = {

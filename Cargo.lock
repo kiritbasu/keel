@@ -1597,115 +1597,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "keel"
-version = "0.1.5"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "keel-core",
- "keel-daemon",
- "keel-embed",
- "keel-mcp",
- "keel-update",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "tracing",
- "tracing-subscriber",
- "ureq 2.12.1",
-]
-
-[[package]]
-name = "keel-core"
-version = "0.1.5"
-dependencies = [
- "chrono",
- "insta",
- "proptest",
- "rand 0.10.2",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "similar 3.1.2",
- "sqlite-vec",
- "tempfile",
- "thiserror",
- "tracing",
- "ulid",
-]
-
-[[package]]
-name = "keel-daemon"
-version = "0.1.5"
-dependencies = [
- "anyhow",
- "async-stream",
- "axum",
- "chrono",
- "clap",
- "futures-util",
- "insta",
- "keel-core",
- "keel-embed",
- "keel-mcp",
- "keel-update",
- "reqwest",
- "rust-embed",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tower-http 0.7.0",
- "tracing",
- "tracing-subscriber",
- "ureq 2.12.1",
-]
-
-[[package]]
-name = "keel-embed"
-version = "0.1.5"
-dependencies = [
- "fastembed",
- "keel-core",
- "tempfile",
- "tracing",
-]
-
-[[package]]
-name = "keel-mcp"
-version = "0.1.5"
-dependencies = [
- "base64 0.22.1",
- "chrono",
- "insta",
- "keel-core",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "tracing",
-]
-
-[[package]]
-name = "keel-update"
-version = "0.1.5"
-dependencies = [
- "anyhow",
- "chrono",
- "keel-core",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "tracing",
- "ureq 2.12.1",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3135,6 +3026,115 @@ dependencies = [
  "byteorder",
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "specline"
+version = "0.1.5"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "specline-core",
+ "specline-daemon",
+ "specline-embed",
+ "specline-mcp",
+ "specline-update",
+ "tempfile",
+ "tracing",
+ "tracing-subscriber",
+ "ureq 2.12.1",
+]
+
+[[package]]
+name = "specline-core"
+version = "0.1.5"
+dependencies = [
+ "chrono",
+ "insta",
+ "proptest",
+ "rand 0.10.2",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "similar 3.1.2",
+ "sqlite-vec",
+ "tempfile",
+ "thiserror",
+ "tracing",
+ "ulid",
+]
+
+[[package]]
+name = "specline-daemon"
+version = "0.1.5"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "axum",
+ "chrono",
+ "clap",
+ "futures-util",
+ "insta",
+ "reqwest",
+ "rust-embed",
+ "serde",
+ "serde_json",
+ "specline-core",
+ "specline-embed",
+ "specline-mcp",
+ "specline-update",
+ "tempfile",
+ "tokio",
+ "tower-http 0.7.0",
+ "tracing",
+ "tracing-subscriber",
+ "ureq 2.12.1",
+]
+
+[[package]]
+name = "specline-embed"
+version = "0.1.5"
+dependencies = [
+ "fastembed",
+ "specline-core",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
+name = "specline-mcp"
+version = "0.1.5"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "insta",
+ "serde",
+ "serde_json",
+ "specline-core",
+ "tempfile",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "specline-update"
+version = "0.1.5"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "serde",
+ "serde_json",
+ "sha2",
+ "specline-core",
+ "tempfile",
+ "tracing",
+ "ureq 2.12.1",
 ]
 
 [[package]]

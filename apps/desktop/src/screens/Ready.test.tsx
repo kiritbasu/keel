@@ -17,7 +17,7 @@ const READY = {
     {
       id: "tsk_2",
       reference: "KEEL-108",
-      title: "keel ready: what can be worked on right now",
+      title: "specline ready: what can be worked on right now",
       priority: "p0",
       unblocks: 2,
       why: "unblocks 2 other tasks · p0",
@@ -67,7 +67,7 @@ vi.mock("../lib/api", () => ({
 const { ReadyScreen } = await import("./Ready");
 
 function at(query: Record<string, string>): Route {
-  return { screen: "ready", project: "keel", query };
+  return { screen: "ready", project: "specline", query };
 }
 
 async function show(query: Record<string, string> = {}) {
@@ -78,7 +78,7 @@ async function show(query: Record<string, string> = {}) {
 }
 
 beforeEach(() => {
-  window.location.hash = "#/projects/keel/ready";
+  window.location.hash = "#/projects/specline/ready";
   calls.length = 0;
   state.response = READY;
 });
@@ -102,7 +102,7 @@ describe("the ranked list", () => {
     await show();
     expect(
       screen.getByText("Make the app legible").closest("a")?.getAttribute("href"),
-    ).toBe("#/projects/keel/tasks/KEEL-98");
+    ).toBe("#/projects/specline/tasks/KEEL-98");
   });
 
   // Hard constraint 4. Two of seven with nothing saying so is how a reader

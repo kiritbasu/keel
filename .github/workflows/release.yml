@@ -92,7 +92,7 @@ jobs:
           # build**, not because anything about ONNX changed:
           # `[package.metadata.dist] default-features = false` builds every
           # target without embeddings (KEEL-220, KEEL-252). The cost is that no
-          # released binary can do semantic search; `keel doctor` says so.
+          # released binary can do semantic search; `specline doctor` says so.
           #
           # Intel macOS builds on the same self-hosted Apple Silicon Mac.
           # `--target=x86_64-apple-darwin` on an arm64 host still links with
@@ -140,7 +140,7 @@ jobs:
 
       # --- The site the daemon embeds ---------------------------------------
       #
-      # `keel-daemon` serves the React app from `apps/desktop` compiled into the
+      # `specline-daemon` serves the React app from `apps/desktop` compiled into the
       # binary, so `apps/desktop/dist` must exist before cargo runs. `dist` has
       # no idea this dependency exists and will not do it; a build without these
       # three steps still succeeds and still produces a working MCP server,
@@ -235,13 +235,13 @@ jobs:
       # being shipped. The updater has to decide whether a candidate is safe to
       # apply *before* downloading it, and it cannot ask the candidate — running
       # the thing you are deciding whether to run is the whole problem (KEEL-202).
-      # `release-manifest` opens no store, so it runs on a machine with no Keel
+      # `release-manifest` opens no store, so it runs on a machine with no Specline
       # home at all, which is what this is.
       #
       # Extracted from the archive rather than guessed at under `target/`: the
       # archive layout is a published contract, and its internal directory is
       # named for the target. Checked against the real v0.1.1 asset rather than
-      # assumed — `keel-aarch64-apple-darwin/keel`.
+      # assumed — `specline-aarch64-apple-darwin/specline`.
       #
       # Only the host's own target can be executed here, which is why this sits
       # in the per-target job and not in `publish`: that job runs on Linux and
@@ -259,10 +259,10 @@ jobs:
         run: |
           set -euo pipefail
           work="$(mktemp -d)"
-          tar -xJf "target/distrib/keel-${{ matrix.target }}.tar.xz" -C "$work"
-          "$work/keel-${{ matrix.target }}/keel" release-manifest \
-            > target/distrib/keel-release.json
-          cat target/distrib/keel-release.json
+          tar -xJf "target/distrib/specline-${{ matrix.target }}.tar.xz" -C "$work"
+          "$work/specline-${{ matrix.target }}/specline" release-manifest \
+            > target/distrib/specline-release.json
+          cat target/distrib/specline-release.json
 
       - uses: actions/upload-artifact@v7
         with:
@@ -393,8 +393,8 @@ jobs:
           set -euo pipefail
           cd target/distrib
 
-          if [ ! -f keel-release.json ]; then
-            echo "no keel-release.json — no build leg produced one, so this" >&2
+          if [ ! -f specline-release.json ]; then
+            echo "no specline-release.json — no build leg produced one, so this" >&2
             echo "release would ship with nothing for the updater to verify" >&2
             exit 1
           fi
@@ -403,16 +403,16 @@ jobs:
           # state its own hash. `find` rather than a glob so the set matches the
           # one the publish step below collects.
           work="$(mktemp)"
-          cp keel-release.json "$work"
+          cp specline-release.json "$work"
           while IFS= read -r file; do
             name="$(basename "$file")"
             sum="$(sha256sum "$file" | awk '{print $1}')"
             jq --arg n "$name" --arg s "$sum" '.artifacts[$n] = $s' "$work" > "$work.next"
             mv "$work.next" "$work"
-          done < <(find . -maxdepth 1 -type f ! -name keel-release.json | sort)
+          done < <(find . -maxdepth 1 -type f ! -name specline-release.json | sort)
 
-          mv "$work" keel-release.json
-          cat keel-release.json
+          mv "$work" specline-release.json
+          cat specline-release.json
 
       - name: Publish the release
         shell: bash
@@ -425,7 +425,7 @@ jobs:
           args=(--title "$tag" --generate-notes --verify-tag)
 
           # A prerelease must not become `latest`. The standalone install line
-          # in §1 fetches `.../releases/latest/download/keel-installer.sh`, so
+          # in §1 fetches `.../releases/latest/download/specline-installer.sh`, so
           # an rc landing there would become the default download for everyone
           # who is not reading release notes.
           case "$tag" in

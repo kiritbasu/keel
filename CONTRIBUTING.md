@@ -1,12 +1,12 @@
 # Contributing
 
-Thanks for looking. Keel is one person's project with a public repository, so
+Thanks for looking. Specline is one person's project with a public repository, so
 what follows is honest about what that means rather than pretending to be a
 foundation.
 
 ## Before you write code
 
-**Open an issue first for anything beyond a bug fix.** Keel has strong opinions
+**Open an issue first for anything beyond a bug fix.** Specline has strong opinions
 and most of them are written down; a change that cuts against one is a wasted
 afternoon for you and an awkward conversation for me. `product/PRD.md` says what
 it is for, `product/SPEC.md` says how it works, and `product/DECISIONS.md` says
@@ -17,9 +17,9 @@ Small, obvious fixes need no ceremony. Send them.
 
 ## The thing that will trip you up
 
-**Everything under `product/` and `.keel/` is generated.** Each file carries a
+**Everything under `product/` and `.specline/` is generated.** Each file carries a
 banner saying so. Editing one is not wrong so much as futile: the next
-`keel generate` overwrites it from the store, and whatever you wrote is gone
+`specline generate` overwrites it from the store, and whatever you wrote is gone
 with no trace. If a generated file is wrong, the fix is upstream of it — say so
 in the issue and it will be fixed at the source.
 
@@ -52,13 +52,13 @@ checking a different compiler from the one CI uses and pass. Either put
 `~/.cargo/bin` ahead of Homebrew on `PATH`, or run each command as
 `rustup run <version> cargo …`.
 
-**On Linux, or an Intel Mac, add `--exclude keel-embed`.** That crate pulls a
+**On Linux, or an Intel Mac, add `--exclude specline-embed`.** That crate pulls a
 prebuilt ONNX runtime which has no Intel macOS build and wants a newer glibc
 than the Linux binaries are built against, so it cannot compile there at all.
 Everything else can:
 
 ```bash
-cargo test --workspace --exclude keel-embed --no-default-features
+cargo test --workspace --exclude specline-embed --no-default-features
 ```
 
 The `embeddings` feature is on by default and that command turns it off, which
@@ -97,7 +97,7 @@ the same as the rest of the repository.
 
 ## Reporting a bug
 
-Include what you ran, what happened, and what you expected. `keel doctor` prints
+Include what you ran, what happened, and what you expected. `specline doctor` prints
 a page of diagnostics and its output is usually the fastest way to a cause —
 read it before you paste it, since it names paths on your machine.
 

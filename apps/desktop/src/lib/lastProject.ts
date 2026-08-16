@@ -12,7 +12,7 @@
  * opacity with a tooltip apologising for itself.
  */
 
-const KEY = "keel.lastProject";
+const KEY = "specline.lastProject";
 
 /** The slug you were last in, or null if there is no usable memory. */
 export function readLastProject(): string | null {

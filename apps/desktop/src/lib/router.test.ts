@@ -13,30 +13,30 @@ describe("parseHash", () => {
   });
 
   it("reads a project", () => {
-    expect(parseHash("#/projects/keel")).toEqual({ screen: "project", project: "keel", query: {} });
+    expect(parseHash("#/projects/specline")).toEqual({ screen: "project", project: "specline", query: {} });
   });
 
   it("reads a project-scoped screen", () => {
-    expect(parseHash("#/projects/keel/board")).toEqual({
+    expect(parseHash("#/projects/specline/board")).toEqual({
       screen: "board",
-      project: "keel",
+      project: "specline",
       query: {},
     });
   });
 
   it("reads a task inside a project", () => {
-    expect(parseHash("#/projects/keel/tasks/tsk_01ABC")).toEqual({
+    expect(parseHash("#/projects/specline/tasks/tsk_01ABC")).toEqual({
       screen: "task",
-      project: "keel",
+      project: "specline",
       taskId: "tsk_01ABC",
       query: {},
     });
   });
 
   it("reads a document inside a project", () => {
-    expect(parseHash("#/projects/keel/documents/spc_01ABC")).toEqual({
+    expect(parseHash("#/projects/specline/documents/spc_01ABC")).toEqual({
       screen: "documents",
-      project: "keel",
+      project: "specline",
       documentId: "spc_01ABC",
       query: {},
     });
@@ -44,7 +44,7 @@ describe("parseHash", () => {
 
   it("distinguishes a global screen from its project-scoped form", () => {
     expect(parseHash("#/search").project).toBeUndefined();
-    expect(parseHash("#/projects/keel/search").project).toBe("keel");
+    expect(parseHash("#/projects/specline/search").project).toBe("specline");
   });
 
   it("reads the query", () => {
@@ -63,7 +63,7 @@ describe("parseHash", () => {
   it("falls back to Home for a path that matches nothing", () => {
     expect(parseHash("#/nonsense/deeper/still").screen).toBe("home");
     expect(parseHash("#/projects").screen).toBe("home");
-    expect(parseHash("#/projects/keel/board/extra").screen).toBe("home");
+    expect(parseHash("#/projects/specline/board/extra").screen).toBe("home");
   });
 
   it("keeps the query when falling back, so a search survives a broken path", () => {
@@ -94,19 +94,19 @@ describe("toHash", () => {
   // either. It degrades to that project's board rather than all the way to
   // Home, which keeps the reader where they were trying to be.
   it("degrades a task with no id to the project's board", () => {
-    expect(toHash({ screen: "task", project: "keel", query: {} })).toBe("#/projects/keel/board");
+    expect(toHash({ screen: "task", project: "specline", query: {} })).toBe("#/projects/specline/board");
   });
 
   it("round-trips every shape the app can build", () => {
     const routes: Route[] = [
       { screen: "home", query: {} },
       { screen: "roadmap", query: {} },
-      { screen: "project", project: "keel", query: {} },
-      { screen: "board", project: "keel", query: {} },
-      { screen: "roadmap", project: "keel", query: {} },
-      { screen: "changed", project: "keel", query: { actor: "claude" } },
-      { screen: "documents", project: "keel", documentId: "spc_1", query: { v: "3", diff: "1" } },
-      { screen: "task", project: "keel", taskId: "tsk_1", query: {} },
+      { screen: "project", project: "specline", query: {} },
+      { screen: "board", project: "specline", query: {} },
+      { screen: "roadmap", project: "specline", query: {} },
+      { screen: "changed", project: "specline", query: { actor: "claude" } },
+      { screen: "documents", project: "specline", documentId: "spc_1", query: { v: "3", diff: "1" } },
+      { screen: "task", project: "specline", taskId: "tsk_1", query: {} },
       { screen: "search", query: { q: "why is billing slow", types: "spec" } },
     ];
     for (const route of routes) {
@@ -117,14 +117,14 @@ describe("toHash", () => {
 
 describe("href", () => {
   it("fills in an empty query so callers need not", () => {
-    expect(href({ screen: "board", project: "keel" })).toBe("#/projects/keel/board");
+    expect(href({ screen: "board", project: "specline" })).toBe("#/projects/specline/board");
   });
 });
 
 describe("navigate", () => {
   it("moves the address", () => {
-    navigate({ screen: "board", project: "keel" });
-    expect(window.location.hash).toBe("#/projects/keel/board");
+    navigate({ screen: "board", project: "specline" });
+    expect(window.location.hash).toBe("#/projects/specline/board");
   });
 
   it("replaces without adding a history entry", () => {
@@ -152,10 +152,10 @@ describe("setQuery", () => {
   });
 
   it("keeps the path", () => {
-    setQuery({ screen: "board", project: "keel", query: {} }, { task: "tsk_1" });
+    setQuery({ screen: "board", project: "specline", query: {} }, { task: "tsk_1" });
     expect(parseHash(window.location.hash)).toEqual({
       screen: "board",
-      project: "keel",
+      project: "specline",
       query: { task: "tsk_1" },
     });
   });

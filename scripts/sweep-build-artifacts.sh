@@ -75,7 +75,7 @@ for profile in debug release; do
   # The same rule for the largest rlibs. Named explicitly rather than applied to
   # every rlib, because most rlibs are kilobytes and the risk of a clever
   # pattern is that it matches something it should not.
-  for stem in liblibsqlite3_sys libkeel_core libkeel_daemon libkeel_mcp \
+  for stem in liblibsqlite3_sys libspecline_core libspecline_daemon libspecline_mcp \
               libfastembed libort_sys; do
     stale=$(find . -maxdepth 1 -name "${stem}-*.rlib" -print0 2>/dev/null \
             | xargs -0 ls -t 2>/dev/null | tail -n +2 || true)
@@ -120,9 +120,9 @@ done
 # nothing — a sweeper that silently swept zero. Stripping the slash and using
 # an explicit `/` makes it independent of how TMPDIR is spelled.
 #
-# Only directories that actually contain a Keel store, and only those untouched
+# Only directories that actually contain a Specline store, and only those untouched
 # for an hour, so nothing a running test owns is taken out from under it.
-# `keel.duckdb` is here for the stores left by runs that predate Phase 9; a
+# `specline.duckdb` is here for the stores left by runs that predate Phase 9; a
 # DuckDB store was 4.8 MB against SQLite's 388 KB, so the few that remain are
 # worth more than their number suggests.
 TMP="${TMPDIR:-/tmp}"
@@ -131,7 +131,7 @@ leaked=0
 cd "$TMP" 2>/dev/null || true
 for d in "$TMP"/.tmp*; do
   [ -d "$d" ] || continue
-  [ -f "$d/keel.sqlite" ] || [ -f "$d/keel.duckdb" ] || continue
+  [ -f "$d/specline.sqlite" ] || [ -f "$d/keel.sqlite" ] || [ -f "$d/keel.duckdb" ] || continue
   [ -n "$(find "$d" -maxdepth 0 -mmin +60 2>/dev/null)" ] || continue
   run "$d"
   leaked=$((leaked + 1))

@@ -19,7 +19,7 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
 
-    if let Some(query) = keel_core::store::search::fts_match(text) {
+    if let Some(query) = specline_core::store::search::fts_match(text) {
         assert!(
             !query.is_empty(),
             "a Some() answer that is empty would be a query matching everything"

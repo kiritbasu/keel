@@ -20,9 +20,9 @@ ignore = [
 
 [licenses]
 version = 2
-# Permissive licences only. This was written while Keel was unpublished, on the
+# Permissive licences only. This was written while Specline was unpublished, on the
 # grounds that a copyleft dependency would foreclose publishing later and that
-# finding out at publish time is expensive. That bet is now called: Keel is
+# finding out at publish time is expensive. That bet is now called: Specline is
 # Apache-2.0 and public, so the list is load-bearing rather than precautionary.
 allow = [
     "MIT",
@@ -44,8 +44,8 @@ allow = [
 confidence-threshold = 0.9
 
 # `private = { ignore = true }` used to sit here, so that cargo-deny would not
-# demand an SPDX expression for Keel's own crates while they had none. The
-# instruction attached to it was "if Keel is ever published, choose a licence
+# demand an SPDX expression for Specline's own crates while they had none. The
+# instruction attached to it was "if Specline is ever published, choose a licence
 # and delete this", and that is what happened: the workspace declares
 # `license = "Apache-2.0"`, so its crates are checked against the allow list
 # above like everything else. Deleting the exemption is the point — it means a

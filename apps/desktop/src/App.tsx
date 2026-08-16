@@ -388,7 +388,7 @@ export function App() {
       <nav className="flex w-52 shrink-0 flex-col border-r border-border-subtle bg-surface-sunken">
         <div className="px-4 py-4">
           <div className="text-heading font-semibold tracking-tight text-brand">
-            Keel
+            Specline
           </div>
           <div className="text-micro text-ink-faint">the project spine</div>
         </div>

@@ -2,7 +2,7 @@
  * Screen 6 — Search. Hybrid, cross-project, faceted by type.
  *
  * The query and the facets live in the address, so a search is a link. Scope is
- * the address too: `/search` is everything, `/projects/keel/search` is one
+ * the address too: `/search` is everything, `/projects/specline/search` is one
  * project — the same distinction the rest of the app already makes, rather than
  * a second mechanism that means the same thing.
  */
@@ -125,7 +125,8 @@ export function SearchScreen({ route, generation }: ScreenProps) {
   // knows its open questions, recent decisions and glossary, so this costs one
   // call and teaches what semantic search is for using material the reader
   // recognises — rather than the billing example, which was lifted from a tool
-  // description written for a generic project and had nothing to do with Keel.
+  // description written for a generic project and had nothing to do with the
+  // project in front of you.
   const digest = useAsync(() => api.context(project), [project, generation]);
   const starters = useMemo(() => starterQueries(digest.data), [digest.data]);
 
