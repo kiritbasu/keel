@@ -156,7 +156,15 @@ async fn prose_can_still_be_written_with_no_embedder() {
         .post(format!("{base}/mcp"))
         .json(&tool_call(
             "keel_create",
-            json!({"type": "spec", "project": "offline", "title": "A specification"}),
+            json!({
+                "type": "spec",
+                "project": "offline",
+                "title": "A specification",
+                // Prose-bearing types arrive with prose (KEEL-171). This one
+                // then gets a second revision below, which is what the test is
+                // actually about.
+                "body": "The first revision, written with no embedder loaded.",
+            }),
         ))
         .send()
         .await
@@ -185,7 +193,11 @@ async fn prose_can_still_be_written_with_no_embedder() {
 
     assert_eq!(
         written.pointer("/result/structuredContent/document/version"),
-        Some(&json!(1)),
+        // Two, not one: the create carries the first revision now that a
+        // prose-bearing type has to arrive with prose (KEEL-171). What this
+        // test is about is that a revision lands at all with no model loaded,
+        // and which number it is was never the point.
+        Some(&json!(2)),
         "a revision must land without an embedder: {written}"
     );
     assert_eq!(

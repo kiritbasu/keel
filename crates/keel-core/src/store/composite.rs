@@ -61,6 +61,28 @@ impl Store {
         image: Option<(Vec<u8>, String)>,
         provenance: &Provenance,
     ) -> Result<CreatedComposite> {
+        // Before anything is prepared or written, because the answer does not
+        // depend on the store and a refusal that has already inserted a row is
+        // the bug next door (KEEL-146).
+        //
+        // Only the types whose document *is* their content. A task with no body
+        // still says something; a question with no body is a title recording
+        // that somebody wondered about something, with the wondering gone.
+        if entity.entity_type().needs_prose() && body.as_deref().unwrap_or("").trim().is_empty() {
+            return Err(Error::invalid(
+                entity.entity_type(),
+                "body",
+                format!(
+                    "a {} is its prose — there is no summary column to fall back on, so a row \
+                     with only a title records that this exists and nothing about what it says",
+                    entity.entity_type()
+                ),
+                "the reasoning: what was asked or chosen, what the options were, and why this \
+                 one. Two sentences beats a heading, and it is the part that evaporates if it \
+                 is not written down now",
+            ));
+        }
+
         let now = Utc::now();
         let mut entity = match self.prepare_create(entity, provenance, now)? {
             Prepared::Existing(existing) => {

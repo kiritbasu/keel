@@ -375,7 +375,15 @@ async fn concurrent_links_between_the_same_pair_produce_one_edge() {
     let spec = client
         .ok(
             "keel_create",
-            json!({"type": "spec", "project": project, "title": "The spec"}),
+            json!({
+                "type": "spec",
+                "project": project,
+                "title": "The spec",
+                // A prose-bearing type has to arrive with prose (KEEL-171).
+                // This test is about edges, not bodies, but the rule does not
+                // make exceptions for what a test happens to care about.
+                "body": "The spec these concurrent links point at.",
+            }),
         )
         .await["entity"]["id"]
         .as_str()

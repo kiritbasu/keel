@@ -10,7 +10,10 @@
 #[path = "support/faults.rs"]
 mod faults;
 
-use keel_core::{Actor, Design, EntityId, EntityStore, Project, Provenance, Spec, Store, Task};
+use keel_core::{
+    Actor, Decision, Design, EntityId, EntityQuery, EntityStore, EntityType, Project, Provenance,
+    Question, Spec, Store, Task,
+};
 
 fn prov() -> Provenance {
     Provenance::anonymous(Actor::Claude).with_session("ses_composite")
@@ -239,4 +242,102 @@ fn an_image_on_a_type_that_cannot_hold_one_is_refused() {
         tasks, 0,
         "the refusal must happen before anything is written"
     );
+}
+
+// --- Prose-bearing types arrive with prose (KEEL-171) ---------------------
+//
+// `body` was optional for every type, so a create with none wrote the row,
+// skipped the document and reported success. For a task that is survivable —
+// its summary is required and the row still says something. A question or a
+// decision has no summary column at all: the document is the whole of its
+// content, so what lands is a title recording that somebody decided something,
+// with what they decided missing. Ten rows in the real store are in that state.
+
+#[test]
+fn a_question_cannot_be_created_with_a_title_and_nothing_else() {
+    let (_d, mut store, project) = fixture();
+
+    let err = store
+        .create_with_document(
+            Question::new(project.clone(), "Should we cache the digest?").into(),
+            None,
+            None,
+            &prov(),
+        )
+        .expect_err("a question with no prose is a title and no question");
+
+    let message = err.to_string();
+    assert!(
+        message.contains("no summary column to fall back on"),
+        "the refusal says why this type in particular: {message}"
+    );
+
+    // Refused before anything is written, not after. A refusal that has already
+    // inserted the row is the bug next door, and it is how three of the ten got
+    // there — the body was rejected and the headless row stayed.
+    assert_eq!(
+        store
+            .list(&EntityQuery::in_project(project.clone()).of_type(EntityType::Question))
+            .unwrap()
+            .items
+            .len(),
+        0,
+        "a refused create leaves no row behind"
+    );
+}
+
+#[test]
+fn whitespace_is_not_prose() {
+    let (_d, mut store, project) = fixture();
+
+    assert!(
+        store
+            .create_with_document(
+                Decision::new(project.clone(), "Use one parser").into(),
+                Some("   \n\t  ".to_owned()),
+                None,
+                &prov(),
+            )
+            .is_err(),
+        "a body of spaces satisfies the letter of the rule and none of the point"
+    );
+}
+
+#[test]
+fn a_task_still_needs_no_body_because_its_summary_carries_the_meaning() {
+    let (_d, mut store, project) = fixture();
+
+    let created = store
+        .create_with_document(
+            Task::new(
+                project.clone(),
+                "Wire up the exporter",
+                "The exporter writes nothing when the window is empty. Done when it writes an \
+                 empty file rather than no file.",
+            )
+            .into(),
+            None,
+            None,
+            &prov(),
+        )
+        .expect("a task's summary is its content, and it is required already");
+    assert!(created.created);
+    assert!(created.document.is_none());
+}
+
+/// A design's content is the image. A caption is a caption, and requiring one
+/// would refuse a perfectly good screenshot for lacking a sentence about it.
+#[test]
+fn a_design_can_arrive_as_an_image_with_nothing_said_about_it() {
+    let (_d, mut store, project) = fixture();
+
+    let created = store
+        .create_with_document(
+            Design::new(project.clone(), "The rail, after").into(),
+            None,
+            Some((PNG.to_vec(), "image/png".to_owned())),
+            &prov(),
+        )
+        .expect("an image is content");
+    assert!(created.blob_id.is_some());
 }
