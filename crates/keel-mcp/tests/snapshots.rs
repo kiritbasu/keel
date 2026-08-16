@@ -35,7 +35,14 @@ fn settings() -> insta::Settings {
     );
     s.add_filter(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}", "[time]");
     s.add_filter(r"\d{4}-\d{2}-\d{2}", "[date]");
-    s.add_filter(r#""version": "\d+\.\d+\.\d+""#, r#""version": "[semver]""#);
+    // The suffix matters, and it was missing until an `-rc.1` went past.
+    // `0.1.4` redacted and `0.1.5-rc.1` did not, so the snapshot diffed on the
+    // version it exists to ignore — and it failed at the one moment a release
+    // is being cut, which is the worst time to be reading a spurious diff.
+    s.add_filter(
+        r#""version": "\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?""#,
+        r#""version": "[semver]""#,
+    );
     s.add_filter(r"[0-9a-f]{32}", "[hash]");
     s
 }
