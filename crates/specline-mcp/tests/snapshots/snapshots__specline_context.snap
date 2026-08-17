@@ -14,6 +14,7 @@ expression: result
     "active": [],
     "attention": [],
     "budget_exceeded": false,
+    "complete": [],
     "decisions": [],
     "environments": [],
     "estimated_tokens": 167,

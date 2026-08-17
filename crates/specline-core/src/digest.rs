@@ -157,6 +157,13 @@ pub struct Digest {
     pub projects: Vec<ProjectLine>,
     /// Milestones in flight.
     pub active: Vec<Item>,
+    /// Milestones whose work is finished and whose fate nobody has declared.
+    ///
+    /// Populated for a single project only. The roll-up leaves `attention`,
+    /// `decisions` and `specs` empty for the same reason — it answers "which
+    /// project needs me", and a phase-level decision is a question you ask once
+    /// you are inside one.
+    pub complete: Vec<Item>,
     /// Urgent, blocked and overdue work.
     pub attention: Vec<Item>,
     /// Recent activity, summarised.
@@ -278,6 +285,21 @@ impl Digest {
             }
         }
 
+        // Above `Active`, and deliberately: this is a decision somebody owes the
+        // project, and the sections below it are orientation. A phase sitting
+        // here costs nothing to resolve and is invisible everywhere else.
+        if !self.complete.is_empty() {
+            out.push_str("\n## Finished, but not declared\n");
+            out.push_str(
+                "Every task in these is closed. Whether that means shipped or cut is not \
+                 derivable — `done` and `wont_do` both close a task — so it stays here until \
+                 somebody says which.\n",
+            );
+            for i in &self.complete {
+                out.push_str(&format!("- {} {}\n", i.label, i.id));
+            }
+        }
+
         section(&mut out, "Active", &self.active);
         section(&mut out, "Needs attention", &self.attention);
         section(&mut out, "Open questions and risks", &self.questions);
@@ -352,6 +374,7 @@ pub fn build(
         project: None,
         projects: Vec::new(),
         active: Vec::new(),
+        complete: Vec::new(),
         attention: Vec::new(),
         recent: Vec::new(),
         decisions: Vec::new(),
@@ -415,6 +438,17 @@ pub fn build(
             let line = project_line(store, &p)?;
 
             digest.active = active_milestones(store, project_id, limit)?;
+            let complete = complete_milestones(store, project_id)?;
+            let complete_total = complete.len();
+            digest.complete = complete;
+            if complete_total > limit {
+                digest.complete.truncate(limit);
+                digest.truncated.push(Truncation {
+                    section: "complete".to_owned(),
+                    shown: limit,
+                    total: complete_total,
+                });
+            }
             let (attention, attention_total) = needs_attention(store, project_id, limit)?;
             digest.attention = attention;
             if attention_total > digest.attention.len() {
@@ -588,7 +622,17 @@ fn project_line(store: &Store, p: &crate::Project) -> Result<ProjectLine> {
     })
 }
 
-fn active_milestones(store: &Store, project: &EntityId, limit: usize) -> Result<Vec<Item>> {
+/// The project's phases whose derived state is one of `wanted`.
+///
+/// Each item carries the **derived** state as its status rather than the
+/// declared one. They are different facts and only one of them is worth reading
+/// here: a phase in flight is `open` in the column and always was, so printing
+/// the column told a session nothing the section heading had not (B-57).
+fn milestones_in_state(
+    store: &Store,
+    project: &EntityId,
+    wanted: &[crate::MilestoneState],
+) -> Result<Vec<Item>> {
     let states = store.milestone_states(project)?;
     let page = store.list(
         &EntityQuery::in_project(project.clone())
@@ -598,21 +642,47 @@ fn active_milestones(store: &Store, project: &EntityId, limit: usize) -> Result<
     Ok(page
         .items
         .iter()
-        .filter(|m| {
-            matches!(
-                states.get(m.id()),
-                Some(crate::MilestoneState::Active | crate::MilestoneState::Blocked)
-            )
-        })
-        .take(limit)
-        .map(|e| {
+        .filter_map(|m| states.get(m.id()).map(|state| (m, *state)))
+        .filter(|(_, state)| wanted.contains(state))
+        .map(|(e, state)| {
             let detail = match e {
                 Entity::Milestone(m) => m.target_date.map(|d| format!("target {d}")),
                 _ => None,
             };
-            item(store, e, detail)
+            Item {
+                status: Some(state.as_str().to_owned()),
+                ..item(store, e, detail)
+            }
         })
         .collect())
+}
+
+/// Phases in flight.
+fn active_milestones(store: &Store, project: &EntityId, limit: usize) -> Result<Vec<Item>> {
+    let mut items = milestones_in_state(
+        store,
+        project,
+        &[
+            crate::MilestoneState::Active,
+            crate::MilestoneState::Blocked,
+        ],
+    )?;
+    items.truncate(limit);
+    Ok(items)
+}
+
+/// Phases whose every task is closed and which nobody has declared shipped or
+/// cut.
+///
+/// This section exists because the state had nowhere to appear. `complete` is
+/// not `active`, so a finished phase dropped out of the digest at the exact
+/// moment it needed a person — and three of this project's own phases sat that
+/// way unnoticed, because closing the last task told nobody (KEEL-284).
+/// Returned in full, for the caller to cut and report. A phase silently dropped
+/// from this list is the very failure the list exists to end, so it is one of
+/// the places hard constraint 4 has to be honoured rather than assumed.
+fn complete_milestones(store: &Store, project: &EntityId) -> Result<Vec<Item>> {
+    milestones_in_state(store, project, &[crate::MilestoneState::Complete])
 }
 
 fn needs_attention(store: &Store, project: &EntityId, limit: usize) -> Result<(Vec<Item>, usize)> {
@@ -1008,6 +1078,7 @@ mod tests {
             project: None,
             projects: vec![],
             active: vec![],
+            complete: vec![],
             attention: vec![],
             recent: vec!["a".into(), "b".into(), "c".into(), "d".into()],
             decisions: vec![],
@@ -1047,6 +1118,7 @@ mod tests {
             project: None,
             projects: vec![],
             active: vec![],
+            complete: vec![],
             attention: vec![],
             recent: (0..10).map(|i| format!("event {i}")).collect(),
             decisions: vec![],
