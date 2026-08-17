@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-17T10:49:47Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-17T11:56:42Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1060,6 +1060,20 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-17 | claude | created task “specline task --status advertises two statuses that do not exist and hides two that do” |
+| 2026-08-17 | claude | created task “The fixture corpus has no notes, so the demo cannot show the note stream” |
+| 2026-08-17 | claude | status todo → in_progress |
+| 2026-08-17 | claude | claimed_by none → ses_56eead19-4d48-480d-85c9-c104d7ecf046 |
+| 2026-08-17 | claude | claimed_at none → 2026-08-17T11:43:18.456564Z |
+| 2026-08-17 | claude | status todo → in_progress |
+| 2026-08-17 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
+| 2026-08-17 | claude | claimed_at none → 2026-08-17T11:38:50.204473Z |
+| 2026-08-17 | claude | status todo → in_progress |
+| 2026-08-17 | claude | claimed_by none → ses_56eead19-4d48-480d-85c9-c104d7ecf046 |
+| 2026-08-17 | claude | claimed_at none → 2026-08-17T11:02:34.081619Z |
+| 2026-08-17 | claude | created task “Rewrite the README for someone who has never seen Specline” |
+| 2026-08-17 | human | created task “show a snackbar and indication of a new manually created task” |
+| 2026-08-17 | human | created task “Why wasn't the phase 13 automaticaly updated” |
 | 2026-08-17 | claude | status in_progress → done |
 | 2026-08-17 | claude | evidence [] → (112 characters) |
 | 2026-08-17 | claude | close_reason none → done |
@@ -1246,20 +1260,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | “Rename the GitHub repository and put the release plumbing…” blocks “Cut the first Specline release and run the install flow end…” |
 | 2026-08-16 | claude | “Move the store to ~/.specline, and migrate an existing one…” blocks “Retire the old install from this Mac so two binaries cannot…” |
 | 2026-08-16 | claude | “Rename the .keel mirror directory, and migrate a repository…” blocks “Rewrite the prose by classifying every mention, not by…” |
-| 2026-08-16 | claude | “Rename the project row to Specline, and keep KEEL as the…” blocks “Rewrite the prose by classifying every mention, not by…” |
-| 2026-08-16 | claude | “Rename the six crates and the two binaries” blocks “Rewrite the prose by classifying every mention, not by…” |
-| 2026-08-16 | claude | “Rename the six crates and the two binaries” blocks “Rename the thirteen MCP tools and the server they answer on” |
-| 2026-08-16 | claude | “Rename the six crates and the two binaries” blocks “Rename the 27 KEEL_ environment variables, with no fallback” |
-| 2026-08-16 | claude | “Rename the six crates and the two binaries” blocks “Move the store to ~/.specline, and migrate an existing one…” |
-| 2026-08-16 | claude | revised decision “Keel becomes Specline: the store migrates itself, the task key does not change, and everything else is a clean break” to v1 |
-| 2026-08-16 | claude | created decision “Keel becomes Specline: the store migrates itself, the task key does not change, and everything else is a clean break” |
-| 2026-08-16 | claude | created task “Cut the first Specline release and run the install flow end to end” |
-| 2026-08-16 | claude | created task “Prove the rename: both build configurations, fsck on the moved store, and a sweep that finds nothing left” |
-| 2026-08-16 | claude | created task “Retire the old install from this Mac so two binaries cannot open one store” |
-| 2026-08-16 | claude | created task “Rename the GitHub repository and put the release plumbing back together” |
-| 2026-08-16 | claude | created task “Rewrite the prose by classifying every mention, not by running sed” |
-| 2026-08-16 | claude | created task “Rename the desktop app and every string a person reads on screen” |
-| 2026-08-16 | claude | created task “Rename the plugin, the skills, the hooks and the background service” |
 
-*Showing the 200 most recent of 2061 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2075 changes. Use `specline_activity` for the rest.*
 
