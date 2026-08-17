@@ -19,18 +19,19 @@ import {
 } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
 import { ApiError } from "../lib/api";
-import { Button, Dialog, Empty, ErrorBox, Spinner } from "../components/ui";
+import { Button, Dialog, Empty, ErrorBox, Spinner, toast } from "../components/ui";
 import { LabelPicker } from "../components/LabelPicker";
 import { Page, projectCrumbs } from "../components/Page";
 import { FilterBar, type Facets, type View } from "../components/FilterBar";
 import { TaskBoard } from "../components/TaskBoard";
 import { TaskList } from "../components/TaskList";
-import { setQuery } from "../lib/router";
+import { href, setQuery } from "../lib/router";
 import {
   GROUP_BY,
   SORT_BY,
   groupTasks,
   sortTasks,
+  taskRef,
   type GroupBy,
   type RankMap,
   type SortBy,
@@ -369,6 +370,7 @@ export function BoardScreen({
         <NewTaskDialog
           open={creating}
           project={route.project}
+          projectKey={projectKey}
           facets={facets}
           milestoneNoun={milestoneNoun}
           activeMilestone={activeMilestone}
@@ -395,6 +397,7 @@ export function BoardScreen({
 function NewTaskDialog({
   open,
   project,
+  projectKey,
   facets,
   milestoneNoun,
   activeMilestone,
@@ -403,6 +406,8 @@ function NewTaskDialog({
 }: {
   open: boolean;
   project: string;
+  /** The `KEEL` of `KEEL-42`, so the confirmation can name the new row. */
+  projectKey: string | undefined;
   facets: Facets;
   /** The project's own word for a milestone — "Phase" here. */
   milestoneNoun: string | undefined;
@@ -432,7 +437,7 @@ function NewTaskDialog({
     setSaving(true);
     setFailed(null);
     try {
-      await api.createTask({
+      const created = await api.createTask({
         project,
         title: title.trim(),
         summary: summary.trim(),
@@ -446,6 +451,15 @@ function NewTaskDialog({
       setLabels([]);
       onClose();
       onCreated();
+      // The number the row was just given, which the create response has
+      // carried all along and this dialog used to discard. It is the thing you
+      // type back into a conversation, so saying it is most of the point.
+      const reference = taskRef(projectKey, created);
+      toast({
+        text: `Created ${reference}`,
+        href: href({ screen: "task", project, taskId: reference }),
+        linkLabel: "Open",
+      });
     } catch (e) {
       setFailed(
         e instanceof ApiError ? e.message : "The task was not created.",

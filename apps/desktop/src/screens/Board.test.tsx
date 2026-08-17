@@ -86,10 +86,25 @@ vi.mock("../lib/api", () => ({
       called.noteCounts += 1;
       return { counts: { tsk_2: 3 }, total: 3 };
     },
+    createTask: async (task: Record<string, unknown>) => {
+      created.push(task);
+      return {
+        id: "tsk_42",
+        type: "task",
+        number: 42,
+        title: task.title,
+        audit: { created_by: "human" },
+      };
+    },
   },
 }));
 
+/** What the dialog sent, so the confirmation can be checked against it. */
+const created: Array<Record<string, unknown>> = [];
+
 const { BoardScreen } = await import("./Board");
+const { Toaster } = await import("../components/ui");
+const { api } = await import("../lib/api");
 
 function at(query: Record<string, string>): Route {
   return { screen: "board", project: "specline", query };
@@ -108,6 +123,7 @@ beforeEach(() => {
   called.context = 0;
   called.notes = 0;
   called.noteCounts = 0;
+  created.length = 0;
 });
 afterEach(cleanup);
 
@@ -275,5 +291,66 @@ describe("a hand-edited address", () => {
     expect(document.querySelector("table")).toBeNull();
     expect(screen.getByText("todo")).toBeTruthy();
     expect(screen.getByText("Routing and URLs")).toBeTruthy();
+  });
+});
+
+describe("making a task from the board", () => {
+  /** The board, plus the shell's toast host, which is where a confirmation goes. */
+  async function withToasts(query: Record<string, string> = {}) {
+    render(
+      <>
+        <BoardScreen route={at(query)} generation={0} projectKey="KEEL" />
+        <Toaster />
+      </>,
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  async function createOne(title: string) {
+    fireEvent.click(screen.getByText("New task"));
+    fireEvent.change(screen.getByPlaceholderText("What needs doing"), {
+      target: { value: title },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText("Create task"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  // The whole of KEEL-285. The number came back on the create response all
+  // along and the dialog dropped it, so the one thing you would type back into
+  // a conversation was the one thing the app never told you.
+  it("says which row was created", async () => {
+    await withToasts();
+    await createOne("Something I thought of");
+
+    expect(created).toHaveLength(1);
+    expect(screen.getByText("Created KEEL-42")).toBeTruthy();
+  });
+
+  it("links to the row it just named", async () => {
+    await withToasts();
+    await createOne("Something I thought of");
+
+    expect(screen.getByText("Open").getAttribute("href")).toBe(
+      "#/projects/specline/tasks/KEEL-42",
+    );
+  });
+
+  // Failure case: nothing was created, so nothing may claim it was. A
+  // confirmation that fires on a failed write is worse than none — it is the
+  // reason somebody stops checking.
+  it("says nothing when the create fails", async () => {
+    const failing = vi
+      .spyOn(api, "createTask")
+      .mockRejectedValueOnce(new Error("The daemon is not reachable."));
+
+    await withToasts();
+    await createOne("Something I thought of");
+
+    expect(screen.queryByText(/^Created /)).toBeNull();
+    failing.mockRestore();
   });
 });

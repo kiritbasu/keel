@@ -691,6 +691,117 @@ export function When({ iso, prefix }: { iso: string; prefix?: string }) {
   );
 }
 
+/**
+ * A brief confirmation, and the app's only announcement region.
+ *
+ * It exists because creating a task said nothing at all: the dialog closed, the
+ * board reloaded, and the number the row had just been given — the thing you
+ * would type back into a conversation — was on the client and thrown away
+ * (KEEL-285).
+ *
+ * **Published through a module-level emitter rather than a context.** The caller
+ * is usually a dialog that closes itself in the same breath, so anything
+ * rendered inside the calling component unmounts before it can be read. A
+ * provider would work; this needs no wrapping and matches how the rest of the
+ * file avoids one.
+ */
+export interface ToastMessage {
+  /** Assigned by `toast`. Stable for as long as it is on screen. */
+  id: number;
+  /** What happened, in the fewest words that still name the thing. */
+  text: string;
+  /** Where to go about it, when there is somewhere. */
+  href?: string;
+  /** The link's words. Say the destination, never "click here". */
+  linkLabel?: string;
+}
+
+let toastListeners: Array<(t: ToastMessage) => void> = [];
+let nextToastId = 1;
+
+/**
+ * Announce something. Safe to call from a component that is about to unmount,
+ * which is the case it was written for.
+ */
+export function toast(message: Omit<ToastMessage, "id">): void {
+  const full = { ...message, id: nextToastId++ };
+  for (const listener of toastListeners) listener(full);
+}
+
+/** How long a toast stays. Long enough to read it and reach the link. */
+const TOAST_MS = 8_000;
+
+/**
+ * Where toasts appear. Mounted once, by the shell.
+ *
+ * The live region is always in the DOM, empty or not. A region that appears
+ * along with its first message is a region assistive technology has not been
+ * watching, so the first announcement — the one that matters — is the one it
+ * misses.
+ */
+export function Toaster() {
+  const [messages, setMessages] = useState<ToastMessage[]>([]);
+
+  useEffect(() => {
+    const listener = (t: ToastMessage) => setMessages((all) => [...all, t]);
+    toastListeners = [...toastListeners, listener];
+    return () => {
+      toastListeners = toastListeners.filter((l) => l !== listener);
+    };
+  }, []);
+
+  const dismiss = useCallback((id: number) => {
+    setMessages((all) => all.filter((m) => m.id !== id));
+  }, []);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const timers = messages.map((m) =>
+      window.setTimeout(() => dismiss(m.id), TOAST_MS),
+    );
+    return () => timers.forEach(window.clearTimeout);
+  }, [messages, dismiss]);
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      // Named, because it is the app's *second* polite region — the shell
+      // already has one for the live feed's health. Two are legitimate and say
+      // different things, but an unnamed pair is indistinguishable to anything
+      // reading the page, tests included.
+      aria-label="Notifications"
+      className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 flex-col gap-2 px-4"
+    >
+      {messages.map((m) => (
+        <div
+          key={m.id}
+          className="pointer-events-auto flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-raised px-3 py-2 text-small text-ink shadow-lg"
+        >
+          <span className="min-w-0 flex-1 truncate">{m.text}</span>
+          {m.href && (
+            <a
+              href={m.href}
+              onClick={() => dismiss(m.id)}
+              className="shrink-0 font-medium text-accent hover:underline"
+            >
+              {m.linkLabel ?? "Open"}
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={() => dismiss(m.id)}
+            aria-label="Dismiss"
+            className="shrink-0 rounded px-1 text-ink-faint hover:text-ink"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** The label an entity goes by, whatever its type calls the column. */
 export function labelOf(entity: Record<string, unknown>): string {
   for (const key of ["title", "name", "term", "summary"]) {

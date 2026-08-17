@@ -20,7 +20,7 @@ import {
   type Route,
   type ScreenId,
 } from "./lib/router";
-import { Button, Menu, MenuItem, cx } from "./components/ui";
+import { Button, Menu, MenuItem, Toaster, cx } from "./components/ui";
 import { defaultProject, rememberProject } from "./lib/lastProject";
 import { CommandPalette } from "./components/CommandPalette";
 import { ThemeControl } from "./components/ThemeControl";
@@ -474,6 +474,10 @@ export function App() {
         route={route}
         generation={generation}
       />
+
+      {/* Mounted here and nowhere else. One live region for the whole app, kept
+          in the DOM whether or not anything is being said — see `Toaster`. */}
+      <Toaster />
     </div>
   );
 }

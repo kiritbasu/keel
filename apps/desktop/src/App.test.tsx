@@ -356,11 +356,14 @@ describe("the rail, with the project first", () => {
 });
 
 describe("the live feed's state is visible", () => {
+  // Asserted through the message rather than through `role="status"` alone.
+  // The shell now carries two polite regions — this one and the toast host —
+  // so the bare role no longer identifies which is being asked about.
   it("says nothing while the feed is healthy", async () => {
     render(<App />);
     await screen.findByText("Specline");
     act(() => feedHooks.onStatus?.("live"));
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText(/out of date/)).toBeNull();
   });
 
   /// A stale page must not look identical to a current one. Before this the
@@ -371,10 +374,12 @@ describe("the live feed's state is visible", () => {
     await screen.findByText("Specline");
 
     act(() => feedHooks.onStatus?.("down"));
-    const notice = await screen.findByRole("status");
-    expect(notice.textContent).toContain("out of date");
+    const notice = await screen.findByText(/out of date/);
+    // Still a live region, which is the half of this that matters: a notice
+    // nobody is told about is the stale page it exists to prevent.
+    expect(notice.getAttribute("role")).toBe("status");
 
     act(() => feedHooks.onStatus?.("live"));
-    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    await waitFor(() => expect(screen.queryByText(/out of date/)).toBeNull());
   });
 });
