@@ -1,13 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-17T10:22:58Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-17T10:49:47Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (255)
+## Closed work (256)
+
+### 2026-08-17
+
+- **KEEL-283** Cut 0.2.1 — the store relocation fixes from the rename's own review — `done`
+
+  v0.2.1 published and verified from the published artifacts: three archives matching their digests, the installer carrying all three refusal branches, a clean env -i install, and the fix itself proved from the shipped binary — a Keel-shaped home relocating with 55 tasks either side, and --json status on that first run producing a payload that parses with the notice on stderr. Notes written by hand. The compatibility floor deliberately stayed at 0.2.0.
+
+  <sub>url:https://github.com/kiritbasu/specline/releases/tag/v0.2.1 · commit:5ae000e · test:cargo test --workspace</sub>
 
 ### 2026-08-16
 
@@ -1052,6 +1060,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-17 | claude | status in_progress → done |
+| 2026-08-17 | claude | evidence [] → (112 characters) |
+| 2026-08-17 | claude | close_reason none → done |
+| 2026-08-17 | claude | close_message none → (454 characters) |
 | 2026-08-17 | claude | status todo → in_progress |
 | 2026-08-17 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
 | 2026-08-17 | claude | claimed_at none → 2026-08-17T10:15:44.482590Z |
@@ -1248,10 +1260,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | created task “Rewrite the prose by classifying every mention, not by running sed” |
 | 2026-08-16 | claude | created task “Rename the desktop app and every string a person reads on screen” |
 | 2026-08-16 | claude | created task “Rename the plugin, the skills, the hooks and the background service” |
-| 2026-08-16 | claude | created task “Rename the project row to Specline, and keep KEEL as the task-id key” |
-| 2026-08-16 | claude | created task “Rename the .keel mirror directory, and migrate a repository that has one” |
-| 2026-08-16 | claude | created task “Rename the thirteen MCP tools and the server they answer on” |
-| 2026-08-16 | claude | created task “Rename the 27 KEEL_ environment variables, with no fallback” |
 
-*Showing the 200 most recent of 2057 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2061 changes. Use `specline_activity` for the rest.*
 
