@@ -55,7 +55,7 @@ Specline vanished tomorrow you would still have the files.
 
 - Not a team tracker. One person, one machine, no permissions, no assignees.
 - Not a replacement for GitHub Issues if you have a team using them.
-- Not a note-taking app. You do not type into it — you talk to the agent.
+- Not a note-taking app. You can file and close things yourself, but the reasoning gets written by the agent, in the conversation where it happened.
 - Not a chat log. It stores what became *true*, not what was said.
 
 ---
