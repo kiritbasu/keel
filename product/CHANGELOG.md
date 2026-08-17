@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-16T19:24:58Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-17T10:22:58Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1052,6 +1052,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-17 | claude | status todo → in_progress |
+| 2026-08-17 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
+| 2026-08-17 | claude | claimed_at none → 2026-08-17T10:15:44.482590Z |
+| 2026-08-17 | claude | created task “Cut 0.2.1 — the store relocation fixes from the rename's own review” |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → ["test:scripts/check-rename.sh"] |
 | 2026-08-16 | claude | close_reason none → done |
@@ -1248,10 +1252,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | created task “Rename the .keel mirror directory, and migrate a repository that has one” |
 | 2026-08-16 | claude | created task “Rename the thirteen MCP tools and the server they answer on” |
 | 2026-08-16 | claude | created task “Rename the 27 KEEL_ environment variables, with no fallback” |
-| 2026-08-16 | claude | created task “Move the store to ~/.specline, and migrate an existing one on first run” |
-| 2026-08-16 | claude | created task “Rename the six crates and the two binaries” |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
 
-*Showing the 200 most recent of 2053 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2057 changes. Use `specline_activity` for the rest.*
 
