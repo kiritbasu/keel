@@ -72,7 +72,9 @@ keep="$keep"'|keel\.duckdb'
 # shape: 87 decisions taken under the old name, rendered from their rows, and
 # rewriting them would produce a record of decisions nobody made.
 # This script itself: its allowlist is a list of the old name by construction.
-excluded_files='^scripts/check-rename\.sh$|^product/DECISIONS\.md$|^product/CHANGELOG\.md$|^product/STATUS\.md$|^product/JOURNAL\.md$|^PHASE-[0-9]+\.md$|^contracts/BREAKING\.md$|package-lock\.json$'
+# `rename-stored-prose.py` joins it for the same reason: its patterns *are* a
+# list of the old name.
+excluded_files='^scripts/check-rename\.sh$|^scripts/rename-stored-prose\.py$|^product/DECISIONS\.md$|^product/CHANGELOG\.md$|^product/STATUS\.md$|^product/JOURNAL\.md$|^PHASE-[0-9]+\.md$|^contracts/BREAKING\.md$|package-lock\.json$'
 
 # The generated mirror is written from the store, so a mention there is a
 # mention in a document body and is reported against the document, not twice.
