@@ -1,15 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-17T11:56:42Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-17T12:00:54Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (256)
+## Closed work (257)
 
 ### 2026-08-17
+
+- **KEEL-286** Rewrite the README for someone who has never seen Specline — `done`
+
+  Rewrote the README around problem, screenshot, install, and moved the deep material into docs/CLI.md (all 24 commands and the config table) and docs/ARCHITECTURE.md (crates, storage, graph direction, the feature flag).
+  
+  Fixed the three things that were wrong rather than stale: the install path is now the three plugin commands with no Rust and no settings editing; the generated-files section describes what a new project actually gets, which is four files under `.specline/`, with adopted paths explained as the opt-in they are; and `doctor` is presented as the front door with `fsck` as the deeper check beneath it.
+  
+  Two more turned up while writing. The README said five crates where there are six, and ten MCP tools on one page where the crate listing said thirteen a page later — it contradicted itself. It also still claimed the app is read-only, which the standing contract replaced some time ago.
+  
+  Screenshots come from `specline fixture`, shot against Harbour rather than the fixture's own Specline project, whose spec still argues for DuckDB and Lance and would have contradicted the architecture document on the next scroll. The script that takes them is in the repository so they can actually be retaken.
+
+  <sub>commit:23b803a · commit:9ac0f20 · commit:ef3e3f6</sub>
 
 - **KEEL-283** Cut 0.2.1 — the store relocation fixes from the rename's own review — `done`
 
@@ -1060,6 +1072,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-17 | claude | status in_progress → done |
+| 2026-08-17 | claude | evidence [] → ["commit:23b803a","commit:9ac0f20","commit:ef3e3f6"] |
+| 2026-08-17 | claude | close_reason none → done |
+| 2026-08-17 | claude | close_message none → (1217 characters) |
 | 2026-08-17 | claude | created task “specline task --status advertises two statuses that do not exist and hides two that do” |
 | 2026-08-17 | claude | created task “The fixture corpus has no notes, so the demo cannot show the note stream” |
 | 2026-08-17 | claude | status todo → in_progress |
@@ -1256,10 +1272,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | close_message none → (304 characters) |
 | 2026-08-16 | claude | “Rename the plugin, the skills, the hooks and the background…” blocks “Retire the old install from this Mac so two binaries cannot…” |
 | 2026-08-16 | claude | “Retire the old install from this Mac so two binaries cannot…” blocks “Cut the first Specline release and run the install flow end…” |
-| 2026-08-16 | claude | “Prove the rename: both build configurations, fsck on the…” blocks “Cut the first Specline release and run the install flow end…” |
-| 2026-08-16 | claude | “Rename the GitHub repository and put the release plumbing…” blocks “Cut the first Specline release and run the install flow end…” |
-| 2026-08-16 | claude | “Move the store to ~/.specline, and migrate an existing one…” blocks “Retire the old install from this Mac so two binaries cannot…” |
-| 2026-08-16 | claude | “Rename the .keel mirror directory, and migrate a repository…” blocks “Rewrite the prose by classifying every mention, not by…” |
 
-*Showing the 200 most recent of 2075 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2079 changes. Use `specline_activity` for the rest.*
 
