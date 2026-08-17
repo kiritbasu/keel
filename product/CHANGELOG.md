@@ -1,15 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-17T12:00:54Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-17T12:03:24Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (257)
+## Closed work (259)
 
 ### 2026-08-17
+
+- **KEEL-285** show a snackbar and indication of a new manually created task — `done`
+
+  Creating a task now says which row it made, with a link to it: the number came back on the create response all along and the dialog discarded it. The toast host is a new primitive, published through a module-level emitter because the caller closes itself in the same breath as announcing. The other half — finding what you wrote — is a `mine` chip on the board reading `audit.created_by`, in the address like every other facet, which turns up seven human-written rows out of 286.
+
+  <sub>commit:9481e08 · commit:5c93944 · commit:3bfc6bf · test:npx vitest run</sub>
+
+- **KEEL-284** Why wasn't the phase 13 automaticaly updated — `done`
+
+  Not a bug in the derivation and it is worth saying why: `shipped` is declared and `complete` is derived on purpose, because `done` and `wont_do` both close a task, so a full tally cannot mean a phase shipped. What was broken is that `complete` had nowhere to appear — the digest filtered its phase list to `active` and `blocked`, so a finished phase dropped out of every session's first call at the moment it needed a person. The digest now has a "Finished, but not declared" section that names them and says which decision is owed, reports what it cuts, and shows phases in flight by their derived state rather than the `open` in their column.
+
+  <sub>commit:08073b0 · commit:3bfc6bf · test:cargo test -p specline-core --test finished_phases</sub>
 
 - **KEEL-286** Rewrite the README for someone who has never seen Specline — `done`
 
@@ -1073,6 +1085,14 @@ What has finished. What is happening now is in the tracker beside this file.
 | Date | Actor | Change |
 |---|---|---|
 | 2026-08-17 | claude | status in_progress → done |
+| 2026-08-17 | claude | evidence [] → ["commit:9481e08","commit:5c93944","commit:3bfc6bf","test:npx vitest run"] |
+| 2026-08-17 | claude | close_reason none → done |
+| 2026-08-17 | claude | close_message none → (479 characters) |
+| 2026-08-17 | claude | status in_progress → done |
+| 2026-08-17 | claude | evidence [] → (93 characters) |
+| 2026-08-17 | claude | close_reason none → done |
+| 2026-08-17 | claude | close_message none → (644 characters) |
+| 2026-08-17 | claude | status in_progress → done |
 | 2026-08-17 | claude | evidence [] → ["commit:23b803a","commit:9ac0f20","commit:ef3e3f6"] |
 | 2026-08-17 | claude | close_reason none → done |
 | 2026-08-17 | claude | close_message none → (1217 characters) |
@@ -1264,14 +1284,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
 | 2026-08-16 | claude | claimed_at none → 2026-08-16T14:02:24.077097Z |
 | 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:02:24.036008Z |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → (124 characters) |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (304 characters) |
-| 2026-08-16 | claude | “Rename the plugin, the skills, the hooks and the background…” blocks “Retire the old install from this Mac so two binaries cannot…” |
-| 2026-08-16 | claude | “Retire the old install from this Mac so two binaries cannot…” blocks “Cut the first Specline release and run the install flow end…” |
 
-*Showing the 200 most recent of 2079 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2087 changes. Use `specline_activity` for the rest.*
 
