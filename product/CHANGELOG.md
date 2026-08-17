@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-17T12:12:38Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-17T12:18:15Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1084,6 +1084,7 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-17 | claude | created task “Dependabot flags a vulnerability in the Tauri shell, which nothing builds any more” |
 | 2026-08-17 | claude | created task “Tell every client to link the artifacts it names, since the URLs are already there” |
 | 2026-08-17 | claude | status in_progress → done |
 | 2026-08-17 | claude | evidence [] → ["commit:9481e08","commit:5c93944","commit:3bfc6bf","test:npx vitest run"] |
@@ -1283,7 +1284,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | close_message none → (286 characters) |
 | 2026-08-16 | claude | status todo → in_progress |
 | 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:02:24.077097Z |
 
-*Showing the 200 most recent of 2088 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2089 changes. Use `specline_activity` for the rest.*
 
