@@ -754,14 +754,6 @@ export function Toaster() {
     setMessages((all) => all.filter((m) => m.id !== id));
   }, []);
 
-  useEffect(() => {
-    if (messages.length === 0) return;
-    const timers = messages.map((m) =>
-      window.setTimeout(() => dismiss(m.id), TOAST_MS),
-    );
-    return () => timers.forEach(window.clearTimeout);
-  }, [messages, dismiss]);
-
   return (
     <div
       role="status"
@@ -774,30 +766,54 @@ export function Toaster() {
       className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 flex-col gap-2 px-4"
     >
       {messages.map((m) => (
-        <div
-          key={m.id}
-          className="pointer-events-auto flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-raised px-3 py-2 text-small text-ink shadow-lg"
-        >
-          <span className="min-w-0 flex-1 truncate">{m.text}</span>
-          {m.href && (
-            <a
-              href={m.href}
-              onClick={() => dismiss(m.id)}
-              className="shrink-0 font-medium text-accent hover:underline"
-            >
-              {m.linkLabel ?? "Open"}
-            </a>
-          )}
-          <button
-            type="button"
-            onClick={() => dismiss(m.id)}
-            aria-label="Dismiss"
-            className="shrink-0 rounded px-1 text-ink-faint hover:text-ink"
-          >
-            ×
-          </button>
-        </div>
+        <Toast key={m.id} message={m} onDismiss={dismiss} />
       ))}
+    </div>
+  );
+}
+
+/**
+ * One toast, owning its own countdown.
+ *
+ * The timer lives here rather than in the host on purpose. Holding them all in
+ * one effect keyed on the message list restarts every countdown whenever a
+ * message is added or removed, so a second toast silently extends the life of
+ * the first — the sort of thing that only shows up when two things happen in
+ * quick succession, which is exactly when a confirmation matters.
+ */
+function Toast({
+  message,
+  onDismiss,
+}: {
+  message: ToastMessage;
+  onDismiss: (id: number) => void;
+}) {
+  const { id } = message;
+  useEffect(() => {
+    const timer = window.setTimeout(() => onDismiss(id), TOAST_MS);
+    return () => window.clearTimeout(timer);
+  }, [id, onDismiss]);
+
+  return (
+    <div className="pointer-events-auto flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-raised px-3 py-2 text-small text-ink shadow-lg">
+      <span className="min-w-0 flex-1 truncate">{message.text}</span>
+      {message.href && (
+        <a
+          href={message.href}
+          onClick={() => onDismiss(id)}
+          className="shrink-0 font-medium text-accent hover:underline"
+        >
+          {message.linkLabel ?? "Open"}
+        </a>
+      )}
+      <button
+        type="button"
+        onClick={() => onDismiss(id)}
+        aria-label="Dismiss"
+        className="shrink-0 rounded px-1 text-ink-faint hover:text-ink"
+      >
+        ×
+      </button>
     </div>
   );
 }

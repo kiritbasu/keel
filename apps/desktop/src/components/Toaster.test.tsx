@@ -86,6 +86,25 @@ describe("Toaster", () => {
     }
   });
 
+  /// Each toast keeps its own clock. Holding them in one effect keyed on the
+  /// message list restarted every countdown whenever a message arrived, so a
+  /// second toast silently extended the life of the first.
+  it("does not restart an existing countdown when another arrives", () => {
+    vi.useFakeTimers();
+    try {
+      render(<Toaster />);
+      act(() => toast({ text: "Created KEEL-285" }));
+      act(() => void vi.advanceTimersByTime(5_000));
+      act(() => toast({ text: "Created KEEL-286" }));
+      act(() => void vi.advanceTimersByTime(4_000));
+
+      expect(screen.queryByText("Created KEEL-285")).toBeNull();
+      expect(screen.getByText("Created KEEL-286")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("stacks rather than replacing", () => {
     render(<Toaster />);
     act(() => {

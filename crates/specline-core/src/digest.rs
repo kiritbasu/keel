@@ -678,6 +678,7 @@ fn active_milestones(store: &Store, project: &EntityId, limit: usize) -> Result<
 /// not `active`, so a finished phase dropped out of the digest at the exact
 /// moment it needed a person — and three of this project's own phases sat that
 /// way unnoticed, because closing the last task told nobody (KEEL-284).
+///
 /// Returned in full, for the caller to cut and report. A phase silently dropped
 /// from this list is the very failure the list exists to end, so it is one of
 /// the places hard constraint 4 has to be honoured rather than assumed.
