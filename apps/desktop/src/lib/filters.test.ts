@@ -35,6 +35,7 @@ describe("parseFilter", () => {
         label: "desktop,phase6",
         milestone: "mst_1",
         blocked: "true",
+        mine: "true",
         q: "billing",
       }),
     ).toEqual({
@@ -44,6 +45,7 @@ describe("parseFilter", () => {
       labels: ["desktop", "phase6"],
       milestone: "mst_1",
       blocked: true,
+      mine: true,
       text: "billing",
     });
   });
@@ -62,6 +64,7 @@ describe("parseFilter", () => {
       "blocked",
     ]);
     expect(parseFilter({ blocked: "yes" }).blocked).toBe(false);
+    expect(parseFilter({ mine: "yes" }).mine).toBe(false);
     expect(parseFilter({ milestone: "" }).milestone).toBeUndefined();
   });
 });
@@ -74,6 +77,7 @@ describe("filterToQuery", () => {
       label: "desktop",
       milestone: "mst_1",
       blocked: "true",
+      mine: "true",
       q: "billing",
     });
     const query = filterToQuery(filter);
@@ -93,6 +97,7 @@ describe("filterToQuery", () => {
       label: undefined,
       milestone: undefined,
       blocked: undefined,
+      mine: undefined,
       q: undefined,
     });
   });
@@ -147,6 +152,43 @@ describe("applyFilter", () => {
 
   it("returns everything when nothing is set", () => {
     expect(applyFilter(tasks, EMPTY_FILTER, nothingBlocked)).toHaveLength(3);
+  });
+
+  describe("mine", () => {
+    const byHuman = task("h", {
+      audit: { created_by: "human" } as Entity["audit"],
+    });
+    const byClaude = task("c2", {
+      audit: { created_by: "claude" } as Entity["audit"],
+    });
+    const mixed = [byHuman, byClaude];
+
+    it("keeps only what a person wrote", () => {
+      const kept = applyFilter(
+        mixed,
+        { ...EMPTY_FILTER, mine: true },
+        nothingBlocked,
+      );
+      expect(kept.map((t) => t.id)).toEqual(["h"]);
+    });
+
+    // Failure case: a row whose provenance is missing must not pass as one the
+    // reader wrote. Erring the other way would put Claude's rows in the one
+    // view that exists to exclude them.
+    it("drops a row with no author recorded", () => {
+      const unattributed = task("u", { audit: {} as Entity["audit"] });
+      expect(
+        applyFilter(
+          [unattributed],
+          { ...EMPTY_FILTER, mine: true },
+          nothingBlocked,
+        ),
+      ).toHaveLength(0);
+    });
+
+    it("changes nothing when it is off", () => {
+      expect(applyFilter(mixed, EMPTY_FILTER, nothingBlocked)).toHaveLength(2);
+    });
   });
 
   // The rule that makes a filter bar usable: OR inside a facet, AND across

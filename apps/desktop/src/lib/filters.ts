@@ -28,6 +28,15 @@ export interface TaskFilter {
   milestone: string | undefined;
   /** Only tasks something is linked to as a blocker. */
   blocked: boolean;
+  /**
+   * Only rows a person wrote — `audit.created_by` of `human`.
+   *
+   * "Where did the thing I just typed go" is a real question on a board where
+   * almost every row was written by Claude, and it had no answer: a task
+   * created here joined three hundred others sorted by something else
+   * (KEEL-285). The data was already on the client; nothing read it.
+   */
+  mine: boolean;
   /** Free text over the reference, the number, the title and the body. */
   text: string;
 }
@@ -39,6 +48,7 @@ export const EMPTY_FILTER: TaskFilter = {
   labels: [],
   milestone: undefined,
   blocked: false,
+  mine: false,
   text: "",
 };
 
@@ -58,6 +68,7 @@ export function parseFilter(query: Record<string, string>): TaskFilter {
     labels: list(query.label),
     milestone: query.milestone || undefined,
     blocked: query.blocked === "true",
+    mine: query.mine === "true",
     text: query.q ?? "",
   };
 }
@@ -80,6 +91,7 @@ export function filterToQuery(
     label: filter.labels.join(",") || undefined,
     milestone: filter.milestone || undefined,
     blocked: filter.blocked ? "true" : undefined,
+    mine: filter.mine ? "true" : undefined,
     q: filter.text || undefined,
   };
 }
@@ -93,6 +105,7 @@ export function isFiltering(filter: TaskFilter): boolean {
     filter.labels.length > 0 ||
     filter.milestone !== undefined ||
     filter.blocked ||
+    filter.mine ||
     filter.text.trim() !== ""
   );
 }
@@ -106,6 +119,7 @@ export function activeCount(filter: TaskFilter): number {
     filter.labels.length +
     (filter.milestone ? 1 : 0) +
     (filter.blocked ? 1 : 0) +
+    (filter.mine ? 1 : 0) +
     (filter.text.trim() ? 1 : 0)
   );
 }
@@ -158,6 +172,8 @@ export function applyFilter(
     }
 
     if (filter.blocked && !blockedIds.has(String(task.id))) return false;
+
+    if (filter.mine && task.audit?.created_by !== "human") return false;
 
     if (needle) {
       // Title and body, because a task's detail is where the searchable words

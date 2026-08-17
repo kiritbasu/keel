@@ -155,6 +155,17 @@ export function FilterBar({
         blocked
       </Chip>
 
+      {/* "mine" rather than "human": the reader is the only person who writes
+          here, and naming the actor would describe the data rather than answer
+          the question being asked, which is "where did the one I typed go". */}
+      <Chip
+        selected={filter.mine}
+        onClick={() => onFilter({ ...filter, mine: !filter.mine })}
+        title="Only rows you wrote, rather than ones Claude created"
+      >
+        mine
+      </Chip>
+
       {count > 0 && (
         <Button size="sm" variant="ghost" onClick={() => onFilter({ ...filter, ...CLEARED })}>
           Clear {count}
@@ -223,6 +234,7 @@ const CLEARED = {
   labels: [],
   milestone: undefined,
   blocked: false,
+  mine: false,
   text: "",
 } satisfies TaskFilter;
 
