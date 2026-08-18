@@ -64,14 +64,14 @@ vi.mock("../lib/api", () => ({
   },
 }));
 
-const { ReadyScreen } = await import("./Ready");
+const { NextScreen } = await import("./Next");
 
 function at(query: Record<string, string>): Route {
-  return { screen: "ready", project: "specline", query };
+  return { screen: "next", project: "specline", query };
 }
 
 async function show(query: Record<string, string> = {}) {
-  render(<ReadyScreen route={at(query)} generation={0} />);
+  render(<NextScreen route={at(query)} generation={0} />);
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });

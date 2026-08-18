@@ -29,7 +29,7 @@ import { HomeScreen } from "./screens/Home";
 import { ProjectScreen } from "./screens/Project";
 import { RoadmapScreen } from "./screens/Roadmap";
 import { BoardScreen } from "./screens/Board";
-import { ReadyScreen } from "./screens/Ready";
+import { NextScreen } from "./screens/Next";
 import { TaskScreen } from "./screens/Task";
 import { DocumentsScreen } from "./screens/Documents";
 import { SearchScreen } from "./screens/Search";
@@ -52,7 +52,7 @@ const PROJECT_SCREENS: NavItem[] = [
   // Second, ahead of the board. The board is every task; this is the handful
   // that can be started now, which is the question actually being asked when
   // someone opens the app.
-  { id: "ready", label: "Ready", key: "2" },
+  { id: "next", label: "What\u2019s next", key: "2" },
   { id: "board", label: "Board", key: "3" },
   { id: "roadmap", label: "Roadmap", key: "4" },
   { id: "documents", label: "Library", key: "5" },
@@ -370,8 +370,8 @@ export function App() {
         return <RoadmapScreen {...shared} />;
       case "board":
         return <BoardScreen {...shared} />;
-      case "ready":
-        return <ReadyScreen {...shared} />;
+      case "next":
+        return <NextScreen {...shared} />;
       case "task":
         return <TaskScreen {...shared} />;
       case "documents":

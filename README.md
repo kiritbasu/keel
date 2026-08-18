@@ -141,8 +141,8 @@ The daemon serves the app itself, compiled into the binary, so there is no Node
 and nothing else to start. It opens whatever address the daemon is listening on,
 so a non-default port needs no arguments.
 
-A board, where what to pick up next is ranked by what it unblocks rather than by
-priority alone:
+A board, with what to pick up next at the top — grouped by whether it is in an
+open phase, and saying why each one is where it is:
 
 ![The board, with a ranked "next" strip above the columns](docs/images/board.png)
 
@@ -171,7 +171,7 @@ specline doctor
 ```
 
 ```bash
-specline ready <project>
+specline next <project>
 ```
 
 ```bash
@@ -183,7 +183,7 @@ specline backup
 ```
 
 `doctor` answers "has anything gone wrong": it runs every read-only check there
-is, `fsck` included, and prints one page. `ready` says what to work on next.
+is, `fsck` included, and prints one page. `next` says what to work on next.
 `generate` writes the markdown into your repo. `backup` takes a snapshot, and
 `restore` puts it back.
 
@@ -210,7 +210,7 @@ what is blocked instead of guessing.
 Claude sees thirteen tools: `specline_context`, `specline_search`,
 `specline_get`, `specline_projects`, `specline_activity`, `specline_create`,
 `specline_update`, `specline_write_doc`, `specline_note`, `specline_link`,
-`specline_ready`, `specline_claim`, `specline_close`. Thirteen rather than
+`specline_next`, `specline_claim`, `specline_close`. Thirteen rather than
 forty, because a model picks well from a short list and badly from a long one.
 
 ---

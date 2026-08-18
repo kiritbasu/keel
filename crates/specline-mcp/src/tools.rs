@@ -765,7 +765,7 @@ pub fn all() -> Vec<Tool> {
             ),
         },
         Tool {
-            name: "specline_ready",
+            name: "specline_next",
             title: "What can be worked on right now",
             description:
                 "The answer to 'what should I do next', ranked. Open work with nothing live in \
@@ -1008,7 +1008,7 @@ mod tests {
                 "specline_write_doc",
                 "specline_note",
                 "specline_link",
-                "specline_ready",
+                "specline_next",
                 "specline_claim",
                 "specline_close",
             ]
@@ -1062,7 +1062,7 @@ mod tests {
             "specline_get",
             "specline_projects",
             "specline_activity",
-            "specline_ready",
+            "specline_next",
         ];
         for tool in all() {
             assert_eq!(

@@ -152,7 +152,7 @@ async fn tools_list_returns_thirteen_tools_with_cache_hints() {
     let tools = body["result"]["tools"].as_array().unwrap();
     assert_eq!(tools.len(), 13);
     assert!(tools.iter().any(|t| t["name"] == "specline_note"));
-    for verb in ["specline_ready", "specline_claim", "specline_close"] {
+    for verb in ["specline_next", "specline_claim", "specline_close"] {
         assert!(tools.iter().any(|t| t["name"] == verb), "missing {verb}");
     }
     assert!(body["result"]["ttlMs"].as_u64().unwrap() > 0);
@@ -1467,7 +1467,7 @@ async fn a_task_with_a_summary_keeps_it() {
 /// `specline ready` promises one ranking behind three doors. This is the assertion
 /// that they are the same door.
 ///
-/// The CLI is not spawned as a process here — it calls `specline_ready` over this
+/// The CLI is not spawned as a process here — it calls `specline_next` over this
 /// same endpoint, which is the property worth pinning: the tool, the REST
 /// endpoint the app reads, and `specline_core::ready` itself return the same list in
 /// the same order. If the app ever disagreed with the session, this is the test
@@ -1494,7 +1494,7 @@ async fn ready_gives_the_same_answer_over_mcp_and_over_the_local_api() {
     }
 
     let over_mcp = d
-        .call("specline_ready", args(json!({"project": project_id})))
+        .call("specline_next", args(json!({"project": project_id})))
         .await;
 
     let over_rest: Value = d
@@ -1565,7 +1565,7 @@ async fn claiming_shows_on_the_row_and_a_second_session_is_refused() {
     // And the ranked list can be asked to leave claimed work out.
     let unclaimed = d
         .call(
-            "specline_ready",
+            "specline_next",
             args(json!({"project": project_id, "unclaimed": true})),
         )
         .await;

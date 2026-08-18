@@ -701,7 +701,7 @@ expression: "specline_mcp::list_result()"
         ],
         "type": "object"
       },
-      "name": "specline_ready",
+      "name": "specline_next",
       "title": "What can be worked on right now"
     },
     {

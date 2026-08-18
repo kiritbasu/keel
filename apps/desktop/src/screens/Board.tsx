@@ -391,7 +391,7 @@ export function BoardScreen({
  * about what is wanted, not the reasoning behind it.
  *
  * The summary is asked for rather than optional-by-omission, because a row that
- * is only a title is the kind that nobody can pick up later — and `specline_ready`
+ * is only a title is the kind that nobody can pick up later — and `specline_next`
  * ranks on what a task says about itself.
  */
 function NewTaskDialog({

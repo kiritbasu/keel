@@ -633,7 +633,7 @@
         ],
         "type": "object"
       },
-      "name": "specline_ready"
+      "name": "specline_next"
     },
     {
       "description": "Move a task to `in_progress` and record that this session is doing it. Call this **before** the work, not after — the point is that someone looking at the board can see what is happening now rather than only what has finished.\n\nRefused if another session is already holding it, and the refusal names that session. A claim releases itself after three days, so a conversation that died mid-task does not hold work hostage, and `force` takes a live claim deliberately. Closing releases it immediately.\n\nRe-claiming your own task is a no-op, so a retry costs nothing.\n\nThis needs your `session_id`. It is the one call that is refused without one: everywhere else an anonymous write is merely less traceable, but a claim naming nobody says the task is taken and not by whom.",

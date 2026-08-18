@@ -58,5 +58,11 @@ merge cannot forget one.
 
 <!-- acknowledgements -->
 
-*Nothing outstanding. Nothing has been released yet, so there is no baseline to
-compare against — the first tag creates one.*
+## tool `specline_ready` was removed
+- migration: call `specline_next`, which takes the same arguments and returns the same shape with a `group` field added
+- tells the user: `specline_ready` is now `specline_next`. Same arguments, same answer — it just says what it is for rather than what it filters on.
+
+## 4 line(s) disappeared, e.g. `===== ready =====`, `Open work with nothing live in its way. Ordered by what a task unblocks before its priority, so a p1 that releases three others comes above a p0 that releases nothing.`, `Usage: specline ready [OPTIONS] <PROJECT>`
+- migration: none — `specline ready` still runs, as an alias of `specline next`
+- tells the user: the command is `specline next` now. `specline ready` keeps working, so anything in a shell history or a script is safe.
+

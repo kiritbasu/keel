@@ -165,7 +165,7 @@ pub fn blocked_tasks(
         // Fail closed. `matches!(store.get(…), Ok(Some(e)) if is_live(&e))`
         // read almost identically and treated a storage error as "no live
         // blocker" — so one unreadable link row promoted a genuinely blocked
-        // task to ready, in `specline_ready` and in the module the docs call the
+        // task to ready, in `specline_next` and in the module the docs call the
         // definition of blocked. That is the silent false-negative this
         // codebase is most afraid of: an answer that looks like work you can
         // start.

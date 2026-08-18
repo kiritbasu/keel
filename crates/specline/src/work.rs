@@ -48,14 +48,14 @@ pub fn ready(
         args["milestone"] = json!(m);
     }
 
-    let structured = match call_daemon(daemon, "specline_ready", &args)? {
+    let structured = match call_daemon(daemon, "specline_next", &args)? {
         Some(v) => v,
         None => directly(home, |store| {
             let mut s = store;
             specline_mcp::dispatch(
                 &mut s,
                 specline_mcp::ToolCall {
-                    name: "specline_ready",
+                    name: "specline_next",
                     arguments: &args,
                 },
             )

@@ -185,7 +185,7 @@ Thirteen tools:
 | `specline_write_doc` | Append a revision of a prose body |
 | `specline_note` | Append to a row's running commentary |
 | `specline_link` | Draw an edge |
-| `specline_ready` | What to work on next |
+| `specline_next` | What to work on next |
 | `specline_claim` | Take a task |
 | `specline_close` | Close one, with a reason and evidence |
 

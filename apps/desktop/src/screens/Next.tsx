@@ -3,7 +3,7 @@
  *
  * The ranking has existed since TQ-16 and had no front door: the only way to
  * reach it was inside the digest, which nothing in the app showed. This is the
- * third door onto one computation — `specline ready` and `specline_ready` are the other
+ * third door onto one computation — `specline ready` and `specline_next` are the other
  * two, and a daemon test asserts all of them return the same list in the same
  * order. That is the property worth protecting: an app that disagreed with the
  * session about what to do next would be worse than one that stayed silent.
@@ -64,7 +64,7 @@ const GROUPS = [
 /** How many lead the page. Enough to check, few enough to read. */
 const NEXT_UP = 3;
 
-export function ReadyScreen({ route, generation }: ScreenProps) {
+export function NextScreen({ route, generation }: ScreenProps) {
   const project = route.project;
   // The filters live in the address, so a filtered view is a link — the same
   // rule the board follows. "What is next in Phase 8, unclaimed" is something
@@ -93,7 +93,7 @@ export function ReadyScreen({ route, generation }: ScreenProps) {
   if (loading && !data) return <Spinner />;
   if (error) {
     return (
-      <Page title="Ready" crumbs={projectCrumbs(route, "Ready")}>
+      <Page title="What\u2019s next" crumbs={projectCrumbs(route, "What\u2019s next")}>
         <ErrorBox error={error} retry={reload} />
       </Page>
     );
@@ -127,8 +127,8 @@ export function ReadyScreen({ route, generation }: ScreenProps) {
 
   return (
     <Page
-      title="Ready"
-      crumbs={projectCrumbs(route, "Ready")}
+      title="What\u2019s next"
+      crumbs={projectCrumbs(route, "What\u2019s next")}
       meta={
         <span className="text-small text-ink-faint">
           {/* Not "ordered by what each one unblocks" any more. That was a claim

@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T07:10:01Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T07:30:32Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1112,6 +1112,18 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | human | revised spec “Specline — standing instructions” to v16 |
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T07:24:25.312246Z |
+| 2026-08-18 | claude | created task “Rename ready to next everywhere, including the MCP tool” |
+| 2026-08-18 | claude | revised decision “The ranked list is called next, and the MCP tool is renamed with it” to v1 |
+| 2026-08-18 | claude | created decision “The ranked list is called next, and the MCP tool is renamed with it” |
+| 2026-08-18 | claude | “A landing page for Specline, served from this repository by…” references “The landing page lives in this repository, at site/, with…” |
+| 2026-08-18 | claude | “The landing page lives in this repository, at site/, with…” resolves “Where should the marketing site live — this repository, or…” |
+| 2026-08-18 | claude | status open → answered |
+| 2026-08-18 | claude | revised decision “The landing page lives in this repository, at site/, with no build step” to v1 |
+| 2026-08-18 | claude | created decision “The landing page lives in this repository, at site/, with no build step” |
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → ["commit:ae876f1","test:cargo test --workspace"] |
 | 2026-08-18 | claude | close_reason none → done |
@@ -1300,18 +1312,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → ["commit:ff4aac9","test:specline fsck"] |
 | 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (167 characters) |
-| 2026-08-16 | claude | slug keel → specline |
-| 2026-08-16 | claude | name Keel → Specline |
-| 2026-08-16 | claude | aliases ["the project spine","project spine"] → ["keel","the project spine","project spine"] |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:45:04.614988Z |
-| 2026-08-16 | claude | status todo → done |
-| 2026-08-16 | claude | evidence [] → ["commit:29b0ab8","test:cargo test -p specline-mcp"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (226 characters) |
-| 2026-08-16 | claude | status in_progress → done |
 
-*Showing the 200 most recent of 2116 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2128 changes. Use `specline_activity` for the rest.*
 

@@ -106,7 +106,7 @@ pub fn claim(
                         .map_or_else(|| "an unrecorded time".to_owned(), |at| at.to_rfc3339())
                 ),
                 format!(
-                    "pick something else from specline_ready, or pass force to take it over. A \
+                    "pick something else from specline_next, or pass force to take it over. A \
                      claim releases itself after {} days, and closing the task releases it \
                      immediately.",
                     crate::CLAIM_STALE_AFTER.num_days()

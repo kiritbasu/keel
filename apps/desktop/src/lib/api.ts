@@ -487,7 +487,7 @@ export const api = {
   /**
    * What can be worked on right now, ranked.
    *
-   * The same `specline_ready` a session calls, not a second ranking computed here.
+   * The same `specline_next` a session calls, not a second ranking computed here.
    * That is the point of the endpoint existing at all — an app that ordered the
    * work differently from the tool would make "what next" a question with two
    * answers.

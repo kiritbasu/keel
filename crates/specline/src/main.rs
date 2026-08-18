@@ -472,13 +472,17 @@ enum Command {
 
     /// What can be worked on right now, best first.
     ///
-    /// Open work with nothing live in its way. Ordered by what a task unblocks
-    /// before its priority, so a p1 that releases three others comes above a p0
-    /// that releases nothing.
+    /// Open work with nothing live in its way, grouped and then oldest first.
+    /// What a task unblocks still leads where that means something; on a store
+    /// where nothing blocks anything it does not, so the group decides (B-83).
     ///
     /// The same computation the MCP tool and the app read. There is one
     /// ranking, so the three cannot disagree.
-    Ready {
+    ///
+    /// `ready` still works. It was the name until B-85, and a verb somebody has
+    /// in a shell history should not start erroring over a rename.
+    #[command(alias = "ready")]
+    Next {
         /// Project id, slug or name.
         project: String,
         /// Only work nobody is holding.
@@ -689,7 +693,7 @@ fn main() -> Result<()> {
             limit,
             daemon,
         } => work::lint(daemon, project, check.as_deref(), *limit, cli.json),
-        Command::Ready {
+        Command::Next {
             project,
             unclaimed,
             labels,

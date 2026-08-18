@@ -1265,7 +1265,7 @@ async fn api_search(
 
 /// What can be worked on right now.
 ///
-/// The same `specline_ready` the CLI and a model call, reached the same way every
+/// The same `specline_next` the CLI and a model call, reached the same way every
 /// other read is: through the tool, with the query string mapped by the tool's
 /// own schema. That is what makes "the app agrees with the session" a property of
 /// the code rather than a thing to keep checking — there is one ranking, and all
@@ -1294,7 +1294,7 @@ async fn api_search(
 /// So it is still the cheaper call, and it is one of four the board makes in
 /// parallel. The version with no second walk means either the daemon stops
 /// going through the tool — and the app's ranking stops being the tool's by
-/// construction — or `specline_ready` starts returning a stuck list no model asked
+/// construction — or `specline_next` starts returning a stuck list no model asked
 /// for. Neither is worth 240 ms on a screen that loads once. If it ever is, the
 /// fix is a `blocked` field on [`specline_core::Ready`] carrying what the ranking
 /// already computed, not a second ranking here.
@@ -1302,18 +1302,18 @@ async fn api_ready(
     State(state): State<AppState>,
     Query(mut params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    // Taken out before the arguments are built: `specline_ready` has no `blocked`
+    // Taken out before the arguments are built: `specline_next` has no `blocked`
     // in its schema, and passing an undeclared parameter through to a tool is
     // how a filter gets silently ignored.
     let want_blocked = params.remove("blocked").is_some_and(|v| v == "true");
     let project = params.get("project").cloned();
 
-    let args = params_to_json("specline_ready", params);
+    let args = params_to_json("specline_next", params);
     let mut store = state.store();
     let mut result = specline_mcp::dispatch(
         &mut store,
         specline_mcp::ToolCall {
-            name: "specline_ready",
+            name: "specline_next",
             arguments: &args,
         },
     );

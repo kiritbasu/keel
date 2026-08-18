@@ -94,6 +94,8 @@ Every decision made while building, with the reasoning and what was rejected. In
 | B-81 | [Keel becomes Specline: the store migrates itself, the task key does not change, and everything else is a clean break](#b-81) | `accepted` |
 | B-82 | [The rename ships as 0.2.0, and both ends of the plugin handshake move with it](#b-82) | `accepted` |
 | B-83 | [Ready ranks on signals that cannot decay](#b-83) | `accepted` |
+| B-84 | [The landing page lives in this repository, at site/, with no build step](#b-84) | `accepted` |
+| B-85 | [The ranked list is called next, and the MCP tool is renamed with it](#b-85) | `accepted` |
 
 ## Reversals
 
@@ -2049,5 +2051,59 @@ So the order inside the p2s falls through to a tiebreak, and the page renders a 
 **What was rejected, and why.** The alternative was to feed the ranking: keep priorities spread and draw `blocks` edges between open tasks. KB ruled it out. The 76 stale edges are the argument — they were drawn when that work was live and nobody pruned them, so the input decayed on its own. A ranking that needs someone to remember something will be wrong exactly when nobody remembered.
 
 **What this costs.** Milestone is the only signal carrying intent, and 19 of 29 open tasks have none, so grouping will put two thirds of the work in one bucket ordered by age. That is honest rather than good. If it becomes annoying, the fix is milestones on more rows, which is a person's judgement and not bookkeeping a machine can fake.
+
+
+### B-84 — The landing page lives in this repository, at site/, with no build step
+
+`accepted` · `dec_01M09W16C249HGJQC0QGD7GYCZ`
+
+Specline needed a page a person could be sent to. It is built from this repository rather than one of its own, and it is one HTML file and one stylesheet rather than a site generator.
+
+#### Where
+
+Same repository, `site/`, published by GitHub Pages from a workflow.
+
+The page exists to get somebody to install Specline, and the install story lives here: three commands, two of which name `kiritbasu/specline`. That story has already changed once — the plugin flow replaced a `claude mcp add`. The worst thing this page can do is tell a visitor to run a command that no longer works, and a repository boundary between the instructions and the thing they install is how that happens.
+
+Everything else it needs is here too. The four screenshots are generated into `docs/images` by `scripts/shoot-screenshots.mjs`, and the two Geist faces already ship with the desktop app. Across two repositories those become copies, and a copied screenshot is a screenshot of an old version within two releases with nothing to tell you.
+
+The argument for a separate repository is the URL — `kiritbasu.github.io` serves the bare domain and a project repository serves a `/specline/` path. A custom domain solves that from either, and that namespace is KB's own rather than this project's.
+
+#### How
+
+No framework, no bundler, no package manager. `scripts/build-site.sh` copies the page, the screenshots and the fonts into `site/_site` and that is the whole build. A toolchain would have been more moving parts than the thing it built, and the page has no state, no routing and four images.
+
+The screenshots and the fonts are copied at build time rather than committed a second time. That is the same reasoning as everywhere else here: one canonical copy, and the copy is made by something that runs, not by a person remembering.
+
+#### Two things worth knowing
+
+**The stylesheet is the app's.** The colours, the typeface and the radii come from `apps/desktop/src/styles.css`, because two thirds of the page is screenshots of the app and a page whose chrome disagrees with the pictures inside it looks like somebody else's page. The page adds a display type scale of its own — the app's largest size is 24px, which is right for something that has to sit in a table and wrong for a sentence read from across the room.
+
+**Pages needs its own workflow.** It wants `pages: write` and `id-token: write`. `ci.yml` declares `contents: read` and explains in a comment that this stops a change to the default quietly handing a write token to every job in the file, including the ones that build a pull request's code. Publishing from there would have undone that, so publishing has a file of its own.
+
+#### Reversible?
+
+Yes. It is four files and nothing else in the tree imports them.
+
+
+### B-85 — The ranked list is called next, and the MCP tool is renamed with it
+
+`accepted` · `dec_01M09W33CT3J7KQ951QX56YS46`
+
+One concept has had two names, split by who was reading. The code and the digest called it **next** — `next.rs`, `NextUp`, `NextItem`, and the `## Next` heading a session reads first. Everything a person touched called it **ready** — `specline ready`, `specline_ready`, and the nav label.
+
+**The decision.** It is called *next* everywhere. The page becomes "What's next", the CLI verb becomes `specline next` with `ready` kept as an alias, and the MCP tool becomes `specline_next`.
+
+**Why next rather than ready.**
+
+*Ready reads like a status.* Every tracker has a "Ready for dev" column, so the word arrives already meaning something else, and it invites "how do I move a task to Ready?" — which has no answer, because it is computed. This project already refuses a `blocked` status for that reason: being blocked is a fact about the graph, and holding it twice meant two facts that had to agree and did not. Ready is derived in exactly the same way.
+
+*Ready names the filter; next names the question.* The nav's other entry is "What changed", which says what a reader will learn. "Ready" says only that the rows share a property. Since the grouping change the page's own first section, "Next up", described the page better than its title did.
+
+**The tool rename is the part that needed agreement**, since the MCP surface is KB's to approve. It is a contract change, and tool names steer which tool a model reaches for. `specline_next` answers "what should I work on" more directly than `specline_ready`, which reads like a filter on a list. KB agreed on 2026-08-18.
+
+**What was rejected.** Renaming the internals to `ready` instead, closing the split the other way. Cheaper, since nothing external moves, but it keeps the weaker of the two names and leaves the digest heading saying Next.
+
+Renaming only the interface was rejected too: it widens the split rather than closing it, which is the thing worth fixing.
 
 

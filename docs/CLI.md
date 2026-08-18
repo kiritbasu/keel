@@ -43,14 +43,20 @@ than an environment variable so that using it shows up in your shell history.
 One line saying what is in the store. The quickest way to confirm the daemon and
 the store agree.
 
-### `specline ready <project>`
+### `specline next <project>`
 
 What you can work on now, best first. Open work with nothing live in its way,
-ordered by what a task unblocks before its priority, so a p1 that releases three
-other tasks comes above a p0 that releases nothing.
+grouped — anything in an open phase, then bugs, then everything else oldest
+first — and saying why each row is where it is.
 
-The MCP tool and the app read the same computation, so the three cannot
-disagree.
+What a task unblocks still sorts first where that means something. On a store
+where nothing open blocks anything it means nothing, so the group decides
+(B-83).
+
+`specline ready` still works, as an alias. That was the name until B-85.
+
+The MCP tool `specline_next` and the app read the same computation, so the three
+cannot disagree.
 
 | Flag | What it does |
 |---|---|

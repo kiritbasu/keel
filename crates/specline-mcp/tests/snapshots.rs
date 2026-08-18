@@ -381,10 +381,10 @@ fn ready_response_shape() {
     let mut seed = seeded();
     let result = call(
         &mut seed.store,
-        "specline_ready",
+        "specline_next",
         json!({"project": "harbour"}),
     );
-    settings().bind(|| insta::assert_json_snapshot!("specline_ready", result));
+    settings().bind(|| insta::assert_json_snapshot!("specline_next", result));
 }
 
 #[test]

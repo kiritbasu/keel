@@ -426,7 +426,7 @@ pub fn dispatch_prepared(
         "specline_write_doc" => specline_write_doc(store, args),
         "specline_link" => specline_link(store, args),
         "specline_note" => specline_note(store, args),
-        "specline_ready" => specline_ready(store, args),
+        "specline_next" => specline_next(store, args),
         "specline_claim" => specline_claim(store, args),
         "specline_close" => specline_close(store, args),
         // INVALID_PARAMS, not METHOD_NOT_FOUND. The JSON-RPC *method* here is
@@ -2103,7 +2103,7 @@ fn opt_str_list(args: &Value, field: &str) -> Vec<String> {
     }
 }
 
-fn specline_ready(store: &Store, args: &Value) -> Result<Value, RpcError> {
+fn specline_next(store: &Store, args: &Value) -> Result<Value, RpcError> {
     let project = resolve_project(store, &req_str(args, "project")?)?;
 
     // A milestone by name as well as by id: "what is next in Phase 8" is how the
@@ -2125,7 +2125,7 @@ fn specline_ready(store: &Store, args: &Value) -> Result<Value, RpcError> {
     let ready =
         specline_core::ready(store, &project, &filter).map_err(|e| to_rpc_error(store, e))?;
 
-    // The slug once, not once per row. `specline_ready` is what a session calls to
+    // The slug once, not once per row. `specline_next` is what a session calls to
     // decide what to work on, so these are the references it is about to say
     // out loud — which makes them the ones most worth being clickable.
     let ready_slug = match store.get(&project) {
