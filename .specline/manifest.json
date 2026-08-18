@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-18T18:48:13.874372+00:00",
+  "generated_at": "2026-08-18T18:58:19.868542+00:00",
   "files": [
     {
       "path": ".specline/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 2,
           "hash": "8693e49c88fc2ad31cb195dd2fc89dca7a4eb1266ca568fb37bda5f231c92ea3"
+        }
+      ]
+    },
+    {
+      "path": ".specline/decisions/writes-are-same-origin-only-and-that-stops-being-an-accident.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M0B3HDB61W4VFBWJDX2PADCR",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "8792d7fdcef519e5156902efd4e0c17d87f1b798d40c51cc35d159ff9a5695c0"
         }
       ]
     },

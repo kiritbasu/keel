@@ -150,10 +150,22 @@ pub fn router(state: AppState) -> Router {
         .route("/api/lint", get(api_lint))
         .route("/api/status", get(api_status))
         .route("/api/render-status", get(api_render_status))
-        // The Tauri webview is served from `tauri://localhost`, so every call
-        // to the daemon is cross-origin and needs CORS. Scoped to the local
-        // API: the MCP endpoint is not called from a browser, and giving it
-        // CORS headers would only widen what a hostile page can reach.
+        // Cross-origin reads, for a browser somewhere other than here. Added
+        // for the Tauri webview, served from `tauri://localhost`; that shell is
+        // off the release path now, and the layer stays because any local
+        // origin being able to *read* the store is the arrangement this was
+        // given. Undoing it is a decision of its own (B-89).
+        //
+        // **Reads only.** Everything that mutates is in `guarded`, merged below
+        // — after this layer, so it does not carry it. That began as an
+        // accident of ordering and is now the intent: nothing needs
+        // cross-origin writes while the only interface is the one this daemon
+        // serves itself. `tests/cors.rs` asserts both halves, so moving the
+        // merge is something somebody decides rather than discovers.
+        //
+        // Scoped to the local API either way: the MCP endpoint is not called
+        // from a browser, and giving it CORS headers would only widen what a
+        // hostile page can reach.
         .layer(
             tower_http::cors::CorsLayer::new()
                 .allow_origin(tower_http::cors::AllowOrigin::predicate(|origin, _| {
@@ -161,18 +173,19 @@ pub fn router(state: AppState) -> Router {
                         .to_str()
                         .is_ok_and(|o| is_local_origin(&o.to_ascii_lowercase()))
                 }))
-                // POST as well as GET. `/api/generate` is a POST and was
-                // unreachable from the desktop app for as long as this said
-                // GET only — the one endpoint the app needs to *do* anything
-                // rather than read.
+                // GET is what this list is for. `POST` is here from when
+                // `/api/generate` was thought to need it, and reaches nothing:
+                // every POST route is in `guarded`. It is left rather than
+                // removed so that the next person to look does not read a
+                // GET-only list as evidence that writes were considered and
+                // excluded on some other grounds — they are excluded by where
+                // the merge happens, which is the comment above and the test
+                // in `tests/cors.rs`.
                 //
-                // This list no longer reaches any of them, and `PATCH` is
-                // deliberately absent rather than overlooked: `guarded` is
-                // merged *after* this layer, so no mutating route carries CORS
-                // at all. Harmless while the only interface is the one the
-                // daemon serves itself, which is same-origin and never
-                // preflights — and a trap the moment anything else calls in.
-                // KEEL-309.
+                // Adding a verb here does not make a write reachable. That was
+                // the whole of KEEL-309: a session added `PATCH` believing it
+                // did, and the test written to prove it showed `POST` was not
+                // reaching the list either.
                 .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
                 .allow_headers(tower_http::cors::Any),
         )
@@ -181,13 +194,17 @@ pub fn router(state: AppState) -> Router {
         // cannot be shadowed by it, and a typo'd one still 404s as an API call
         // rather than silently returning the app shell.
         //
-        // Outside the CORS layer below on purpose. The page is served from the
+        // Outside the CORS layer above on purpose. The page is served from the
         // same origin it calls, so it needs no CORS headers of its own, and
         // attaching them to HTML would only widen what another page can read.
         .fallback(crate::site::serve)
         // The mutating routes, already wearing their own layer. Merged rather
         // than chained so that the guard covers exactly them and cannot be
         // widened or narrowed by where a later route happens to be added.
+        //
+        // Merged *here*, below the CORS layer, so they do not carry it — see
+        // that layer's comment. Moving this line up is what would make writes
+        // reachable from another origin, and `tests/cors.rs` fails if it does.
         .merge(guarded)
         .layer(tower_http::trace::TraceLayer::new_for_http())
         // A cap on how much the daemon will read, and a handler that explains

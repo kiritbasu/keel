@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T18:48:13Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T18:58:19Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1210,6 +1210,12 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | “No mutating route carries CORS, and the comment on the…” references “Writes are same-origin only, and that stops being an…” |
+| 2026-08-18 | claude | revised decision “Writes are same-origin only, and that stops being an accident” to v1 |
+| 2026-08-18 | claude | created decision “Writes are same-origin only, and that stops being an accident” |
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T18:50:57.402423Z |
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → (96 characters) |
 | 2026-08-18 | claude | close_reason none → done |
@@ -1404,12 +1410,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | definition (974 characters) → (986 characters) |
 | 2026-08-16 | claude | definition (87 characters) → (91 characters) |
 | 2026-08-16 | claude | definition (94 characters) → (98 characters) |
-| 2026-08-16 | claude | definition (86 characters) → (90 characters) |
-| 2026-08-16 | claude | body (1768 characters) → (1780 characters) |
-| 2026-08-16 | claude | body (1787 characters) → (1799 characters) |
-| 2026-08-16 | claude | title keel_search promises hybrid retrieval and runs keyword-only, without saying so → (82 characters) |
-| 2026-08-16 | claude | body (1695 characters) → (1707 characters) |
-| 2026-08-16 | claude | title keel bootstrap is the last writer that goes round the daemon probe and the lock → (83 characters) |
 
-*Showing the 200 most recent of 2222 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2228 changes. Use `specline_activity` for the rest.*
 
