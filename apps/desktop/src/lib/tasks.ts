@@ -35,6 +35,57 @@ export const COLUMNS = ["todo", "in_progress", "review", "done", "wont_do"] as c
 
 export type Column = (typeof COLUMNS)[number];
 
+/**
+ * What dropping a card on a status column should do.
+ *
+ * Three of the board's six columns cannot simply take the card, and each
+ * refusal is a rule that lives somewhere else — so the answer is worked out
+ * here, once, rather than by the board and the drop handler separately.
+ *
+ * - **`done` and `wont_do`** need the Close form. A close owes a reason, a
+ *   message and — for `done` — evidence, and the storage layer refuses without
+ *   them on every path. The drop opens the form rather than failing behind it.
+ * - **`in_progress`** is refused. Starting work is a claim and a claim records
+ *   which session is on it; a person dragging a card has none (B-87).
+ * - **`blocked`** is refused because it is not a status at all. The column is
+ *   derived from the graph — something links to this task with `blocks` — so
+ *   there is nothing a drop could set (TQ-25).
+ */
+/**
+ * The statuses a drag can reach. Narrower than `Column` on purpose: the other
+ * three are refused or routed, and having the type say so means a caller
+ * cannot pass one of them to the endpoint that would reject it.
+ */
+export type DraggableStatus = "todo" | "review";
+
+export type Drop =
+  | { kind: "move"; status: DraggableStatus }
+  | { kind: "close" }
+  | { kind: "refused"; why: string };
+
+export function dropOnStatus(columnKey: string): Drop {
+  switch (columnKey) {
+    case "todo":
+    case "review":
+      return { kind: "move", status: columnKey };
+    case "done":
+    case "wont_do":
+      return { kind: "close" };
+    case "in_progress":
+      return {
+        kind: "refused",
+        why: "Starting work is a claim, and a claim records which session is on it. Ask Claude to pick it up.",
+      };
+    case "blocked":
+      return {
+        kind: "refused",
+        why: "Blocked is not a status — it means something is linked to this task as a blocker.",
+      };
+    default:
+      return { kind: "refused", why: "Cards cannot be dropped here." };
+  }
+}
+
 /** Where a rank position and its reason come from — the digest's `next_up`. */
 export type RankMap = Map<string, { position: number; why: string }>;
 

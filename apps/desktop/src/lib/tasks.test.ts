@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  COLUMNS,
   compareTasks,
+  dropOnStatus,
   groupTasks,
   inBoardOrder,
   sortTasks,
@@ -267,5 +269,56 @@ describe("groupTasks, by parent", () => {
     const groups = groupTasks([task("child", { parent_id: "tsk_epic" })], "parent", names);
     expect(groups[0]?.label).toBe("The epic");
     expect(groups[0]?.tasks).toHaveLength(1);
+  });
+});
+
+/**
+ * What a column does with a dropped card. Three of the six do not simply take
+ * it, and each refusal is a rule that lives somewhere else — so this is the
+ * one place that has to agree with all three.
+ */
+describe("dropOnStatus", () => {
+  it("takes a card into the two statuses that owe nothing", () => {
+    expect(dropOnStatus("todo")).toEqual({ kind: "move", status: "todo" });
+    expect(dropOnStatus("review")).toEqual({ kind: "move", status: "review" });
+  });
+
+  /** A close owes a reason, a message and evidence. The drop opens the form. */
+  it("routes the terminal columns to the close form rather than writing", () => {
+    expect(dropOnStatus("done").kind).toBe("close");
+    expect(dropOnStatus("wont_do").kind).toBe("close");
+  });
+
+  /** Starting work is a claim, and a claim records which session (B-87). */
+  it("refuses in_progress, and says why", () => {
+    const drop = dropOnStatus("in_progress");
+    expect(drop.kind).toBe("refused");
+    if (drop.kind === "refused") expect(drop.why).toMatch(/claim/);
+  });
+
+  /** Blocked is derived from the graph, so there is nothing to set (TQ-25). */
+  it("refuses the derived blocked column, and says why", () => {
+    const drop = dropOnStatus("blocked");
+    expect(drop.kind).toBe("refused");
+    if (drop.kind === "refused") expect(drop.why).toMatch(/not a status/);
+  });
+
+  it("refuses anything it does not recognise rather than guessing", () => {
+    expect(dropOnStatus("").kind).toBe("refused");
+    expect(dropOnStatus("triage").kind).toBe("refused");
+  });
+
+  /**
+   * Every column the board can render has an answer here. A new status that
+   * reached the board without reaching this function would be silently
+   * undroppable with a message that says nothing.
+   */
+  it("has an answer for every column the board renders", () => {
+    for (const column of [...COLUMNS, "blocked"]) {
+      const drop = dropOnStatus(column);
+      if (drop.kind === "refused") {
+        expect(drop.why).not.toBe("Cards cannot be dropped here.");
+      }
+    }
   });
 });

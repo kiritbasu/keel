@@ -20,6 +20,7 @@ import {
 import { useAsync } from "../lib/useAsync";
 import { ApiError } from "../lib/api";
 import { Button, Dialog, Empty, ErrorBox, Spinner, toast } from "../components/ui";
+import { CloseTaskDialog } from "../components/CloseTaskDialog";
 import { LabelPicker } from "../components/LabelPicker";
 import { Page, projectCrumbs } from "../components/Page";
 import { FilterBar, type Facets, type View } from "../components/FilterBar";
@@ -29,6 +30,7 @@ import { href, setQuery } from "../lib/router";
 import {
   GROUP_BY,
   SORT_BY,
+  dropOnStatus,
   groupTasks,
   sortTasks,
   taskRef,
@@ -187,6 +189,59 @@ export function BoardScreen({
   }, [data]);
 
   const [creating, setCreating] = useState(false);
+  /** The task a drop on a terminal column is asking to close, if any. */
+  const [closing, setClosing] = useState<Entity | null>(null);
+
+  /**
+   * A card dropped on a status column.
+   *
+   * `dropOnStatus` has already been consulted by the board to decide whether
+   * the column would take the card at all, and is consulted again here rather
+   * than trusted — the board is deciding what to *show*, and this is deciding
+   * what to *write*. A refusal reaching this point would be a bug, and the
+   * toast says so instead of writing something nobody asked for.
+   */
+  async function move(task: Entity, columnKey: string) {
+    const drop = dropOnStatus(columnKey);
+    if (drop.kind === "refused") {
+      toast({ text: drop.why });
+      return;
+    }
+    if (drop.kind === "close") {
+      setClosing(task);
+      return;
+    }
+    if (String(task.status) === drop.status) return;
+
+    try {
+      await api.updateTask(String(task.id), {
+        version: Number(task.audit.version),
+        status: drop.status,
+      });
+      reload();
+      // A blocked card keeps its place, because the blocked column is derived
+      // from the graph and comes first — so the write lands and the card does
+      // not move, which reads as nothing having happened. Say what did.
+      if (blockedIds.has(String(task.id))) {
+        toast({
+          text: `Moved to ${drop.status}. It stays under Blocked while something blocks it.`,
+        });
+      }
+    } catch (e) {
+      // The card snaps back on its own, because nothing was written and the
+      // board still holds the old row — so the toast is the only thing that
+      // says why, and a silent revert is the worst version of this.
+      toast({
+        text:
+          e instanceof ApiError
+            ? e.status === 409
+              ? "That task changed while you were dragging it. Reloading."
+              : e.message
+            : "It was not moved.",
+      });
+      if (e instanceof ApiError && e.status === 409) reload();
+    }
+  }
 
   const filterKey = JSON.stringify(filter);
   const groups = useMemo(() => {
@@ -372,9 +427,27 @@ export function BoardScreen({
                 replace: true,
               })
             }
+            // Only when the columns are statuses. Grouped by label a card
+            // legitimately sits in three of them at once, and there would be
+            // nothing sensible for a drop to mean.
+            onDropOnStatus={
+              group === "status" ? (task, key) => void move(task, key) : undefined
+            }
           />
         )}
       </div>
+      {/* Dropping on `done` or `wont_do` lands here rather than writing: the
+          storage layer wants a reason, a message and evidence, so the drop
+          opens the same form the task screen's Close button does. Cancelling
+          leaves the card where it was, because nothing was written. */}
+      {closing && (
+        <CloseTaskDialog
+          open
+          task={closing}
+          onClose={() => setClosing(null)}
+          onDone={reload}
+        />
+      )}
       {route.project && (
         <NewTaskDialog
           open={creating}

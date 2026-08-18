@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-18T18:21:31.740745+00:00",
+  "generated_at": "2026-08-18T18:47:54.384078+00:00",
   "files": [
     {
       "path": ".specline/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 2,
           "hash": "8693e49c88fc2ad31cb195dd2fc89dca7a4eb1266ca568fb37bda5f231c92ea3"
+        }
+      ]
+    },
+    {
+      "path": ".specline/decisions/dragging-a-card-is-refused-in-the-open-not-on-release.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M0B35ABXXTCYT8MS8TQRJ2EA",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "d2345753028a05b9f7b5408b23be7263b52c86df0c4494e8d2fb72d2c9ed93e1"
         }
       ]
     },

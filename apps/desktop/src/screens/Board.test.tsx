@@ -21,7 +21,7 @@ const TASKS = [
     kind: "task",
     labels: ["desktop"],
     milestone_id: "mst_1",
-    audit: { updated_at: "2026-08-01T00:00:00Z" },
+    audit: { updated_at: "2026-08-01T00:00:00Z", version: 3 },
   },
   {
     id: "tsk_2",
@@ -33,7 +33,7 @@ const TASKS = [
     kind: "task",
     labels: ["desktop", "phase6"],
     milestone_id: "mst_1",
-    audit: { updated_at: "2026-08-09T00:00:00Z" },
+    audit: { updated_at: "2026-08-09T00:00:00Z", version: 4 },
   },
   {
     id: "tsk_3",
@@ -44,12 +44,14 @@ const TASKS = [
     priority: "p0",
     kind: "bug",
     labels: ["plugin"],
-    audit: { updated_at: "2026-08-05T00:00:00Z" },
+    audit: { updated_at: "2026-08-05T00:00:00Z", version: 5 },
   },
 ];
 
 /** Counted so the board's appetite is asserted rather than assumed. */
 const called = { ready: 0, context: 0, notes: 0, noteCounts: 0 };
+
+const updateTask = vi.fn(async () => TASKS[2]);
 
 vi.mock("../lib/api", () => ({
   ApiError: class ApiError extends Error {},
@@ -86,6 +88,7 @@ vi.mock("../lib/api", () => ({
       called.noteCounts += 1;
       return { counts: { tsk_2: 3 }, total: 3 };
     },
+    updateTask,
     createTask: async (task: Record<string, unknown>) => {
       created.push(task);
       return {
@@ -124,6 +127,7 @@ beforeEach(() => {
   called.notes = 0;
   called.noteCounts = 0;
   created.length = 0;
+  updateTask.mockClear();
 });
 afterEach(cleanup);
 
@@ -352,5 +356,153 @@ describe("making a task from the board", () => {
 
     expect(screen.queryByText(/^Created /)).toBeNull();
     failing.mockRestore();
+  });
+});
+
+/**
+ * Dragging a card between columns — the gesture everyone tries first, and the
+ * three columns where trying it should not quietly do nothing.
+ */
+describe("dragging a card to another column", () => {
+  /** jsdom has no DataTransfer, and the handler writes to it. */
+  const dataTransfer = () => ({ setData: vi.fn(), effectAllowed: "" });
+
+  function cardFor(title: string): HTMLElement {
+    // The draggable element is the card wrapper, not the title's anchor.
+    const link = screen.getByRole("link", { name: title });
+    const card = link.closest("[draggable]");
+    if (!card) throw new Error(`no draggable card for ${title}`);
+    return card as HTMLElement;
+  }
+
+  function columnFor(label: string): HTMLElement {
+    const heading = screen.getByText(label, { selector: "span" });
+    const column = heading.closest("div")?.parentElement;
+    if (!column) throw new Error(`no column for ${label}`);
+    return column;
+  }
+
+  it("moves a card into a column that owes nothing", async () => {
+    await show();
+
+    const card = cardFor("Delete the file-edit hook");
+    fireEvent.dragStart(card, { dataTransfer: dataTransfer() });
+    const review = columnFor("review");
+    fireEvent.dragOver(review, { dataTransfer: dataTransfer() });
+    fireEvent.drop(review, { dataTransfer: dataTransfer() });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(updateTask).toHaveBeenCalledWith("tsk_3", {
+      version: 5,
+      status: "review",
+    });
+  });
+
+  /**
+   * A claim records which session is on the work, and a person dragging has
+   * none. The refusal is shown while the card is still in the air, because a
+   * drop target that silently does nothing reads as a broken app.
+   */
+  it("refuses in_progress, says why while dragging, and writes nothing", async () => {
+    await show();
+
+    expect(screen.queryByText(/Starting work is a claim/)).toBeNull();
+
+    const card = cardFor("Delete the file-edit hook");
+    fireEvent.dragStart(card, { dataTransfer: dataTransfer() });
+    expect(screen.getByText(/Starting work is a claim/)).toBeTruthy();
+
+    const inProgress = columnFor("in progress");
+    fireEvent.dragOver(inProgress, { dataTransfer: dataTransfer() });
+    fireEvent.drop(inProgress, { dataTransfer: dataTransfer() });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(updateTask).not.toHaveBeenCalled();
+
+    // And the explanation goes away when the drag does.
+    fireEvent.dragEnd(card);
+    expect(screen.queryByText(/Starting work is a claim/)).toBeNull();
+  });
+
+  /** Blocked is derived from the graph, so there is nothing a drop could set. */
+  it("refuses the blocked column, and says why", async () => {
+    await show();
+
+    const card = cardFor("Delete the file-edit hook");
+    fireEvent.dragStart(card, { dataTransfer: dataTransfer() });
+
+    expect(screen.getByText(/Blocked is not a status/)).toBeTruthy();
+    const blocked = columnFor("blocked");
+    fireEvent.drop(blocked, { dataTransfer: dataTransfer() });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(updateTask).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Closing owes a reason, a message and evidence. The drop opens the form
+   * that collects them rather than writing a status and failing behind it.
+   */
+  it("opens the close form when a card is dropped on done", async () => {
+    await show();
+
+    const card = cardFor("Delete the file-edit hook");
+    fireEvent.dragStart(card, { dataTransfer: dataTransfer() });
+    fireEvent.drop(columnFor("done"), { dataTransfer: dataTransfer() });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(updateTask).not.toHaveBeenCalled();
+    expect(screen.getByText("Close this task")).toBeTruthy();
+  });
+
+  /**
+   * Grouped by label a card legitimately sits in three columns at once, so
+   * there is nothing a drop could sensibly mean.
+   */
+  it("does not make cards draggable when the columns are not statuses", async () => {
+    await show({ group: "label" });
+
+    const link = screen.getAllByRole("link", { name: "Delete the file-edit hook" })[0];
+    expect(link?.closest("[draggable='true']")).toBeNull();
+  });
+});
+
+/**
+ * The blocked column is derived from the graph and comes first, so a blocked
+ * card that is moved keeps its place. The write lands and nothing appears to
+ * happen, which is the one case where the board has to say what it did.
+ */
+describe("moving a card that is blocked", () => {
+  const dataTransfer = () => ({ setData: vi.fn(), effectAllowed: "" });
+
+  it("says the card stays under Blocked, rather than looking inert", async () => {
+    render(<Toaster />);
+    await show();
+
+    // tsk_2 is the one `ready` reports as blocked.
+    const link = screen.getByRole("link", { name: "Filters that compose" });
+    const card = link.closest("[draggable]") as HTMLElement;
+    fireEvent.dragStart(card, { dataTransfer: dataTransfer() });
+
+    const heading = screen.getByText("review", { selector: "span" });
+    const column = heading.closest("div")?.parentElement as HTMLElement;
+    fireEvent.drop(column, { dataTransfer: dataTransfer() });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(updateTask).toHaveBeenCalledWith("tsk_2", {
+      version: 4,
+      status: "review",
+    });
+    expect(screen.getByText(/stays under Blocked/)).toBeTruthy();
   });
 });

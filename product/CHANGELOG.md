@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T18:21:31Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T18:47:54Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1204,6 +1204,12 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | “Drag a card between board columns to move its status” references “Dragging a card is refused in the open, not on release” |
+| 2026-08-18 | claude | revised decision “Dragging a card is refused in the open, not on release” to v1 |
+| 2026-08-18 | claude | created decision “Dragging a card is refused in the open, not on release” |
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T18:22:45.513986Z |
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → (150 characters) |
 | 2026-08-18 | claude | close_reason none → done |
@@ -1398,12 +1404,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | title (82 characters) → (86 characters) |
 | 2026-08-16 | claude | summary (433 characters) → (437 characters) |
 | 2026-08-16 | claude | body (3100 characters) → (3120 characters) |
-| 2026-08-16 | claude | summary (319 characters) → (323 characters) |
-| 2026-08-16 | claude | body (3226 characters) → (3262 characters) |
-| 2026-08-16 | claude | body (2559 characters) → (2571 characters) |
-| 2026-08-16 | claude | summary (300 characters) → (304 characters) |
-| 2026-08-16 | claude | body (1245 characters) → (1249 characters) |
-| 2026-08-16 | claude | summary (288 characters) → (292 characters) |
 
-*Showing the 200 most recent of 2212 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2218 changes. Use `specline_activity` for the rest.*
 
