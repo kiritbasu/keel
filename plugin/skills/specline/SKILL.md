@@ -72,7 +72,7 @@ So:
   watching reads is that the row exists and who is on it, not how well it is
   written. Every other bullet here assumes the task is already there, and this
   is the one that makes that true.
-- **`specline_ready` is what to ask when the choice is open.** "Build the app" is
+- **`specline_next` is what to ask when the choice is open.** "Build the app" is
   not a task; it is a request to work through several. Ask what to pick up and
   it answers with the ranking Specline actually computes — by what a task unblocks
   before its priority — rather than whatever the digest happened to show you.
@@ -107,7 +107,7 @@ which types have a screen. A link you compose from a template is wrong on both
 counts sooner than you would think, and a link that opens the wrong page is
 worse than plain text, because it reads as the interface being broken.
 
-`specline_get`, `specline_create`, `specline_claim`, `specline_close` and `specline_ready` return a
+`specline_get`, `specline_create`, `specline_claim`, `specline_close` and `specline_next` return a
 `url` on the artifacts they name. Nothing else does: a digest listing forty rows
 would spend more tokens on links than on the rows. If there is no `url`, the
 artifact has no screen or nothing is serving the interface — say the reference
@@ -364,7 +364,7 @@ listing ten, and omitted three others entirely. The number is in
 | Tool | Reach for it when |
 |---|---|
 | `specline_context` | starting any project conversation — **first**, always |
-| `specline_ready` | "what should I work on" — the ranking, not a guess |
+| `specline_next` | "what should I work on" — the ranking, not a guess |
 | `specline_claim` | **before** starting a task, every time |
 | `specline_close` | it is finished — with a reason, a message and evidence |
 | `specline_search` | "what do we know about X", "has this come up before" |
