@@ -42,6 +42,15 @@ pub struct Change {
     pub reference: String,
     /// One line, as a person would read it.
     pub summary: String,
+    /// The project's short key, e.g. `KEEL`. `None` for rows that belong to no
+    /// project. The all-projects feed shows this; a project-scoped one does not
+    /// need it.
+    pub project_key: Option<String>,
+    /// The field a single-field update touched. Carried so that a headline can
+    /// tell a close from a claim structurally: both are `status_changed`, and
+    /// telling them apart by reading `summary` would be parsing prose that is
+    /// written for a person. `None` for creations and notes.
+    pub field: Option<String>,
     /// When.
     pub at: DateTime<Utc>,
 }
@@ -88,6 +97,11 @@ pub struct SessionChanges {
     /// happened while I was away" wants the most recently active first, not the
     /// one that started most recently.
     pub ended_at: DateTime<Utc>,
+    /// The projects this session touched, by short key, in the order they were
+    /// first written to. Usually one. More than one is a session that moved
+    /// between projects, which is exactly what the all-projects feed could not
+    /// previously show.
+    pub projects: Vec<String>,
     /// Everything it did, oldest first, so it reads as a sequence.
     pub changes: Vec<Change>,
     /// A one-line account of the session, for the collapsed row.
@@ -182,6 +196,11 @@ pub fn by_session(store: &Store, query: &ChangeQuery) -> Result<ChangeLog> {
             entity_type: event.entity_type,
             reference,
             summary: event.summary,
+            project_key: event
+                .project_id
+                .as_ref()
+                .and_then(|p| keys.get(p.as_str()).cloned()),
+            field: event.field,
             at: event.created_at,
         });
     }
@@ -209,6 +228,11 @@ pub fn by_session(store: &Store, query: &ChangeQuery) -> Result<ChangeLog> {
             entity_type: note.entity_type,
             reference,
             summary: first_line(&note.body),
+            project_key: note
+                .project_id
+                .as_ref()
+                .and_then(|p| keys.get(p.as_str()).cloned()),
+            field: None,
             at: note.created_at,
         });
     }
@@ -234,6 +258,7 @@ pub fn by_session(store: &Store, query: &ChangeQuery) -> Result<ChangeLog> {
                 actor,
                 started_at: change.at,
                 ended_at: change.at,
+                projects: Vec::new(),
                 changes: Vec::new(),
                 headline: String::new(),
             });
@@ -251,6 +276,13 @@ pub fn by_session(store: &Store, query: &ChangeQuery) -> Result<ChangeLog> {
         group
             .changes
             .sort_by(|a, b| a.at.cmp(&b.at).then_with(|| a.id.cmp(&b.id)));
+        for change in &group.changes {
+            if let Some(key) = &change.project_key
+                && !group.projects.contains(key)
+            {
+                group.projects.push(key.clone());
+            }
+        }
         group.headline = headline(group);
     }
     grouped.sort_by_key(|g| std::cmp::Reverse(g.ended_at));
@@ -264,39 +296,112 @@ pub fn by_session(store: &Store, query: &ChangeQuery) -> Result<ChangeLog> {
 
 /// A session's one-line account of itself.
 ///
-/// Counts rather than a list, because a session that made four hundred writes
-/// has to fit on one row. Notes are counted separately and named first: "wrote 3
-/// notes" is the part a person actually wants, and it is the part the event log
-/// alone could not have told them.
+/// Names what the session *did*, rather than counting what it wrote. One claim
+/// writes three events and one close writes four, so a count of changes measures
+/// the storage model and not the work: eight sessions all rendered as "created N
+/// things, N changes, wrote N notes", which is the same sentence eight times
+/// (KEEL-292).
+///
+/// Closes lead, because "what got finished" is the first thing somebody coming
+/// back to the machine wants. The raw count survives on the end, quietly, so a
+/// session that closed one task after four hours of thrashing still reads
+/// differently from one that closed a task cleanly.
 fn headline(group: &SessionChanges) -> String {
-    let count = |kind: ChangeKind| group.changes.iter().filter(|c| c.kind == kind).count();
-    let created = count(ChangeKind::Created);
-    let fields = count(ChangeKind::Field);
-    let notes = count(ChangeKind::Note);
+    let mut closed: Vec<&str> = Vec::new();
+    let mut closed_total = 0usize;
+    let mut created: Vec<(EntityType, usize)> = Vec::new();
+    let mut notes = 0usize;
+
+    for change in &group.changes {
+        match change.kind {
+            ChangeKind::Note => notes += 1,
+            ChangeKind::Created => match created.iter_mut().find(|(t, _)| *t == change.entity_type)
+            {
+                Some((_, n)) => *n += 1,
+                None => created.push((change.entity_type, 1)),
+            },
+            // `close_reason` is the marker rather than `status`, because it is
+            // written exactly once per close, while a status event also fires
+            // for a claim and for every other move a task makes.
+            ChangeKind::Field => {
+                if change.field.as_deref() == Some("close_reason") {
+                    closed_total += 1;
+                    if !change.reference.is_empty() {
+                        closed.push(&change.reference);
+                    }
+                }
+            }
+        }
+    }
 
     let mut parts = Vec::new();
-    if created > 0 {
-        parts.push(format!(
-            "created {created} {}",
-            if created == 1 { "thing" } else { "things" }
-        ));
+    if closed_total > 0 {
+        parts.push(format!("closed {}", names(&closed, closed_total)));
     }
-    if fields > 0 {
-        parts.push(format!(
-            "{fields} {}",
-            if fields == 1 { "change" } else { "changes" }
-        ));
+    if !created.is_empty() {
+        // Biggest group first, then alphabetically, so the same session always
+        // renders the same way.
+        created.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.as_str().cmp(b.0.as_str())));
+        let filed: Vec<String> = created
+            .iter()
+            .map(|(t, n)| format!("{n} {}", plural(*t, *n)))
+            .collect();
+        parts.push(format!("filed {}", filed.join(", ")));
     }
     if notes > 0 {
         parts.push(format!(
-            "wrote {notes} {}",
+            "{notes} {}",
             if notes == 1 { "note" } else { "notes" }
         ));
     }
+    let total = group.changes.len();
+    let count = format!("{total} {}", if total == 1 { "change" } else { "changes" });
+
     if parts.is_empty() {
-        return "nothing".to_owned();
+        // Nothing was closed, created or noted, but the session may still have
+        // edited rows — a claim writes three fields and a document revision
+        // writes one, and neither is an act this function names. Falling
+        // through to "nothing" would call a session that did work idle.
+        return if group.changes.is_empty() {
+            "nothing".to_owned()
+        } else {
+            count
+        };
     }
-    parts.join(", ")
+
+    format!("{} · {count}", parts.join(" · "))
+}
+
+/// The references, listed while listing them still fits on a row.
+///
+/// `total` rather than `refs.len()` because a row without a reference still
+/// happened, and a headline that silently dropped it would undercount the one
+/// number a reader is most likely to check.
+fn names(refs: &[&str], total: usize) -> String {
+    match (refs.len(), total) {
+        (_, 0) => String::new(),
+        (0, n) => format!("{n} {}", if n == 1 { "task" } else { "tasks" }),
+        (1, 1) => refs[0].to_owned(),
+        (2, 2) => format!("{} and {}", refs[0], refs[1]),
+        (3, 3) => format!("{}, {} and {}", refs[0], refs[1], refs[2]),
+        (r, n) => {
+            let shown = r.min(2);
+            format!("{} and {} more", refs[..shown].join(", "), n - shown)
+        }
+    }
+}
+
+/// An artifact type as a person says it, singular or plural.
+///
+/// `metric_observation` has to lose its underscore, and "feedback" is already
+/// plural — an automatic "s" produces "2 feedbacks", which is the kind of thing
+/// that makes a page look machine-written.
+fn plural(entity: EntityType, n: usize) -> String {
+    let base = entity.as_str().replace('_', " ");
+    if n == 1 || base == "feedback" {
+        return base;
+    }
+    format!("{base}s")
 }
 
 /// The notes in scope.
@@ -404,10 +509,48 @@ mod tests {
             actor: Actor::Claude,
             started_at: Utc::now(),
             ended_at: Utc::now(),
+            projects: Vec::new(),
             changes: Vec::new(),
             headline: String::new(),
         };
         assert_eq!(headline(&base), "nothing");
+    }
+
+    #[test]
+    fn references_are_listed_while_listing_them_still_fits() {
+        assert_eq!(names(&["KEEL-1"], 1), "KEEL-1");
+        assert_eq!(names(&["KEEL-1", "KEEL-2"], 2), "KEEL-1 and KEEL-2");
+        assert_eq!(
+            names(&["KEEL-1", "KEEL-2", "KEEL-3"], 3),
+            "KEEL-1, KEEL-2 and KEEL-3"
+        );
+        assert_eq!(
+            names(&["KEEL-1", "KEEL-2", "KEEL-3", "KEEL-4"], 4),
+            "KEEL-1, KEEL-2 and 2 more"
+        );
+    }
+
+    /// A row with no reference still happened. Counting only what could be named
+    /// would quietly report four closes as two.
+    #[test]
+    fn a_close_with_no_reference_is_still_counted() {
+        assert_eq!(names(&[], 1), "1 task");
+        assert_eq!(names(&[], 3), "3 tasks");
+        assert_eq!(names(&["KEEL-1"], 3), "KEEL-1 and 2 more");
+    }
+
+    #[test]
+    fn a_type_is_pluralised_the_way_a_person_says_it() {
+        assert_eq!(plural(EntityType::Task, 1), "task");
+        assert_eq!(plural(EntityType::Task, 2), "tasks");
+        assert_eq!(plural(EntityType::Decision, 3), "decisions");
+        // Already plural. "2 feedbacks" reads as machine-written.
+        assert_eq!(plural(EntityType::Feedback, 2), "feedback");
+        // The underscore is a column name, not something anybody says.
+        assert_eq!(
+            plural(EntityType::MetricObservation, 2),
+            "metric observations"
+        );
     }
 
     #[test]

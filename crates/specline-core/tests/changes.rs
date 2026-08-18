@@ -9,8 +9,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use specline_core::{
-    Actor, ChangeKind, ChangeQuery, EntityId, EntityStore, NewNote, Project, Provenance, Store,
-    Task, changes::by_session,
+    Actor, ChangeKind, ChangeQuery, Close, CloseReason, EntityId, EntityStore, NewNote, Project,
+    Provenance, Store, Task, changes::by_session,
 };
 
 struct Fixture {
@@ -63,6 +63,21 @@ impl Fixture {
         self.store.add_note(note, prov).unwrap();
     }
 
+    fn close(&mut self, id: &EntityId, prov: &Provenance) {
+        specline_core::work::close(
+            &mut self.store,
+            id,
+            &Close {
+                reason: CloseReason::Done,
+                message: "Finished it.".to_owned(),
+                evidence: vec!["commit:abc1234".to_owned()],
+                other: None,
+            },
+            prov,
+        )
+        .unwrap();
+    }
+
     fn log(&self, query: ChangeQuery) -> specline_core::ChangeLog {
         by_session(&self.store, &query).unwrap()
     }
@@ -100,7 +115,7 @@ fn a_session_that_wrote_a_note_shows_the_note() {
         "a note writes no event, so the union is the only way it can appear here"
     );
     assert!(
-        group.headline.contains("wrote 1 note"),
+        group.headline.contains("1 note"),
         "the headline names the note, because that is the part a person came for. Got: {}",
         group.headline
     );
@@ -259,5 +274,126 @@ fn a_retracted_note_is_not_something_a_session_did() {
             .any(|c| c.kind == ChangeKind::Note),
         "a withdrawn note stays readable on its row as a record of what was believed, but \
          it is not something to catch up on"
+    );
+}
+
+/// The headline exists to say what a session did. A close is the thing a person
+/// coming back to the machine looks for first, so it leads and it is named.
+#[test]
+fn a_closed_task_is_named_in_the_headline() {
+    let mut f = setup();
+    let prov = session("ses_closer");
+    let task = f.task("Something to finish", &prov);
+    f.close(&task, &prov);
+
+    let log = f.log(f.scoped());
+    let group = log
+        .sessions
+        .iter()
+        .find(|s| s.session_id.as_deref() == Some("ses_closer"))
+        .expect("the session appears");
+
+    assert!(
+        group.headline.starts_with("closed "),
+        "a close leads the headline. Got: {}",
+        group.headline
+    );
+    assert!(
+        group.headline.contains("KEEL-") || group.headline.contains("1 task"),
+        "the close is named, not counted as an anonymous write. Got: {}",
+        group.headline
+    );
+}
+
+/// The defect this replaced: one close writes four events and one claim writes
+/// three, so counting rows made every session read the same. The headline must
+/// not report a close as four of anything.
+#[test]
+fn one_close_is_one_act_not_the_four_events_it_writes() {
+    let mut f = setup();
+    let prov = session("ses_once");
+    let task = f.task("Closed exactly once", &prov);
+    f.close(&task, &prov);
+
+    let group = f
+        .log(f.scoped())
+        .sessions
+        .into_iter()
+        .find(|s| s.session_id.as_deref() == Some("ses_once"))
+        .expect("the session appears");
+
+    assert!(
+        !group.headline.contains("closed 4") && !group.headline.contains("4 tasks"),
+        "a close is one act however many fields it writes. Got: {}",
+        group.headline
+    );
+    assert!(
+        group.headline.contains("change"),
+        "the raw count survives as a suffix, so volume is still visible. Got: {}",
+        group.headline
+    );
+}
+
+/// Creations say what they were. "created 6 things" was the original complaint:
+/// thirteen artifact types collapsed into one word.
+#[test]
+fn creations_are_named_by_type_rather_than_called_things() {
+    let mut f = setup();
+    let prov = session("ses_maker");
+    f.task("One", &prov);
+    f.task("Two", &prov);
+
+    let group = f
+        .log(f.scoped())
+        .sessions
+        .into_iter()
+        .find(|s| s.session_id.as_deref() == Some("ses_maker"))
+        .expect("the session appears");
+
+    assert!(
+        group.headline.contains("2 tasks"),
+        "the type is named and pluralised. Got: {}",
+        group.headline
+    );
+    assert!(
+        !group.headline.contains("thing"),
+        "\"things\" is what this replaced. Got: {}",
+        group.headline
+    );
+}
+
+/// The regression this nearly shipped with. A session that only edits rows
+/// closes nothing, creates nothing and writes no note — and the headline names
+/// acts, so it had nothing to say and said "nothing". A claim is exactly that
+/// shape, and calling a session that claimed work idle is worse than the count
+/// it replaced.
+#[test]
+fn a_session_that_only_edited_rows_is_not_called_nothing() {
+    let mut f = setup();
+    let author = session("ses_author");
+    let task = f.task("Created by one session", &author);
+
+    let claimer = session("ses_claimer");
+    specline_core::work::claim(&mut f.store, &task, false, &claimer).unwrap();
+
+    let group = f
+        .log(f.scoped())
+        .sessions
+        .into_iter()
+        .find(|s| s.session_id.as_deref() == Some("ses_claimer"))
+        .expect("the claiming session appears");
+
+    assert!(
+        !group.changes.is_empty(),
+        "the claim wrote fields, so the session did something"
+    );
+    assert_ne!(
+        group.headline, "nothing",
+        "a session that edited rows did not do nothing"
+    );
+    assert!(
+        group.headline.contains("change"),
+        "with no act to name, the count is what is left. Got: {}",
+        group.headline
     );
 }

@@ -57,6 +57,9 @@ interface SessionRow {
   started_at: string;
   ended_at: string;
   headline: string;
+  /** Short project keys this session touched. Shown only on the all-projects
+   *  feed, where "which project was that?" is otherwise unanswerable. */
+  projects: string[];
   changes: ChangeRow[];
 }
 
@@ -210,6 +213,10 @@ export function ChangedScreen({ route, generation }: ScreenProps) {
                   >
                     {session.actor}
                   </Badge>
+                  {!project &&
+                    (session.projects ?? []).map((key) => (
+                      <Chip key={key}>{key}</Chip>
+                    ))}
                   <span className="min-w-0 flex-1 truncate text-small">{session.headline}</span>
                   {isNew(session) && (
                     <Tooltip align="right" text="This landed since you last opened this screen">

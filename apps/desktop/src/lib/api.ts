@@ -638,6 +638,8 @@ export const api = {
         started_at: string;
         ended_at: string;
         headline: string;
+        /** Short project keys this session touched, e.g. ["KEEL"]. */
+        projects: string[];
         changes: Array<{
           id: string;
           kind: "field" | "created" | "note";

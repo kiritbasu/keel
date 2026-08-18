@@ -1537,6 +1537,7 @@ async fn api_changes(
                         "started_at": s.started_at,
                         "ended_at": s.ended_at,
                         "headline": s.headline,
+                        "projects": s.projects,
                         "changes": s.changes.iter().map(|c| json!({
                             "id": c.id,
                             "kind": c.kind.as_str(),
