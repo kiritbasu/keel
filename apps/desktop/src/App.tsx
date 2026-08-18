@@ -52,7 +52,7 @@ const PROJECT_SCREENS: NavItem[] = [
   // Second, ahead of the board. The board is every task; this is the handful
   // that can be started now, which is the question actually being asked when
   // someone opens the app.
-  { id: "next", label: "What\u2019s next", key: "2" },
+  { id: "next", label: "What’s next", key: "2" },
   { id: "board", label: "Board", key: "3" },
   { id: "roadmap", label: "Roadmap", key: "4" },
   { id: "documents", label: "Library", key: "5" },

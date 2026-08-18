@@ -146,3 +146,25 @@ describe("the filters", () => {
     expect(screen.getByText(/blocked or waiting on a decision/)).toBeTruthy();
   });
 });
+
+/**
+ * The heading, which nothing asserted and which was wrong for as long as
+ * nothing did.
+ *
+ * It read `What’s next` on screen — the escape printed rather than the
+ * apostrophe — while the breadcrumb beside it was right. A JSX attribute in
+ * double quotes is not a JavaScript string: it is treated like an HTML
+ * attribute, so an escape sequence in one stays as text. The same phrase in
+ * `crumbs={...}` was inside braces, so it was a real string and rendered.
+ *
+ * Nothing catches that. It compiles, it renders, and it renders wrong.
+ */
+describe("the heading", () => {
+  it("prints an apostrophe rather than the escape for it", async () => {
+    await show();
+
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading.textContent).toContain("What’s next");
+    expect(heading.textContent).not.toContain("u2019");
+  });
+});

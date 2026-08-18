@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T18:58:39Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T21:18:51Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1216,6 +1216,15 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T21:11:13.109811Z |
+| 2026-08-18 | claude | created task “The What’s next heading prints ’ instead of an apostrophe” |
+| 2026-08-18 | human | status in_progress → todo |
+| 2026-08-18 | human | claimed_by ses_e732e14b-2a50-4c4a-8aab-a416f993b8e2 → none |
+| 2026-08-18 | human | claimed_at 2026-08-18T07:08:51.433320Z → none |
+| 2026-08-18 | human | labels [] → ["feature-request"] |
+| 2026-08-18 | human | labels [] → ["feature-request"] |
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → (104 characters) |
 | 2026-08-18 | claude | close_reason none → done |
@@ -1407,15 +1416,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | body (958 characters) → (962 characters) |
 | 2026-08-16 | claude | body (3120 characters) → (3136 characters) |
 | 2026-08-16 | claude | summary (323 characters) → (327 characters) |
-| 2026-08-16 | claude | body (3262 characters) → (3278 characters) |
-| 2026-08-16 | claude | revised spec “Phase gates that cannot be verified without a human” to v2 |
-| 2026-08-16 | claude | revised question “Seven rows have no reasoning in them. Reconstruct them, or leave them empty and say so?” to v2 |
-| 2026-08-16 | claude | revised question “Should Specline write a CLAUDE.md into a user's repository, and on whose say-so?” to v2 |
-| 2026-08-16 | claude | revised question “Specline models chat and cowork surfaces it has never been used from. Support them, or say so?” to v2 |
-| 2026-08-16 | claude | revised question “What should Specline measure, and should it measure anything by itself?” to v2 |
-| 2026-08-16 | claude | title Should Keel write a CLAUDE.md into a user's repository, and on whose say-so? → Should Specline write a CLAUDE.md into a user's repository, and on whose say-so? |
-| 2026-08-16 | claude | title (90 characters) → (94 characters) |
-| 2026-08-16 | claude | title What should Keel measure, and should it measure anything by itself? → What should Specline measure, and should it measure anything by itself? |
 
-*Showing the 200 most recent of 2232 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2241 changes. Use `specline_activity` for the rest.*
 

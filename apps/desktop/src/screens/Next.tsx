@@ -93,7 +93,7 @@ export function NextScreen({ route, generation }: ScreenProps) {
   if (loading && !data) return <Spinner />;
   if (error) {
     return (
-      <Page title="What\u2019s next" crumbs={projectCrumbs(route, "What\u2019s next")}>
+      <Page title="What’s next" crumbs={projectCrumbs(route, "What’s next")}>
         <ErrorBox error={error} retry={reload} />
       </Page>
     );
@@ -127,8 +127,8 @@ export function NextScreen({ route, generation }: ScreenProps) {
 
   return (
     <Page
-      title="What\u2019s next"
-      crumbs={projectCrumbs(route, "What\u2019s next")}
+      title="What’s next"
+      crumbs={projectCrumbs(route, "What’s next")}
       meta={
         <span className="text-small text-ink-faint">
           {/* Not "ordered by what each one unblocks" any more. That was a claim
