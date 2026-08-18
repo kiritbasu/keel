@@ -1,13 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-17T12:18:15Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T06:51:38Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (259)
+## Closed work (260)
+
+### 2026-08-18
+
+- **KEEL-292** The session headline counts field writes instead of saying what happened — `done`
+
+  Headlines are built from acts now. Closes lead and are named by reference, creations are grouped and named by type, notes keep their count, and the raw change count sits on the end as a suffix.
+  
+  "created 21 things, 117 changes, wrote 3 notes" now reads "closed KEEL-263, KEEL-264 and 12 more · filed 18 tasks, 2 decisions, 1 milestone · 3 notes · 141 changes". Checked against the real store rather than a fixture: all seven sessions this week render differently from each other, which was the whole complaint.
+  
+  A close is detected by its `close_reason` event, since that is written exactly once per close. `status` was the tempting marker and would have been wrong, because a claim writes one too. That meant carrying the changed field onto `Change`, and the all-projects feed reuses it for a project chip.
+  
+  Reviewing it caught a regression before it shipped: a session that only edits rows has no act to name and returned "nothing", which a claim-only session would have hit. It falls back to the count now, with a test that claims a task from a second session.
+
+  <sub>commit:37fdb0e · test:cargo test -p specline-core --test changes</sub>
 
 ### 2026-08-17
 
@@ -1084,6 +1098,20 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → ["commit:37fdb0e","test:cargo test -p specline-core --test changes"] |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (1063 characters) |
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T06:31:31.511925Z |
+| 2026-08-18 | claude | created task “The session headline counts field writes instead of saying what happened” |
+| 2026-08-18 | claude | created task “Ready numbers 29 tasks by a ranking that has nothing to rank on” |
+| 2026-08-18 | claude | revised decision “Ready ranks on signals that cannot decay” to v1 |
+| 2026-08-18 | claude | created decision “Ready ranks on signals that cannot decay” |
+| 2026-08-17 | claude | status todo → in_progress |
+| 2026-08-17 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
+| 2026-08-17 | claude | claimed_at none → 2026-08-17T13:31:26.443419Z |
 | 2026-08-17 | claude | created task “Dependabot flags a vulnerability in the Tauri shell, which nothing builds any more” |
 | 2026-08-17 | claude | created task “Tell every client to link the artifacts it names, since the URLs are already there” |
 | 2026-08-17 | claude | status in_progress → done |
@@ -1270,20 +1298,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | status todo → in_progress |
 | 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
 | 2026-08-16 | claude | claimed_at none → 2026-08-16T14:23:22.724126Z |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:6c5e4ef","test:npx vitest run"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (131 characters) |
-| 2026-08-16 | claude | status todo → done |
-| 2026-08-16 | claude | evidence [] → ["commit:6c5e4ef","test:cargo test -p specline --test contracts"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (116 characters) |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:6c5e4ef","test:cargo test --workspace"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (286 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
 
-*Showing the 200 most recent of 2089 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2103 changes. Use `specline_activity` for the rest.*
 

@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-17T12:18:15.383845+00:00",
+  "generated_at": "2026-08-18T06:51:38.864915+00:00",
   "files": [
     {
       "path": ".specline/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 2,
           "hash": "8693e49c88fc2ad31cb195dd2fc89dca7a4eb1266ca568fb37bda5f231c92ea3"
+        }
+      ]
+    },
+    {
+      "path": ".specline/decisions/ready-ranks-on-signals-that-cannot-decay.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M09S1GX2DPBW402EN4V08NQX",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "09ed74a8002fe4fb11f2bdb8b4898b0521f9bf7d666e701fed8480c133ee0597"
         }
       ]
     },
