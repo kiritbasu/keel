@@ -22,6 +22,7 @@ import {
 } from "./lib/router";
 import { Button, Menu, MenuItem, Toaster, cx } from "./components/ui";
 import { defaultProject, rememberProject } from "./lib/lastProject";
+import { findProject, keyOf } from "./lib/projects";
 import { CommandPalette } from "./components/CommandPalette";
 import { ThemeControl } from "./components/ThemeControl";
 import { VersionFooter } from "./components/VersionFooter";
@@ -159,8 +160,9 @@ function ProjectSwitcher({
   projects: Entity[];
   current: string;
 }) {
-  const name =
-    projects.find((p) => String(p.slug ?? "") === current)?.name ?? current;
+  // Resolved rather than matched on slug, so an alias in the address shows
+  // the project's name instead of echoing back what was typed.
+  const name = findProject(projects, current)?.name ?? current;
   return (
     <Menu label={<span className="truncate">{String(name)}</span>} align="left">
       {(close) =>
@@ -345,19 +347,17 @@ export function App() {
   // The active project's own word for a milestone. `undefined` means it has no
   // opinion and the interface says "milestone".
   const milestoneNoun = useMemo(() => {
-    const match = projects.find((p) => String(p.slug ?? "") === activeProject);
-    const noun = match?.milestone_noun;
+    const noun = findProject(projects, activeProject)?.milestone_noun;
     return typeof noun === "string" && noun.trim() ? noun.trim() : undefined;
   }, [projects, activeProject]);
 
   // The `KEEL` of `KEEL-42`. Taken from the project list the shell already
   // holds rather than from the digest: the board used to fetch a whole project
   // briefing partly to learn this one string.
-  const projectKey = useMemo(() => {
-    const match = projects.find((p) => String(p.slug ?? "") === activeProject);
-    const key = match?.key;
-    return typeof key === "string" && key.trim() ? key.trim() : undefined;
-  }, [projects, activeProject]);
+  const projectKey = useMemo(
+    () => keyOf(projects, activeProject),
+    [projects, activeProject],
+  );
 
   const current = useMemo(() => {
     const shared = { route, generation, milestoneNoun, projectKey };

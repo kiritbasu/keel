@@ -17,6 +17,7 @@ import { api, type Entity } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
 import { navigate, NEEDS_PROJECT, type Route, type ScreenId } from "../lib/router";
 import { Dialog, Input, cx, labelOf } from "./ui";
+import { keyOf } from "../lib/projects";
 import { taskRef } from "../lib/tasks";
 
 export type PaletteKind = "screen" | "project" | "document" | "task";
@@ -174,9 +175,10 @@ export function CommandPalette({
         route: { screen: "documents" as const, project: route.project, documentId: d.id },
       }));
 
-    // The key comes off whichever project row matches the address, so a task
-    // can be offered — and reached — as `KEEL-42`.
-    const key = (contents.data?.projects ?? []).find((p) => p.slug === route.project)?.key;
+    // The key comes off whichever project row the address names, so a task can
+    // be offered — and reached — as `KEEL-42`. Resolved rather than matched on
+    // slug: an alias in the address is still that project (KEEL-312).
+    const key = keyOf(contents.data?.projects, route.project);
     const tasks = (contents.data?.tasks ?? [])
       .filter(() => Boolean(route.project))
       .map((t) => ({

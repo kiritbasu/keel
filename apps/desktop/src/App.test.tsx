@@ -25,6 +25,11 @@ const feedHooks: {
 
 vi.mock("./lib/api", () => {
   const empty = { items: [], total: 0, truncated: false };
+  // Empty unless a test says otherwise, so no existing expectation moves.
+  const tasksResponse = () =>
+    (globalThis as { __tasks?: unknown[] }).__tasks?.length
+      ? { items: (globalThis as { __tasks?: unknown[] }).__tasks, total: 1 }
+      : {};
   return {
     ApiError: class ApiError extends Error {},
     subscribe: (
@@ -43,6 +48,10 @@ vi.mock("./lib/api", () => {
             type: "project",
             name: "Specline",
             slug: "specline",
+            // As the real row carries them: a key, and the alias the rename
+            // left behind so old links keep working (KEEL-312).
+            key: "KEEL",
+            aliases: ["keel"],
             audit: {},
           },
         ],
@@ -74,7 +83,8 @@ vi.mock("./lib/api", () => {
         budget_exceeded: false,
         estimated_tokens: 1200,
       }),
-      entities: async () => empty,
+      entities: async ({ type }: { type?: string }) =>
+        type === "task" ? { ...empty, ...tasksResponse() } : empty,
       ready: async () => ({ ready: [], total: 0, truncated: false }),
       notes: async () => ({ notes: [], total: 0 }),
       noteCounts: async () => ({ counts: {}, total: 0 }),
@@ -101,6 +111,7 @@ const { App } = await import("./App");
 
 beforeEach(() => {
   window.location.hash = "";
+  (globalThis as { __tasks?: unknown[] }).__tasks = [];
 });
 
 afterEach(cleanup);
@@ -381,5 +392,59 @@ describe("the live feed's state is visible", () => {
 
     act(() => feedHooks.onStatus?.("live"));
     await waitFor(() => expect(screen.queryByText(/out of date/)).toBeNull());
+  });
+});
+
+/**
+ * An address that names the project by an alias.
+ *
+ * The rename left `keel` on the Specline row so old links keep working, and the
+ * daemon honours it — which is exactly what made this hard to see. Every fetch
+ * succeeded, the screen filled with the right rows, and only the things read
+ * off the *matched* project went missing: `KEEL-311` became a raw ULID and
+ * "Phase" reverted to "Milestone" (KEEL-312).
+ */
+describe("a project named by an alias in the address", () => {
+  it("still resolves to the project, so the switcher names it", async () => {
+    window.location.hash = "#/projects/keel/board";
+    render(<App />);
+    await settle();
+
+    // The switcher specifically, not any "Specline" on the page — the brand
+    // in the rail says it too, so a looser assertion passes against the bug.
+    const switcher = screen
+      .getAllByRole("button")
+      .find((b) => b.getAttribute("aria-haspopup") === "menu");
+    expect(switcher?.textContent).toContain("Specline");
+    expect(switcher?.textContent).not.toContain("keel");
+  });
+
+  /**
+   * The one KB saw. A task offered by the palette carries the project's key,
+   * and the key comes off the resolved row — so on an alias it used to fall
+   * back to the id `taskRef` returns when it has no key.
+   */
+  it("still gives tasks their reference rather than a ULID", async () => {
+    (globalThis as { __tasks?: unknown[] }).__tasks = [
+      {
+        id: "tsk_01M0BC78BJ7BJF6CWNNST5YH8C",
+        type: "task",
+        number: 311,
+        title: "remove 8a 8b labels",
+        status: "todo",
+        priority: "p2",
+        audit: {},
+      },
+    ];
+    window.location.hash = "#/projects/keel/board";
+    render(<App />);
+    await settle();
+
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    await settle();
+
+    const palette = screen.getByRole("dialog", { name: "Command palette" });
+    expect(palette.textContent).toContain("KEEL-311");
+    expect(palette.textContent).not.toContain("tsk_01M0BC78");
   });
 });

@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T21:18:51Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T21:36:32Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (272)
+## Closed work (273)
 
 ### 2026-08-18
+
+- **KEEL-310** The What’s next heading prints ’ instead of an apostrophe — `done`
+
+  The heading prints the apostrophe. The cause was that a JSX attribute in double quotes is not a JavaScript string — it is treated like an HTML attribute, so the escape stayed as text, while the same phrase inside `crumbs={...}` four lines below was a real string and rendered correctly. Fixed by writing the character itself in all five places rather than moving the escape into braces, so the distinction cannot bite again. Two tests, each checked by putting the bug back: one asserts the rendered heading, and one scans the .tsx sources for an escape inside an attribute. Nothing else catches this class — it is valid JSX, it type-checks, it renders, and it renders wrong.
+
+  <sub>commit:c215f0b · test:cd apps/desktop && npx vitest run</sub>
 
 - **KEEL-309** No mutating route carries CORS, and the comment on the layer says it does — `done`
 
@@ -1218,6 +1224,16 @@ What has finished. What is happening now is in the tracker beside this file.
 |---|---|---|
 | 2026-08-18 | claude | status todo → in_progress |
 | 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T21:28:38.773807Z |
+| 2026-08-18 | claude | created task “On an alias URL the app loses every task reference and the project's own words” |
+| 2026-08-18 | human | created task “remove 8a 8b labels” |
+| 2026-08-18 | human | labels [] → ["feature-request"] |
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → ["commit:c215f0b","test:cd apps/desktop && npx vitest run"] |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (674 characters) |
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
 | 2026-08-18 | claude | claimed_at none → 2026-08-18T21:11:13.109811Z |
 | 2026-08-18 | claude | created task “The What’s next heading prints ’ instead of an apostrophe” |
 | 2026-08-18 | human | status in_progress → todo |
@@ -1406,16 +1422,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-17 | claude | created task “Cut 0.2.1 — the store relocation fixes from the rename's own review” |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → ["test:scripts/check-rename.sh"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (307 characters) |
-| 2026-08-16 | claude | body (3136 characters) → (3144 characters) |
-| 2026-08-16 | claude | revised question “Should Specline write a CLAUDE.md into a user's repository, and on whose say-so?” to v3 |
-| 2026-08-16 | claude | definition (986 characters) → (990 characters) |
-| 2026-08-16 | claude | body (1780 characters) → (1784 characters) |
-| 2026-08-16 | claude | body (1143 characters) → (1147 characters) |
-| 2026-08-16 | claude | body (958 characters) → (962 characters) |
-| 2026-08-16 | claude | body (3120 characters) → (3136 characters) |
-| 2026-08-16 | claude | summary (323 characters) → (327 characters) |
 
-*Showing the 200 most recent of 2241 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2251 changes. Use `specline_activity` for the rest.*
 
