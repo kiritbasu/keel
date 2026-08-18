@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T18:47:54Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T18:48:13Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (270)
+## Closed work (271)
 
 ### 2026-08-18
+
+- **KEEL-308** Drag a card between board columns to move its status — `done`
+
+  Cards drag between board columns when the columns are statuses. The three that do not simply take a card each say why while the drag is happening: `done` and `wont_do` open the Close form, and `in_progress` and `blocked` are not drop targets at all. Verified in a real browser against a real daemon — a drop on review wrote `review` attributed `human` / `ui`, a drop on in_progress wrote nothing and did not even prevent-default on dragover, a drop on done opened the Close form and cancelling left the row untouched. `blocked` turned out to need a fourth answer that was not in the plan: the card can be moved but does not appear to move, so the board says what it did. B-88.
+
+  <sub>commit:b40adf5 · doc:dec_01M0B35ABXXTCYT8MS8TQRJ2EA · test:cd apps/desktop && npx vitest run</sub>
 
 - **KEEL-307** A task's fields cannot be changed once it exists — `done`
 
@@ -1204,6 +1210,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → (96 characters) |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (676 characters) |
 | 2026-08-18 | claude | “Drag a card between board columns to move its status” references “Dragging a card is refused in the open, not on release” |
 | 2026-08-18 | claude | revised decision “Dragging a card is refused in the open, not on release” to v1 |
 | 2026-08-18 | claude | created decision “Dragging a card is refused in the open, not on release” |
@@ -1400,10 +1410,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | title keel_search promises hybrid retrieval and runs keyword-only, without saying so → (82 characters) |
 | 2026-08-16 | claude | body (1695 characters) → (1707 characters) |
 | 2026-08-16 | claude | title keel bootstrap is the last writer that goes round the daemon probe and the lock → (83 characters) |
-| 2026-08-16 | claude | summary (475 characters) → (483 characters) |
-| 2026-08-16 | claude | title (82 characters) → (86 characters) |
-| 2026-08-16 | claude | summary (433 characters) → (437 characters) |
-| 2026-08-16 | claude | body (3100 characters) → (3120 characters) |
 
-*Showing the 200 most recent of 2218 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2222 changes. Use `specline_activity` for the rest.*
 
