@@ -1,15 +1,37 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T07:30:32Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T07:43:42Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (261)
+## Closed work (263)
 
 ### 2026-08-18
+
+- **KEEL-295** The next strip says "in an active phase" when it could name the phase — `done`
+
+  The reason names the phase now: "in Phase 11 · waiting 5 days" rather than "in an active phase · waiting 5 days". The board strip's three rows read differently from each other and match the Phase chips on the cards below them, which is where the information had been sitting all along.
+  
+  Shortening happens in specline-core, not in the screen, because the CLI, the tool and the app share one string and would otherwise word it three ways. A name with no dash is left whole — cutting at a character count would read worse than the phrase it replaced — and a row with no name to hand falls back to the old wording rather than printing a gap. Both are tested.
+  
+  The board strip also links through to What's next, which it never did.
+
+  <sub>commit:16706af · test:cargo test -p specline-core --lib next</sub>
+
+- **KEEL-294** Rename ready to next everywhere, including the MCP tool — `done`
+
+  It is called next everywhere a person or a model meets it. The page is "What's next" at /projects/:project/next, the CLI verb is `specline next` with `ready` kept as an alias, and the tool is `specline_next`. The cap is still thirteen.
+  
+  The contract classifier is what made this honest. It refused the change until both differences were written down in contracts/BREAKING.md — the tool removal and the CLI lines that disappeared — each with a migration and a sentence for the user. The per-tool snapshot file moved with the name, and the unknown-tool error still lists thirteen.
+  
+  The part that would have bitten later: the standing instructions told every future session to call `specline_ready`. That file is generated, so the edit went in at the source and came back through `specline generate`; the same pass dropped the claim that the list is ordered by what each task unblocks, which B-83 had already retired.
+  
+  Task rows and notes saying "ready" are left as they are. They are prose written at the time rather than anything this code generates.
+
+  <sub>commit:aab65cc · test:cargo test --workspace · test:CONTRACTS_BASELINE=v0.2.1 cargo test -p specline --test classify</sub>
 
 - **KEEL-291** Ready numbers 29 tasks by a ranking that has nothing to rank on — `done`
 
@@ -1112,6 +1134,20 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → ["commit:16706af","test:cargo test -p specline-core --lib next"] |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (727 characters) |
+| 2026-08-18 | claude | revised feedback “Linear, Shortcut and Kata all sell the same thing, and it is not what Specline sells” to v1 |
+| 2026-08-18 | claude | created feedback “Linear, Shortcut and Kata all sell the same thing, and it is not what Specline sells” |
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T07:38:27.538485Z |
+| 2026-08-18 | claude | created task “The next strip says "in an active phase" when it could name the phase” |
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → (120 characters) |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (1049 characters) |
 | 2026-08-18 | human | revised spec “Specline — standing instructions” to v16 |
 | 2026-08-18 | claude | status todo → in_progress |
 | 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
@@ -1298,20 +1334,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | title Keel — Technical Specification → Specline — Technical Specification |
 | 2026-08-16 | claude | status todo → in_progress |
 | 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:58:10.132310Z |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:4141565","test:dist plan"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (305 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:49:53.421093Z |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:49:18.259339Z |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:ff4aac9","test:specline fsck"] |
-| 2026-08-16 | claude | close_reason none → done |
 
-*Showing the 200 most recent of 2128 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2142 changes. Use `specline_activity` for the rest.*
 
