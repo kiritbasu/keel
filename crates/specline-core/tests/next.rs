@@ -66,6 +66,41 @@ impl Fixture {
             .clone()
     }
 
+    /// A task filed under an open milestone, which is what puts it in the
+    /// "active phase" group.
+    fn task_in_open_phase(&mut self, title: &str) -> EntityId {
+        let phase = self
+            .store
+            .create(
+                specline_core::Milestone::new(
+                    self.project.clone(),
+                    title,
+                    "A phase this test needs.",
+                )
+                .into(),
+                &Provenance::anonymous(Actor::Human),
+            )
+            .unwrap()
+            .entity
+            .id()
+            .clone();
+
+        let mut t = Task::new(
+            self.project.clone(),
+            title,
+            "A row this test needs in the store.",
+        );
+        t.priority = TaskPriority::P2;
+        t.status = TaskStatus::Todo;
+        t.milestone_id = Some(phase);
+        self.store
+            .create(t.into(), &Provenance::anonymous(Actor::Human))
+            .unwrap()
+            .entity
+            .id()
+            .clone()
+    }
+
     fn decision_task(&mut self, title: &str, priority: TaskPriority) -> EntityId {
         let mut t = Task::new(
             self.project.clone(),
@@ -609,4 +644,42 @@ fn the_counted_totals_match_counting_the_rows() {
     );
     assert_eq!(open, 4, "the fixture should have four open tasks");
     assert_eq!(urgent, 2, "two of them p0 or p1");
+}
+
+/// The screen labels a group "oldest first" and the CLI reasons say how many
+/// days a task has waited. Both rest on the id tiebreak being creation order,
+/// which holds because entity ids are ULIDs. This pins that: if ids ever stop
+/// being time-ordered, the label becomes a lie and this fails rather than the
+/// page quietly misordering.
+#[test]
+fn tasks_of_equal_standing_come_out_oldest_first() {
+    let mut f = setup();
+    let first = f.task("Filed first", TaskPriority::P2, TaskStatus::Todo);
+    let second = f.task("Filed second", TaskPriority::P2, TaskStatus::Todo);
+    let third = f.task("Filed third", TaskPriority::P2, TaskStatus::Todo);
+
+    let order: Vec<_> = f.rank().ready.into_iter().map(|c| c.id).collect();
+    let at = |id: &EntityId| order.iter().position(|o| o == id).expect("task is ready");
+
+    assert!(
+        at(&first) < at(&second) && at(&second) < at(&third),
+        "nothing separates these but age, so they should come out in the order they were filed: {order:?}"
+    );
+}
+
+/// Grouping is what orders the list now that `unblocks` is flat, so a task in
+/// an open milestone has to beat one that is in none — whatever their ids say.
+#[test]
+fn an_active_phase_beats_age() {
+    let mut f = setup();
+    let older = f.task("Filed first, no phase", TaskPriority::P2, TaskStatus::Todo);
+    let newer = f.task_in_open_phase("Filed second, in a phase");
+
+    let order: Vec<_> = f.rank().ready.into_iter().map(|c| c.id).collect();
+    let at = |id: &EntityId| order.iter().position(|o| o == id).expect("task is ready");
+
+    assert!(
+        at(&newer) < at(&older),
+        "the phase is the only signal carrying intent, so it outranks being older: {order:?}"
+    );
 }

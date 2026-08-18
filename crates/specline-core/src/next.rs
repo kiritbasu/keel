@@ -391,8 +391,15 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
     out.ready.sort_by(|a, b| {
         // `unblocks` still leads, for the stores where it means something. On
         // this one it is 0 everywhere, so the group is what actually orders the
-        // list, and age is the last word — an id tiebreak looked like a ranking
-        // and was really just creation order wearing a number (B-83).
+        // list (B-83).
+        //
+        // The last word is the id, and that is oldest-first rather than an
+        // arbitrary tiebreak: entity ids are ULIDs, so ordering by id is
+        // ordering by creation time — the same property the event log relies on
+        // to answer "what changed since T" with a range scan. The screen says
+        // "oldest first" on the strength of this line, so if ids ever stop
+        // being time-ordered, that label becomes a lie and this needs a
+        // `created_at` to sort on instead.
         b.unblocks
             .cmp(&a.unblocks)
             .then_with(|| group_rank(a.group).cmp(&group_rank(b.group)))

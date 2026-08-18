@@ -191,12 +191,23 @@ export function ReadyScreen({ route, generation }: ScreenProps) {
         <div className="space-y-5">
           {GROUPS.map(({ id, label }) => {
             const rows = rest.filter((i) => i.group === id);
+            // Counted over everything ready, not just the rows in this section.
+            // Next up is drawn off the top of the same list, so counting `rest`
+            // reported 8 for a group that had 11 in it — a cut that did not say
+            // it had cut anything.
+            const total = items.filter((i) => i.group === id).length;
+            const promoted = total - rows.length;
             if (rows.length === 0) return null;
             return (
               <section key={id}>
                 <h2 className="mb-1.5 flex items-baseline gap-2 text-micro uppercase tracking-wide text-ink-faint">
                   {label}
-                  <span className="text-ink-faint">{rows.length}</span>
+                  <span className="text-ink-faint">{total}</span>
+                  {promoted > 0 && (
+                    <span className="normal-case tracking-normal text-ink-faint">
+                      {promoted} in next up
+                    </span>
+                  )}
                 </h2>
                 <ol className="space-y-1.5">{rows.map(row)}</ol>
               </section>
