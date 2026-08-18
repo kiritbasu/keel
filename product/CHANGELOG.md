@@ -1,15 +1,29 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T06:51:38Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T07:10:01Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (260)
+## Closed work (261)
 
 ### 2026-08-18
+
+- **KEEL-291** Ready numbers 29 tasks by a ranking that has nothing to rank on — `done`
+
+  Ready leads with a next-up of three, then groups the rest into an active phase, bugs, and everything else oldest first. The 1-to-29 numbering is gone, and so is the subtitle claiming the list was ordered by what each task unblocks.
+  
+  Reasons now differ between rows: "in an active phase · today · p1", "in an active phase · waiting 5 days", "a bug, in no phase · waiting 2 days". Priority shows only when it is not p2, since printing the default on every row is how the old reason came to say nothing.
+  
+  Ordering uses signals that cannot decay, per B-83. `unblocks` still sorts first for stores where it means something; on this one it is 0 everywhere, so the group decides and age is the last word rather than an id pretending to be a rank.
+  
+  Next up is the front of the same ordering rather than a second computation, because the CLI, the MCP tool and the screen have to agree and a separate rule for the lead is how they would stop.
+  
+  Two MCP snapshots moved, which is the contract changing where it can be seen: the digest's Next line, and the ready payload gaining `group`. A CLI test that asserted the old "nothing is blocking it" string moved with them.
+
+  <sub>commit:ae876f1 · test:cargo test --workspace</sub>
 
 - **KEEL-292** The session headline counts field writes instead of saying what happened — `done`
 
@@ -1099,6 +1113,19 @@ What has finished. What is happening now is in the tracker beside this file.
 | Date | Actor | Change |
 |---|---|---|
 | 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → ["commit:ae876f1","test:cargo test --workspace"] |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (1156 characters) |
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_e732e14b-2a50-4c4a-8aab-a416f993b8e2 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T07:08:51.433320Z |
+| 2026-08-18 | claude | created task “A landing page for Specline, served from this repository by GitHub Pages” |
+| 2026-08-18 | claude | revised question “Where should the marketing site live — this repository, or one of its own?” to v1 |
+| 2026-08-18 | claude | created question “Where should the marketing site live — this repository, or one of its own?” |
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T06:52:05.410415Z |
+| 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → ["commit:37fdb0e","test:cargo test -p specline-core --test changes"] |
 | 2026-08-18 | claude | close_reason none → done |
 | 2026-08-18 | claude | close_message none → (1063 characters) |
@@ -1285,19 +1312,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (226 characters) |
 | 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:83f7bb9","test:cargo test -p specline-core --test generate"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (213 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:31:01.533472Z |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:c51c9fd","test:cargo test -p specline-core --lib relocate"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (367 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T14:23:22.724126Z |
 
-*Showing the 200 most recent of 2103 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2116 changes. Use `specline_activity` for the rest.*
 

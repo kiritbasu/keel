@@ -7,6 +7,41 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
+### Where should the marketing site live — this repository, or one of its own?
+
+`que_01M09V31STM3C5ANQYFRT38Q98` · question · open · severity low
+
+Specline has no public page. `has_pages` is false on the repository and the homepage field is empty, so the only thing a person can land on today is the README. KB wants a landing page for the project as a whole, and asked whether it should be built from this repository or a separate one.
+
+## The options
+
+**A — a `site/` directory in this repository, published by GitHub Pages.**
+Lands at `kiritbasu.github.io/specline/`, or on a custom domain with a CNAME.
+
+**B — a second repository**, either `kiritbasu.github.io` (which owns the root of that domain) or something like `specline-site`.
+
+## Recommendation: A
+
+Three reasons, in order of how much they matter.
+
+**The page's whole job is to get somebody to install Specline, and the install story lives here.** It is three commands, and two of them name `kiritbasu/specline`. It has already changed once — the plugin flow replaced a `claude mcp add`. A landing page that tells a visitor to run a command that no longer works is the worst thing this page can do, and a repository boundary between the instructions and the thing they install is how that happens.
+
+**Everything the page needs is already in the tree.** The four screenshots in `docs/images`, the README's own framing, `docs/ARCHITECTURE.md` and `docs/CLI.md` if it ever grows a docs section. Across two repositories those get copied, and a copy of a screenshot is a screenshot of an old version six weeks later.
+
+**There is one developer.** A second repository means a second CI setup, a second checkout, a second place to remember. It buys isolation that nobody needs.
+
+The pull towards B is the URL: a `kiritbasu.github.io` repository serves the bare domain, and a project repository serves a `/specline/` path. That is real but it is the wrong thing to spend the choice on — a custom domain works from a project repository too, and the user-level namespace is KB's own rather than this project's.
+
+## What to get right if A is chosen
+
+- **A separate workflow file, not a change to `ci.yml`.** Pages needs `pages: write` and `id-token: write`. `ci.yml` declares `contents: read` and says in a comment why it does. Widening it to publish a web page would undo that on purpose.
+- **Path filters both ways**, so a change to a Rust crate does not rebuild the site and a change to the site does not run the whole test suite.
+- **One canonical copy of the install instructions.** Left to itself the page will grow its own version of them and they will diverge. The honest fix is to generate that block rather than write it twice — which is what this project already believes about every other file.
+
+## Still open
+
+Whether the page is only a landing page or eventually carries docs too. If docs, A stops being a preference and becomes the only sensible answer.
+
 ### Seven rows have no reasoning in them. Reconstruct them, or leave them empty and say so?
 
 `que_01M04PW3ZCQJ37M7EC27K58HC0` · question · open
