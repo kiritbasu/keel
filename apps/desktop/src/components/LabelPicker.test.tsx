@@ -4,11 +4,16 @@
  * The thing this replaced showed ten of sixty-four and told you to ask Claude
  * for the rest, so the property that matters most is that a label outside any
  * "most used" ten is reachable — which is the first test here.
+ *
+ * The second property, since KEEL-304: a label that does not exist yet can be
+ * made here, and doing so cannot produce a second spelling of one that already
+ * does. Those two pull against each other, which is why creating was refused
+ * for so long, so most of what follows is about the second one holding.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { LabelPicker } from "./LabelPicker";
+import { LabelPicker, normaliseLabel } from "./LabelPicker";
 
 afterEach(cleanup);
 
@@ -32,7 +37,7 @@ describe("LabelPicker", () => {
     const onChange = vi.fn();
     render(<LabelPicker available={LABELS} chosen={[]} onChange={onChange} />);
 
-    fireEvent.change(screen.getByLabelText("Find a label"), {
+    fireEvent.change(screen.getByLabelText("Find or add a label"), {
       target: { value: "tool" },
     });
     fireEvent.click(screen.getByRole("button", { name: "tooling" }));
@@ -43,7 +48,7 @@ describe("LabelPicker", () => {
   it("matches anywhere in the label, not only the start", () => {
     render(<LabelPicker available={LABELS} chosen={[]} onChange={() => {}} />);
 
-    fireEvent.change(screen.getByLabelText("Find a label"), {
+    fireEvent.change(screen.getByLabelText("Find or add a label"), {
       target: { value: "esk" },
     });
 
@@ -55,7 +60,7 @@ describe("LabelPicker", () => {
       <LabelPicker available={LABELS} chosen={["ui"]} onChange={() => {}} />,
     );
 
-    fireEvent.change(screen.getByLabelText("Find a label"), {
+    fireEvent.change(screen.getByLabelText("Find or add a label"), {
       target: { value: "ui" },
     });
 
@@ -69,7 +74,7 @@ describe("LabelPicker", () => {
     const onChange = vi.fn();
     render(<LabelPicker available={LABELS} chosen={[]} onChange={onChange} />);
 
-    const input = screen.getByLabelText("Find a label");
+    const input = screen.getByLabelText("Find or add a label");
     fireEvent.change(input, { target: { value: "s" } });
     fireEvent.keyDown(input, { key: "ArrowDown" });
     fireEvent.keyDown(input, { key: "Enter" });
@@ -95,19 +100,113 @@ describe("LabelPicker", () => {
     expect(onChange).toHaveBeenCalledWith(["cli"]);
   });
 
-  /**
-   * A label that does not exist cannot be created here, and the box has to say
-   * so — otherwise it reads as a text field that silently ignores you.
-   */
-  it("says what to do when nothing matches, rather than failing silently", () => {
-    render(<LabelPicker available={LABELS} chosen={[]} onChange={() => {}} />);
+  it("offers to create a label that does not exist yet", () => {
+    const onChange = vi.fn();
+    render(<LabelPicker available={LABELS} chosen={[]} onChange={onChange} />);
 
-    fireEvent.change(screen.getByLabelText("Find a label"), {
+    fireEvent.change(screen.getByLabelText("Find or add a label"), {
       target: { value: "brand-new-thing" },
     });
+    fireEvent.click(screen.getByRole("button", { name: /Create/ }));
 
-    expect(screen.getByText(/No label matches/)).toBeTruthy();
-    expect(screen.getByText(/Ask Claude to add a new one/)).toBeTruthy();
+    expect(onChange).toHaveBeenCalledWith(["brand-new-thing"]);
+  });
+
+  /**
+   * The whole reason creating was refused for so long: `Data Safety` and
+   * `data-safety` have to be the same label, or the board's facets, the filters
+   * and the ranking each see two.
+   */
+  it("creates the normalised form, and says so before you take it", () => {
+    const onChange = vi.fn();
+    render(<LabelPicker available={LABELS} chosen={[]} onChange={onChange} />);
+
+    fireEvent.change(screen.getByLabelText("Find or add a label"), {
+      target: { value: "  Data   Safety " },
+    });
+
+    // Shown rather than applied silently — the button names what it will make.
+    const create = screen.getByRole("button", { name: /Create/ });
+    expect(create.textContent).toContain("data-safety");
+
+    fireEvent.click(create);
+    expect(onChange).toHaveBeenCalledWith(["data-safety"]);
+  });
+
+  /**
+   * Typing must not be able to produce a twin of something that already exists,
+   * whatever case or spacing it arrives in.
+   */
+  it("offers the existing label rather than creating a twin of it", () => {
+    const onChange = vi.fn();
+    render(
+      <LabelPicker
+        available={["data-safety", ...LABELS]}
+        chosen={[]}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Find or add a label"), {
+      target: { value: "DATA SAFETY" },
+    });
+
+    expect(screen.queryByRole("button", { name: /Create/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "data-safety" }));
+    expect(onChange).toHaveBeenCalledWith(["data-safety"]);
+  });
+
+  /**
+   * `available` is not guaranteed normalised — MCP writes a label exactly as
+   * given, by design (B-86) — so the picker has to fold both sides before
+   * deciding what is already on the task. An exact-string check would offer
+   * `UI` next to a chosen `ui` and put both on one row.
+   */
+  it("treats an unnormalised existing label as the one already chosen", () => {
+    const onChange = vi.fn();
+    render(
+      <LabelPicker available={["UI", ...LABELS]} chosen={["ui"]} onChange={onChange} />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Find or add a label"), {
+      target: { value: "ui" },
+    });
+
+    expect(screen.queryByRole("option")).toBeNull();
+    expect(screen.getByText(/already on this task/)).toBeTruthy();
+  });
+
+  it("does not offer to create a label already on the task", () => {
+    render(
+      <LabelPicker available={LABELS} chosen={["ui"]} onChange={() => {}} />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Find or add a label"), {
+      target: { value: "UI" },
+    });
+
+    expect(screen.queryByRole("option")).toBeNull();
+    expect(screen.getByText(/already on this task/)).toBeTruthy();
+  });
+
+  /**
+   * Text that normalises to nothing is the one input that cannot become a
+   * label. Silently offering nothing would read as the box ignoring you, which
+   * is the failure the old refusal message existed to avoid.
+   */
+  it("says when what you typed could not be a label at all", () => {
+    const onChange = vi.fn();
+    render(<LabelPicker available={LABELS} chosen={[]} onChange={onChange} />);
+
+    const input = screen.getByLabelText("Find or add a label");
+    fireEvent.change(input, { target: { value: "---" } });
+
+    expect(screen.queryByRole("button", { name: /Create/ })).toBeNull();
+    expect(screen.getByText(/nothing in it that could be a label/)).toBeTruthy();
+
+    // And Enter falls through to the dialog rather than adding an empty label.
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   /**
@@ -119,9 +218,34 @@ describe("LabelPicker", () => {
     const onChange = vi.fn();
     render(<LabelPicker available={[]} chosen={[]} onChange={onChange} />);
 
-    const input = screen.getByLabelText("Find a label");
+    const input = screen.getByLabelText("Find or add a label");
     fireEvent.keyDown(input, { key: "Enter" });
 
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("normaliseLabel", () => {
+  it("folds the spellings that would otherwise split one label into several", () => {
+    for (const raw of ["ui", "UI", " ui ", "Ui", "-ui-", "  UI  "]) {
+      expect(normaliseLabel(raw)).toBe("ui");
+    }
+    expect(normaliseLabel("Data   Safety")).toBe("data-safety");
+    expect(normaliseLabel("data--safety")).toBe("data-safety");
+  });
+
+  it("leaves every label already in use unchanged", () => {
+    // The rule codifies the set rather than imposing on it: if any of these
+    // moved, the reversal in KEEL-304 would have needed a migration.
+    for (const label of LABELS) expect(normaliseLabel(label)).toBe(label);
+    for (const label of ["data-safety", "decision-needed", "phase10", "8a"]) {
+      expect(normaliseLabel(label)).toBe(label);
+    }
+  });
+
+  it("returns nothing for text with nothing label-shaped in it", () => {
+    for (const raw of ["", "   ", "-", "---", " - - "]) {
+      expect(normaliseLabel(raw)).toBe("");
+    }
   });
 });

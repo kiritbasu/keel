@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-18T12:16:08.617007+00:00",
+  "generated_at": "2026-08-18T17:36:42.558366+00:00",
   "files": [
     {
       "path": ".specline/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 2,
           "hash": "8693e49c88fc2ad31cb195dd2fc89dca7a4eb1266ca568fb37bda5f231c92ea3"
+        }
+      ]
+    },
+    {
+      "path": ".specline/decisions/the-label-box-creates-labels-and-normalises-what-it-creates.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M0AYBAJEBJA2Z3Y9D0BZHBDH",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "45bd0935df09ed355b5e182cd1b0df16b50b2c636abdded28b827ed6bb60315e"
         }
       ]
     },

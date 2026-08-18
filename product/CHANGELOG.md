@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T12:16:08Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T17:25:53Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1192,6 +1192,18 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | “adding a new label in New Task doesn't add it” references “The label box creates labels, and normalises what it creates” |
+| 2026-08-18 | claude | revised decision “The label box creates labels, and normalises what it creates” to v1 |
+| 2026-08-18 | claude | created decision “The label box creates labels, and normalises what it creates” |
+| 2026-08-18 | claude | created task “Labels cannot be changed once the task exists” |
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T17:06:56.222487Z |
+| 2026-08-18 | human | created task “Support openai codex” |
+| 2026-08-18 | human | created task “allow adding new Feature Requests” |
+| 2026-08-18 | human | created task “adding a new label in New Task doesn't add it” |
+| 2026-08-18 | human | created task “periodic management of lots of open issues” |
+| 2026-08-18 | human | created task “product feature request triage” |
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → ["commit:9495be5","test:cargo test --workspace","test:npx vitest run"] |
 | 2026-08-18 | claude | close_reason none → done |
@@ -1380,18 +1392,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → (113 characters) |
 | 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (539 characters) |
-| 2026-08-16 | claude | created task “The updater reports a successful update as a failed restart” |
-| 2026-08-16 | claude | revised decision “The rename ships as 0.2.0, and both ends of the plugin handshake move with it” to v1 |
-| 2026-08-16 | claude | created decision “The rename ships as 0.2.0, and both ends of the plugin handshake move with it” |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T15:43:34.474517Z |
-| 2026-08-16 | claude | evidence ["commit:4141565","test:dist plan"] → (87 characters) |
-| 2026-08-16 | claude | close_message (305 characters) → (229 characters) |
-| 2026-08-16 | claude | created task “Import matches a file to an artifact by its heading, so a drifted title makes a duplicate” |
-| 2026-08-16 | claude | revised spec “Dependency and protocol verification — 2026-08-09 snapshot” to v3 |
-| 2026-08-16 | human | archived spec “Dependency and protocol verification — a snapshot, not a description” |
 
-*Showing the 200 most recent of 2181 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2193 changes. Use `specline_activity` for the rest.*
 
