@@ -506,3 +506,51 @@ describe("moving a card that is blocked", () => {
     expect(screen.getByText(/stays under Blocked/)).toBeTruthy();
   });
 });
+
+/**
+ * A card must not say the same word twice.
+ *
+ * The kind is a badge and so is every label, and nothing noticed when they
+ * agreed — a bug carrying a `bug` label rendered "p2 · bug · bug", which reads
+ * as broken rather than as two fields saying the same thing (KEEL-313).
+ */
+describe("a label that repeats the kind", () => {
+  const target = TASKS[2]!;
+  const kind = target.kind;
+  const labels = target.labels;
+  afterEach(() => {
+    target.kind = kind;
+    target.labels = labels;
+  });
+
+  it("is not drawn a second time beside the kind badge", async () => {
+    target.kind = "bug";
+    target.labels = ["bug", "plugin"];
+    await show();
+
+    const card = screen
+      .getByRole("link", { name: "Delete the file-edit hook" })
+      .closest("[draggable]") as HTMLElement;
+    const badges = [...card.querySelectorAll("span")]
+      .map((s) => s.textContent?.trim())
+      .filter((t) => t === "bug");
+    expect(badges).toHaveLength(1);
+    // And the label that says something the kind does not still shows.
+    expect(card.textContent).toContain("plugin");
+  });
+
+  /**
+   * With kind `task` no kind badge is drawn, so a `task` label is the only
+   * thing saying it and must survive.
+   */
+  it("still shows a label that duplicates nothing on screen", async () => {
+    target.kind = "task";
+    target.labels = ["task"];
+    await show();
+
+    const card = screen
+      .getByRole("link", { name: "Delete the file-edit hook" })
+      .closest("[draggable]") as HTMLElement;
+    expect(card.textContent).toContain("task");
+  });
+});

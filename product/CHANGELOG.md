@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T21:36:32Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T21:52:57Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (273)
+## Closed work (274)
 
 ### 2026-08-18
+
+- **KEEL-312** On an alias URL the app loses every task reference and the project's own words — `done`
+
+  The app resolves a project by id, slug, name or alias, case-insensitively, the same four spellings the daemon's `resolve_project` accepts — through one `findProject` that four callers now share: the switcher's label, the milestone noun, the project key, and the command palette's key. On an alias address a task shows `KEEL-311` again and the phase noun is "Phase". Tests cover the four spellings individually and two paths through the whole app on an alias URL, all checked by reverting the fix.
+
+  <sub>commit:72f81e2 · test:cd apps/desktop && npx vitest run</sub>
 
 - **KEEL-310** The What’s next heading prints ’ instead of an apostrophe — `done`
 
@@ -1222,6 +1228,43 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
+| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
+| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
+| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
+| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
+| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
+| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
+| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
+| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
+| 2026-08-18 | claude | labels ["cli","mcp","desktop","phase8","8a"] → ["cli","mcp","desktop","phase8"] |
+| 2026-08-18 | claude | labels ["cli","mcp","storage","phase8","8a"] → ["cli","mcp","storage","phase8"] |
+| 2026-08-18 | claude | labels ["cli","mcp","storage","phase8","8a"] → ["cli","mcp","storage","phase8"] |
+| 2026-08-18 | claude | labels ["storage","phase8","8a"] → ["storage","phase8"] |
+| 2026-08-18 | claude | labels ["storage","mcp","phase8","8g"] → ["storage","mcp","phase8"] |
+| 2026-08-18 | claude | labels ["cli","phase8","8g"] → ["cli","phase8"] |
+| 2026-08-18 | claude | labels ["desktop","daemon","phase8","8b"] → ["desktop","daemon","phase8"] |
+| 2026-08-18 | claude | labels ["mcp","daemon","phase8","8b"] → ["mcp","daemon","phase8"] |
+| 2026-08-18 | claude | labels ["mcp","storage","phase8","8f"] → ["mcp","storage","phase8"] |
+| 2026-08-18 | claude | labels ["daemon","mcp","phase8","8e"] → ["daemon","mcp","phase8"] |
+| 2026-08-18 | claude | labels ["desktop","phase8","8e"] → ["desktop","phase8"] |
+| 2026-08-18 | claude | labels ["mcp","storage","phase8","8f"] → ["mcp","storage","phase8"] |
+| 2026-08-18 | claude | labels ["phase9","9a","daemon","desktop","testing"] → ["phase9","daemon","desktop","testing"] |
+| 2026-08-18 | claude | labels ["phase9","9b","storage"] → ["phase9","storage"] |
+| 2026-08-18 | claude | labels ["phase9","9b","storage"] → ["phase9","storage"] |
+| 2026-08-18 | claude | labels ["phase9","9b","storage"] → ["phase9","storage"] |
+| 2026-08-18 | claude | labels ["phase9","9b","storage","cli"] → ["phase9","storage","cli"] |
+| 2026-08-18 | claude | labels ["phase9","9b","storage","cli"] → ["phase9","storage","cli"] |
+| 2026-08-18 | claude | labels ["phase9","9c","testing"] → ["phase9","testing"] |
+| 2026-08-18 | claude | labels ["phase9","9c","tooling","storage"] → ["phase9","tooling","storage"] |
+| 2026-08-18 | claude | created task “A card shows the same word twice when a label repeats the kind” |
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T21:49:18.195701Z |
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → ["commit:72f81e2","test:cd apps/desktop && npx vitest run"] |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (496 characters) |
 | 2026-08-18 | claude | status todo → in_progress |
 | 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
 | 2026-08-18 | claude | claimed_at none → 2026-08-18T21:28:38.773807Z |
@@ -1385,43 +1428,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-17 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
 | 2026-08-17 | claude | claimed_at none → 2026-08-17T13:31:26.443419Z |
 | 2026-08-17 | claude | created task “Dependabot flags a vulnerability in the Tauri shell, which nothing builds any more” |
-| 2026-08-17 | claude | created task “Tell every client to link the artifacts it names, since the URLs are already there” |
-| 2026-08-17 | claude | status in_progress → done |
-| 2026-08-17 | claude | evidence [] → ["commit:9481e08","commit:5c93944","commit:3bfc6bf","test:npx vitest run"] |
-| 2026-08-17 | claude | close_reason none → done |
-| 2026-08-17 | claude | close_message none → (479 characters) |
-| 2026-08-17 | claude | status in_progress → done |
-| 2026-08-17 | claude | evidence [] → (93 characters) |
-| 2026-08-17 | claude | close_reason none → done |
-| 2026-08-17 | claude | close_message none → (644 characters) |
-| 2026-08-17 | claude | status in_progress → done |
-| 2026-08-17 | claude | evidence [] → ["commit:23b803a","commit:9ac0f20","commit:ef3e3f6"] |
-| 2026-08-17 | claude | close_reason none → done |
-| 2026-08-17 | claude | close_message none → (1217 characters) |
-| 2026-08-17 | claude | created task “specline task --status advertises two statuses that do not exist and hides two that do” |
-| 2026-08-17 | claude | created task “The fixture corpus has no notes, so the demo cannot show the note stream” |
-| 2026-08-17 | claude | status todo → in_progress |
-| 2026-08-17 | claude | claimed_by none → ses_56eead19-4d48-480d-85c9-c104d7ecf046 |
-| 2026-08-17 | claude | claimed_at none → 2026-08-17T11:43:18.456564Z |
-| 2026-08-17 | claude | status todo → in_progress |
-| 2026-08-17 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
-| 2026-08-17 | claude | claimed_at none → 2026-08-17T11:38:50.204473Z |
-| 2026-08-17 | claude | status todo → in_progress |
-| 2026-08-17 | claude | claimed_by none → ses_56eead19-4d48-480d-85c9-c104d7ecf046 |
-| 2026-08-17 | claude | claimed_at none → 2026-08-17T11:02:34.081619Z |
-| 2026-08-17 | claude | created task “Rewrite the README for someone who has never seen Specline” |
-| 2026-08-17 | human | created task “show a snackbar and indication of a new manually created task” |
-| 2026-08-17 | human | created task “Why wasn't the phase 13 automaticaly updated” |
-| 2026-08-17 | claude | status in_progress → done |
-| 2026-08-17 | claude | evidence [] → (112 characters) |
-| 2026-08-17 | claude | close_reason none → done |
-| 2026-08-17 | claude | close_message none → (454 characters) |
-| 2026-08-17 | claude | status todo → in_progress |
-| 2026-08-17 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
-| 2026-08-17 | claude | claimed_at none → 2026-08-17T10:15:44.482590Z |
-| 2026-08-17 | claude | created task “Cut 0.2.1 — the store relocation fixes from the rename's own review” |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["test:scripts/check-rename.sh"] |
 
-*Showing the 200 most recent of 2251 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2288 changes. Use `specline_activity` for the rest.*
 

@@ -189,6 +189,18 @@ function TaskCard({
 }) {
   const reference = taskRef(projectKey, task);
   const milestoneId = task.milestone_id as string | null;
+
+  // The kind is drawn as a badge unless it is the unremarkable default, so a
+  // label repeating it puts the same word on the card twice — `p2 · bug · bug`
+  // reads as a rendering fault rather than as two fields that agree (KEEL-313).
+  //
+  // Dropped only while the kind badge is actually there: with kind `task`, a
+  // `task` label is the only badge saying it and duplicates nothing. Folded for
+  // the comparison because a label written over MCP is not normalised (B-86).
+  const kind = String(task.kind);
+  const labels = ((task.labels as string[] | undefined) ?? []).filter(
+    (label) => kind === "task" || label.toLowerCase() !== kind,
+  );
   return (
     // A wrapper with a stretched link rather than an anchor around everything:
     // the milestone chip is a control, and interactive content nested inside an
@@ -227,8 +239,8 @@ function TaskCard({
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <Badge tone={priorityTone(String(task.priority))}>{String(task.priority)}</Badge>
-        {String(task.kind) !== "task" && <Badge>{String(task.kind)}</Badge>}
-        {((task.labels as string[] | undefined) ?? []).map((label) => (
+        {kind !== "task" && <Badge>{kind}</Badge>}
+        {labels.map((label) => (
           <Badge key={label}>{label}</Badge>
         ))}
       </div>
