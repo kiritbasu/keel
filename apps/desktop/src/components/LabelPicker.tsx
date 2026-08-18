@@ -66,11 +66,18 @@ export function LabelPicker({
   available,
   chosen,
   onChange,
+  heading = "Labels",
 }: {
   /** Every label in use on this project. Scoped by the caller's task query. */
   available: string[];
   chosen: string[];
   onChange: (labels: string[]) => void;
+  /**
+   * The caption above the box, or `null` where the caller already provides
+   * one. The task screen's property list labels its own rows, and the picker
+   * saying "Labels" under a row headed LABELS reads as a rendering fault.
+   */
+  heading?: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [highlighted, setHighlighted] = useState(0);
@@ -132,7 +139,9 @@ export function LabelPicker({
 
   return (
     <div className="space-y-1">
-      <span className="text-micro text-ink-muted">Labels</span>
+      {heading !== null && (
+        <span className="text-micro text-ink-muted">{heading}</span>
+      )}
 
       {chosen.length > 0 && (
         <div className="flex flex-wrap gap-1.5 pb-1">

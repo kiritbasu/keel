@@ -5,7 +5,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::sse::{Event as SseEvent, Sse};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::{get, patch, post};
 use axum::{Json, Router};
 use serde_json::{Value, json};
 use specline_mcp::protocol::{
@@ -108,6 +108,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/entity/{id}/notes", post(api_add_note))
         .route("/api/entity/{id}/archive", post(api_archive))
         .route("/api/tasks/{id}/close", post(api_close_task))
+        .route("/api/tasks/{id}", patch(api_update_task))
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
             require_token,
@@ -164,6 +165,14 @@ pub fn router(state: AppState) -> Router {
                 // unreachable from the desktop app for as long as this said
                 // GET only — the one endpoint the app needs to *do* anything
                 // rather than read.
+                //
+                // This list no longer reaches any of them, and `PATCH` is
+                // deliberately absent rather than overlooked: `guarded` is
+                // merged *after* this layer, so no mutating route carries CORS
+                // at all. Harmless while the only interface is the one the
+                // daemon serves itself, which is same-origin and never
+                // preflights — and a trap the moment anything else calls in.
+                // KEEL-309.
                 .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
                 .allow_headers(tower_http::cors::Any),
         )
@@ -1013,6 +1022,203 @@ async fn api_close_task(
         // whoever has to fix the form, so they are passed through rather than
         // flattened.
         Err(e) => api_error(StatusCode::BAD_REQUEST, codes::INVALID_PARAMS, e),
+    }
+}
+
+/// Change the fields on a task that a person moves while looking at it.
+///
+/// Hard constraint 7 names this in as many words — moving a status or a
+/// priority is a person's own action, and the interface performs it. What the
+/// constraint refuses is *authoring*, and the shape of this endpoint is what
+/// keeps it on the right side of that line: five named fields and nothing
+/// else, so there is no argument here that could carry a document body. That
+/// is B-78's own test for whether a write endpoint belongs.
+///
+/// Three of the five statuses are refused rather than accepted, each because
+/// the transition belongs somewhere that asks for more than this does:
+///
+/// - `done` and `wont_do` owe a reason, a message and — for `done` — evidence.
+///   `/api/tasks/{id}/close` collects them, and the storage layer refuses
+///   without them on every path. Taking a bare terminal status here would only
+///   produce a rejection this endpoint could not explain as well as that form
+///   already does.
+/// - `in_progress` is a claim, and a claim records *who*. A person at the
+///   interface has no session to record, so saying so is more honest than
+///   leaving the board showing work in flight against nobody — which is the
+///   state `specline_claim` exists to prevent.
+///
+/// Moving *out* of `in_progress` clears the claim, which `close` does not do
+/// and does not need to: a closed row cannot be claimed again, so a claim left
+/// on it is only history. A row moved back to `todo` can, and a claim still
+/// standing there would have `specline_claim` refuse it for up to three days
+/// in the name of a session that walked away.
+async fn api_update_task(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> Response {
+    use specline_core::{EntityId, EntityStore, EntityType, TaskStatus};
+
+    let entity_id = match EntityId::parse_as(&id, EntityType::Task) {
+        Ok(id) => id,
+        Err(e) => return api_error(StatusCode::BAD_REQUEST, codes::INVALID_PARAMS, e),
+    };
+
+    let mut store = state.store();
+    let Some(specline_core::Entity::Task(current)) = (match store.get(&entity_id) {
+        Ok(found) => found,
+        Err(e) => return internal_error(&format!("could not read {id}: {e}")),
+    }) else {
+        return api_error(
+            StatusCode::NOT_FOUND,
+            codes::INVALID_PARAMS,
+            format!("no task with id {id}"),
+        );
+    };
+
+    // The version the page was holding. Unlike the archive endpoint, which
+    // takes whatever is current on the grounds that a title edit is no reason
+    // to refuse an archive, this one is editing the very fields a concurrent
+    // write would have touched — so a conflict is real and the caller is told.
+    let Some(expected) = body.get("version").and_then(Value::as_i64) else {
+        return bad_request(
+            "`version` is required — the version you read, so a concurrent edit is a conflict \
+             rather than a silent overwrite",
+        );
+    };
+    let Ok(expected) = i32::try_from(expected) else {
+        return bad_request("`version` is not a version any row has had");
+    };
+
+    // A field present but of the wrong shape is refused rather than skipped.
+    // `and_then(as_str)` on its own turns `{"status": 5}` into a silent no-op,
+    // and a caller told its write succeeded when one field of it vanished will
+    // build on that — which is the reasoning `store::patch` gives for rejecting
+    // rather than ignoring, applied one layer out.
+    macro_rules! string_field {
+        ($key:expr) => {
+            match body.get($key) {
+                None | Some(Value::Null) => None,
+                Some(Value::String(raw)) => Some(raw.as_str()),
+                Some(_) => return bad_request(concat!("`", $key, "` must be a string")),
+            }
+        };
+    }
+
+    let mut changes = serde_json::Map::new();
+
+    if let Some(raw) = string_field!("status") {
+        let status = match TaskStatus::parse(raw) {
+            Ok(status) => status,
+            Err(e) => return bad_request(&e.to_string()),
+        };
+        match status {
+            TaskStatus::Done | TaskStatus::WontDo => {
+                return bad_request(
+                    "a task cannot be closed here — closing owes a reason, a message and, for done, \
+                     evidence. Use /api/tasks/{id}/close, which asks for them.",
+                );
+            }
+            TaskStatus::InProgress => {
+                return bad_request(
+                    "starting a task is a claim, and a claim records which session is on it — \
+                     which is what makes the board answer 'who is doing this' rather than only \
+                     'something is'. Ask Claude to claim it, or use `specline claim`.",
+                );
+            }
+            TaskStatus::Todo | TaskStatus::Review => {
+                changes.insert("status".to_owned(), json!(status.as_str()));
+                if current.status == TaskStatus::InProgress {
+                    changes.insert("claimed_by".to_owned(), Value::Null);
+                    changes.insert("claimed_at".to_owned(), Value::Null);
+                }
+            }
+        }
+    }
+
+    if let Some(raw) = string_field!("priority") {
+        match specline_core::TaskPriority::parse(raw) {
+            Ok(priority) => changes.insert("priority".to_owned(), json!(priority.as_str())),
+            Err(e) => return bad_request(&e.to_string()),
+        };
+    }
+
+    if let Some(raw) = string_field!("kind") {
+        match specline_core::TaskKind::parse(raw) {
+            Ok(kind) => changes.insert("kind".to_owned(), json!(kind.as_str())),
+            Err(e) => return bad_request(&e.to_string()),
+        };
+    }
+
+    // An empty string is "no phase", which is what the select's `none` option
+    // sends. Distinct from the key being absent, which means "leave it alone" —
+    // and the difference matters, because clearing a milestone is a thing
+    // somebody means to do.
+    if let Some(raw) = string_field!("milestone") {
+        if raw.is_empty() {
+            changes.insert("milestone_id".to_owned(), Value::Null);
+        } else {
+            match EntityId::parse_as(raw, EntityType::Milestone) {
+                Ok(milestone) => {
+                    changes.insert("milestone_id".to_owned(), json!(milestone.to_string()))
+                }
+                Err(e) => return bad_request(&format!("`milestone`: {e}")),
+            };
+        }
+    }
+
+    // Taken as given, beyond trimming the blanks the create path also drops.
+    // The fold that stops `ui` and `UI` becoming two labels lives in the
+    // picker, deliberately (B-86); a second copy of it here would be a second
+    // rule to keep in step.
+    match body.get("labels") {
+        None | Some(Value::Null) => {}
+        Some(Value::Array(items)) => {
+            let mut labels = Vec::with_capacity(items.len());
+            for item in items {
+                let Some(label) = item.as_str() else {
+                    return bad_request("`labels` must be an array of strings");
+                };
+                let label = label.trim();
+                if !label.is_empty() {
+                    labels.push(label.to_owned());
+                }
+            }
+            changes.insert("labels".to_owned(), json!(labels));
+        }
+        Some(_) => return bad_request("`labels` must be an array of strings"),
+    }
+
+    if changes.is_empty() {
+        return bad_request(
+            "nothing to change — send at least one of status, priority, kind, milestone or labels",
+        );
+    }
+
+    match store.update(&entity_id, expected, &changes, &person_at_the_interface()) {
+        Ok(entity) => Json(json!({ "data": specline_mcp::entity_json(&entity) })).into_response(),
+        // A stale version is the caller's to resolve, and it needs the current
+        // state to do it — the same 409 payload SPEC §7.3 gives an agent,
+        // minus the event history a form has no use for.
+        Err(specline_core::Error::StaleVersion { latest, .. }) => {
+            let current_state = store.get(&entity_id).ok().flatten();
+            (
+                StatusCode::CONFLICT,
+                Json(json!({
+                    "error": {
+                        "code": codes::CONFLICT,
+                        "message": "this task changed while you were editing it",
+                    },
+                    "latest_version": latest,
+                    "current_state": current_state.as_ref().map(specline_mcp::entity_json),
+                })),
+            )
+                .into_response()
+        }
+        Err(e) if e.is_caller_error() => {
+            api_error(StatusCode::BAD_REQUEST, codes::INVALID_PARAMS, e)
+        }
+        Err(e) => internal_error(&format!("the task was not changed: {e}")),
     }
 }
 

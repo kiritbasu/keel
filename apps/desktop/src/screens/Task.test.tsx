@@ -29,11 +29,23 @@ const TASK = {
     "https://github.com/kb/specline/pull/1",
     "https://github.com/kb/specline/issues/2",
   ],
-  audit: { created_at: "2026-08-10T09:00:00Z", updated_at: "2026-08-10T10:00:00Z" },
+  audit: {
+    created_at: "2026-08-10T09:00:00Z",
+    updated_at: "2026-08-10T10:00:00Z",
+    version: 7,
+  },
 };
 
+const updateTask = vi.fn(async () => TASK);
+
 vi.mock("../lib/api", () => ({
-  ApiError: class ApiError extends Error {},
+  ApiError: class ApiError extends Error {
+    status: number;
+    constructor(message: string, status = 0) {
+      super(message);
+      this.status = status;
+    }
+  },
   subscribe: () => () => {},
   api: {
     entity: async () => ({ artifacts: [{ entity: TASK }] }),
@@ -164,10 +176,13 @@ vi.mock("../lib/api", () => ({
       truncated: false,
     }),
     context: async () => ({ next_up: null }),
+    updateTask,
   },
 }));
 
 const { TaskScreen } = await import("./Task");
+// The mocked class, which is the one the component compares against.
+const { ApiError } = await import("../lib/api");
 
 const route = { screen: "task" as const, project: "specline", taskId: "tsk_me", query: {} };
 
@@ -397,5 +412,168 @@ describe("the ask-Claude prompts", () => {
     expect(writeText).toHaveBeenCalledWith(
       expect.stringMatching(/^what is blocking \S+$/),
     );
+  });
+});
+
+/**
+ * The fields a person moves, which until KEEL-307 were text you could only
+ * change by opening a conversation about it.
+ *
+ * Two of these are about what the panel refuses rather than what it does, and
+ * those are the ones worth having: the reasons live in the storage layer and
+ * in the claim model, and a control that quietly offered them would produce a
+ * rejection the form could not explain.
+ */
+describe("changing the fields a person moves", () => {
+  const status = TASK.status;
+  afterEach(() => {
+    TASK.status = status;
+    updateTask.mockClear();
+    updateTask.mockImplementation(async () => TASK);
+  });
+
+  it("saves a priority the moment it is picked, with the version it read", async () => {
+    await show();
+
+    fireEvent.change(screen.getByLabelText("Priority"), {
+      target: { value: "p2" },
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(updateTask).toHaveBeenCalledWith("tsk_me", {
+      version: 7,
+      priority: "p2",
+    });
+  });
+
+  /**
+   * Starting work is a claim and a claim records which session is on it. A
+   * person clicking a dropdown has none — so the status is shown, because the
+   * task really is in progress, and cannot be selected.
+   */
+  it("shows in_progress but will not let you pick it", async () => {
+    await show();
+
+    const select = screen.getByLabelText("Status") as HTMLSelectElement;
+    expect(select.value).toBe("in_progress");
+
+    const inProgress = within(select).getByRole("option", {
+      name: "in_progress",
+    }) as HTMLOptionElement;
+    expect(inProgress.disabled).toBe(true);
+
+    // And the two that can be reached from here are the two that owe nothing.
+    const selectable = within(select)
+      .getAllByRole("option")
+      .filter((o) => !(o as HTMLOptionElement).disabled)
+      .map((o) => (o as HTMLOptionElement).value);
+    expect(selectable).toEqual(["todo", "review"]);
+  });
+
+  /** Closing owes a reason, a message and evidence, which the Close form asks for. */
+  it("never offers done or wont_do", async () => {
+    await show();
+
+    const select = screen.getByLabelText("Status");
+    expect(within(select).queryByRole("option", { name: "done" })).toBeNull();
+    expect(
+      within(select).queryByRole("option", { name: "wont_do" }),
+    ).toBeNull();
+  });
+
+  it("sends an empty milestone to clear the phase, rather than nothing", async () => {
+    await show();
+
+    fireEvent.change(screen.getByLabelText("Milestone"), {
+      target: { value: "" },
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(updateTask).toHaveBeenCalledWith("tsk_me", {
+      version: 7,
+      milestone: "",
+    });
+  });
+
+  /**
+   * Reopening means deciding what becomes of the close reason and the
+   * evidence, which is a question rather than a control — so a finished task
+   * shows its status and does not offer to move it.
+   */
+  it("does not offer a status control on a task that is closed", async () => {
+    TASK.status = "done";
+    await show();
+
+    expect(screen.queryByLabelText("Status")).toBeNull();
+    // The rest stays editable: recategorising something finished is ordinary.
+    expect(screen.getByLabelText("Priority")).toBeTruthy();
+    expect(screen.getByLabelText("Kind")).toBeTruthy();
+  });
+
+  /** A conflict is not a broken app, and the message should not read like one. */
+  it("says the row moved when the version is stale", async () => {
+    updateTask.mockImplementation(async () => {
+      throw new ApiError("stale", 409);
+    });
+    await show();
+
+    fireEvent.change(screen.getByLabelText("Kind"), {
+      target: { value: "bug" },
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "changed while you were looking at it",
+    );
+  });
+});
+
+/**
+ * Two changes in flight would send the same version twice, and the second
+ * would come back a conflict for no reason the reader could see. The controls
+ * go inert together rather than the one being saved going inert alone.
+ */
+describe("while a change is saving", () => {
+  afterEach(() => {
+    updateTask.mockClear();
+    updateTask.mockImplementation(async () => TASK);
+  });
+
+  it("disables every field, not only the one being saved", async () => {
+    let release: (() => void) | null = null;
+    updateTask.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(TASK);
+        }),
+    );
+    await show();
+
+    fireEvent.change(screen.getByLabelText("Priority"), {
+      target: { value: "p3" },
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    for (const field of ["Status", "Priority", "Kind", "Milestone"]) {
+      expect(
+        (screen.getByLabelText(field) as HTMLSelectElement).disabled,
+      ).toBe(true);
+    }
+
+    await act(async () => {
+      release?.();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(
+      (screen.getByLabelText("Kind") as HTMLSelectElement).disabled,
+    ).toBe(false);
   });
 });

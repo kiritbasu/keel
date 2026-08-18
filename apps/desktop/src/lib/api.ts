@@ -61,9 +61,14 @@ function currentToken(): string | null {
   );
 }
 
-function send(url: string, body: unknown, token: string): Promise<Response> {
+function send(
+  method: "POST" | "PATCH",
+  url: string,
+  body: unknown,
+  token: string,
+): Promise<Response> {
   return fetch(url, {
-    method: "POST",
+    method,
     headers: { "content-type": "application/json", "x-specline-token": token },
     body: JSON.stringify(body),
   });
@@ -102,7 +107,11 @@ async function refetchToken(): Promise<string | null> {
  * and if one appears, that is the constraint moving again and it needs its own
  * decision rather than a reuse of this helper.
  */
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function write<T>(
+  method: "POST" | "PATCH",
+  path: string,
+  body: unknown,
+): Promise<T> {
   const url = new URL(`${BASE}${path}`, window.location.origin);
 
   const token = currentToken();
@@ -116,7 +125,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
   let response: Response;
   try {
-    response = await send(url.toString(), body, token);
+    response = await send(method, url.toString(), body, token);
   } catch {
     throw new ApiError(
       "Cannot reach the Specline daemon. Start it with `specline-daemon` and try again.",
@@ -138,7 +147,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     const fresh = await refetchToken();
     if (fresh && fresh !== token) {
       try {
-        response = await send(url.toString(), body, fresh);
+        response = await send(method, url.toString(), body, fresh);
       } catch {
         throw new ApiError(
           "Cannot reach the Specline daemon. Start it with `specline-daemon` and try again.",
@@ -157,6 +166,20 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   }
   return (parsed?.data ?? parsed) as T;
 }
+
+const post = <T>(path: string, body: unknown) => write<T>("POST", path, body);
+
+/**
+ * A change to fields that already exist, as opposed to a thing that happens.
+ *
+ * The distinction is the reason this is a second verb rather than another
+ * `post`: everything posted here is an *action* — create this, close that,
+ * apply the update you staged — and each has an endpoint named for it. Moving
+ * a priority is not an action with a name, it is the field being different,
+ * and it carries the version read so that two people editing one row is a
+ * conflict rather than whoever clicked last.
+ */
+const patch = <T>(path: string, body: unknown) => write<T>("PATCH", path, body);
 
 // --- Shapes the daemon returns ------------------------------------------
 
@@ -450,6 +473,31 @@ export const api = {
     milestone?: string;
     labels?: string[];
   }) => post<Entity>("/api/tasks", task),
+
+  /**
+   * Change the fields on a task that a person moves while looking at it.
+   *
+   * `version` is the one you read. Send it, and a concurrent edit comes back a
+   * 409 naming what is actually there; leave it out and the daemon refuses,
+   * because the alternative is quietly overwriting somebody.
+   *
+   * Three statuses are not settable here and the daemon says why: `done` and
+   * `wont_do` go through `closeTask`, which collects the reason, the message
+   * and the evidence the storage layer wants, and `in_progress` is a claim,
+   * which records which session is on the work.
+   */
+  updateTask: (
+    id: string,
+    changes: {
+      version: number;
+      status?: "todo" | "review";
+      priority?: string;
+      kind?: string;
+      /** A milestone id, or `""` to clear the phase. */
+      milestone?: string;
+      labels?: string[];
+    },
+  ) => patch<Entity>(`/api/tasks/${encodeURIComponent(id)}`, changes),
 
   /** Add a note to a row — a comment, in the words a person would use. */
   addNote: (id: string, body: string) =>

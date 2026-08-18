@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-18T17:37:02.666857+00:00",
+  "generated_at": "2026-08-18T18:21:12.581244+00:00",
   "files": [
     {
       "path": ".specline/specs/keel-what-needs-to-happen.md",
@@ -21,6 +21,17 @@
           "entity_type": "spec",
           "version": 2,
           "hash": "8693e49c88fc2ad31cb195dd2fc89dca7a4eb1266ca568fb37bda5f231c92ea3"
+        }
+      ]
+    },
+    {
+      "path": ".specline/decisions/the-interface-changes-a-task-s-fields-through-one-narrow-endpoint-and-three-statuses-are-not-among-them.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M0B18PA7WYJ57E5P5HZBD712",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "ab1fbd2bd23e3d2d712a5faac0fe5e022c7ec86917ff833024489f4f01c385c2"
         }
       ]
     },

@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T17:37:02Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T18:21:12Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1198,6 +1198,17 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | created task “No mutating route carries CORS, and the comment on the layer says it does” |
+| 2026-08-18 | claude | “A task's fields cannot be changed once it exists” references “The interface changes a task's fields through one narrow…” |
+| 2026-08-18 | claude | revised decision “The interface changes a task's fields through one narrow endpoint, and three statuses are not among them” to v1 |
+| 2026-08-18 | claude | created decision “The interface changes a task's fields through one narrow endpoint, and three statuses are not among them” |
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T17:54:49.969471Z |
+| 2026-08-18 | claude | “A task's fields cannot be changed once it exists” blocks “Drag a card between board columns to move its status” |
+| 2026-08-18 | claude | created task “Drag a card between board columns to move its status” |
+| 2026-08-18 | claude | title Labels cannot be changed once the task exists → A task's fields cannot be changed once it exists |
+| 2026-08-18 | claude | summary (450 characters) → (871 characters) |
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → (96 characters) |
 | 2026-08-18 | claude | close_reason none → done |
@@ -1387,17 +1398,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | summary (1301 characters) → (1305 characters) |
 | 2026-08-16 | claude | body (1011 characters) → (1031 characters) |
 | 2026-08-16 | claude | body (863 characters) → (871 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T19:09:54.510497Z |
-| 2026-08-16 | claude | created task “124 stored documents still say Keel, and the sweep is structurally blind to all of them” |
-| 2026-08-16 | human | revised spec “Specline — Build journal” to v5 |
-| 2026-08-16 | claude | status todo → done |
-| 2026-08-16 | claude | evidence [] → (87 characters) |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (372 characters) |
-| 2026-08-16 | claude | created task “Finish the rename outside the repository: the checkout, the trust settings and the runner” |
-| 2026-08-16 | claude | created task “A note on a closed task never reaches the repository” |
 
-*Showing the 200 most recent of 2197 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2208 changes. Use `specline_activity` for the rest.*
 

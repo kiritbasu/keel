@@ -32,10 +32,10 @@ import {
   Spinner,
   Tooltip,
   cx,
-  priorityTone,
   statusTone,
   when,
 } from "../components/ui";
+import { LabelPicker } from "../components/LabelPicker";
 import { Markdown } from "../components/Markdown";
 import { Page, projectCrumbs } from "../components/Page";
 import { href, navigate } from "../lib/router";
@@ -48,7 +48,7 @@ interface Related extends Neighbour {
   direction: Direction;
 }
 
-export function TaskScreen({ route, generation }: ScreenProps) {
+export function TaskScreen({ route, generation, milestoneNoun }: ScreenProps) {
   const project = route.project;
   const id = route.taskId;
 
@@ -170,10 +170,19 @@ export function TaskScreen({ route, generation }: ScreenProps) {
   const at = siblings.findIndex((t) => String(t.id) === id);
   const previous = at > 0 ? siblings[at - 1] : undefined;
   const next = at !== -1 ? siblings[at + 1] : undefined;
-  const milestone = (
-    context.data?.milestones as PageOf<Entity> | undefined
-  )?.items.find((m) => m.id === task.milestone_id);
   const ranked = rank.get(id);
+
+  // Every label this project uses, so the picker completes against the same
+  // set the board's does. Built from the tasks already loaded for the sibling
+  // walk — a label exists exactly as long as something carries it, so there is
+  // no registry to ask.
+  const labelsInUse = [
+    ...new Set(
+      ((context.data?.tasks as PageOf<Entity> | undefined)?.items ?? []).flatMap(
+        (t) => (t.labels as string[] | undefined) ?? [],
+      ),
+    ),
+  ].sort();
   // Until the project has loaded we do not know the key. Showing the ULID for
   // that moment makes the title flicker from a wall of characters to `KEEL-76`
   // on every single open, so show nothing rather than the wrong thing — and
@@ -303,35 +312,16 @@ export function TaskScreen({ route, generation }: ScreenProps) {
             footer={<TaskActions task={task} onChanged={core.reload} />}
           >
             <dl className="space-y-2.5 text-small">
-              <Property label="Status">
-                <Badge tone={statusTone(String(task.status))}>
-                  {String(task.status)}
-                </Badge>
-              </Property>
-              <Property label="Priority">
-                <Badge tone={priorityTone(String(task.priority))}>
-                  {String(task.priority)}
-                </Badge>
-              </Property>
-              <Property label="Kind">{String(task.kind)}</Property>
-              <Property label="Milestone">
-                {milestone ? (
-                  <span>{String(milestone.name)}</span>
-                ) : (
-                  <span className="text-ink-faint">none</span>
-                )}
-              </Property>
-              <Property label="Labels">
-                {((task.labels as string[] | undefined) ?? []).length > 0 ? (
-                  <span className="flex flex-wrap gap-1">
-                    {((task.labels as string[] | undefined) ?? []).map((l) => (
-                      <Badge key={l}>{l}</Badge>
-                    ))}
-                  </span>
-                ) : (
-                  <span className="text-ink-faint">none</span>
-                )}
-              </Property>
+              <EditableFields
+                task={task}
+                milestones={
+                  (context.data?.milestones as PageOf<Entity> | undefined)
+                    ?.items ?? []
+                }
+                labelsInUse={labelsInUse}
+                milestoneNoun={milestoneNoun}
+                onChanged={core.reload}
+              />
               {ranked && (
                 <Property label="Next up">
                   <Tooltip align="right" text={ranked.why}>
@@ -482,6 +472,216 @@ function Family({
         )}
       </div>
     </Card>
+  );
+}
+
+/**
+ * The five fields a person moves while looking at a row.
+ *
+ * Hard constraint 7 names this half as the interface's: moving a status or a
+ * priority is a person's own action, distinct from authoring the reasoning,
+ * which stays with Claude. Until KEEL-307 the panel rendered all five as text,
+ * so a kind chosen wrongly at creation could only be fixed by opening a
+ * conversation about it.
+ *
+ * Each control saves on change rather than collecting an Edit mode and a Save
+ * button. These are single gestures — you are picking a priority, not filling
+ * in a form — and a mode you can leave without saving is a way to lose work
+ * that a select does not have.
+ *
+ * Two absences are deliberate:
+ *
+ * - **`done` and `wont_do` are not in the status list.** They owe a reason, a
+ *   message and evidence, which the Close button below collects. A select that
+ *   could reach them would be a way round the form that asks.
+ * - **`in_progress` is not selectable either**, though it is shown when the
+ *   task is in it. Starting work is a claim and a claim records *which
+ *   session*; a person clicking a dropdown has none, and the board saying
+ *   something is in flight without saying who is the state `specline_claim`
+ *   exists to prevent. Moving *out* of it releases the claim, which the daemon
+ *   does rather than this form.
+ *
+ * A closed task keeps its status fixed — reopening means deciding what becomes
+ * of the reason and the evidence, and that is a question rather than a
+ * control — but its priority, kind, phase and labels stay editable, because
+ * recategorising something finished is ordinary.
+ */
+function EditableFields({
+  task,
+  milestones,
+  labelsInUse,
+  milestoneNoun,
+  onChanged,
+}: {
+  task: Entity;
+  milestones: Entity[];
+  /** Every label on this project, for the picker to complete against. */
+  labelsInUse: string[];
+  milestoneNoun: string | undefined;
+  onChanged: () => void;
+}) {
+  const [saving, setSaving] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  const status = String(task.status);
+  const closed = ["done", "wont_do"].includes(status);
+  const labels = (task.labels as string[] | undefined) ?? [];
+  const version = Number(task.audit.version);
+
+  // Every control goes inert while any one of them is saving, rather than only
+  // the one being saved. Two changes in flight would send the same version
+  // twice and the second would 409 — and the alternative, dropping the second,
+  // is a click that does nothing and then silently reverts.
+  async function save(field: string, changes: Record<string, unknown>) {
+    if (saving) return;
+    setSaving(field);
+    setFailed(null);
+    try {
+      await api.updateTask(String(task.id), { version, ...changes });
+      onChanged();
+    } catch (e) {
+      setFailed(
+        e instanceof ApiError
+          ? // A 409 is the one worth wording differently: nothing is broken,
+            // the row simply moved under you, and reloading is the fix.
+            e.status === 409
+            ? "This task changed while you were looking at it. Reload to see where it got to."
+            : e.message
+          : `The ${field} was not changed.`,
+      );
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  return (
+    <>
+      <Property label="Status">
+        {closed ? (
+          <Badge tone={statusTone(status)}>{status}</Badge>
+        ) : (
+          <FieldSelect
+            label="Status"
+            value={status}
+            busy={saving !== null}
+            onChange={(next) => void save("status", { status: next })}
+            options={[
+              { value: "todo", label: "todo" },
+              { value: "review", label: "review" },
+            ]}
+            // Shown so the select tells the truth about where the task is, and
+            // unselectable so it cannot be reached from here.
+            fixed={status === "in_progress" ? "in_progress" : undefined}
+          />
+        )}
+      </Property>
+
+      <Property label="Priority">
+        <FieldSelect
+          label="Priority"
+          value={String(task.priority)}
+          busy={saving !== null}
+          onChange={(next) => void save("priority", { priority: next })}
+          options={["p0", "p1", "p2", "p3"].map((p) => ({
+            value: p,
+            label: p,
+          }))}
+        />
+      </Property>
+
+      <Property label="Kind">
+        <FieldSelect
+          label="Kind"
+          value={String(task.kind)}
+          busy={saving !== null}
+          onChange={(next) => void save("kind", { kind: next })}
+          options={["task", "bug", "chore", "spike"].map((k) => ({
+            value: k,
+            label: k,
+          }))}
+        />
+      </Property>
+
+      <Property label={milestoneNoun ?? "Milestone"}>
+        <FieldSelect
+          label={milestoneNoun ?? "Milestone"}
+          value={task.milestone_id ? String(task.milestone_id) : ""}
+          busy={saving !== null}
+          onChange={(next) => void save("milestone", { milestone: next })}
+          options={[
+            { value: "", label: "none" },
+            ...milestones.map((m) => ({
+              value: String(m.id),
+              label: String(m.name),
+            })),
+          ]}
+        />
+      </Property>
+
+      <Property label="Labels">
+        <LabelPicker
+          available={labelsInUse}
+          chosen={labels}
+          heading={null}
+          onChange={(next) => void save("labels", { labels: next })}
+        />
+      </Property>
+
+      {failed && (
+        <p role="alert" className="text-micro text-bad">
+          {failed}
+        </p>
+      )}
+    </>
+  );
+}
+
+/**
+ * One field, saved the moment it changes.
+ *
+ * `fixed` is the value a task is currently in but cannot be moved to — today
+ * only `in_progress`. It is rendered as a disabled option rather than left out,
+ * because a select that silently displays something not in its own list reads
+ * as a bug, and one that displayed `todo` for a task that is in progress would
+ * be lying about the row.
+ */
+function FieldSelect({
+  label,
+  value,
+  options,
+  busy,
+  fixed,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  busy: boolean;
+  fixed?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <select
+      aria-label={label}
+      value={value}
+      disabled={busy}
+      onChange={(e) => onChange(e.target.value)}
+      className={cx(
+        "w-full rounded-md border border-border-subtle bg-surface px-2 py-1 text-small text-ink",
+        busy && "opacity-60",
+      )}
+    >
+      {fixed !== undefined && (
+        <option value={fixed} disabled>
+          {fixed}
+        </option>
+      )}
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
