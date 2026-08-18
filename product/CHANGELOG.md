@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T17:25:53Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T17:37:02Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (268)
+## Closed work (269)
 
 ### 2026-08-18
+
+- **KEEL-304** adding a new label in New Task doesn't add it — `done`
+
+  The label box creates labels now, and folds what it creates onto the one form the existing 75 already use — so a new label is one keystroke away, and typing cannot produce a second spelling of one that exists. The autocomplete half needed no code: `available` comes from the labels the loaded tasks carry, and the dialog already reloads on create. Verified in the browser end to end — typed `Data Safety` and got the existing `data-safety` rather than a twin, created `label-ergonomics` on a new row, reloaded, and it autocompleted with no create offered. The reversal of KEEL-246's no-create rule is recorded as B-86.
+
+  <sub>commit:8cd09da · doc:dec_01M0AYBAJEBJA2Z3Y9D0BZHBDH · test:cd apps/desktop && npx vitest run</sub>
 
 - **KEEL-300** What changed shows field writes where a person did one thing — `done`
 
@@ -1192,6 +1198,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → (96 characters) |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (618 characters) |
 | 2026-08-18 | claude | “adding a new label in New Task doesn't add it” references “The label box creates labels, and normalises what it creates” |
 | 2026-08-18 | claude | revised decision “The label box creates labels, and normalises what it creates” to v1 |
 | 2026-08-18 | claude | created decision “The label box creates labels, and normalises what it creates” |
@@ -1388,10 +1398,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | close_message none → (372 characters) |
 | 2026-08-16 | claude | created task “Finish the rename outside the repository: the checkout, the trust settings and the runner” |
 | 2026-08-16 | claude | created task “A note on a closed task never reaches the repository” |
-| 2026-08-16 | claude | root_path /Users/h8hcn/development/keel → /Users/h8hcn/development/specline |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → (113 characters) |
-| 2026-08-16 | claude | close_reason none → done |
 
-*Showing the 200 most recent of 2193 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2197 changes. Use `specline_activity` for the rest.*
 
