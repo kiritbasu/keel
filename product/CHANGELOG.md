@@ -1,15 +1,23 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T08:48:28Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T08:48:54Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (264)
+## Closed work (265)
 
 ### 2026-08-18
+
+- **KEEL-296** The orientation docs still call the read surface a Tauri desktop app — `done`
+
+  Both say what runs now. The root CLAUDE.md and HANDOFF.md described the read surface as a Tauri desktop app; it is a local web app compiled into the daemon and served by it, which is why `specline ui` needs no Node and no second process. The Tauri intent is left to B-39, where a reader should find it.
+  
+  Two files, one editable here and one not: the root CLAUDE.md is the bootstrap and is deliberately ungenerated, while HANDOFF.md went in at the source and came back through `specline generate`.
+
+  <sub>commit:7ef731d</sub>
 
 - **KEEL-290** Dependabot flags a vulnerability in the Tauri shell, which nothing builds any more — `done`
 
@@ -1146,6 +1154,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → ["commit:7ef731d"] |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (496 characters) |
 | 2026-08-18 | human | revised spec “Specline — Handoff to Claude Code” to v4 |
 | 2026-08-18 | claude | status todo → in_progress |
 | 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
@@ -1342,10 +1354,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | evidence [] → ["commit:c5acb64","test:specline generate specline --check"] |
 | 2026-08-16 | claude | close_reason none → done |
 | 2026-08-16 | claude | close_message none → (254 characters) |
-| 2026-08-16 | human | revised spec “Specline — Build journal” to v4 |
-| 2026-08-16 | human | revised spec “The gate — what it measured, and why it is frozen” to v5 |
-| 2026-08-16 | human | revised spec “Specline — Technical Specification” to v8 |
-| 2026-08-16 | human | revised spec “Specline — Product Requirements Document” to v2 |
 
-*Showing the 200 most recent of 2151 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2155 changes. Use `specline_activity` for the rest.*
 
