@@ -1,15 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T09:10:47Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T09:31:37Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (266)
+## Closed work (267)
 
 ### 2026-08-18
+
+- **KEEL-298** Cut 0.3.0 — the tool rename, the next page, and the h2 advisory — `done`
+
+  0.3.0 is tagged, published and installed. All three targets built, the installer and attestations went out, and `latest` resolves to v0.3.0.
+  
+  Verified against what was published rather than the workflow's exit code, which is how the release-notes gap turned up. The live daemon serves thirteen tools with `specline_next` present and `specline_ready` absent, `specline next` works and `specline ready` still works as an alias, and doctor reports 0 problems across 14 checks.
+  
+  The compatibility floor moved to 0.3.0 on both halves of the handshake. A 0.2.x plugin's skill names the removed tool, which is the case `MIN_PLUGIN_VERSION`'s own comment asks the floor to be raised for. The schema did not move, so `specline update` applied without asking and nothing rewrote a row.
+  
+  Two things came out of the release rather than going into it. `contracts/BREAKING.md` claims its entries reach the release notes and nothing carries them there, so v0.3.0 published with the removed tool unannounced until the notes were amended by hand — that is KEEL-299. And doctor pointed out the store had never been backed up, which it now has been.
+
+  <sub>commit:78b449d · url:https://github.com/kiritbasu/specline/releases/tag/v0.3.0 · test:cargo test --workspace</sub>
 
 - **KEEL-297** h2 advisory turns CI red, and it is in the daemon's own serving path — `done`
 
@@ -1164,6 +1176,14 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → (112 characters) |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (1130 characters) |
+| 2026-08-18 | claude | created task “BREAKING.md says its entries reach the release notes, and nothing carries them there” |
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T09:12:17.340276Z |
 | 2026-08-18 | claude | created task “Cut 0.3.0 — the tool rename, the next page, and the h2 advisory” |
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → (83 characters) |
@@ -1356,14 +1376,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | close_message none → (317 characters) |
 | 2026-08-16 | claude | status todo → in_progress |
 | 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
-| 2026-08-16 | claude | claimed_at none → 2026-08-16T15:10:17.361755Z |
-| 2026-08-16 | claude | created task “A 400 from the daemon's generate endpoint is reported as a timeout” |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:6c5e4ef","test:cargo test -p specline --test plugin"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (278 characters) |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:c5acb64","url:http://127.0.0.1:7654/api/health"] |
 
-*Showing the 200 most recent of 2164 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2172 changes. Use `specline_activity` for the rest.*
 
