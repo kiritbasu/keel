@@ -268,7 +268,7 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
     // Which milestones are open, by id. This is the only signal on a task that
     // carries a person's intent about what matters now, so it decides the
     // groups — see B-83 for why `blocks` and priority could not.
-    let active_milestones: std::collections::HashSet<EntityId> = store
+    let active_milestones: std::collections::HashMap<EntityId, String> = store
         .list(
             &crate::EntityQuery::default()
                 .of_type(EntityType::Milestone)
@@ -277,7 +277,9 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
         .items
         .iter()
         .filter_map(|e| match e {
-            Entity::Milestone(m) if m.status == crate::MilestoneStatus::Open => Some(m.id.clone()),
+            Entity::Milestone(m) if m.status == crate::MilestoneStatus::Open => {
+                Some((m.id.clone(), short_phase(&m.name)))
+            }
             _ => None,
         })
         .collect();
@@ -359,11 +361,12 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
                 why: "a decision, not work — nothing can start until it is made".to_owned(),
             });
         } else {
-            let in_active = task
+            let phase = task
                 .milestone_id
                 .as_ref()
-                .is_some_and(|m| active_milestones.contains(m));
-            let group = if in_active {
+                .and_then(|m| active_milestones.get(m))
+                .map(String::as_str);
+            let group = if phase.is_some() {
                 ReadyGroup::Active
             } else if task.kind == TaskKind::Bug {
                 ReadyGroup::Bug
@@ -373,6 +376,7 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
             let why = reason(
                 unblocks,
                 group,
+                phase,
                 days_waiting(task.audit.created_at, now),
                 task.priority.as_str(),
             );
@@ -560,6 +564,23 @@ const fn group_rank(group: ReadyGroup) -> u8 {
     }
 }
 
+/// The part of a milestone's name a person says out loud.
+///
+/// "Phase 8 — The working loop" becomes "Phase 8". A reason is one line beside
+/// a task title, and the subtitle is the half that does not fit. A name with no
+/// dash is returned whole rather than cut at some character count: a phrase
+/// truncated mid-word reads worse than the generic wording it replaced.
+fn short_phase(name: &str) -> String {
+    name.split(" — ")
+        .next()
+        .unwrap_or(name)
+        .split(" - ")
+        .next()
+        .unwrap_or(name)
+        .trim()
+        .to_owned()
+}
+
 /// Whole days between two instants, floored at zero.
 fn days_waiting(created: DateTime<Utc>, now: DateTime<Utc>) -> i64 {
     (now - created).num_days().max(0)
@@ -572,14 +593,27 @@ fn days_waiting(created: DateTime<Utc>, now: DateTime<Utc>) -> i64 {
 /// so it was the definition of the page repeated 29 times and told a reader
 /// nothing about the order. A reason has to differ between rows or it is not a
 /// reason, and the test beside this one asserts exactly that.
-fn reason(unblocks: usize, group: ReadyGroup, days: i64, priority: &str) -> String {
+fn reason(
+    unblocks: usize,
+    group: ReadyGroup,
+    phase: Option<&str>,
+    days: i64,
+    priority: &str,
+) -> String {
     let waited = match days {
         0 => "today".to_owned(),
         1 => "waiting a day".to_owned(),
         n => format!("waiting {n} days"),
     };
     let head = match (unblocks, group) {
-        (0, ReadyGroup::Active) => format!("in an active phase · {waited}"),
+        // Named, because the lead group sorts first and so every row at the top
+        // of any list is in one. "in an active phase" was therefore printed on
+        // all of them and separated none of them — the same tautology B-83
+        // removed, one level down. The phase is what actually differs.
+        (0, ReadyGroup::Active) => match phase {
+            Some(name) => format!("in {name} · {waited}"),
+            None => format!("in an active phase · {waited}"),
+        },
         (0, ReadyGroup::Bug) => format!("a bug, in no phase · {waited}"),
         (0, ReadyGroup::Rest) => format!("in no phase · {waited}"),
         (1, _) => format!("unblocks 1 other task · {waited}"),
@@ -642,9 +676,9 @@ mod tests {
     /// tautology.
     #[test]
     fn the_reason_differs_between_the_groups() {
-        let active = reason(0, ReadyGroup::Active, 3, "p2");
-        let bug = reason(0, ReadyGroup::Bug, 3, "p2");
-        let rest = reason(0, ReadyGroup::Rest, 3, "p2");
+        let active = reason(0, ReadyGroup::Active, Some("Phase 8"), 3, "p2");
+        let bug = reason(0, ReadyGroup::Bug, None, 3, "p2");
+        let rest = reason(0, ReadyGroup::Rest, None, 3, "p2");
         assert_ne!(active, bug);
         assert_ne!(bug, rest);
         assert_ne!(active, rest);
@@ -655,8 +689,8 @@ mod tests {
     #[test]
     fn two_rows_in_one_group_still_read_differently_by_age() {
         assert_ne!(
-            reason(0, ReadyGroup::Rest, 1, "p2"),
-            reason(0, ReadyGroup::Rest, 9, "p2")
+            reason(0, ReadyGroup::Rest, None, 1, "p2"),
+            reason(0, ReadyGroup::Rest, None, 9, "p2")
         );
     }
 
@@ -664,15 +698,18 @@ mod tests {
     /// than age. This store has none, but another might.
     #[test]
     fn unblocking_still_leads_the_reason_where_it_is_real() {
-        assert!(reason(2, ReadyGroup::Rest, 4, "p2").starts_with("unblocks 2 other tasks"));
-        assert!(reason(1, ReadyGroup::Active, 0, "p2").starts_with("unblocks 1 other task"));
+        assert!(reason(2, ReadyGroup::Rest, None, 4, "p2").starts_with("unblocks 2 other tasks"));
+        assert!(
+            reason(1, ReadyGroup::Active, Some("Phase 8"), 0, "p2")
+                .starts_with("unblocks 1 other task")
+        );
     }
 
     #[test]
     fn waiting_reads_as_a_person_would_say_it() {
-        assert!(reason(0, ReadyGroup::Rest, 0, "p2").ends_with("today"));
-        assert!(reason(0, ReadyGroup::Rest, 1, "p2").ends_with("waiting a day"));
-        assert!(reason(0, ReadyGroup::Rest, 5, "p2").ends_with("waiting 5 days"));
+        assert!(reason(0, ReadyGroup::Rest, None, 0, "p2").ends_with("today"));
+        assert!(reason(0, ReadyGroup::Rest, None, 1, "p2").ends_with("waiting a day"));
+        assert!(reason(0, ReadyGroup::Rest, None, 5, "p2").ends_with("waiting 5 days"));
     }
 
     /// A clock that has stepped backwards must not produce "waiting -2 days".
@@ -682,13 +719,48 @@ mod tests {
         assert_eq!(days_waiting(day(3), Utc::now()), 3);
     }
 
+    /// The whole point of naming it: two rows in the lead group used to read
+    /// identically, and the phase is what separates them.
+    #[test]
+    fn two_rows_in_different_phases_read_differently() {
+        assert_ne!(
+            reason(0, ReadyGroup::Active, Some("Phase 10"), 3, "p2"),
+            reason(0, ReadyGroup::Active, Some("Phase 11"), 3, "p2")
+        );
+        assert!(
+            reason(0, ReadyGroup::Active, Some("Phase 10"), 3, "p2").starts_with("in Phase 10")
+        );
+    }
+
+    /// A task can be in the lead group with the name unavailable. Falling back
+    /// to the old wording beats printing "in  · waiting 3 days".
+    #[test]
+    fn a_phase_with_no_name_falls_back_rather_than_printing_a_gap() {
+        assert_eq!(
+            reason(0, ReadyGroup::Active, None, 3, "p2"),
+            "in an active phase · waiting 3 days"
+        );
+    }
+
+    #[test]
+    fn a_phase_name_loses_its_subtitle_and_nothing_else() {
+        assert_eq!(short_phase("Phase 8 — The working loop"), "Phase 8");
+        assert_eq!(short_phase("Phase 10 - Release"), "Phase 10");
+        // No dash, so nothing to drop. Cutting at a character count would read
+        // worse than the generic phrase this replaced.
+        assert_eq!(short_phase("Invoicing"), "Invoicing");
+        assert_eq!(short_phase("  Metering v1  "), "Metering v1");
+        // A dash inside a word is not a subtitle marker.
+        assert_eq!(short_phase("Read-only surfaces"), "Read-only surfaces");
+    }
+
     /// The default is on almost every row, so showing it is how "· p2" became
     /// noise. Anything else is a deliberate mark and worth the space.
     #[test]
     fn priority_shows_only_when_somebody_set_it() {
-        assert!(!reason(0, ReadyGroup::Rest, 2, "p2").contains("p2"));
-        assert!(reason(0, ReadyGroup::Rest, 2, "p0").ends_with("· p0"));
-        assert!(reason(0, ReadyGroup::Active, 2, "p3").ends_with("· p3"));
+        assert!(!reason(0, ReadyGroup::Rest, None, 2, "p2").contains("p2"));
+        assert!(reason(0, ReadyGroup::Rest, None, 2, "p0").ends_with("· p0"));
+        assert!(reason(0, ReadyGroup::Active, Some("Phase 8"), 2, "p3").ends_with("· p3"));
     }
 
     #[test]

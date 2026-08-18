@@ -296,8 +296,17 @@ export function BoardScreen({
             narrowed the board to look at something else. */}
         {ready && ready.length > 0 && (
           <section className="mb-4 shrink-0 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2.5">
-            <h2 className="mb-1.5 text-micro font-semibold tracking-wide text-accent uppercase">
+            <h2 className="mb-1.5 flex items-baseline justify-between text-micro font-semibold tracking-wide text-accent uppercase">
               Next
+              {/* The strip is the top three of the same ranking the full page
+                  shows grouped, with counts and the rest of the queue. Until
+                  now there was no way through to it from here. */}
+              <a
+                href={href({ screen: "next", project })}
+                className="normal-case tracking-normal hover:underline"
+              >
+                What&rsquo;s next &rarr;
+              </a>
             </h2>
             <ol className="space-y-1">
               {ready.slice(0, 3).map((item, i) => (
