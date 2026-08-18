@@ -1,15 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T21:52:57Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T21:55:51Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (274)
+## Closed work (276)
 
 ### 2026-08-18
+
+- **KEEL-313** A card shows the same word twice when a label repeats the kind — `done`
+
+  Fixed on the card rather than in the data: a label is not drawn when it repeats the kind badge beside it, so `p2 · bug · bug` is now `p2 · bug`. Cleaning the rows instead would have left the card able to do it again the next time somebody tags a bug `bug`. The label is only dropped while the kind badge is actually there — with kind `task` no kind badge is drawn, so a `task` label is the only thing saying it and survives. Both cases tested, checked by removing the filter and watching the first fail.
+
+  <sub>commit:b03083e · test:cd apps/desktop && npx vitest run src/screens/Board.test.tsx</sub>
+
+- **KEEL-311** remove 8a 8b labels — `done`
+
+  The phase-section labels are off all 29 tasks that carried them — `8a 8b 8c 8e 8f 8g 9a 9b 9c` — so the picker no longer offers them and 68 labels remain. They only led the suggestion list because digits sort before letters. Nothing was lost: 27 of the 29 have a milestone, the two that do not carry the section in their title, and every one of the 29 also carries `phase8` or `phase9`. Worth knowing for later: the suggestions with nothing typed are still just the alphabetically first eight, which is why this looked broken in the first place — ordering them by use is a behaviour change and a separate row if you want it.
+
+  <sub>commit:b03083e · url:http://127.0.0.1:7654/#/projects/specline/board</sub>
 
 - **KEEL-312** On an alias URL the app loses every task reference and the project's own words — `done`
 
@@ -1228,6 +1240,14 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | status todo → done |
+| 2026-08-18 | claude | evidence [] → (86 characters) |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (503 characters) |
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → ["commit:b03083e","url:http://127.0.0.1:7654/#/projects/specline/board"] |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (624 characters) |
 | 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
 | 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
 | 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
@@ -1420,14 +1440,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | status todo → in_progress |
 | 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
 | 2026-08-18 | claude | claimed_at none → 2026-08-18T06:31:31.511925Z |
-| 2026-08-18 | claude | created task “The session headline counts field writes instead of saying what happened” |
-| 2026-08-18 | claude | created task “Ready numbers 29 tasks by a ranking that has nothing to rank on” |
-| 2026-08-18 | claude | revised decision “Ready ranks on signals that cannot decay” to v1 |
-| 2026-08-18 | claude | created decision “Ready ranks on signals that cannot decay” |
-| 2026-08-17 | claude | status todo → in_progress |
-| 2026-08-17 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
-| 2026-08-17 | claude | claimed_at none → 2026-08-17T13:31:26.443419Z |
-| 2026-08-17 | claude | created task “Dependabot flags a vulnerability in the Tauri shell, which nothing builds any more” |
 
-*Showing the 200 most recent of 2288 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2296 changes. Use `specline_activity` for the rest.*
 
