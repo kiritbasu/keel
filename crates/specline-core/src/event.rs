@@ -209,11 +209,33 @@ pub fn render_field_value(field: &str, value: &serde_json::Value) -> String {
 
     // `chars`, not `len`: truncating a UTF-8 string by bytes splits characters,
     // and half the titles in this store contain an em dash.
-    let characters = text.chars().count();
-    if PROSE_FIELDS.contains(&field) || characters > SUMMARY_VALUE_LIMIT {
-        return format!("({characters} characters)");
+    if elides(field, &text) {
+        return format!("({} characters)", text.chars().count());
     }
     text
+}
+
+/// Whether [`render_field_value`] would replace this value with its size.
+///
+/// The predicate both callers share, so "will this render as prose or as a
+/// number" cannot drift from the answer. The change feed asks *before*
+/// rendering, because it collapses a row it could otherwise only describe as
+/// "(1852 characters) → (800 characters)" — and finding that out by matching on
+/// the rendered string would mean parsing text written for a person (KEEL-300).
+///
+/// Null is not elided: it renders as "none", which says what happened and
+/// reveals nothing.
+pub fn is_elided(field: &str, value: &serde_json::Value) -> bool {
+    match value {
+        serde_json::Value::Null => false,
+        serde_json::Value::String(s) => elides(field, s),
+        other => elides(field, &other.to_string()),
+    }
+}
+
+/// The rule itself, over text already extracted from the value.
+fn elides(field: &str, text: &str) -> bool {
+    PROSE_FIELDS.contains(&field) || text.chars().count() > SUMMARY_VALUE_LIMIT
 }
 
 /// A request to append an event, before the id and timestamp are minted.

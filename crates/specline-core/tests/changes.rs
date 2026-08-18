@@ -397,3 +397,219 @@ fn a_session_that_only_edited_rows_is_not_called_nothing() {
         group.headline
     );
 }
+
+// ---------------------------------------------------------------------------
+// One row per action (KEEL-300).
+//
+// The feed showed a field write per row, so one close was four rows and one
+// claim three — and two of the close's four could only say how many characters
+// had moved. These assert the rows now count acts, and that collapsing them did
+// not become an excuse to print what the renderer refuses to.
+// ---------------------------------------------------------------------------
+
+/// The four events of a close are one thing a person did.
+#[test]
+fn a_close_is_one_row_rather_than_four() {
+    let mut f = setup();
+    let prov = session("ses_close");
+    let task = f.task("A task to finish", &prov);
+    f.close(&task, &prov);
+
+    let log = f.log(f.scoped());
+    let group = log
+        .sessions
+        .iter()
+        .find(|s| s.session_id.as_deref() == Some("ses_close"))
+        .expect("the closing session");
+    let fields: Vec<&specline_core::Change> = group
+        .changes
+        .iter()
+        .filter(|c| c.kind == ChangeKind::Field)
+        .collect();
+
+    assert_eq!(
+        fields.len(),
+        1,
+        "a close writes status, close_reason, close_message and evidence, and it is one act: {:?}",
+        fields.iter().map(|c| &c.summary).collect::<Vec<_>>()
+    );
+    assert_eq!(fields[0].summary, "closed as done");
+    assert_eq!(
+        fields[0].field.as_deref(),
+        Some("close_reason"),
+        "the headline counts closes by this field, so a collapsed row has to keep carrying it"
+    );
+}
+
+/// A claim is one row, and says so in words rather than in a session id.
+#[test]
+fn a_claim_is_one_row_and_never_prints_the_session_id() {
+    let mut f = setup();
+    let prov = session("ses_claim");
+    let task = f.task("A task to pick up", &prov);
+    specline_core::work::claim(&mut f.store, &task, false, &prov).unwrap();
+
+    let log = f.log(f.scoped());
+    let group = log
+        .sessions
+        .iter()
+        .find(|s| s.session_id.as_deref() == Some("ses_claim"))
+        .expect("the claiming session");
+    let fields: Vec<&specline_core::Change> = group
+        .changes
+        .iter()
+        .filter(|c| c.kind == ChangeKind::Field)
+        .collect();
+
+    assert_eq!(
+        fields.len(),
+        1,
+        "a claim writes three fields and is one act"
+    );
+    assert_eq!(fields[0].summary, "claimed");
+    assert!(
+        !fields[0].summary.contains("ses_"),
+        "a session id is not something a person reads: {}",
+        fields[0].summary
+    );
+}
+
+/// The failure this whole rendering exists to prevent, through the new path.
+///
+/// A body was once redacted and then republished into the committed changelog
+/// by the very edit that removed it (KEEL-215). Collapsing rows must drop a
+/// value the renderer refuses to quote, never take the collapse as licence to
+/// quote it — so the close message goes in with a string that must not come
+/// back out.
+#[test]
+fn a_collapsed_close_never_quotes_the_message_it_was_written_with() {
+    let mut f = setup();
+    let prov = session("ses_secret");
+    let task = f.task("A task with a careless close", &prov);
+    let secret = "/Users/someone/private/path";
+    specline_core::work::close(
+        &mut f.store,
+        &task,
+        &Close {
+            reason: CloseReason::Done,
+            message: format!("Fixed it, the file was at {secret} which nobody should read."),
+            evidence: vec!["commit:abc1234".to_owned()],
+            other: None,
+        },
+        &prov,
+    )
+    .unwrap();
+
+    let log = f.log(f.scoped());
+    for group in &log.sessions {
+        for change in &group.changes {
+            assert!(
+                !change.summary.contains(secret),
+                "a collapsed row published the close message: {}",
+                change.summary
+            );
+        }
+    }
+}
+
+/// A lone prose edit names the field rather than measuring it.
+#[test]
+fn a_body_rewrite_says_which_field_moved_not_how_big_it_was() {
+    let mut f = setup();
+    let prov = session("ses_body");
+    let task = f.task("A task whose body grows", &prov);
+    let mut changes = serde_json::Map::new();
+    changes.insert(
+        "body".to_owned(),
+        serde_json::Value::String("x".repeat(1_852)),
+    );
+    let version = f.store.get(&task).unwrap().unwrap().audit().version;
+    f.store.update(&task, version, &changes, &prov).unwrap();
+
+    let log = f.log(f.scoped());
+    let summaries: Vec<String> = log
+        .sessions
+        .iter()
+        .flat_map(|s| s.changes.iter())
+        .filter(|c| c.kind == ChangeKind::Field)
+        .map(|c| c.summary.clone())
+        .collect();
+
+    assert!(
+        summaries.iter().any(|s| s == "body changed"),
+        "expected the field named, got {summaries:?}"
+    );
+    assert!(
+        !summaries.iter().any(|s| s.contains("characters")),
+        "a size is not what changed: {summaries:?}"
+    );
+}
+
+/// Picking up somebody else's task is not the same event as claiming a free
+/// one, and the row should not say it is.
+#[test]
+fn a_takeover_reads_differently_from_a_first_claim() {
+    let mut f = setup();
+    let first = session("ses_first");
+    let second = session("ses_second");
+    let task = f.task("A contested task", &first);
+    specline_core::work::claim(&mut f.store, &task, false, &first).unwrap();
+    specline_core::work::claim(&mut f.store, &task, true, &second).unwrap();
+
+    let log = f.log(f.scoped());
+    let taken = log
+        .sessions
+        .iter()
+        .find(|s| s.session_id.as_deref() == Some("ses_second"))
+        .expect("the taking session");
+    let summaries: Vec<String> = taken.changes.iter().map(|c| c.summary.clone()).collect();
+
+    assert!(
+        summaries.iter().any(|s| s == "taken over"),
+        "expected a takeover to say so, got {summaries:?}"
+    );
+}
+
+/// An id is as unreadable as a size, and passes every test the redaction rule
+/// applies — it is short, and it is not prose.
+#[test]
+fn a_row_never_shows_a_bare_identifier() {
+    let mut f = setup();
+    let prov = session("ses_move");
+    let task = f.task("A task that joins a phase", &prov);
+    let milestone = f
+        .store
+        .create(
+            specline_core::Milestone::new(f.project.clone(), "Phase 11", "Hardening").into(),
+            &prov,
+        )
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+
+    let mut changes = serde_json::Map::new();
+    changes.insert(
+        "milestone_id".to_owned(),
+        serde_json::Value::String(milestone.to_string()),
+    );
+    let version = f.store.get(&task).unwrap().unwrap().audit().version;
+    f.store.update(&task, version, &changes, &prov).unwrap();
+
+    let summaries: Vec<String> = f
+        .log(f.scoped())
+        .sessions
+        .iter()
+        .flat_map(|s| s.changes.iter())
+        .map(|c| c.summary.clone())
+        .collect();
+
+    assert!(
+        !summaries.iter().any(|s| s.contains(&milestone.to_string())),
+        "a row published a raw id: {summaries:?}"
+    );
+    assert!(
+        summaries.iter().any(|s| s == "milestone id changed"),
+        "expected the field named, got {summaries:?}"
+    );
+}

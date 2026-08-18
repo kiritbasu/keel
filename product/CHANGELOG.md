@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T09:31:37Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T12:15:07Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1176,6 +1176,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T11:57:53.402483Z |
+| 2026-08-18 | claude | created task “What changed shows field writes where a person did one thing” |
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → (112 characters) |
 | 2026-08-18 | claude | close_reason none → done |
@@ -1372,10 +1376,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | human | revised spec “Specline — Technical Specification” to v9 |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → ["commit:5423cd9","test:scripts/check-rename.sh"] |
-| 2026-08-16 | claude | close_reason none → done |
-| 2026-08-16 | claude | close_message none → (317 characters) |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
 
-*Showing the 200 most recent of 2172 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2176 changes. Use `specline_activity` for the rest.*
 
