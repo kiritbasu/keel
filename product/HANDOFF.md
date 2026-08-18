@@ -12,7 +12,7 @@
 
 Specline is a local-first store for everything that describes a software project other than the code: PRDs, specs, decisions, tasks, bugs, milestones, roadmap, design artifacts, environments, metrics, risks, and customer feedback.
 
-It has two faces. **An MCP server** is the primary interface — Claude reads and writes to it constantly from chat, Cowork, and Claude Code. **A Tauri desktop app** is the secondary interface — a human read/search surface.
+It has two faces. **An MCP server** is the primary interface — Claude reads and writes to it constantly from chat, Cowork, and Claude Code. **A local web app** is the secondary interface — a human read/search surface, compiled into the daemon and served by it, which is why `specline ui` needs no Node and no second process. A Tauri shell was the original plan and is suspended (B-39).
 
 Read `product/PRD.md` for what and why. Read `product/SPEC.md` for how. Both are detailed and both have been adversarially audited; treat them as authoritative unless you find a defect, in which case see "When the spec is wrong" below.
 

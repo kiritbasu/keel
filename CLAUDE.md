@@ -1,6 +1,6 @@
 # Specline
 
-Local-first store for everything that describes a software project other than the code — specs, decisions, tasks, roadmap, design, feedback — with an MCP server as the primary interface and a Tauri desktop app as the read surface.
+Local-first store for everything that describes a software project other than the code — specs, decisions, tasks, roadmap, design, feedback — with an MCP server as the primary interface and a local web app, served by the daemon, as the read surface.
 
 **All product documentation lives in `product/`.** Start there.
 

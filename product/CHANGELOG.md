@@ -1,15 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T07:43:42Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T08:48:28Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (263)
+## Closed work (264)
 
 ### 2026-08-18
+
+- **KEEL-290** Dependabot flags a vulnerability in the Tauri shell, which nothing builds any more — `done`
+
+  Dismissed on GitHub as `not_used`, with the reasoning in the dismissal comment. Zero open alerts now, so the security tab stops being permanently red over a crate nothing builds.
+  
+  The row assumed the fix would be a lockfile bump, and that turned out to be impossible: `tauri 2.11.5` depends on `gtk 0.18.2`, which requires `glib ^0.18`, and gtk 0.18 is the last release of the gtk3 bindings. A full `cargo update` moved nothing. Waiting for a patched glib means waiting for tauri to move to the gtk4 stack.
+  
+  `not_used` is accurate rather than convenient, and I checked all three legs before claiming it: `apps/desktop/src-tauri` is excluded from the workspace by name in the root Cargo.toml, `build.rs` refuses to build without `SPECLINE_DESKTOP=1`, and `src/main.rs` names neither glib nor gtk. The unsound iterator is Linux GTK code in a crate that is never compiled on any platform we ship.
+  
+  B-39 stands and the shell keeps its option. If it is ever un-suspended this needs revisiting, which is why the dismissal comment says so rather than just calling it unused.
+
+  <sub>url:https://github.com/kiritbasu/specline/security/dependabot/2</sub>
 
 - **KEEL-295** The next strip says "in an active phase" when it could name the phase — `done`
 
@@ -1134,6 +1146,15 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | human | revised spec “Specline — Handoff to Claude Code” to v4 |
+| 2026-08-18 | claude | status todo → in_progress |
+| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
+| 2026-08-18 | claude | claimed_at none → 2026-08-18T08:47:21.293597Z |
+| 2026-08-18 | claude | created task “The orientation docs still call the read surface a Tauri desktop app” |
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → ["url:https://github.com/kiritbasu/specline/security/dependabot/2"] |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (1067 characters) |
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → ["commit:16706af","test:cargo test -p specline-core --lib next"] |
 | 2026-08-18 | claude | close_reason none → done |
@@ -1325,15 +1346,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | human | revised spec “The gate — what it measured, and why it is frozen” to v5 |
 | 2026-08-16 | human | revised spec “Specline — Technical Specification” to v8 |
 | 2026-08-16 | human | revised spec “Specline — Product Requirements Document” to v2 |
-| 2026-08-16 | human | revised spec “Specline — Handoff to Claude Code” to v3 |
-| 2026-08-16 | human | revised spec “Specline — standing instructions” to v15 |
-| 2026-08-16 | claude | title Keel — Build journal → Specline — Build journal |
-| 2026-08-16 | claude | title Keel — standing instructions → Specline — standing instructions |
-| 2026-08-16 | claude | title Keel — Handoff to Claude Code → Specline — Handoff to Claude Code |
-| 2026-08-16 | claude | title Keel — Product Requirements Document → Specline — Product Requirements Document |
-| 2026-08-16 | claude | title Keel — Technical Specification → Specline — Technical Specification |
-| 2026-08-16 | claude | status todo → in_progress |
-| 2026-08-16 | claude | claimed_by none → ses_7fae5aed-ebef-4ecc-87fd-b844288aa316 |
 
-*Showing the 200 most recent of 2142 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2151 changes. Use `specline_activity` for the rest.*
 
