@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T18:58:19Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T18:58:39Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (271)
+## Closed work (272)
 
 ### 2026-08-18
+
+- **KEEL-309** No mutating route carries CORS, and the comment on the layer says it does — `done`
+
+  Resolved by the second of the two the row allowed: the comments now say plainly that mutating routes are outside the CORS layer and why, and `tests/cors.rs` asserts it — reads reachable from another local origin, writes not, lookalike origins refused. Kept rather than corrected because nothing needs cross-origin writes and covering them would let any local dev server attempt one; the reasoning is B-89. The write test was checked by moving `.merge(guarded)` above the layer and watching it fail. Also recorded, because nothing said it anywhere: cross-origin reads are open to any local origin, which is what the layer was built to do — if that is not wanted it is a separate decision and the fix is to drop the layer.
+
+  <sub>commit:bf21f50 · doc:dec_01M0B3HDB61W4VFBWJDX2PADCR · test:cargo test -p specline-daemon --test cors</sub>
 
 - **KEEL-308** Drag a card between board columns to move its status — `done`
 
@@ -1210,6 +1216,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → (104 characters) |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (720 characters) |
 | 2026-08-18 | claude | “No mutating route carries CORS, and the comment on the…” references “Writes are same-origin only, and that stops being an…” |
 | 2026-08-18 | claude | revised decision “Writes are same-origin only, and that stops being an accident” to v1 |
 | 2026-08-18 | claude | created decision “Writes are same-origin only, and that stops being an accident” |
@@ -1406,10 +1416,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | title Should Keel write a CLAUDE.md into a user's repository, and on whose say-so? → Should Specline write a CLAUDE.md into a user's repository, and on whose say-so? |
 | 2026-08-16 | claude | title (90 characters) → (94 characters) |
 | 2026-08-16 | claude | title What should Keel measure, and should it measure anything by itself? → What should Specline measure, and should it measure anything by itself? |
-| 2026-08-16 | claude | summary (263 characters) → (267 characters) |
-| 2026-08-16 | claude | definition (974 characters) → (986 characters) |
-| 2026-08-16 | claude | definition (87 characters) → (91 characters) |
-| 2026-08-16 | claude | definition (94 characters) → (98 characters) |
 
-*Showing the 200 most recent of 2228 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2232 changes. Use `specline_activity` for the rest.*
 
