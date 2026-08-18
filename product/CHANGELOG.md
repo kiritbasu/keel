@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T18:21:12Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T18:21:31Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (269)
+## Closed work (270)
 
 ### 2026-08-18
+
+- **KEEL-307** A task's fields cannot be changed once it exists — `done`
+
+  Status, priority, kind, phase and labels are editable on an existing task, through `PATCH /api/tasks/{id}` — five named fields and a version, so a document body is unreachable by construction rather than by a rule. Terminal statuses still go through the Close form and `in_progress` is refused because a claim records who; leaving `in_progress` releases the claim. Verified against a real daemon on a fixture store: each field written and read back, provenance `human` / `ui` with no invented session, the change visible in the history feed, and a closed task showing its status as a badge while the rest stayed editable. The endpoint's shape and the three refusals are B-87. Board drag is KEEL-308; the CORS finding is KEEL-309.
+
+  <sub>commit:a9b5404 · doc:dec_01M0B18PA7WYJ57E5P5HZBD712 · test:cargo test -p specline-daemon --test ui_writes · test:cd apps/desktop && npx vitest run</sub>
 
 - **KEEL-304** adding a new label in New Task doesn't add it — `done`
 
@@ -1198,6 +1204,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → (150 characters) |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (729 characters) |
 | 2026-08-18 | claude | created task “No mutating route carries CORS, and the comment on the layer says it does” |
 | 2026-08-18 | claude | “A task's fields cannot be changed once it exists” references “The interface changes a task's fields through one narrow…” |
 | 2026-08-18 | claude | revised decision “The interface changes a task's fields through one narrow endpoint, and three statuses are not among them” to v1 |
@@ -1394,10 +1404,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | summary (300 characters) → (304 characters) |
 | 2026-08-16 | claude | body (1245 characters) → (1249 characters) |
 | 2026-08-16 | claude | summary (288 characters) → (292 characters) |
-| 2026-08-16 | claude | body (1852 characters) → (1880 characters) |
-| 2026-08-16 | claude | summary (1301 characters) → (1305 characters) |
-| 2026-08-16 | claude | body (1011 characters) → (1031 characters) |
-| 2026-08-16 | claude | body (863 characters) → (871 characters) |
 
-*Showing the 200 most recent of 2208 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2212 changes. Use `specline_activity` for the rest.*
 
