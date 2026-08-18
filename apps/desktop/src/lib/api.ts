@@ -248,6 +248,8 @@ export interface NextItem {
   title: string;
   priority: string;
   unblocks: number;
+  /** Which bucket it belongs in: an open phase, a bug, or everything else. */
+  group: "active" | "bug" | "rest";
   why: string;
 }
 

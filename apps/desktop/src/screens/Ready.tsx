@@ -46,6 +46,24 @@ function shortName(name: string): string {
   return name.split(/\s+[—–-]\s+/)[0]?.trim() ?? name;
 }
 
+/**
+ * The buckets, in the order they are shown.
+ *
+ * Ready used to be one list numbered 1 to 29, which implied an ordering its
+ * inputs could not support: `unblocks` was 0 on every open task and priority
+ * was p2 on most of them (B-83). Grouping puts the judgement where it actually
+ * is — which bucket leads — instead of pretending row 14 was ranked above row
+ * 15.
+ */
+const GROUPS = [
+  { id: "active", label: "In an active phase" },
+  { id: "bug", label: "Bugs" },
+  { id: "rest", label: "Everything else, oldest first" },
+] as const;
+
+/** How many lead the page. Enough to check, few enough to read. */
+const NEXT_UP = 3;
+
 export function ReadyScreen({ route, generation }: ScreenProps) {
   const project = route.project;
   // The filters live in the address, so a filtered view is a link — the same
@@ -82,6 +100,27 @@ export function ReadyScreen({ route, generation }: ScreenProps) {
   }
 
   const items = data?.ready ?? [];
+  // The lead is the front of the same ordering, not a second computation — the
+  // CLI, the MCP tool and this screen have to agree, and a separate rule here
+  // is how they would stop agreeing.
+  const nextUp = items.slice(0, NEXT_UP);
+  const rest = items.slice(NEXT_UP);
+
+  const row = (item: NextItem) => (
+    <li key={item.id}>
+      <a
+        href={href({ screen: "task", project, taskId: item.reference || item.id })}
+        className="block rounded-card border border-border-subtle bg-surface-raised px-3 py-2.5 hover:border-accent"
+      >
+        <div className="flex items-baseline gap-2">
+          <Id value={item.reference} />
+          <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>
+          <Badge tone={priorityTone(item.priority)}>{item.priority}</Badge>
+        </div>
+        <div className="mt-0.5 text-small text-ink-muted">{item.why}</div>
+      </a>
+    </li>
+  );
   const names = new Map(
     (milestones.data?.items ?? []).map((m) => [String(m.id), String(m.name ?? "")]),
   );
@@ -92,7 +131,11 @@ export function ReadyScreen({ route, generation }: ScreenProps) {
       crumbs={projectCrumbs(route, "Ready")}
       meta={
         <span className="text-small text-ink-faint">
-          {data?.total ?? 0} ready · ordered by what each one unblocks
+          {/* Not "ordered by what each one unblocks" any more. That was a claim
+              the data could not support — `unblocks` is 0 on every open task
+              here — and stating it was what made the list impossible to
+              audit (B-83). */}
+          {data?.total ?? 0} ready · grouped, then oldest first
         </span>
       }
     >
@@ -128,6 +171,13 @@ export function ReadyScreen({ route, generation }: ScreenProps) {
         )}
       </div>
 
+      {nextUp.length > 0 && (
+        <section className="mb-5">
+          <h2 className="mb-1.5 text-micro uppercase tracking-wide text-ink-faint">Next up</h2>
+          <ol className="space-y-1.5">{nextUp.map(row)}</ol>
+        </section>
+      )}
+
       {items.length === 0 ? (
         <Empty
           message="Nothing is ready."
@@ -138,32 +188,21 @@ export function ReadyScreen({ route, generation }: ScreenProps) {
           }
         />
       ) : (
-        <ol className="space-y-1.5">
-          {items.map((item, index) => (
-            <li key={item.id}>
-              <a
-                href={href({
-                  screen: "task",
-                  project,
-                  taskId: item.reference || item.id,
-                })}
-                className="block rounded-card border border-border-subtle bg-surface-raised px-3 py-2.5 hover:border-accent"
-              >
-                <div className="flex items-baseline gap-2">
-                  {/* The position, because "best first" is the whole claim and a
-                      list with no numbers makes the reader take it on trust. */}
-                  <span className="w-5 shrink-0 font-mono text-micro text-ink-faint">
-                    {index + 1}
-                  </span>
-                  <Id value={item.reference} />
-                  <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>
-                  <Badge tone={priorityTone(item.priority)}>{item.priority}</Badge>
-                </div>
-                <div className="mt-0.5 pl-7 text-small text-ink-muted">{item.why}</div>
-              </a>
-            </li>
-          ))}
-        </ol>
+        <div className="space-y-5">
+          {GROUPS.map(({ id, label }) => {
+            const rows = rest.filter((i) => i.group === id);
+            if (rows.length === 0) return null;
+            return (
+              <section key={id}>
+                <h2 className="mb-1.5 flex items-baseline gap-2 text-micro uppercase tracking-wide text-ink-faint">
+                  {label}
+                  <span className="text-ink-faint">{rows.length}</span>
+                </h2>
+                <ol className="space-y-1.5">{rows.map(row)}</ol>
+              </section>
+            );
+          })}
+        </div>
       )}
 
       {data?.truncated ? (

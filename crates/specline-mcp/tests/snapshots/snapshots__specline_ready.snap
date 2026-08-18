@@ -5,7 +5,7 @@ expression: result
 {
   "content": [
     {
-      "text": "1 ready, best first:\n- **HARB-1** Dedupe usage events by idempotency key — nothing is blocking it · p2\n\nClaim the one you pick with `specline_claim`.",
+      "text": "1 ready, best first:\n- **HARB-1** Dedupe usage events by idempotency key — in no phase · today\n\nClaim the one you pick with `specline_claim`.",
       "type": "text"
     }
   ],
@@ -13,12 +13,13 @@ expression: result
   "structuredContent": {
     "ready": [
       {
+        "group": "rest",
         "id": "[id]",
         "priority": "p2",
         "reference": "HARB-1",
         "title": "Dedupe usage events by idempotency key",
         "unblocks": 0,
-        "why": "nothing is blocking it · p2"
+        "why": "in no phase · today"
       }
     ],
     "total": 1,

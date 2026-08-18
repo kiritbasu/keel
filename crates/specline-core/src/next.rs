@@ -27,9 +27,10 @@
 //! drew rather than from a judgement this module invents.
 
 use crate::{
-    Entity, EntityId, EntityQuery, EntityStore, EntityType, GraphStore, Relation, Result,
+    Entity, EntityId, EntityQuery, EntityStore, EntityType, GraphStore, Relation, Result, TaskKind,
     TaskStatus,
 };
+use chrono::{DateTime, Utc};
 
 /// The label that marks a task as a decision someone has to make.
 ///
@@ -38,6 +39,29 @@ use crate::{
 /// expresses, and `product/CLAUDE.md` is explicit that a new type or field is
 /// almost always the wrong answer to an awkward modelling problem.
 pub const DECISION_LABEL: &str = "decision-needed";
+
+/// Which bucket a ready task belongs in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReadyGroup {
+    /// In a milestone that is currently open. The only signal carrying a
+    /// person's intent about what matters now.
+    Active,
+    /// A bug, in no active milestone. Broken beats unbuilt.
+    Bug,
+    /// Everything else, oldest first.
+    Rest,
+}
+
+impl ReadyGroup {
+    /// The word the CLI and the API use.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Bug => "bug",
+            Self::Rest => "rest",
+        }
+    }
+}
 
 /// One candidate, with the reason it is where it is.
 ///
@@ -59,6 +83,14 @@ pub struct Candidate {
     pub priority: String,
     /// How many open tasks this one is blocking.
     pub unblocks: usize,
+    /// Which bucket this belongs in: `active`, `bug`, or `rest`.
+    ///
+    /// Ready used to render one numbered list of everything, which implied an
+    /// ordering the inputs could not support — measured on this store,
+    /// `unblocks` was 0 on all 29 open tasks and priority was p2 on 21 of them
+    /// (B-83). Grouping lets the page be honest about where the real judgement
+    /// is, which is which group leads rather than which row is 14th.
+    pub group: ReadyGroup,
     /// One line on why it is ranked here, or what is in the way.
     pub why: String,
 }
@@ -229,6 +261,26 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
         page.items.iter().map(|e| (e.id(), e)).collect();
 
     let mut out = NextUp::default();
+    // Read once for the whole pass. Calling `now` per task would let two rows
+    // created a second apart fall into different day buckets depending on when
+    // the loop reached them.
+    let now = Utc::now();
+    // Which milestones are open, by id. This is the only signal on a task that
+    // carries a person's intent about what matters now, so it decides the
+    // groups — see B-83 for why `blocks` and priority could not.
+    let active_milestones: std::collections::HashSet<EntityId> = store
+        .list(
+            &crate::EntityQuery::default()
+                .of_type(EntityType::Milestone)
+                .limited(1_000),
+        )?
+        .items
+        .iter()
+        .filter_map(|e| match e {
+            Entity::Milestone(m) if m.status == crate::MilestoneStatus::Open => Some(m.id.clone()),
+            _ => None,
+        })
+        .collect();
     // Blockers from outside the task page, resolved once each rather than once
     // per task that names them.
     let mut fetched: std::collections::HashMap<EntityId, Option<Entity>> = Default::default();
@@ -293,6 +345,7 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
                 title: task.title.clone(),
                 priority,
                 unblocks,
+                group: ReadyGroup::Rest,
                 why: format!("blocked by {}", join_names(&blockers)),
             });
         } else if waiting {
@@ -302,23 +355,47 @@ pub fn rank(store: &(impl EntityStore + GraphStore), project_id: &EntityId) -> R
                 title: task.title.clone(),
                 priority,
                 unblocks,
+                group: ReadyGroup::Rest,
                 why: "a decision, not work — nothing can start until it is made".to_owned(),
             });
         } else {
+            let in_active = task
+                .milestone_id
+                .as_ref()
+                .is_some_and(|m| active_milestones.contains(m));
+            let group = if in_active {
+                ReadyGroup::Active
+            } else if task.kind == TaskKind::Bug {
+                ReadyGroup::Bug
+            } else {
+                ReadyGroup::Rest
+            };
+            let why = reason(
+                unblocks,
+                group,
+                days_waiting(task.audit.created_at, now),
+                task.priority.as_str(),
+            );
             out.ready.push(Candidate {
                 id: task.id.clone(),
                 reference: format!("{key}-{}", task.number),
                 title: task.title.clone(),
                 priority,
                 unblocks,
-                why: reason(unblocks, task.priority.as_str()),
+                group,
+                why,
             });
         }
     }
 
     out.ready.sort_by(|a, b| {
+        // `unblocks` still leads, for the stores where it means something. On
+        // this one it is 0 everywhere, so the group is what actually orders the
+        // list, and age is the last word — an id tiebreak looked like a ranking
+        // and was really just creation order wearing a number (B-83).
         b.unblocks
             .cmp(&a.unblocks)
+            .then_with(|| group_rank(a.group).cmp(&group_rank(b.group)))
             .then_with(|| a.priority.cmp(&b.priority))
             .then_with(|| a.id.as_str().cmp(b.id.as_str()))
     });
@@ -463,12 +540,50 @@ pub fn ready(
     })
 }
 
+/// The priority every task gets unless someone says otherwise. Shown in a
+/// reason only when it differs, since a value on every row explains nothing.
+const DEFAULT_PRIORITY: &str = "p2";
+
+/// Which group comes first.
+const fn group_rank(group: ReadyGroup) -> u8 {
+    match group {
+        ReadyGroup::Active => 0,
+        ReadyGroup::Bug => 1,
+        ReadyGroup::Rest => 2,
+    }
+}
+
+/// Whole days between two instants, floored at zero.
+fn days_waiting(created: DateTime<Utc>, now: DateTime<Utc>) -> i64 {
+    (now - created).num_days().max(0)
+}
+
 /// Why a ready task sits where it does.
-fn reason(unblocks: usize, priority: &str) -> String {
-    match (unblocks, priority) {
-        (0, p) => format!("nothing is blocking it · {p}"),
-        (1, p) => format!("unblocks 1 other task · {p}"),
-        (n, p) => format!("unblocks {n} other tasks · {p}"),
+///
+/// This replaced `nothing is blocking it · p2`, which was true of every row on
+/// the page — everything in Ready is unblocked, that being what Ready means —
+/// so it was the definition of the page repeated 29 times and told a reader
+/// nothing about the order. A reason has to differ between rows or it is not a
+/// reason, and the test beside this one asserts exactly that.
+fn reason(unblocks: usize, group: ReadyGroup, days: i64, priority: &str) -> String {
+    let waited = match days {
+        0 => "today".to_owned(),
+        1 => "waiting a day".to_owned(),
+        n => format!("waiting {n} days"),
+    };
+    let head = match (unblocks, group) {
+        (0, ReadyGroup::Active) => format!("in an active phase · {waited}"),
+        (0, ReadyGroup::Bug) => format!("a bug, in no phase · {waited}"),
+        (0, ReadyGroup::Rest) => format!("in no phase · {waited}"),
+        (1, _) => format!("unblocks 1 other task · {waited}"),
+        (n, _) => format!("unblocks {n} other tasks · {waited}"),
+    };
+    // Only when it is not the default. Printing "· p2" on every row is how the
+    // old reason came to say nothing; printing p0 is worth the space.
+    if priority == DEFAULT_PRIORITY {
+        head
+    } else {
+        format!("{head} · {priority}")
     }
 }
 
@@ -501,5 +616,77 @@ fn is_live(entity: &Entity) -> bool {
         Entity::Task(t) => !is_closed(t.status),
         Entity::Question(q) => q.status.is_unresolved(),
         _ => true,
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    fn day(n: i64) -> DateTime<Utc> {
+        Utc::now() - chrono::Duration::days(n)
+    }
+
+    /// The property the whole change turns on. "nothing is blocking it · p2"
+    /// was printed on all 29 rows, so it explained no position — a reason that
+    /// is the same everywhere is not a reason. This asserts the replacement
+    /// actually distinguishes rows rather than being a differently-worded
+    /// tautology.
+    #[test]
+    fn the_reason_differs_between_the_groups() {
+        let active = reason(0, ReadyGroup::Active, 3, "p2");
+        let bug = reason(0, ReadyGroup::Bug, 3, "p2");
+        let rest = reason(0, ReadyGroup::Rest, 3, "p2");
+        assert_ne!(active, bug);
+        assert_ne!(bug, rest);
+        assert_ne!(active, rest);
+    }
+
+    /// Two tasks in the same group still separate, because age varies even when
+    /// nothing else does — which on this store is the usual case.
+    #[test]
+    fn two_rows_in_one_group_still_read_differently_by_age() {
+        assert_ne!(
+            reason(0, ReadyGroup::Rest, 1, "p2"),
+            reason(0, ReadyGroup::Rest, 9, "p2")
+        );
+    }
+
+    /// Where `unblocks` is real it still leads, because it is a stronger reason
+    /// than age. This store has none, but another might.
+    #[test]
+    fn unblocking_still_leads_the_reason_where_it_is_real() {
+        assert!(reason(2, ReadyGroup::Rest, 4, "p2").starts_with("unblocks 2 other tasks"));
+        assert!(reason(1, ReadyGroup::Active, 0, "p2").starts_with("unblocks 1 other task"));
+    }
+
+    #[test]
+    fn waiting_reads_as_a_person_would_say_it() {
+        assert!(reason(0, ReadyGroup::Rest, 0, "p2").ends_with("today"));
+        assert!(reason(0, ReadyGroup::Rest, 1, "p2").ends_with("waiting a day"));
+        assert!(reason(0, ReadyGroup::Rest, 5, "p2").ends_with("waiting 5 days"));
+    }
+
+    /// A clock that has stepped backwards must not produce "waiting -2 days".
+    #[test]
+    fn a_task_created_in_the_future_waits_zero_days() {
+        assert_eq!(days_waiting(day(-2), Utc::now()), 0);
+        assert_eq!(days_waiting(day(3), Utc::now()), 3);
+    }
+
+    /// The default is on almost every row, so showing it is how "· p2" became
+    /// noise. Anything else is a deliberate mark and worth the space.
+    #[test]
+    fn priority_shows_only_when_somebody_set_it() {
+        assert!(!reason(0, ReadyGroup::Rest, 2, "p2").contains("p2"));
+        assert!(reason(0, ReadyGroup::Rest, 2, "p0").ends_with("· p0"));
+        assert!(reason(0, ReadyGroup::Active, 2, "p3").ends_with("· p3"));
+    }
+
+    #[test]
+    fn an_active_phase_outranks_a_bug_which_outranks_the_rest() {
+        assert!(group_rank(ReadyGroup::Active) < group_rank(ReadyGroup::Bug));
+        assert!(group_rank(ReadyGroup::Bug) < group_rank(ReadyGroup::Rest));
     }
 }

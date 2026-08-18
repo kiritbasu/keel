@@ -2184,6 +2184,7 @@ fn candidate_json(c: &specline_core::Candidate, slug: Option<&str>) -> Value {
         "title": c.title,
         "priority": c.priority,
         "unblocks": c.unblocks,
+        "group": c.group.as_str(),
         "why": c.why,
     });
 

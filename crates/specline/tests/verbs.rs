@@ -127,9 +127,13 @@ fn ready_lists_work_and_says_why_it_is_first() {
         out.contains("Wire up the thing"),
         "ready should name the work: {out}"
     );
+    // The reason used to read "nothing is blocking it", which was true of every
+    // row on a list where being unblocked is the entry condition — so it said
+    // the same thing about all of them (B-83). It now names the phase, the kind
+    // or how long the task has waited.
     assert!(
-        out.contains("nothing is blocking it"),
-        "and say why it is where it is, which is the whole point of the ordering: {out}"
+        out.contains("in no phase") || out.contains("in an active phase") || out.contains("a bug"),
+        "and say why it is where it is, in terms that differ between rows: {out}"
     );
 }
 
