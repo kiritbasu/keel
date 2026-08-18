@@ -1,15 +1,31 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T12:15:07Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T12:16:08Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (267)
+## Closed work (268)
 
 ### 2026-08-18
+
+- **KEEL-300** What changed shows field writes where a person did one thing — `done`
+
+  What changed now shows one row per action. A close reads "closed as done" instead of four rows, two of which reported a size; a claim reads "claimed" instead of three, one of which was a session id.
+  
+  Done in specline-core::changes as agreed, so any surface gets the same answer, and grouped on (entity, timestamp) — exact rather than a window, because the events of one write share both. The single-writer lock is what makes that safe: two sessions cannot be mid-write on one row at the same microsecond, so a group is always one session's work.
+  
+  Measured against a copy of the real store: 1,682 rows, and the 144 reporting a size plus the 21 showing a bare identifier are both now zero.
+  
+  Two rules, kept apart on purpose. Redaction already elided prose because a body was once republished into the committed changelog by the edit that removed it (KEEL-215) — a test now closes a task with a path in its message and asserts no row carries it. Identifiers are a separate readability rule, because a ULID is short and is not prose and so passed everything the safety rule asks.
+  
+  Verified past the unit tests: the desktop suite is not run by cargo, so it was run (293 pass, and the screen needed no edit because it renders the summary verbatim), and the daemon was proved by serving a copy of the store on another port rather than by restarting the live one mid-session.
+  
+  KEEL-301 carries the part left undone: the row says "milestone id changed" where it could name the phase.
+
+  <sub>commit:9495be5 · test:cargo test --workspace · test:npx vitest run</sub>
 
 - **KEEL-298** Cut 0.3.0 — the tool rename, the next page, and the h2 advisory — `done`
 
@@ -1176,6 +1192,11 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | status in_progress → done |
+| 2026-08-18 | claude | evidence [] → ["commit:9495be5","test:cargo test --workspace","test:npx vitest run"] |
+| 2026-08-18 | claude | close_reason none → done |
+| 2026-08-18 | claude | close_message none → (1474 characters) |
+| 2026-08-18 | claude | created task “A change row says "milestone id changed" where it could name the phase” |
 | 2026-08-18 | claude | status todo → in_progress |
 | 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
 | 2026-08-18 | claude | claimed_at none → 2026-08-18T11:57:53.402483Z |
@@ -1371,11 +1392,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | created task “Import matches a file to an artifact by its heading, so a drifted title makes a duplicate” |
 | 2026-08-16 | claude | revised spec “Dependency and protocol verification — 2026-08-09 snapshot” to v3 |
 | 2026-08-16 | human | archived spec “Dependency and protocol verification — a snapshot, not a description” |
-| 2026-08-16 | human | revised spec “Dependency and protocol verification — a snapshot, not a description” to v1 |
-| 2026-08-16 | human | created spec “Dependency and protocol verification — a snapshot, not a description” |
-| 2026-08-16 | human | revised spec “Specline — Technical Specification” to v9 |
-| 2026-08-16 | claude | status in_progress → done |
-| 2026-08-16 | claude | evidence [] → ["commit:5423cd9","test:scripts/check-rename.sh"] |
 
-*Showing the 200 most recent of 2176 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2181 changes. Use `specline_activity` for the rest.*
 
