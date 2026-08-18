@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T08:59:08Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T09:10:47Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1164,6 +1164,7 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-18 | claude | created task “Cut 0.3.0 — the tool rename, the next page, and the h2 advisory” |
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → (83 characters) |
 | 2026-08-18 | claude | close_reason none → done |
@@ -1363,7 +1364,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-16 | claude | close_message none → (278 characters) |
 | 2026-08-16 | claude | status in_progress → done |
 | 2026-08-16 | claude | evidence [] → ["commit:c5acb64","url:http://127.0.0.1:7654/api/health"] |
-| 2026-08-16 | claude | close_reason none → done |
 
-*Showing the 200 most recent of 2163 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2164 changes. Use `specline_activity` for the rest.*
 

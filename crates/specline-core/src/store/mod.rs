@@ -63,7 +63,13 @@ pub const STORE_FILE: &str = "specline.sqlite";
 /// once. It also declares its MCP server under the old name, and its hooks
 /// call a script that no longer exists. Both directions are broken, so both
 /// halves of the handshake moved together.
-pub const MIN_PLUGIN_VERSION: &str = "0.2.0";
+///
+/// Raised to 0.3.0 for a narrower but real break: `specline_ready` became
+/// `specline_next` (B-85). A 0.2.x plugin's skill names the old tool, so a
+/// session following it calls something this daemon does not serve and has to
+/// recover from an error mid-conversation. That is the "removed tool" case
+/// this comment already asks for, so both halves moved together again.
+pub const MIN_PLUGIN_VERSION: &str = "0.3.0";
 
 /// Where a running daemon records the address it actually bound.
 ///

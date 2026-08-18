@@ -1,10 +1,10 @@
 {
   "name": "specline",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Specline — the local-first store for everything about a software project except the code. Adds the Specline MCP server, the skills that teach when to write to it, and the session hooks that put the project's state in front of you.",
   "author": {
     "name": "KB"
   },
   "license": "Apache-2.0",
-  "min_daemon_version": "0.2.0"
+  "min_daemon_version": "0.3.0"
 }
