@@ -3030,7 +3030,7 @@ dependencies = [
 
 [[package]]
 name = "specline"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3052,7 +3052,7 @@ dependencies = [
 
 [[package]]
 name = "specline-core"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "chrono",
  "insta",
@@ -3072,7 +3072,7 @@ dependencies = [
 
 [[package]]
 name = "specline-daemon"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -3099,7 +3099,7 @@ dependencies = [
 
 [[package]]
 name = "specline-embed"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "fastembed",
  "specline-core",
@@ -3109,7 +3109,7 @@ dependencies = [
 
 [[package]]
 name = "specline-mcp"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3124,7 +3124,7 @@ dependencies = [
 
 [[package]]
 name = "specline-update"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "chrono",

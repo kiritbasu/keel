@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T16:35:04Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T20:01:14Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1402,6 +1402,12 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | created milestone “0.4.1 — a quieter rail, and the start of the signal lifecycle” |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_e1aa5ce8-c196-4c0e-8882-d4422009c9f4 |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T19:52:19.191523Z |
+| 2026-08-19 | claude | created task “A release reads like something a person wrote, and carries five files instead of fourteen” |
+| 2026-08-19 | claude | summary (385 characters) → (535 characters) |
 | 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → (126 characters) |
 | 2026-08-19 | claude | close_reason none → done |
@@ -1596,12 +1602,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-19 | claude | close_message none → (407 characters) |
 | 2026-08-19 | claude | revised question “Does every signal we set down become a numbered decision, or only the ones worth remembering?” to v1 |
 | 2026-08-19 | claude | created question “Does every signal we set down become a numbered decision, or only the ones worth remembering?” |
-| 2026-08-19 | claude | “Feature requests get a lifecycle, and it starts at an Inbox…” references “How feature requests should work, end to end” |
-| 2026-08-19 | claude | milestone_id none → mst_01M0CNHN7YMEBGD30NWVCJD9FA |
-| 2026-08-19 | claude | labels [] → ["inbox"] |
-| 2026-08-19 | claude | priority p2 → p1 |
-| 2026-08-19 | claude | milestone_id none → mst_01M0CNHN7YMEBGD30NWVCJD9FA |
-| 2026-08-19 | claude | labels [] → ["inbox","core"] |
 
-*Showing the 200 most recent of 2559 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2565 changes. Use `specline_activity` for the rest.*
 
