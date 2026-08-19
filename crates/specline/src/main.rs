@@ -1403,7 +1403,7 @@ fn run_triage(
 
     let outcome = match (feature, set_down) {
         (Some(spec), None) => work::TriageOutcome::PickedUp {
-            feature: EntityId::parse_as(spec, EntityType::Spec)?,
+            feature: Some(EntityId::parse_as(spec, EntityType::Spec)?),
         },
         (None, Some(reason)) => work::TriageOutcome::SetDown {
             reason: reason.to_owned(),

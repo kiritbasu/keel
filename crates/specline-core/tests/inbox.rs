@@ -355,7 +355,7 @@ fn picking_a_signal_up_names_the_feature_and_leaves_the_inbox() {
         &mut store,
         &signal,
         &TriageOutcome::PickedUp {
-            feature: feature.clone(),
+            feature: Some(feature.clone()),
         },
         &prov(),
     )
@@ -468,7 +468,9 @@ fn picking_up_something_that_is_not_a_feature_spec_is_refused() {
     let err = specline_core::work::triage(
         &mut store,
         &signal,
-        &TriageOutcome::PickedUp { feature: plain },
+        &TriageOutcome::PickedUp {
+            feature: Some(plain),
+        },
         &prov(),
     )
     .unwrap_err()
@@ -489,7 +491,7 @@ fn a_signal_cannot_be_triaged_twice() {
         &mut store,
         &signal,
         &TriageOutcome::PickedUp {
-            feature: feature.clone(),
+            feature: Some(feature.clone()),
         },
         &prov(),
     )
@@ -498,7 +500,9 @@ fn a_signal_cannot_be_triaged_twice() {
     let err = specline_core::work::triage(
         &mut store,
         &signal,
-        &TriageOutcome::PickedUp { feature },
+        &TriageOutcome::PickedUp {
+            feature: Some(feature),
+        },
         &prov(),
     )
     .unwrap_err()
@@ -563,21 +567,48 @@ fn closing_a_signal_as_done_picks_it_up_and_names_the_feature() {
     assert_eq!(triaged.linked, Some((Relation::DerivedFrom, feature)));
 }
 
-/// `done` on a task means "show me the commit". On a signal it means "show me
-/// the case you made", and a pick-up with no feature named is a signal that
-/// left the Inbox having become nothing.
+/// Not every want becomes an epic. Some become a commit, and a signal that has
+/// genuinely been answered still has to be closable.
+///
+/// This assertion is the reverse of the one that was here first, and the
+/// reversal was found by using the thing: the first real triage pass hit KB's
+/// complaint about the rail's `·1` markers, which had already been answered by
+/// a small interface fix — so demanding a feature spec made the one signal in
+/// the Inbox that was genuinely finished the one that could not be closed.
 #[test]
-fn closing_a_signal_as_done_with_no_feature_named_is_refused() {
+fn a_signal_answered_by_a_commit_rather_than_a_feature_still_closes() {
+    let (_d, mut store, project) = fixture();
+    let signal = file_signal(&mut store, &project, "the rail markers read as unclear");
+
+    let mut request = closing(CloseReason::Done, "Fixed — the digits are keycaps now.");
+    request.evidence = vec!["commit:abc1234".to_owned()];
+
+    let triaged =
+        specline_core::work::close_signal(&mut store, &signal, &request, &prov()).unwrap();
+    assert!(triaged.signal.triaged);
+    assert!(
+        triaged.linked.is_none(),
+        "there is no feature to point at, and inventing an edge would be worse than none"
+    );
+    assert_eq!(store.untriaged_signals(&project).unwrap().0, 0);
+}
+
+/// Two features would leave "which one did it become?" unanswerable, and the
+/// edge can only point at one.
+#[test]
+fn closing_a_signal_as_done_naming_two_features_is_refused() {
     let (_d, mut store, project) = fixture();
     let signal = file_signal(&mut store, &project, "this should work with codex");
+    let one = a_feature(&mut store, &project, "Codex support");
+    let two = a_feature(&mut store, &project, "Any host support");
 
-    let mut request = closing(CloseReason::Done, "Doing it.");
-    request.evidence = vec!["commit:abc1234".to_owned()];
+    let mut request = closing(CloseReason::Done, "Both, somehow.");
+    request.evidence = vec![format!("doc:{one}"), format!("doc:{two}")];
 
     let err = specline_core::work::close_signal(&mut store, &signal, &request, &prov())
         .unwrap_err()
         .to_string();
-    assert!(err.contains("doc:spc_"), "{err}");
+    assert!(err.contains("a signal becomes one"), "{err}");
     assert_eq!(store.untriaged_signals(&project).unwrap().0, 1);
 }
 

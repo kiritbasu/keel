@@ -294,10 +294,15 @@ fn expect_task(entity: Entity, id: &EntityId) -> Result<Task> {
 /// property B-90 turns on and the one thing no ticketing system has.
 #[derive(Debug, Clone)]
 pub enum TriageOutcome {
-    /// It becomes a feature. The named spec carries the why.
+    /// It becomes something. The spec, when there is one, carries the why.
+    ///
+    /// `feature` is optional because not every want becomes an epic — some
+    /// become a commit, and a signal that has genuinely been answered still
+    /// has to be closable. When one is named it must be a `feature` spec, and
+    /// the `derived_from` edge is drawn to it.
     PickedUp {
-        /// A `spc_…` whose kind is `feature`.
-        feature: EntityId,
+        /// A `spc_…` whose kind is `feature`, when the want became one.
+        feature: Option<EntityId>,
     },
     /// Not this, and here is the argument.
     SetDown {
@@ -371,7 +376,15 @@ pub fn triage(
     let mut revision = None;
 
     match outcome {
-        TriageOutcome::PickedUp { feature } => {
+        TriageOutcome::PickedUp { feature: None } => {
+            // Picked up and answered by something that is not a feature — a
+            // commit, a task, a fix. There is no edge to draw, and `close`
+            // has already demanded evidence, so what became of it is on the
+            // row for anybody reading it.
+        }
+        TriageOutcome::PickedUp {
+            feature: Some(feature),
+        } => {
             let entity = store.get(feature)?.ok_or_else(|| Error::NotFound {
                 entity_type: feature.entity_type(),
                 id: feature.to_string(),
@@ -584,8 +597,8 @@ pub fn close_signal(
 /// the case you made". Reusing evidence rather than adding an argument keeps
 /// the two closes one shape, and it means the feature is recorded where
 /// anybody reading the closed signal already looks.
-fn feature_from_evidence(evidence: &[String]) -> Result<EntityId> {
-    let wanted = "the feature spec this became, as `doc:spc_…`";
+fn feature_from_evidence(evidence: &[String]) -> Result<Option<EntityId>> {
+    let wanted = "the one feature spec this became, as `doc:spc_…`";
     let specs: Vec<&str> = evidence
         .iter()
         .filter_map(|e| e.strip_prefix("doc:"))
@@ -593,13 +606,16 @@ fn feature_from_evidence(evidence: &[String]) -> Result<EntityId> {
         .collect();
 
     match specs.as_slice() {
-        [one] => EntityId::parse_as(one, EntityType::Spec),
-        [] => Err(Error::invalid(
-            EntityType::Feedback,
-            "evidence",
-            "closing a signal as `done` means it became a feature, and none is named".to_owned(),
-            wanted,
-        )),
+        [one] => EntityId::parse_as(one, EntityType::Spec).map(Some),
+        // Not every want becomes an epic; some become a commit. Found by using
+        // this: the first real triage pass hit KB's complaint that the rail's
+        // `·1` markers read as unclear, which had already been answered by a
+        // small interface fix — so demanding `doc:spc_…` made the one signal
+        // in the Inbox that was genuinely finished the one that could not be
+        // closed. `close` already requires evidence for `done`, so this is not
+        // a hole: something is always named, and a feature among it is what
+        // draws the edge.
+        [] => Ok(None),
         // Two would leave "which one did this become?" unanswerable, and the
         // `derived_from` edge can only point at one.
         many => Err(Error::invalid(

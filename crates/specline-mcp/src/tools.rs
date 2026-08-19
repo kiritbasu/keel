@@ -890,8 +890,9 @@ pub fn all() -> Vec<Tool> {
                  you learned along the way belongs in `specline_note`, which keeps accumulating.\n\n\
                  **This also triages a signal.** Pass a `fbk_…` and the same three reasons mean \
                  what happens to a want rather than to work:\n\
-                 - `done` — picked up. It became a feature; name the feature spec as \
-                 `doc:spc_…` evidence.\n\
+                 - `done` — picked up, or otherwise answered. Name what became of it as \
+                 evidence; a `doc:spc_…` feature spec among it is linked to the signal. Not \
+                 every want becomes a feature — some become a commit.\n\
                  - `wont_do` — set down. The message is the argument, and it is appended to the \
                  signal so the same idea arriving in four months finds the reasoning instead of \
                  silence. Nothing is destroyed and it can be picked up again.\n\
