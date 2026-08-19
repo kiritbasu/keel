@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T15:52:12Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T16:01:37Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1384,6 +1384,7 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | retracted a note on tsk_01M0DB5TTNDFT9DR6DNXY3GBZ4 |
 | 2026-08-19 | claude | status todo → done |
 | 2026-08-19 | claude | evidence [] → ["commit:b53121e","test:npx vitest run src/App.test.tsx"] |
 | 2026-08-19 | claude | close_reason none → done |
@@ -1583,7 +1584,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-19 | claude | created decision “Feature requests get a lifecycle, and it starts at an Inbox of signals” |
 | 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → ["commit:d96450d","test:npm test --run"] |
-| 2026-08-19 | claude | close_reason none → done |
 
-*Showing the 200 most recent of 2534 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2535 changes. Use `specline_activity` for the rest.*
 
