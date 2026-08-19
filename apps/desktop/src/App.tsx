@@ -370,8 +370,12 @@ export function App() {
     [projects, activeProject],
   );
 
+  // Absent means on, for the same reason the rail reads it that way: a 0.4.0
+  // daemon predates the flag and does serve these surfaces.
+  const inboxOn = health?.surfaces?.inbox !== false;
+
   const current = useMemo(() => {
-    const shared = { route, generation, milestoneNoun, projectKey };
+    const shared = { route, generation, milestoneNoun, projectKey, inboxOn };
     switch (route.screen) {
       case "home":
         return <HomeScreen {...shared} />;
@@ -396,7 +400,7 @@ export function App() {
       case "changed":
         return <ChangedScreen {...shared} />;
     }
-  }, [route, generation, milestoneNoun, projectKey]);
+  }, [route, generation, milestoneNoun, projectKey, inboxOn]);
 
   return (
     <div className="flex h-full">
@@ -511,6 +515,19 @@ export interface ScreenProps {
    * be a request per screen for a label.
    */
   milestoneNoun?: string;
+  /**
+   * Whether the Inbox and the rest of the feature-request lifecycle are
+   * switched on (KEEL-341).
+   *
+   * Threaded from the shell for the same reason `milestoneNoun` is: the shell
+   * already holds the health response, and a screen fetching it again to learn
+   * one boolean would be a request per screen for a flag.
+   *
+   * Screens use it to hide the *epic* affordances — offering `feature` as a
+   * kind while the Inbox is off would let somebody create the container half
+   * of a lifecycle whose other half is hidden.
+   */
+  inboxOn?: boolean;
   /**
    * The prefix of this project's readable identifiers — the `KEEL` of `KEEL-42`.
    *

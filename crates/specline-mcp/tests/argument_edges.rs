@@ -384,3 +384,74 @@ fn a_signal_with_nothing_said_in_it_is_refused_by_the_right_name() {
         "feedback has no name to need: {error}"
     );
 }
+
+/// An epic and its children, over the surface a session actually uses.
+///
+/// `parent_id` has existed since Phase 0 and nothing ever wrote to it, so this
+/// is the first time the argument has been sent. It arrives through `fields`
+/// like any other column, which is worth a test precisely because it is *not*
+/// a declared property of the schema — a caller has to know the column exists.
+#[test]
+fn an_epic_takes_children_through_fields() {
+    let mut f = fixture();
+    let epic = call(
+        &mut f.store,
+        "specline_create",
+        json!({
+            "type": "task",
+            "project": "edges",
+            "title": "Codex support",
+            "summary": "One decided feature, holding the tasks that build it.",
+            "fields": {"kind": "feature"},
+        }),
+    )
+    .expect("a feature task is an epic");
+    let epic_id = epic
+        .pointer("/structuredContent/entity/id")
+        .and_then(Value::as_str)
+        .unwrap()
+        .to_owned();
+
+    let child = call(
+        &mut f.store,
+        "specline_create",
+        json!({
+            "type": "task",
+            "project": "edges",
+            "title": "Reach the endpoint from Codex",
+            "summary": "Prove the MCP endpoint answers a non-Claude client.",
+            "fields": {"parent_id": epic_id},
+        }),
+    )
+    .expect("a child names its epic");
+    assert_eq!(
+        child.pointer("/structuredContent/entity/parent_id"),
+        Some(&json!(epic_id))
+    );
+}
+
+/// A parent that is not a task at all — the refusal a caller reaching for
+/// `parent_id` is most likely to hit, since a spec id looks as much like a
+/// container as a task id does.
+#[test]
+fn a_parent_that_is_not_a_task_is_refused_by_name() {
+    let mut f = fixture();
+    let error = call(
+        &mut f.store,
+        "specline_create",
+        json!({
+            "type": "task",
+            "project": "edges",
+            "title": "A task under a spec",
+            "summary": "Which is what `implements` is for, not `parent_id`.",
+            "fields": {"parent_id": f.spec.to_string()},
+        }),
+    )
+    .expect_err("a parent is a task");
+
+    assert!(error.contains("parent_id"), "{error}");
+    assert!(
+        error.contains("not a milestone or a spec"),
+        "and it says what a parent has to be: {error}"
+    );
+}

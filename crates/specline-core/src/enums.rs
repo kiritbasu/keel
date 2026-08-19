@@ -273,6 +273,19 @@ string_enum! {
         Chore = "chore",
         /// Time-boxed investigation whose output is knowledge, not code.
         Spike = "spike",
+        /// An epic: one decided feature, holding the tasks that build it.
+        ///
+        /// The only kind that may be a parent, and the only kind that may not
+        /// *have* one. Those two rules together make the tree exactly two deep
+        /// and make a cycle impossible to write rather than merely detectable
+        /// afterwards — `fsck` has walked for `parent_id` loops since Phase 0,
+        /// and now has nothing to find.
+        ///
+        /// Created when somebody decides to build, never before: the case for
+        /// building lives in a `feature` spec, which exists whether or not the
+        /// thing is ever built, and it is that split that keeps unbuilt ideas
+        /// off the board entirely (B-90).
+        Feature = "feature",
     }
 }
 

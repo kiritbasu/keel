@@ -16,7 +16,18 @@ import { COLUMNS, GROUP_BY, SORT_BY, type GroupBy, type SortBy, type SortDir } f
 import { activeCount, toggle, type TaskFilter } from "../lib/filters";
 
 const PRIORITIES = ["p0", "p1", "p2", "p3"];
+/**
+ * The kinds a filter offers.
+ *
+ * `feature` is appended only when the Inbox is on: filtering by a kind nothing
+ * in the store can be is a control that always returns nothing, which reads as
+ * a broken filter rather than an empty result (KEEL-341).
+ */
 const KINDS = ["task", "bug", "chore", "spike"];
+
+function kindsFor(inboxOn: boolean): string[] {
+  return inboxOn ? [...KINDS, "feature"] : KINDS;
+}
 
 /** Every distinct value present in the data, so a facet never offers a dead end. */
 export interface Facets {
@@ -39,6 +50,7 @@ export function FilterBar({
   onFilter,
   onView,
   milestoneNoun,
+  inboxOn,
 }: {
   view: View;
   facets: Facets;
@@ -48,6 +60,8 @@ export function FilterBar({
   onView: (next: Partial<Omit<View, "filter">>) => void;
   /** The project's own word for a milestone, when it has one. */
   milestoneNoun?: string;
+  /** Whether the feature-request lifecycle is switched on (KEEL-341). */
+  inboxOn?: boolean;
 }) {
   const noun = (milestoneNoun ?? "milestone").toLowerCase();
   const { filter } = view;
@@ -89,7 +103,7 @@ export function FilterBar({
       />
       <MultiMenu
         label="Kind"
-        options={KINDS.map((k) => ({ value: k, label: k }))}
+        options={kindsFor(inboxOn !== false).map((k) => ({ value: k, label: k }))}
         selected={filter.kind}
         onToggle={(value) => onFilter({ ...filter, kind: toggle(filter.kind, value) })}
       />

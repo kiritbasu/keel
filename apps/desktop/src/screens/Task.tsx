@@ -49,7 +49,12 @@ interface Related extends Neighbour {
   direction: Direction;
 }
 
-export function TaskScreen({ route, generation, milestoneNoun }: ScreenProps) {
+export function TaskScreen({
+  route,
+  generation,
+  milestoneNoun,
+  inboxOn,
+}: ScreenProps) {
   const project = route.project;
   const id = route.taskId;
 
@@ -321,6 +326,7 @@ export function TaskScreen({ route, generation, milestoneNoun }: ScreenProps) {
                 }
                 labelsInUse={labelsInUse}
                 milestoneNoun={milestoneNoun}
+                inboxOn={inboxOn}
                 onChanged={core.reload}
               />
               {ranked && (
@@ -512,6 +518,7 @@ function EditableFields({
   milestones,
   labelsInUse,
   milestoneNoun,
+  inboxOn,
   onChanged,
 }: {
   task: Entity;
@@ -519,6 +526,8 @@ function EditableFields({
   /** Every label on this project, for the picker to complete against. */
   labelsInUse: string[];
   milestoneNoun: string | undefined;
+  /** Whether the feature-request lifecycle is switched on (KEEL-341). */
+  inboxOn?: boolean;
   onChanged: () => void;
 }) {
   const [saving, setSaving] = useState<string | null>(null);
@@ -596,10 +605,13 @@ function EditableFields({
           value={String(task.kind)}
           busy={saving !== null}
           onChange={(next) => void save("kind", { kind: next })}
-          options={["task", "bug", "chore", "spike"].map((k) => ({
-            value: k,
-            label: k,
-          }))}
+          // `feature` only when the lifecycle is on. Offering it otherwise
+          // would let somebody turn a task into the container half of a
+          // lifecycle whose other half is hidden (KEEL-341).
+          options={(inboxOn === false
+            ? ["task", "bug", "chore", "spike"]
+            : ["task", "bug", "chore", "spike", "feature"]
+          ).map((k) => ({ value: k, label: k }))}
         />
       </Property>
 

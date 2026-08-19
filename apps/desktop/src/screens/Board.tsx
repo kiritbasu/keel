@@ -52,6 +52,7 @@ export function BoardScreen({
   generation,
   milestoneNoun,
   projectKey,
+  inboxOn,
 }: ScreenProps) {
   const project = route.project;
 
@@ -315,6 +316,7 @@ export function BoardScreen({
           view={view}
           facets={facets}
           milestoneNoun={milestoneNoun}
+          inboxOn={inboxOn}
           total={(data?.items ?? []).length}
           onFilter={(next) =>
             setQuery(route, filterToQuery(next), { replace: true })
@@ -455,6 +457,7 @@ export function BoardScreen({
           projectKey={projectKey}
           facets={facets}
           milestoneNoun={milestoneNoun}
+          inboxOn={inboxOn}
           activeMilestone={activeMilestone}
           onClose={() => setCreating(false)}
           onCreated={reload}
@@ -482,6 +485,7 @@ function NewTaskDialog({
   projectKey,
   facets,
   milestoneNoun,
+  inboxOn,
   activeMilestone,
   onClose,
   onCreated,
@@ -495,6 +499,8 @@ function NewTaskDialog({
   milestoneNoun: string | undefined;
   /** The phase in flight, which is what a new task almost always belongs to. */
   activeMilestone: string | undefined;
+  /** Whether the feature-request lifecycle is switched on (KEEL-341). */
+  inboxOn?: boolean;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -616,6 +622,10 @@ function NewTaskDialog({
               <option value="bug">bug</option>
               <option value="chore">chore</option>
               <option value="spike">spike</option>
+              {/* An epic is created when somebody decides to build, so it
+                  belongs in the same box as everything else — but only while
+                  the lifecycle it belongs to is switched on (KEEL-341). */}
+              {inboxOn !== false && <option value="feature">feature</option>}
             </select>
           </label>
 
