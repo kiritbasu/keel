@@ -1,6 +1,10 @@
-<!-- specline:generated spec spc_01KZR487EHQGGE3HV3JH3XN213
-     Specline is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
-     An edit made here is overwritten on the next `specline generate`. -->
+<!-- specline:generated spec spc_01KZR487EHQGGE3HV3JH3XN213 v1 2026-08-19T08:16:32Z
+     source of truth is Specline — edits here are not saved -->
+# Keel — Phase 8
+
+**Status:** `draft`  
+**Kind:** `note`  
+**Id:** `spc_01KZR487EHQGGE3HV3JH3XN213`
 
 # Keel — Phase 8
 ## The working loop
@@ -412,3 +416,4 @@ Three files accompany §8C. They are the design rather than a description of it.
 | `Geist-Variable.woff2`, `GeistMono-Variable.woff2` | Self-hosted, into `apps/desktop/public/fonts/`. |
 
 Both HTML files embed the fonts as base64 and render with no network. The same bundle is in the **Keel** project in Claude Design.
+

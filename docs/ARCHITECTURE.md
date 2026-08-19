@@ -228,9 +228,27 @@ it did.
 The app is not read-only, and the split is not reads versus writes.
 
 **The app writes what a person does.** Creating a task, commenting, archiving,
-closing, changing a status or a priority. Those are your own actions. They go
-through `specline-core`'s write path like everything else, attributed
-`actor: human`, `surface: ui`.
+closing, and moving a status, priority, kind, phase or labels — from the task
+screen, or by dragging a card between board columns. Those are your own actions.
+They go through `specline-core`'s write path like everything else, attributed
+`actor: human`, `surface: ui`, with no session id, because the daemon never
+invents one.
+
+Field changes go through one narrow endpoint, `PATCH /api/tasks/{id}`, which
+takes those five fields and a version and nothing else. A generic entity patch
+would have been less code and was rejected on the test below: five named fields
+make a document body unreachable by construction rather than by a rule somebody
+has to remember.
+
+**Two transitions it refuses, and the reasons are not the same.** A terminal
+status owes a reason, a message and evidence, which the storage layer demands on
+every path — so the endpoint refuses `done` and `wont_do` and the interface
+routes you to the form that collects them. `in_progress` is refused outright,
+because starting work is a *claim* and a claim records which session holds it;
+a person at the interface has none, and a board reporting work in flight against
+nobody is the state `specline_claim` exists to prevent. Moving out of
+`in_progress` releases the claim, which closing does not need to do, since a
+closed row cannot be claimed again.
 
 **It does not do the authoring.** The body of a spec, a decision or a question
 gets written by Claude, in the conversation where the thinking happened. That is

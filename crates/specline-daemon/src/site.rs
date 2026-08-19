@@ -12,8 +12,8 @@
 //!
 //! Serving a local page instead costs a dock icon and native menus, and is what
 //! Jupyter, Syncthing, Grafana, Meilisearch, Qdrant, code-server and pgAdmin all
-//! do. PHASE-10 §3 has the full argument; B-69 confirmed that a **read-only**
-//! page does not touch hard constraint 7, which is what unblocked this.
+//! do. The Phase 10 spec §3 has the full argument; B-69 confirmed that a
+//! **read-only** page does not touch hard constraint 7, which unblocked this.
 //!
 //! # The headers, and why they are not decoration
 //!

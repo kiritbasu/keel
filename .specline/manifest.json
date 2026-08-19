@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-18T21:55:51.305514+00:00",
+  "generated_at": "2026-08-19T08:22:36.238955+00:00",
   "files": [
     {
       "path": ".specline/specs/keel-what-needs-to-happen.md",
@@ -10,6 +10,39 @@
           "entity_type": "spec",
           "version": 1,
           "hash": "a267058c546dee0ccb0042be20681b5a3d9fdc22964ff84c1cb17b68fc30edc3"
+        }
+      ]
+    },
+    {
+      "path": ".specline/specs/keel-phase-10.md",
+      "contributors": [
+        {
+          "entity_id": "spc_01KZR4882HZTJ4HHGZ5Y6HQDPM",
+          "entity_type": "spec",
+          "version": 5,
+          "hash": "a664fc78b67e9c6d58cb351270662968a3a75bbeb8afb658510bc36dfd0efbd7"
+        }
+      ]
+    },
+    {
+      "path": ".specline/specs/keel-phase-9.md",
+      "contributors": [
+        {
+          "entity_id": "spc_01KZR487RKNSTBD8V9WXV27NBP",
+          "entity_type": "spec",
+          "version": 1,
+          "hash": "ffef68241495f3645a2b2111ac8910662e2d3096fc95089b7f1404a9a20427c1"
+        }
+      ]
+    },
+    {
+      "path": ".specline/specs/keel-phase-8.md",
+      "contributors": [
+        {
+          "entity_id": "spc_01KZR487EHQGGE3HV3JH3XN213",
+          "entity_type": "spec",
+          "version": 1,
+          "hash": "1833412f1220290ff30604c6fb7b0c1d38ddd6ec294ad1dc74a26b7237cc62d6"
         }
       ]
     },

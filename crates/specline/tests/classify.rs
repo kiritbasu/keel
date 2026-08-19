@@ -7,7 +7,7 @@
 //! # Why a table rather than a judgement
 //!
 //! A judgement call at release time is made by whoever is tired. So the rules
-//! are fixed, written down in `PHASE-10.md` §5.2, and applied the same way
+//! are fixed, written down in the Phase 10 spec §5.2, and applied the same way
 //! every time.
 //!
 //! # Failing closed is the whole design

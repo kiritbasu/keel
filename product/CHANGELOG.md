@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-18T21:55:51Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T08:22:36Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1240,6 +1240,19 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | created task “Check for updates every 30 minutes, and make the footer an icon that colours when one is waiting” |
+| 2026-08-19 | claude | created task “An abandoned adopted file is never reported as an orphan” |
+| 2026-08-19 | claude | mirror_path PHASE-9.md → none |
+| 2026-08-19 | claude | mirror_path PHASE-8.md → none |
+| 2026-08-19 | claude | mirror_path PHASE-10.md → none |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T08:16:06.579999Z |
+| 2026-08-19 | claude | created task “Three generated phase specs mirror into the repository root” |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T08:08:51.444506Z |
+| 2026-08-19 | claude | created task “The README and ARCHITECTURE still say the app cannot change a task's fields” |
 | 2026-08-18 | claude | status todo → done |
 | 2026-08-18 | claude | evidence [] → (86 characters) |
 | 2026-08-18 | claude | close_reason none → done |
@@ -1427,19 +1440,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | status todo → in_progress |
 | 2026-08-18 | claude | claimed_by none → ses_e732e14b-2a50-4c4a-8aab-a416f993b8e2 |
 | 2026-08-18 | claude | claimed_at none → 2026-08-18T07:08:51.433320Z |
-| 2026-08-18 | claude | created task “A landing page for Specline, served from this repository by GitHub Pages” |
-| 2026-08-18 | claude | revised question “Where should the marketing site live — this repository, or one of its own?” to v1 |
-| 2026-08-18 | claude | created question “Where should the marketing site live — this repository, or one of its own?” |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T06:52:05.410415Z |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → ["commit:37fdb0e","test:cargo test -p specline-core --test changes"] |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (1063 characters) |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T06:31:31.511925Z |
 
-*Showing the 200 most recent of 2296 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2309 changes. Use `specline_activity` for the rest.*
 

@@ -158,9 +158,17 @@ conversation changed it:
 ![The roadmap: shipped, active and planned milestones](docs/images/roadmap.png)
 
 **The app files things. Claude writes them.** Creating a task, commenting,
-closing, archiving: you do those in the app. The body of a spec or a decision
-gets written by Claude in the conversation where you worked it out. That is the
-part worth keeping, and it is not something anyone wants to type into a form.
+closing, archiving, and moving a task's status, priority, kind, phase or
+labels — drag a card between columns, or use the controls on the task itself.
+Those are your own actions. The body of a spec or a decision gets written by
+Claude in the conversation where you worked it out. That is the part worth
+keeping, and it is not something anyone wants to type into a form.
+
+Two moves the app will not make, and it says so rather than failing quietly.
+Closing needs a reason, a message and evidence, so it opens the form that asks
+for them instead of setting a status. And starting a task is a claim, which
+records *which conversation* is on it — a person clicking a dropdown has none,
+so the board asks you to have Claude pick it up.
 
 ### The command line
 
@@ -333,7 +341,7 @@ corpus into an empty store. `scripts/shoot-screenshots.mjs` retakes them.
 
 ### Where the documentation is
 
-All of it is in `product/`, generated from the store:
+The prose is in `product/`, generated from the store:
 
 - `product/PRD.md` — what this is for
 - `product/SPEC.md` — how it works
@@ -342,3 +350,8 @@ All of it is in `product/`, generated from the store:
 - `product/CHANGELOG.md` — what has closed, with the reason and the evidence
 - `product/JOURNAL.md` — what happened, session by session
 - `product/GATE.md` — the one measurement that mattered, and why it stopped
+
+Everything else the store holds is written the same way: one file per spec
+under `.specline/specs/`, one per decision under `.specline/decisions/`, and
+the open questions and glossary beside them. Those are the phase specs, the
+build-time decisions and the terms, in the same generated form.

@@ -15,9 +15,9 @@
 //!
 //! A missing tool returns success, so a corrupted archive installs. Measured on
 //! 2026-08-14: current macOS does ship `/sbin/sha256sum`, which is a correction
-//! to what PHASE-10 §10 claims — but `/sbin` is not on the `PATH=/usr/bin:/bin`
-//! that `scripts/verify-release-tier1.sh` installs under, and older macOS has it
-//! nowhere. `/usr/bin/shasum` is present in both cases.
+//! to what the Phase 10 spec §10 claims — but `/sbin` is not on the
+//! `PATH=/usr/bin:/bin` that `scripts/verify-release-tier1.sh` installs under,
+//! and older macOS has it nowhere. `/usr/bin/shasum` is present in both cases.
 //!
 //! **The no-checksum branch**, which is the one that shipped. When the
 //! installer has no digest embedded for an archive it says "no checksums to

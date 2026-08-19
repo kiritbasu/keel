@@ -2,9 +2,10 @@
 //!
 //! This was `src/main.rs` until KEEL-208. The binary now lives in the `specline`
 //! package, because `dist` builds one installer per package that owns binaries
-//! and PHASE-10 §1 promises exactly one. What is *in* the daemon did not move:
-//! this module did, so the entry point is a shim over [`run`] rather than 350
-//! lines in a package whose other binary has nothing to do with serving.
+//! and the Phase 10 spec §1 promises exactly one. What is *in* the daemon did
+//! not move: this module did, so the entry point is a shim over [`run`] rather
+//! than 350 lines in a package whose other binary has nothing to do with
+//! serving.
 //!
 //! Everything below the argument parsing lives in the rest of this crate, so
 //! integration tests can drive the real router rather than a re-implementation

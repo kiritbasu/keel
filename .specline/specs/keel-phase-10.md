@@ -1,6 +1,10 @@
-<!-- specline:generated spec spc_01KZR4882HZTJ4HHGZ5Y6HQDPM
-     Specline is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
-     An edit made here is overwritten on the next `specline generate`. -->
+<!-- specline:generated spec spc_01KZR4882HZTJ4HHGZ5Y6HQDPM v5 2026-08-19T08:16:32Z
+     source of truth is Specline — edits here are not saved -->
+# Keel — Phase 10
+
+**Status:** `draft`  
+**Kind:** `note`  
+**Id:** `spc_01KZR4882HZTJ4HHGZ5Y6HQDPM`
 
 # Keel — Phase 10
 ## Release, distribution and install
@@ -406,3 +410,4 @@ An earlier draft asked for verification "on a Mac that has never had Rust instal
 | CI has never run | `git remote -v` is empty and no keel repository exists under the account; the workflow has never been executed by anything |
 | The MCP surface already survives an engine swap | Phase 9 changed the storage engine and both insta suites produced zero diffs |
 | The store ships four migrations, and the live store is at schema 4 | `schema::migrations()` lists ids 1–4; `keel doctor` reports "the store is at schema 4, which is what this binary ships" |
+

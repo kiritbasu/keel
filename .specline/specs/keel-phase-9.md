@@ -1,6 +1,10 @@
-<!-- specline:generated spec spc_01KZR487RKNSTBD8V9WXV27NBP
-     Specline is the source of truth for this file. Edit it there — in the app, or by asking Claude — and regenerate.
-     An edit made here is overwritten on the next `specline generate`. -->
+<!-- specline:generated spec spc_01KZR487RKNSTBD8V9WXV27NBP v1 2026-08-19T08:16:32Z
+     source of truth is Specline — edits here are not saved -->
+# Keel — Phase 9
+
+**Status:** `draft`  
+**Kind:** `note`  
+**Id:** `spc_01KZR487RKNSTBD8V9WXV27NBP`
 
 # Keel — Phase 9
 ## One database
@@ -112,3 +116,4 @@ If KB would rather not move it, `DUCKDB_DOWNLOAD_LIB=1` links DuckDB's official 
 | 5 MB blob write / read in SQLite | 49.6 ms / 10.8 ms, measured |
 | SQLite reader during an open write | 150 µs, correct pre-transaction snapshot |
 | DuckDB cross-compilation | `duckdb-rs` README: bundled cross-compilation is "best-effort (not covered by CI)" |
+
