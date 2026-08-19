@@ -29,6 +29,7 @@ export type ScreenId =
   | "roadmap"
   | "board"
   | "next"
+  | "inbox"
   | "task"
   | "documents"
   | "search"
@@ -61,6 +62,7 @@ const ROUTES: Array<{ pattern: string; screen: ScreenId }> = [
   { pattern: "/projects/:project/roadmap", screen: "roadmap" },
   { pattern: "/projects/:project/board", screen: "board" },
   { pattern: "/projects/:project/next", screen: "next" },
+  { pattern: "/projects/:project/inbox", screen: "inbox" },
   { pattern: "/projects/:project/search", screen: "search" },
   { pattern: "/projects/:project/changed", screen: "changed" },
   { pattern: "/projects/:project", screen: "project" },
@@ -77,6 +79,7 @@ export const NEEDS_PROJECT: Record<ScreenId, boolean> = {
   roadmap: false,
   board: true,
   next: true,
+  inbox: true,
   task: true,
   documents: true,
   search: false,
@@ -163,6 +166,11 @@ export function toHash(route: Route): string {
     // rank. Home rather than an empty screen with a title.
     case "next":
       path = project ? `/projects/${project}/next` : "/";
+      break;
+    // Same reasoning as Ready: an Inbox is one project's, so with no project
+    // there is nothing to show.
+    case "inbox":
+      path = project ? `/projects/${project}/inbox` : "/";
       break;
     // A task with no id is not an address. Falling back to the board rather
     // than to Home keeps the reader in the same project, which is where they

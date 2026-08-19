@@ -203,6 +203,22 @@ export interface Entity {
   [key: string]: unknown;
 }
 
+/**
+ * A signal: something somebody wants, before anybody has decided anything.
+ *
+ * Stored as feedback, and it has a `summary` rather than a `title` on purpose
+ * — what somebody said has no name, and inventing one is a small lie about the
+ * record. `triaged` false is the whole definition of being in the Inbox.
+ */
+export interface Signal extends Entity {
+  summary: string;
+  kind: string;
+  source: string | null;
+  contact: string | null;
+  occurred_at: string | null;
+  triaged: boolean;
+}
+
 export interface ProjectLine {
   id: string;
   name: string;
@@ -214,6 +230,10 @@ export interface ProjectLine {
   urgent_tasks: number;
   blocked_tasks: number;
   open_questions: number;
+  /** Untriaged signals. Never folded into `open_tasks` — see B-90. */
+  inbox: number;
+  /** How long the oldest untriaged signal has waited, in days. */
+  inbox_oldest_days: number | null;
   active_milestone: string | null;
 }
 
@@ -479,6 +499,37 @@ export const api = {
     milestone?: string;
     labels?: string[];
   }) => post<Entity>("/api/tasks", task),
+
+  /**
+   * The Inbox — untriaged signals, oldest first.
+   *
+   * Oldest first is the opposite of every other list here and is deliberate: a
+   * newest-first Inbox buries the thing that has been ignored longest under
+   * whatever was filed this morning, which is the failure the screen exists to
+   * prevent.
+   */
+  inbox: (params: { project: string; limit?: number }) =>
+    get<Page<Signal>>("/api/inbox", { ...params, limit: params.limit ?? 200 }),
+
+  /**
+   * File a signal. What a person types when somebody wants something.
+   *
+   * `summary` is the only required field beyond the project, and that is the
+   * requirement rather than an omission — an Inbox that costs more to file
+   * into than the thought cost to have is one nobody uses.
+   *
+   * There is no `body` and the daemon refuses one. A signal's verbatim is a
+   * document revision, and hard constraint 7's own test is that an endpoint
+   * accepting one is on the wrong side of the line; a longer verbatim is
+   * written from the session the conversation happened in.
+   */
+  createSignal: (signal: {
+    project: string;
+    summary: string;
+    kind?: string;
+    source?: string;
+    contact?: string;
+  }) => post<Signal>("/api/signals", signal),
 
   /**
    * Change the fields on a task that a person moves while looking at it.

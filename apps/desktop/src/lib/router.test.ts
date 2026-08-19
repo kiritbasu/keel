@@ -166,6 +166,7 @@ describe("NEEDS_PROJECT", () => {
     expect(NEEDS_PROJECT).toEqual({
       home: false,
       project: true,
+      inbox: true,
       roadmap: false,
       board: true,
       // "What's next" ranks one project's work. Across every project it would

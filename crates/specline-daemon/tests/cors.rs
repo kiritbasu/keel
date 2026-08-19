@@ -94,6 +94,7 @@ async fn a_write_is_not_reachable_from_another_origin() {
 
     for (method, path) in [
         (reqwest::Method::POST, "/api/tasks"),
+        (reqwest::Method::POST, "/api/signals"),
         (reqwest::Method::PATCH, "/api/tasks/tsk_whatever"),
         (reqwest::Method::POST, "/api/entity/tsk_whatever/notes"),
         (reqwest::Method::POST, "/api/tasks/tsk_whatever/close"),

@@ -53,6 +53,8 @@ const WITH_PROJECT: Digest = {
       urgent_tasks: 0,
       blocked_tasks: 0,
       open_questions: 1,
+      inbox: 0,
+      inbox_oldest_days: null,
       active_milestone: null,
     },
   ],

@@ -556,3 +556,165 @@ async fn changing_a_task_needs_the_token() {
         "a write with no token must be refused"
     );
 }
+
+// --- Filing a signal from the interface (KEEL-320) -------------------------
+
+#[tokio::test]
+async fn a_signal_filed_in_the_interface_is_attributed_to_a_person() {
+    let (base, _dir) = daemon().await;
+
+    let (status, body) = post(
+        &base,
+        "/api/signals",
+        json!({
+            "project": "harbour",
+            "summary": "this should work with codex",
+            "source": "Madhu",
+        }),
+    )
+    .await;
+    assert_eq!(status, 200, "filing a signal: {body}");
+
+    let id = body["data"]["id"].as_str().unwrap();
+    assert!(id.starts_with("fbk_"), "a signal is feedback: {body}");
+    assert_eq!(body["data"]["source"], "Madhu");
+    assert_eq!(
+        body["data"]["kind"], "idea",
+        "an unprompted thought is an idea, and nobody should have to choose: {body}"
+    );
+    assert_eq!(
+        body["data"]["triaged"], false,
+        "a freshly filed signal is in the Inbox: {body}"
+    );
+
+    let entity: Value = reqwest::get(format!("{base}/api/entity/{id}"))
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let audit = &entity["data"]["artifacts"][0]["entity"]["audit"];
+    assert_eq!(audit["created_by"], "human");
+    assert_eq!(audit["surface"], "ui");
+    assert!(audit["session_id"].is_null());
+}
+
+/// The only required field beyond the project. Everything else being optional
+/// is the requirement, not an omission — an Inbox that costs more to file into
+/// than the thought cost to have is an Inbox nobody uses.
+#[tokio::test]
+async fn a_signal_needs_only_the_sentence() {
+    let (base, _dir) = daemon().await;
+
+    let (status, body) = post(
+        &base,
+        "/api/signals",
+        json!({ "project": "harbour", "summary": "the board should group by phase" }),
+    )
+    .await;
+    assert_eq!(status, 200, "filing a bare signal: {body}");
+    assert!(body["data"]["source"].is_null());
+}
+
+/// Hard constraint 7's checkable test, enforced rather than documented. The
+/// interface captures what was said; it does not write a document revision,
+/// and the refusal says where the longer verbatim belongs instead.
+#[tokio::test]
+async fn the_interface_cannot_write_a_signals_verbatim() {
+    let (base, _dir) = daemon().await;
+
+    let (status, body) = post(
+        &base,
+        "/api/signals",
+        json!({
+            "project": "harbour",
+            "summary": "onboarding felt slow",
+            "body": "Twenty minutes before I saw anything happen.",
+        }),
+    )
+    .await;
+
+    assert_eq!(
+        status, 400,
+        "a document revision is not the interface's: {body}"
+    );
+    let message = body.to_string();
+    assert!(
+        message.contains("session"),
+        "and the refusal has to say where it does belong: {message}"
+    );
+}
+
+#[tokio::test]
+async fn a_signal_with_nothing_said_in_it_is_refused() {
+    let (base, _dir) = daemon().await;
+
+    let (status, body) = post(
+        &base,
+        "/api/signals",
+        json!({ "project": "harbour", "summary": "   " }),
+    )
+    .await;
+    assert_eq!(status, 400, "{body}");
+    assert!(
+        body.to_string().contains("summary"),
+        "named for the column that exists, not for a title feedback has not: {body}"
+    );
+}
+
+#[tokio::test]
+async fn filing_a_signal_needs_the_token() {
+    let (base, _dir) = daemon().await;
+
+    let response = reqwest::Client::new()
+        .post(format!("{base}/api/signals"))
+        .json(&json!({ "project": "harbour", "summary": "anything at all" }))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(response.status().as_u16(), 401);
+}
+
+/// The Inbox comes back oldest first, which is the opposite of every other
+/// list here and is the point: a newest-first Inbox buries the thing that has
+/// been ignored longest under whatever was filed this morning.
+#[tokio::test]
+async fn the_inbox_reads_oldest_first_and_reports_its_total() {
+    let (base, _dir) = daemon().await;
+
+    for said in ["first thing said", "second thing said", "third thing said"] {
+        let (status, body) = post(
+            &base,
+            "/api/signals",
+            json!({ "project": "harbour", "summary": said }),
+        )
+        .await;
+        assert_eq!(status, 200, "{body}");
+    }
+
+    let page: Value = reqwest::get(format!("{base}/api/inbox?project=harbour"))
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+
+    assert_eq!(page["data"]["total"], 3);
+    assert_eq!(page["data"]["truncated"], false);
+    assert_eq!(page["data"]["items"][0]["summary"], "first thing said");
+    assert_eq!(page["data"]["items"][2]["summary"], "third thing said");
+
+    // Hard constraint 4: a cut list says it was cut, and says the total. An
+    // Inbox showing two of three with no total reads as an Inbox of two, and
+    // somebody would empty it believing they had finished.
+    let cut: Value = reqwest::get(format!("{base}/api/inbox?project=harbour&limit=2"))
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(cut["data"]["items"].as_array().unwrap().len(), 2);
+    assert_eq!(cut["data"]["total"], 3);
+    assert_eq!(cut["data"]["truncated"], true);
+}

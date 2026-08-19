@@ -557,6 +557,49 @@ impl Store {
             })
     }
 
+    /// The Inbox: untriaged signals, oldest first, cut to `limit`.
+    ///
+    /// Oldest first rather than newest, which is the opposite of every other
+    /// list in the product and is the point. A newest-first Inbox buries the
+    /// thing that has been ignored longest under whatever was filed this
+    /// morning, and the whole failure KEEL-303 describes is a pile whose
+    /// bottom nobody reaches.
+    ///
+    /// The [`Page`] carries the true total, so a cut list says it was cut —
+    /// hard constraint 4, and it matters more here than almost anywhere: an
+    /// Inbox showing twenty of two hundred with no total reads as an Inbox of
+    /// twenty, and somebody would empty it and believe they were finished.
+    pub fn inbox(&self, project_id: &EntityId, limit: usize) -> Result<Page<Entity>> {
+        let (total, _) = self.untriaged_signals(project_id)?;
+
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT * FROM feedback
+                 WHERE project_id = ?1 AND archived_at IS NULL AND triaged = 0
+                 ORDER BY created_at ASC, id ASC
+                 LIMIT ?2",
+            )
+            .map_err(Error::storage("prepare the inbox query"))?;
+
+        // `id` breaks the tie on `created_at`, because ULIDs are sortable by
+        // creation and two signals filed in the same millisecond would
+        // otherwise come back in whatever order the engine felt like — which
+        // is a list that reorders itself between two renders of the same data.
+        let rows = statement
+            .query_map(
+                rusqlite::params![project_id.as_str(), limit as i64],
+                |row| Ok(rows::from_row(EntityType::Feedback, row)),
+            )
+            .map_err(Error::storage(format!("read the inbox of {project_id}")))?;
+
+        let mut items = Vec::new();
+        for row in rows {
+            items.push(row.map_err(Error::storage("read a signal from the inbox"))??);
+        }
+        Ok(Page::new(items, total))
+    }
+
     /// Every milestone in a project, with the state derived from its tasks.
     ///
     /// Two queries for the whole project rather than three per phase. The

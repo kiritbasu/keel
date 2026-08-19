@@ -105,6 +105,18 @@ pub fn router(state: AppState) -> Router {
         // human on the `ui` surface. There is deliberately no endpoint that
         // takes a document body: that is the line the constraint draws.
         .route("/api/tasks", post(api_create_task))
+        // Filing a signal. Capture, not authoring — somebody typing what they
+        // or a colleague want is recording a fact about the world, which is
+        // the half of hard constraint 7 the interface is allowed.
+        //
+        // It deliberately takes no `body`. A signal's verbatim is a document
+        // revision, and "an endpoint that accepts a document revision is on
+        // the wrong side of it" is the constraint's own checkable test — so
+        // the box captures the sentence and a longer verbatim arrives through
+        // a session, where the conversation it came from is. That is also what
+        // the design wants: capture costing more than the thought did is
+        // capture that does not happen.
+        .route("/api/signals", post(api_create_signal))
         .route("/api/entity/{id}/notes", post(api_add_note))
         .route("/api/entity/{id}/archive", post(api_archive))
         .route("/api/tasks/{id}/close", post(api_close_task))
@@ -135,6 +147,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/entity/{id}", get(api_entity))
         .route("/api/entity/{id}/history", get(api_entity_history))
         .route("/api/entities", get(api_entities))
+        .route("/api/inbox", get(api_inbox))
         .route("/api/notes", get(api_notes))
         .route("/api/document/{id}", get(api_document))
         .route("/api/graph/{id}", get(api_graph))
@@ -923,6 +936,88 @@ async fn api_create_task(State(state): State<AppState>, Json(body): Json<Value>)
         }))
         .into_response(),
         Err(e) => internal_error(&format!("the task was not created: {e}")),
+    }
+}
+
+/// File a signal into the Inbox.
+///
+/// Everything is optional except the project and the sentence, and that is the
+/// requirement rather than an omission: the Inbox only works if filing costs
+/// no more than typing the thought did, so there is no type picker, no
+/// priority and nothing to choose. `kind` defaults to `idea`, which is what an
+/// unprompted thought is; naming a `source` is what distinguishes somebody
+/// else's request from your own.
+///
+/// No `body`. See the route table for why — the constraint's own test is that
+/// an endpoint accepting a document revision is on the wrong side of the line.
+async fn api_create_signal(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
+    use specline_core::{Entity, EntityStore, Feedback};
+
+    let Some(project) = body.get("project").and_then(Value::as_str) else {
+        return bad_request("`project` is required — the project id, slug or name");
+    };
+    // `summary`, not `title`, and the refusal has to say so: feedback has no
+    // title column, on the grounds that what somebody said has no name and
+    // inventing one is a small lie about the record.
+    let summary = body
+        .get("summary")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim();
+    if summary.is_empty() {
+        return bad_request("`summary` is required — what was said, in their words");
+    }
+    if body.get("body").is_some() {
+        return bad_request(
+            "`body` is not accepted here. The interface captures what was said; a longer \
+             verbatim is written from the session it came from, which is where the conversation \
+             is. Hard constraint 7.",
+        );
+    }
+
+    let mut store = state.store();
+    let project_id = match specline_mcp::resolve_project(&store, project) {
+        Ok(id) => id,
+        Err(e) => return api_error(StatusCode::BAD_REQUEST, e.code, e.message),
+    };
+
+    let mut signal = Feedback::new(project_id, summary);
+    // `idea`, not the table's own default of `observation`. The two are a real
+    // distinction — an observation is something noticed rather than told — and
+    // what arrives through the Inbox is almost always told or thought, whether
+    // it is KB's own or somebody else's. The CLI's `--kind` defaults the same
+    // way, so a signal filed from a terminal and one filed from the app are
+    // the same row.
+    signal.kind = specline_core::FeedbackKind::Idea;
+    if let Some(kind) = body.get("kind").and_then(Value::as_str) {
+        match specline_core::FeedbackKind::parse(kind) {
+            Ok(k) => signal.kind = k,
+            Err(e) => return bad_request(&e.to_string()),
+        }
+    }
+    // Trimmed and emptied to `None`, so a field somebody tabbed through
+    // becomes an absent source rather than an empty string that renders as a
+    // blank attribution — which reads as "somebody said this" and is worse
+    // than saying nothing.
+    for (field, slot) in [
+        ("source", &mut signal.source),
+        ("contact", &mut signal.contact),
+    ] {
+        if let Some(value) = body.get(field).and_then(Value::as_str) {
+            let value = value.trim();
+            if !value.is_empty() {
+                *slot = Some(value.to_owned());
+            }
+        }
+    }
+
+    match store.create(Entity::Feedback(signal), &person_at_the_interface()) {
+        Ok(created) => Json(json!({
+            "data": specline_mcp::entity_json(&created.entity),
+            "created": created.created,
+        }))
+        .into_response(),
+        Err(e) => internal_error(&format!("the signal was not filed: {e}")),
     }
 }
 
@@ -2088,6 +2183,47 @@ async fn api_notes(
 /// more tools makes a model choose worse (SPEC §6.1) — that reasoning does not
 /// apply to a UI, which knows exactly what it wants and would otherwise have to
 /// fetch everything and filter client-side.
+/// The Inbox — untriaged signals, oldest first.
+///
+/// A read, so it sits outside the token layer with every other read. The limit
+/// is generous by default because the Inbox is meant to be worked through in
+/// one sitting, and the page reports the true total either way.
+async fn api_inbox(
+    State(state): State<AppState>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    let store = state.store();
+    let Some(project) = params.get("project") else {
+        return bad_request("`project` is required — the project id, slug or name");
+    };
+    let project_id = match specline_mcp::dispatch::resolve_project(&store, project) {
+        Ok(id) => id,
+        Err(e) => return (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))).into_response(),
+    };
+    let limit = params
+        .get("limit")
+        .and_then(|l| l.parse::<usize>().ok())
+        .unwrap_or(200);
+
+    match store.inbox(&project_id, limit) {
+        Ok(page) => {
+            let items: Vec<Value> = page.items.iter().map(specline_mcp::entity_json).collect();
+            // The same envelope every other list uses, so a caller does not
+            // have to learn a second shape for the one endpoint that happens
+            // to be newest.
+            Json(json!({
+                "data": {
+                    "items": items,
+                    "total": page.total,
+                    "truncated": page.truncated,
+                }
+            }))
+            .into_response()
+        }
+        Err(e) => internal_error(&format!("the inbox could not be read: {e}")),
+    }
+}
+
 async fn api_entities(
     State(state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,

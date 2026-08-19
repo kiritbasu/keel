@@ -31,6 +31,7 @@ import { ProjectScreen } from "./screens/Project";
 import { RoadmapScreen } from "./screens/Roadmap";
 import { BoardScreen } from "./screens/Board";
 import { NextScreen } from "./screens/Next";
+import { InboxScreen } from "./screens/Inbox";
 import { TaskScreen } from "./screens/Task";
 import { DocumentsScreen } from "./screens/Documents";
 import { SearchScreen } from "./screens/Search";
@@ -55,8 +56,15 @@ const PROJECT_SCREENS: NavItem[] = [
   // someone opens the app.
   { id: "next", label: "What’s next", key: "2" },
   { id: "board", label: "Board", key: "3" },
-  { id: "roadmap", label: "Roadmap", key: "4" },
-  { id: "documents", label: "Library", key: "5" },
+  // Between the board and the roadmap, which is where it belongs in the
+  // lifecycle: the board is work somebody committed to, the Inbox is what
+  // nobody has decided about yet, and the roadmap is where the decided things
+  // are going. Not first, deliberately — an Inbox at the top of the rail
+  // invites treating triage as the day's work rather than a thing you do to
+  // clear the way for it.
+  { id: "inbox", label: "Inbox", key: "4" },
+  { id: "roadmap", label: "Roadmap", key: "5" },
+  { id: "documents", label: "Library", key: "6" },
 ];
 
 /**
@@ -68,9 +76,9 @@ const PROJECT_SCREENS: NavItem[] = [
  * have, and the screen already carried one header claiming a job it did not do.
  */
 const GLOBAL_SCREENS: NavItem[] = [
-  { id: "home", label: "All projects", key: "6" },
-  { id: "search", label: "Search", key: "7" },
-  { id: "changed", label: "What changed", key: "8" },
+  { id: "home", label: "All projects", key: "7" },
+  { id: "search", label: "Search", key: "8" },
+  { id: "changed", label: "What changed", key: "9" },
 ];
 
 const SCREENS: NavItem[] = [...PROJECT_SCREENS, ...GLOBAL_SCREENS];
@@ -372,6 +380,8 @@ export function App() {
         return <BoardScreen {...shared} />;
       case "next":
         return <NextScreen {...shared} />;
+      case "inbox":
+        return <InboxScreen {...shared} />;
       case "task":
         return <TaskScreen {...shared} />;
       case "documents":

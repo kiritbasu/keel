@@ -4,13 +4,37 @@
     {
       "name": "specline-desktop",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "apps/desktop"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "apps/desktop"
+      ],
       "port": 1420
     },
     {
       "name": "specline-desktop-1421",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "apps/desktop", "--", "--port", "1421"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "apps/desktop",
+        "--",
+        "--port",
+        "1421"
+      ],
+      "port": 1421
+    },
+    {
+      "name": "specline-desktop-second-daemon",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:second",
+        "--prefix",
+        "apps/desktop"
+      ],
       "port": 1421
     }
   ]
