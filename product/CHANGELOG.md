@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T11:26:45Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T12:00:17Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1312,6 +1312,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_e1aa5ce8-c196-4c0e-8882-d4422009c9f4 |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T11:44:37.582422Z |
+| 2026-08-19 | claude | created task “Fix what the review found in the roadmap progress work” |
 | 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → ["commit:pending","doc:spc_01KZKMPVNTZAZHC9HY1TSNZNGM"] |
 | 2026-08-19 | claude | close_reason none → done |
@@ -1508,10 +1512,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → ["commit:c215f0b","test:cd apps/desktop && npx vitest run"] |
 | 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (674 characters) |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T21:11:13.109811Z |
 
-*Showing the 200 most recent of 2438 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2442 changes. Use `specline_activity` for the rest.*
 

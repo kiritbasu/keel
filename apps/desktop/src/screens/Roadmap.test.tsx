@@ -75,12 +75,15 @@ describe("what an unshipped phase says on the right", () => {
     expect(screen.getByText("29 / 35")).toBeTruthy();
   });
 
-  it("never says 'no target' again, whatever is missing", async () => {
+  // This used to assert `queryByText(/no target/)` was null. That string is not
+  // in any render path — only in comments — so the assertion could not fail
+  // whatever the component did. What actually needs guarding is that a row with
+  // nothing but counts still says something useful.
+  it("says something about a phase with no target and no activity", async () => {
     await show([
-      phase({ id: "mst_1", target_date: null, last_activity: null }),
-      phase({ id: "mst_2", name: "Phase 14 — Inbox", tasks_total: 0, tasks_closed: 0 }),
+      phase({ target_date: null, last_activity: null, shipped_at: null }),
     ]);
-    expect(screen.queryByText(/no target/)).toBeNull();
+    expect(screen.getByText("29 / 35")).toBeTruthy();
   });
 
   // The distinction the fraction alone loses: a phase nobody has broken down
@@ -111,10 +114,36 @@ describe("what an unshipped phase says on the right", () => {
     expect(screen.getByText(/^due /)).toBeTruthy();
     expect(screen.getByText("29 / 35")).toBeTruthy();
   });
+
+  it("drops the target once the phase has shipped", async () => {
+    await show([
+      phase({
+        target_date: "2026-08-09",
+        state: "shipped",
+        status: "shipped",
+        shipped_at: "2026-08-09T12:00:00Z",
+      }),
+    ]);
+    expect(screen.queryByText(/^due /)).toBeNull();
+    expect(screen.getByText(/^shipped /)).toBeTruthy();
+  });
+
+  // A date the browser cannot parse used to throw `RangeError` out of render,
+  // which unmounts the screen rather than losing one cell.
+  it("survives a target date it cannot parse", async () => {
+    await show([phase({ target_date: "not a date" })]);
+    expect(screen.getByText("29 / 35")).toBeTruthy();
+    expect(screen.queryByText(/^due /)).toBeNull();
+  });
 });
 
 describe("what a shipped row says", () => {
-  it("says when it shipped, not how its tasks are doing", async () => {
+  // This test used to assert the opposite — that a shipped row shows no
+  // fraction — because the branch keyed off `shipped_at` rather than `kind`.
+  // Eight of the fifteen phases in the real store carry a shipped date, so the
+  // column that exists to say how far a phase got was hidden on more than half
+  // of them, and disagreed with `product/STATUS.md` about the same rows.
+  it("shows a shipped phase's date and its fraction", async () => {
     await show([
       phase({
         state: "shipped",
@@ -123,7 +152,20 @@ describe("what a shipped row says", () => {
       }),
     ]);
     expect(screen.getByText(/^shipped /)).toBeTruthy();
-    expect(screen.queryByText("29 / 35")).toBeNull();
+    expect(screen.getByText("29 / 35")).toBeTruthy();
+  });
+
+  it("prefers the shipped date over the last-moved date", async () => {
+    await show([
+      phase({
+        state: "shipped",
+        status: "shipped",
+        shipped_at: "2026-08-16T11:56:01Z",
+        last_activity: "2026-08-18T09:00:00Z",
+      }),
+    ]);
+    expect(screen.getByText(/^shipped /)).toBeTruthy();
+    expect(screen.queryByText(/^moved /)).toBeNull();
   });
 
   // A release carries no tasks, so the progress branch would render it as
@@ -145,6 +187,27 @@ describe("what a shipped row says", () => {
     ]);
     expect(screen.queryByText("not scoped")).toBeNull();
     expect(screen.getByText(/^shipped /)).toBeTruthy();
+  });
+
+  // The other half of the same bug. A release that has been named and not cut
+  // has no `shipped_at`, so it fell through to the progress branch and was
+  // labelled "not scoped" — a claim about tasks, on a row that never has any.
+  it("calls an uncut release unreleased, not unscoped", async () => {
+    await show([
+      phase({
+        kind: "release",
+        name: "0.4.0 — next",
+        version_string: "0.4.0",
+        state: "planned",
+        status: "open",
+        shipped_at: null,
+        tasks_total: 0,
+        tasks_closed: 0,
+        last_activity: null,
+      }),
+    ]);
+    expect(screen.getByText("unreleased")).toBeTruthy();
+    expect(screen.queryByText("not scoped")).toBeNull();
   });
 });
 
@@ -181,12 +244,16 @@ describe("the two strands", () => {
 
   // `sort_order` was assigned by a backfill. The next release will be created
   // by whoever cuts it, and the date is the fact that cannot be wrong.
-  it("orders releases by when they shipped, not by the order they arrived", async () => {
+  it("orders releases by when they shipped, not by name or arrival", async () => {
+    // The date order and the name order must *disagree*, or the fallback name
+    // tiebreak does the work and the test passes with the whole date
+    // comparison deleted — which is what the first version of this did.
+    // `0.10.0` shipped first and sorts second by name.
     await show([
       phase({
         id: "mst_2",
         kind: "release",
-        name: "0.3.0",
+        name: "0.9.0",
         state: "shipped",
         shipped_at: "2026-08-18T09:26:23Z",
         sort_order: null,
@@ -194,14 +261,45 @@ describe("the two strands", () => {
       phase({
         id: "mst_1",
         kind: "release",
-        name: "0.1.0",
+        name: "0.10.0",
         state: "shipped",
         shipped_at: "2026-08-15T07:58:25Z",
         sort_order: null,
       }),
     ]);
-    const names = screen.getAllByText(/^0\.\d\.0$/).map((el) => el.textContent);
-    expect(names).toEqual(["0.1.0", "0.3.0"]);
+    const names = screen
+      .getAllByText(/^0\.\d+\.0$/)
+      .map((el) => el.textContent);
+    expect(names).toEqual(["0.10.0", "0.9.0"]);
+  });
+
+  // `Option::cmp` puts `None` first in Rust, and the tracker's table sorts the
+  // same list. The two surfaces disagreeing about where an uncut version goes
+  // is worse than either answer.
+  it("puts a named-but-uncut release last, the way the tracker does", async () => {
+    await show([
+      phase({
+        id: "mst_2",
+        kind: "release",
+        name: "0.4.0",
+        state: "planned",
+        status: "open",
+        shipped_at: null,
+        sort_order: null,
+      }),
+      phase({
+        id: "mst_1",
+        kind: "release",
+        name: "0.3.0",
+        state: "shipped",
+        shipped_at: "2026-08-18T09:26:23Z",
+        sort_order: null,
+      }),
+    ]);
+    const names = screen
+      .getAllByText(/^0\.\d+\.0$/)
+      .map((el) => el.textContent);
+    expect(names).toEqual(["0.3.0", "0.4.0"]);
   });
 });
 

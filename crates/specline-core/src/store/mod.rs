@@ -703,16 +703,24 @@ impl Store {
         // again, so its own `updated_at` says when somebody renamed it, not
         // when the work last progressed. Archived tasks are left in, because a
         // task being archived is itself the phase moving.
+        //
+        // **The maximum is taken here, not by SQL.** `max(e.at)` looks obvious
+        // and is wrong on any store that came through the DuckDB migration:
+        // `at` is TEXT, so `max` is lexicographic, and that migration wrote
+        // some timestamps with a space where the `T` should be. Space sorts
+        // before `T`, so a phase with one of each on the same day reports the
+        // older row as its newest. Parsing first and comparing
+        // `DateTime`s cannot care what shape the text was — and at a few
+        // thousand events the row count is not worth an assumption.
         let mut latest: std::collections::HashMap<String, chrono::DateTime<chrono::Utc>> =
             Default::default();
         let mut stmt = self
             .conn
             .prepare(
-                "SELECT t.milestone_id, max(e.at)
+                "SELECT t.milestone_id, e.at
                  FROM events e
                  JOIN tasks t ON t.id = e.entity_id
-                 WHERE t.project_id = ?1 AND t.milestone_id IS NOT NULL
-                 GROUP BY t.milestone_id",
+                 WHERE t.project_id = ?1 AND t.milestone_id IS NOT NULL",
             )
             .map_err(Error::storage("prepare the per-phase activity query"))?;
         let mut rows = stmt
@@ -723,15 +731,33 @@ impl Store {
             .map_err(Error::storage("read a per-phase activity time"))?
         {
             let id: String = row.get(0).map_err(Error::storage("read a milestone id"))?;
-            let at: Option<String> = row.get(1).ok();
-            // A timestamp that will not parse is dropped rather than defaulted.
-            // `Some(the epoch)` on the roadmap reads as "last touched in 1970",
-            // which is a worse answer than the blank the column already handles.
-            if let Some(parsed) = at
-                .as_deref()
-                .and_then(|v| chrono::DateTime::parse_from_rfc3339(v).ok())
-            {
-                latest.insert(id, parsed.with_timezone(&chrono::Utc));
+            let raw: String = row
+                .get(1)
+                .map_err(Error::storage("read a per-phase activity time"))?;
+            // `parse_ts`, not `parse_from_rfc3339`: it is the one place that
+            // knows every shape a timestamp in this store can legitimately
+            // have. A row it cannot read is logged and skipped rather than
+            // failing the whole digest — one unreadable event should not blank
+            // the roadmap — but it is not swallowed silently either.
+            match rows::parse_ts("events", "at", &raw) {
+                Ok(at) => {
+                    latest
+                        .entry(id)
+                        .and_modify(|held| {
+                            if at > *held {
+                                *held = at;
+                            }
+                        })
+                        .or_insert(at);
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        milestone = %id,
+                        value = %raw,
+                        error = %e,
+                        "skipping an event whose timestamp will not parse while dating a phase"
+                    );
+                }
             }
         }
         drop(rows);

@@ -137,6 +137,21 @@ export function RoadmapScreen({
   );
 }
 
+/**
+ * A target date, for the rare phase that has one.
+ *
+ * `new Date(x).toISOString()` throws `RangeError` on anything it cannot parse,
+ * and a throw in render unmounts the whole screen. Every other field on this
+ * row is read defensively; this one was not, and the roadmap is the screen you
+ * open when you want to know what is going on — the worst one to lose to a bad
+ * cell.
+ */
+function Due({ iso }: { iso: string }) {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return null;
+  return <When iso={at.toISOString()} prefix="due" />;
+}
+
 /** One vertical run of milestone rows against a timeline rule. */
 function Strand({
   items,
@@ -173,6 +188,13 @@ function Row({
   const status = String(m.state ?? m.status);
   const date = m.target_date as string | null;
   const shipped = m.shipped_at as string | null;
+  // What a row says on the right is decided by what it *is*, not by whether it
+  // happens to carry a date. Keying this off `shipped_at` meant the eight
+  // phases that have one showed no progress at all — the thing this column
+  // exists to show, hidden on more than half the phases — while an unshipped
+  // release fell through to the progress branch and was labelled "not scoped",
+  // the exact false claim the rest of this file is careful to avoid.
+  const isRelease = String(m.kind) === "release";
   // Counted by the daemon, beside the state it already derived. The browser has
   // only this project's milestones, so working it out here would mean fetching
   // every task to count it (KEEL-332).
@@ -222,19 +244,34 @@ function Row({
             <Badge>v{String(m.version_string)}</Badge>
           ) : null}
           <span className="ml-auto flex items-center gap-3 text-small text-ink-faint">
-            {shipped ? (
-              <When iso={shipped} prefix="shipped" />
+            {isRelease ? (
+              // A release carries no tasks, so its date is the whole story. An
+              // undated one is a version somebody has named and not yet cut.
+              shipped ? (
+                <When iso={shipped} prefix="shipped" />
+              ) : (
+                <span title="Named, but not cut yet">unreleased</span>
+              )
             ) : (
               <>
                 {/* A target is a future date, which is exactly the case the old
                     helper rendered as "-3d ago". Kept for a phase that
                     genuinely has one; it is no longer what the column falls
                     back to. */}
-                {date ? (
-                  <When iso={new Date(date).toISOString()} prefix="due" />
-                ) : null}
+                {/* A target only while it is still a target. On a phase
+                    that shipped it is history, and printing "due Aug 9"
+                    beside "shipped Aug 9" is two dates where one is the
+                    answer. */}
+                {!shipped && date ? <Due iso={date} /> : null}
                 {counted ? <Progress closed={closed} total={total} /> : null}
-                {moved ? <When iso={moved} prefix="moved" /> : null}
+                {/* When it shipped beats when it last moved: a finished phase
+                    someone left a note on last week did not move last week in
+                    any sense a reader cares about. */}
+                {shipped ? (
+                  <When iso={shipped} prefix="shipped" />
+                ) : moved ? (
+                  <When iso={moved} prefix="moved" />
+                ) : null}
               </>
             )}
           </span>
@@ -266,12 +303,19 @@ function Progress({ closed, total }: { closed: number; total: number }) {
   if (total === 0) {
     return <span title="No tasks filed under this one yet">not scoped</span>;
   }
-  const pct = Math.round((closed / total) * 100);
+  // Clamped. The bar is drawn from a number the daemon sends, and a bar wider
+  // than its own track is a rendering artefact that looks like a styling bug
+  // rather than the data problem it would actually be.
+  const pct = Math.min(100, Math.max(0, Math.round((closed / total) * 100)));
   return (
     <span className="flex items-center gap-2 whitespace-nowrap">
       <span
         aria-hidden
-        className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-border-subtle"
+        // Hidden on a narrow window. The bar is decoration — the fraction
+        // beside it carries the same fact — and adding 64px to every row is
+        // what pushed "Phase 0 — Spine" onto two lines in a half-width
+        // window. Information first, then the picture of it.
+        className="hidden h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-border-subtle md:block"
       >
         <span
           className="block h-full rounded-full bg-accent"

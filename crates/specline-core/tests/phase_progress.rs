@@ -160,9 +160,46 @@ fn last_activity_tracks_the_tasks_rather_than_the_phase_row() {
         .last_activity
         .expect("closing a task under a phase is the phase moving");
 
+    // Strictly greater, not `>=`. This assertion was written `>=` and it made
+    // the test worthless: `min(e.at)` in place of the maximum returns the
+    // creation time for both reads, which satisfies `>=` exactly. The whole
+    // suite passed with the query taking the oldest event instead of the
+    // newest.
     assert!(
-        after >= created,
-        "closing a task should not move the phase's activity time backwards: {after} < {created}"
+        after > created,
+        "the phase should be dated by its newest event, not its first: {after} is not after \
+         {created}"
+    );
+}
+
+#[test]
+fn renaming_a_phase_does_not_count_as_the_phase_moving() {
+    let mut f = setup();
+    let phase = f.phase("Phase 3 — Desktop");
+    let task = f.task_in(&phase, "Something that will not be touched");
+    f.finish(&task);
+    let before = f.progress_of(&phase).last_activity.expect("dated");
+
+    // The milestone row itself is written once and then almost never again, so
+    // its `updated_at` answers "when did somebody rename this", which is not
+    // the question the roadmap is asking. The test above cannot tell the two
+    // apart on its own — it never touches the phase row.
+    let version = f.store.get(&phase).unwrap().unwrap().audit().version;
+    let mut changes = serde_json::Map::new();
+    changes.insert("name".to_owned(), "Phase 3 — Desktop, renamed".into());
+    f.store
+        .update(
+            &phase,
+            version,
+            &changes,
+            &Provenance::anonymous(Actor::Human),
+        )
+        .unwrap();
+
+    assert_eq!(
+        f.progress_of(&phase).last_activity,
+        Some(before),
+        "editing the phase row is not its work progressing"
     );
 }
 
@@ -256,6 +293,15 @@ mod tracker {
             !markdown.contains("| Target |"),
             "the target column is gone:\n{markdown}"
         );
+
+        // A rendered value, not just the header. Asserting the column exists
+        // passes just as happily on a table of `—`, which is what a broken
+        // activity query would produce.
+        let today = chrono::Utc::now().date_naive().to_string();
+        assert!(
+            markdown.contains(&format!("| `complete` | 1 / 1 | {today} |")),
+            "the row should carry the counts and a real date:\n{markdown}"
+        );
     }
 
     #[test]
@@ -292,6 +338,66 @@ mod tracker {
         assert!(
             released.find("0.1.0") < released.find("0.3.0"),
             "releases run oldest first:\n{released}"
+        );
+    }
+
+    #[test]
+    fn a_named_but_uncut_release_sorts_last_not_first() {
+        let mut f = setup();
+        release(&mut f, "0.3.0 — shipped", "0.3.0", "2026-08-18T09:26:23Z");
+        // No date: named, not cut. `Option::cmp` puts `None` first, so sorting
+        // on `shipped_at` alone floats this above everything that has actually
+        // shipped — and the roadmap screen puts it last, so the two surfaces
+        // of one list would disagree.
+        let mut m = Milestone::new(f.project.clone(), "0.4.0 — next", "Not cut yet.");
+        m.kind = MilestoneKind::Release;
+        m.version_string = Some("0.4.0".to_owned());
+        f.store
+            .create(m.into(), &Provenance::anonymous(Actor::Human))
+            .unwrap();
+
+        let markdown = render_status::render(&f.store, &f.project).unwrap();
+        let released = markdown.split_once("## Released").unwrap().1;
+        assert!(
+            released.find("0.3.0") < released.find("0.4.0"),
+            "an uncut release belongs after the ones that shipped:\n{released}"
+        );
+    }
+
+    #[test]
+    fn a_pipe_in_a_summary_does_not_shift_every_cell_after_it() {
+        let mut f = setup();
+        let mut m = Milestone::new(
+            f.project.clone(),
+            "0.5.0 — split",
+            "Separates the CLI | daemon boundary, which is the point.",
+        );
+        m.kind = MilestoneKind::Release;
+        m.version_string = Some("0.5.0".to_owned());
+        m.status = specline_core::MilestoneStatus::Shipped;
+        m.shipped_at = Some(
+            chrono::DateTime::parse_from_rfc3339("2026-08-19T09:00:00Z")
+                .unwrap()
+                .with_timezone(&chrono::Utc),
+        );
+        f.store
+            .create(m.into(), &Provenance::anonymous(Actor::Human))
+            .unwrap();
+
+        let markdown = render_status::render(&f.store, &f.project).unwrap();
+        let row = markdown
+            .lines()
+            .find(|l| l.contains("0.5.0"))
+            .expect("the release is in the table");
+
+        // Nothing validates a summary against the file it renders into, and
+        // `generate --check` compares bytes — so a corrupted table is not
+        // drift and would be committed without complaint.
+        assert!(row.contains(r"CLI \| daemon"), "the pipe is escaped: {row}");
+        assert_eq!(
+            row.matches(" | ").count(),
+            2,
+            "a three-column row has two separators, whatever the prose says: {row}"
         );
     }
 

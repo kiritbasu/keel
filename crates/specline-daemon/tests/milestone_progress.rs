@@ -122,9 +122,59 @@ async fn the_all_projects_list_carries_them_too() {
 }
 
 #[tokio::test]
+async fn a_task_list_pays_nothing_for_phase_progress() {
+    let daemon = Daemon::start().await;
+    let response = daemon
+        .client
+        .get(format!("{}/api/entities?type=task&limit=50", daemon.base))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    let body: Value = response.json().await.unwrap();
+    let items = body["data"]["items"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    assert!(!items.is_empty(), "the fixture has tasks");
+
+    // `api_entities` is the generic list endpoint — the board asks it for two
+    // thousand tasks, with no project on the all-projects board. Deriving
+    // progress for every project in the store on that request meant three
+    // aggregates and a thousand-row milestone read per project, for a map
+    // whose keys could never match a task id. Nothing here can assert the work
+    // was skipped directly, but a task carrying a phase field is the symptom
+    // that the derivation ran and was indexed by the wrong thing.
+    for t in &items {
+        assert!(
+            t.get("tasks_total").is_none(),
+            "a task should not carry phase counts: {t}"
+        );
+        assert!(
+            t.get("last_activity").is_none(),
+            "a task should not carry a phase activity time: {t}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn a_milestone_that_has_never_moved_reports_no_activity_rather_than_a_date() {
     let daemon = Daemon::start().await;
     let items = daemon.milestones("limit=200").await;
+
+    // At least one row must actually carry a time. Without this the test
+    // accepted `null` everywhere and asserted nothing: hard-wiring
+    // `last_activity: None` in `MilestoneProgress` left the whole file green.
+    let dated = items
+        .iter()
+        .filter(|m| m.get("last_activity").and_then(Value::as_str).is_some())
+        .count();
+    assert!(
+        dated > 0,
+        "the fixture has phases with tasks under them, so some phase must be dated; \
+         {} milestones came back and none was",
+        items.len()
+    );
 
     // `last_activity` is nullable on purpose. A release row carries no tasks,
     // so the honest answer is nothing — and the epoch, which is what a

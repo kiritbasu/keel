@@ -205,11 +205,16 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
     // changelog beside this file exists to answer (KEEL-333).
     if !release_rows.is_empty() {
         release_rows.sort_by(|a, b| {
-            // By the date it went out. A version cut without a `sort_order`
-            // still lands in the right place, which matters because the next
-            // one is created by whoever cuts it.
-            a.shipped_at
-                .cmp(&b.shipped_at)
+            // By the date it went out, oldest first, with an undated one last.
+            //
+            // The `is_none()` key is load-bearing: `Option::cmp` puts `None`
+            // *first*, so sorting on `shipped_at` alone would float a version
+            // that has been named but not cut to the top of the table, above
+            // everything that has actually shipped. The roadmap screen orders
+            // these too and puts undated last, and two surfaces of one list
+            // disagreeing about order is worse than either order.
+            (a.shipped_at.is_none(), a.shipped_at)
+                .cmp(&(b.shipped_at.is_none(), b.shipped_at))
                 .then_with(|| a.name.cmp(&b.name))
         });
         writeln!(out, "---")?;
@@ -222,10 +227,10 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
             writeln!(
                 out,
                 "| {} | {} | {} |",
-                r.version_string.as_deref().unwrap_or(&r.name),
+                cell(r.version_string.as_deref().unwrap_or(&r.name)),
                 r.shipped_at
                     .map_or("—".to_owned(), |t| t.date_naive().to_string()),
-                r.summary.as_deref().unwrap_or("—"),
+                cell(r.summary.as_deref().unwrap_or("—")),
             )?;
         }
         writeln!(out)?;
@@ -516,6 +521,21 @@ fn plural(noun: &str) -> String {
         return format!("{}ies", &noun[..noun.len() - 1]);
     }
     format!("{noun}s")
+}
+
+/// Make a string safe to put between two pipes in a markdown table.
+///
+/// Nothing validates a summary against the file it will be rendered into:
+/// `Milestone::validate` checks that it is neither empty nor a paragraph, and
+/// stops there. A perfectly reasonable sentence — "the CLI | daemon split" —
+/// would shift every cell after it, and a newline would end the row outright.
+/// `generate --check` compares bytes, so a corrupted table is not drift and
+/// would be committed without complaint.
+fn cell(raw: &str) -> String {
+    raw.replace('|', r"\|")
+        .replace(['\n', '\r'], " ")
+        .trim()
+        .to_owned()
 }
 
 fn collect(store: &Store, project_id: &EntityId, entity_type: EntityType) -> Result<Vec<Entity>> {

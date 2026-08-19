@@ -2281,16 +2281,21 @@ async fn api_entities(
             // which the screen would have rendered as "not scoped", a claim
             // that is false rather than merely unhelpful. There are four
             // projects in the store, so the loop is not worth avoiding.
+            //
+            // Only for the projects this page actually has a milestone in.
+            // `api_entities` is the generic list endpoint: the board asks it
+            // for two thousand tasks, and on the all-projects board with no
+            // `project` in the query that was running three aggregates and a
+            // thousand-row milestone read per project, for a result that could
+            // never match a single task id. Deriving from the page's own
+            // milestone rows makes the work proportional to what was asked
+            // for, and zero when no milestone was.
             let mut wanted: Vec<specline_core::EntityId> = Vec::new();
-            if let Some(p) = query.project_id.as_ref() {
-                wanted.push(p.clone());
-            } else {
-                for e in &page.items {
-                    if let Some(p) = e.project_id()
-                        && !wanted.contains(p)
-                    {
-                        wanted.push(p.clone());
-                    }
+            for e in &page.items {
+                if let specline_core::Entity::Milestone(m) = e
+                    && !wanted.contains(&m.project_id)
+                {
+                    wanted.push(m.project_id.clone());
                 }
             }
             let mut states = std::collections::HashMap::new();
