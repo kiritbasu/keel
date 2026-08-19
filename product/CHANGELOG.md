@@ -1,15 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T10:32:02Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T11:08:58Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (283)
+## Closed work (285)
 
 ### 2026-08-19
+
+- **KEEL-333** Backfill the ten shipped versions as release rows, so the roadmap has a real time axis — `done`
+
+  All ten tags from v0.1.0 to v0.3.0 are release rows now, each with its version, its shipped date and a line on what went out. The roadmap and STATUS.md give them a strand of their own rather than mixing them into the phases, because a release carries no tasks and would otherwise be ten rows of `planned 0 / 0`.
+
+  <sub>commit:7c6ef9c · test:cargo test -p specline-daemon --test milestone_progress · url:http://127.0.0.1:7654/#/projects/specline/roadmap</sub>
+
+- **KEEL-332** The roadmap shows how far a phase has got, instead of a target date nobody set — `done`
+
+  The roadmap, the digest and STATUS.md all say how far a phase has got instead of a target date. `milestone_states` is now `milestone_progress` and returns the tally it was already computing and discarding, plus a last-activity time from the event log; the API sends all of it, so nothing counts tasks in the browser.
+
+  <sub>commit:7c6ef9c · test:cargo test -p specline-core --test phase_progress · test:npx vitest run src/screens/Roadmap.test.tsx</sub>
 
 - **KEEL-321** An untriaged signal is not work, and nothing that counts work should count it — `done`
 
@@ -1294,6 +1306,19 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status open → answered |
+| 2026-08-19 | claude | created task “SPEC promises "overdue milestones" in the digest and nothing computes it” |
+| 2026-08-19 | claude | “The roadmap shows derived progress, not a target date, and…” resolves “The roadmap's target column is empty on every open phase.…” |
+| 2026-08-19 | claude | revised decision “The roadmap shows derived progress, not a target date, and releases are rows” to v1 |
+| 2026-08-19 | claude | created decision “The roadmap shows derived progress, not a target date, and releases are rows” |
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → (137 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (311 characters) |
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → (126 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (316 characters) |
 | 2026-08-19 | claude | created milestone “0.3.0 — what to pick up next, with a page of its own” |
 | 2026-08-19 | claude | created milestone “0.2.1 — store relocation fixes” |
 | 2026-08-19 | claude | created milestone “0.2.0 — Keel is now Specline” |
@@ -1481,19 +1506,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | human | labels [] → ["feature-request"] |
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → (104 characters) |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (720 characters) |
-| 2026-08-18 | claude | “No mutating route carries CORS, and the comment on the…” references “Writes are same-origin only, and that stops being an…” |
-| 2026-08-18 | claude | revised decision “Writes are same-origin only, and that stops being an accident” to v1 |
-| 2026-08-18 | claude | created decision “Writes are same-origin only, and that stops being an accident” |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T18:50:57.402423Z |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → (96 characters) |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (676 characters) |
-| 2026-08-18 | claude | “Drag a card between board columns to move its status” references “Dragging a card is refused in the open, not on release” |
 
-*Showing the 200 most recent of 2417 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2430 changes. Use `specline_activity` for the rest.*
 

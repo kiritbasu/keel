@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-19T10:34:03.320298+00:00",
+  "generated_at": "2026-08-19T11:08:58.072052+00:00",
   "files": [
     {
       "path": ".specline/specs/how-feature-requests-should-work-end-to-end.md",
@@ -65,6 +65,17 @@
           "entity_type": "spec",
           "version": 2,
           "hash": "8693e49c88fc2ad31cb195dd2fc89dca7a4eb1266ca568fb37bda5f231c92ea3"
+        }
+      ]
+    },
+    {
+      "path": ".specline/decisions/the-roadmap-shows-derived-progress-not-a-target-date-and-releases-are-rows.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M0CVA1KSB8DWS6DDE2DYMCNB",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "2256d8fa1327987ccaf09416fc25add2b3e2bf814aca24a10c1d19f2a722aa0c"
         }
       ]
     },
@@ -1073,12 +1084,6 @@
       "path": ".specline/questions.md",
       "contributors": [
         {
-          "entity_id": "que_01M0CQJGHK1B3TPDMQ69C6MF7Q",
-          "entity_type": "question",
-          "version": 1,
-          "hash": "49cff5f5db9af09b2caea1c8df97f4f0635dde7eb3c18a88721224c3328e6d18"
-        },
-        {
           "entity_id": "que_01M04PW3ZCQJ37M7EC27K58HC0",
           "entity_type": "question",
           "version": 2,
@@ -1125,6 +1130,12 @@
           "entity_type": "question",
           "version": 1,
           "hash": "2658bbe846f41efece327f5b14da526cabbda64653ae996e0c29a2f9fe3e8e5f"
+        },
+        {
+          "entity_id": "que_01M0CQJGHK1B3TPDMQ69C6MF7Q",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "49cff5f5db9af09b2caea1c8df97f4f0635dde7eb3c18a88721224c3328e6d18"
         },
         {
           "entity_id": "que_01M0CNP75150X4E5Q65K66R85K",
