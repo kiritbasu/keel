@@ -121,7 +121,24 @@ function isSwitchedOff(id: ScreenId, surfaces?: { inbox?: boolean }): boolean {
   return id === "inbox" && surfaces?.inbox === false;
 }
 
-/** One row in the rail. Never disabled — see `lib/lastProject`. */
+/**
+ * One row in the rail. Never disabled — see `lib/lastProject`.
+ *
+ * **The label, and nothing else.** Each row used to carry its keyboard digit
+ * beside it, and that digit was drawn three ways before being removed. A bare
+ * number read as a count — the convention in every mail client and issue
+ * tracker — so a fresh install with an empty store showed "All projects 6,
+ * Search 7", which reads as data appearing from nowhere (KEEL-223). A leading
+ * `·` fixed that and was then read as unclear by the first person to see it,
+ * who expected `⌘`. And `⌘` would be a lie: the handler below ignores modified
+ * keypresses on purpose, because ⌘1–⌘9 are the browser's tab shortcuts. A
+ * boxed keycap was the third attempt and did not land either (KEEL-342).
+ *
+ * Three attempts at making one glyph legible is the point to stop drawing it.
+ * The keys still work for whoever has learnt them, and the row's `title` still
+ * names the key — present when somebody goes looking, absent the rest of the
+ * time, which is the right weight for a hint nobody needs twice.
+ */
 function NavLink({
   item,
   route,
@@ -136,48 +153,15 @@ function NavLink({
     <a
       href={href({ screen: item.id, project })}
       aria-current={here ? "page" : undefined}
+      title={`${item.label} — press ${item.key}`}
       className={cx(
-        "flex w-full items-center justify-between rounded-control px-2.5 py-1.5 text-left text-small",
+        "flex w-full items-center rounded-control px-2.5 py-1.5 text-left text-small",
         here
           ? "bg-accent-quiet text-accent"
           : "text-ink-muted hover:bg-surface-hover hover:text-ink",
       )}
     >
       {item.label}
-      {/* A keycap, because the digit has to say "a key" and not "how many".
-       *
-       * A bare right-aligned digit beside a navigation label means a count —
-       * that is the convention in every mail client, chat app and issue
-       * tracker, and a faint monospace style does not overturn it. It was read
-       * that way and reported as a bug: a brand new install with an empty store
-       * showed "All projects 6, Search 7, What changed 8", which reads as data
-       * appearing from nowhere. Every digit was also wrong as a count — "Ready
-       * 2" against 21 ready tasks (KEEL-223).
-       *
-       * The first fix was a leading `·`, which cannot be a quantity and so did
-       * solve that. It was then read as unclear by the first person to see it,
-       * who expected `⌘` — because the header next to it writes `Jump to… ⌘K`
-       * and that was the only shortcut vocabulary on screen.
-       *
-       * **`⌘` would be a lie.** These are bare keypresses: the handler below
-       * returns early on `metaKey || ctrlKey || altKey`, deliberately, because
-       * ⌘1–⌘9 are the browser's tab shortcuts and this app does not claim
-       * them. Printing `⌘1` would advertise a combination that switches the
-       * user's tab.
-       *
-       * So: no prefix character at all, and a border instead. A boxed glyph is
-       * the standard way to draw a key, it cannot be read as a quantity, and it
-       * claims no modifier — which is the distinction the rail actually needed
-       * to draw, between "a key" and "a number", rather than between itself and
-       * the ⌘K beside it.
-       */}
-      <kbd
-        className="rounded border border-border-subtle px-1 font-mono text-micro text-ink-faint"
-        aria-hidden="true"
-        title={`Press ${item.key}`}
-      >
-        {item.key}
-      </kbd>
     </a>
   );
 }

@@ -167,71 +167,48 @@ describe("the command palette key", () => {
   });
 });
 
-describe("the shortcut hint in the rail", () => {
+describe("the rail carries no shortcut glyph", () => {
   /**
-   * A bare right-aligned digit beside a nav label means a count — that is the
-   * convention everywhere else, and a faint monospace style does not overturn
-   * it. It was read that way and reported as a bug against a brand new install:
-   * "All projects 6, Search 7, What changed 8" on an empty store reads as data
-   * appearing from nowhere. Every digit was wrong as a count, too — the rail
-   * said "Ready 2" against 21 ready tasks.
+   * Three attempts at drawing one digit legibly, then removal.
+   *
+   * A bare right-aligned number read as a count — the convention in every mail
+   * client and issue tracker — so an empty store showed "All projects 6, Search
+   * 7", which reads as data appearing from nowhere, and every digit was wrong
+   * as a count anyway. A leading `·` fixed that and read as unclear. A boxed
+   * keycap was the third and did not land either (KEEL-223, KEEL-342).
    */
-  it("cannot be mistaken for a count", async () => {
+  it("renders no keycap beside a nav label", async () => {
     render(<App />);
     await settle();
-    const hints = [...document.querySelectorAll("a kbd")];
-    expect(hints.length).toBeGreaterThan(0);
-    // Drawn as a key rather than spelled as one. The first fix here was a
-    // leading `·`, which could not be a quantity but was read as unclear — the
-    // first person to see it expected `⌘`, because `Jump to… ⌘K` in the header
-    // was the only shortcut vocabulary on screen. `⌘` would be a lie: the
-    // handler ignores modified keypresses on purpose, since ⌘1–⌘9 belong to the
-    // browser. So the digit is bare again and a border carries the meaning.
-    for (const hint of hints) {
-      expect(hint.className).toMatch(/\bborder\b/);
-    }
+    expect(document.querySelectorAll("nav a kbd")).toHaveLength(0);
   });
 
   /**
-   * The rail's digits are unmodified keypresses, so nothing in it may print a
-   * modifier. Advertising `⌘1` would send somebody to a different browser tab.
+   * `⌘K` in the header is a different thing and stays. Scoping the assertion
+   * above to the rail is what lets this one exist — a blanket "no kbd anywhere"
+   * would have taken the palette hint with it.
    */
-  it("never claims a modifier it does not handle", async () => {
+  it("keeps the palette hint in the header", async () => {
     render(<App />);
     await settle();
-    const hints = [...document.querySelectorAll("a kbd")].map(
-      (k) => k.textContent ?? "",
-    );
-    expect(hints.length).toBeGreaterThan(0);
-    for (const hint of hints) {
-      expect(hint).not.toMatch(/[⌘⌃⌥]/);
-    }
-  });
-
-  /** The key itself is still there — this is a disambiguation, not a removal. */
-  it("still names the key it presses", async () => {
-    render(<App />);
-    await settle();
-    const hints = [...document.querySelectorAll("a kbd")].map(
+    const hints = [...document.querySelectorAll("kbd")].map(
       (k) => k.textContent,
     );
-    expect(hints).toContain("7");
+    expect(hints).toContain("⌘K");
   });
 
   /**
-   * Decoration to a screen reader: the label already names the destination,
-   * and "middle dot seven" read after it is noise.
+   * Removed from the rail, not from the app. Somebody who learnt `3` still
+   * gets the board, and the row says which key when you hover it — the digit
+   * is quiet, not gone.
    */
-  it("is hidden from assistive technology", async () => {
+  it("still names the key on hover", async () => {
     render(<App />);
     await settle();
-    // Scoped to the rail. Other hints exist — `⌘K` in the header, `K`/`J` on
-    // the task screen — and they are not this.
-    const railHints = document.querySelectorAll("a kbd");
-    expect(railHints.length).toBeGreaterThan(0);
-    for (const kbd of railHints) {
-      expect(kbd.getAttribute("aria-hidden")).toBe("true");
-    }
+    const board = [...document.querySelectorAll("nav a")].find((a) =>
+      a.textContent?.includes("Board"),
+    );
+    expect(board?.getAttribute("title")).toBe("Board — press 3");
   });
 });
 
