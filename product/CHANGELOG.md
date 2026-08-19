@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T20:22:29Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T20:23:12Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (304)
+## Closed work (305)
 
 ### 2026-08-19
+
+- **KEEL-346** Write the release-row-then-tag loop into the standing contract — `done`
+
+  The standing contract now says the release row is written before the tag and why, with the concrete sequence and the lightweight-tag refusal recorded alongside the measurement that justifies it. It loads in every session, since the root CLAUDE.md imports it.
+
+  <sub>commit:9a0b607 · doc:spc_01KZKSME2TCPVARX9M04836XD6</sub>
 
 - **KEEL-343** Cut 0.4.1 — the rail without its shortcuts, and the signal lifecycle — `done`
 
@@ -1414,6 +1420,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → ["commit:9a0b607","doc:spc_01KZKSME2TCPVARX9M04836XD6"] |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (258 characters) |
 | 2026-08-19 | human | revised spec “Specline — standing instructions” to v17 |
 | 2026-08-19 | claude | status todo → in_progress |
 | 2026-08-19 | claude | claimed_by none → ses_e1aa5ce8-c196-4c0e-8882-d4422009c9f4 |
@@ -1610,10 +1620,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-19 | claude | claimed_at none → 2026-08-19T09:47:23.421076Z |
 | 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → (169 characters) |
-| 2026-08-19 | claude | close_reason none → done |
-| 2026-08-19 | claude | close_message none → (212 characters) |
-| 2026-08-19 | claude | created task “Every task created from the CLI has the summary "A row this test needs in the store."” |
-| 2026-08-19 | claude | status todo → in_progress |
 
-*Showing the 200 most recent of 2581 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2585 changes. Use `specline_activity` for the rest.*
 
