@@ -175,7 +175,13 @@ pub struct Digest {
     /// project needs me", and a phase-level decision is a question you ask once
     /// you are inside one.
     pub complete: Vec<Item>,
-    /// Urgent, blocked and overdue work.
+    /// Urgent and blocked work.
+    ///
+    /// Tasks only. This said "urgent, blocked and overdue" for the life of the
+    /// project and there has never been an overdue anything: `needs_attention`
+    /// reads the task list and the `blocks` edges, and never looks at a
+    /// milestone. SPEC §7 promised the same thing and has been cut to match
+    /// (KEEL-334).
     pub attention: Vec<Item>,
     /// Recent activity, summarised.
     pub recent: Vec<String>,

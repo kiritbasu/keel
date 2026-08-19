@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T11:08:58Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T11:26:45Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (285)
+## Closed work (286)
 
 ### 2026-08-19
+
+- **KEEL-334** SPEC promises "overdue milestones" in the digest and nothing computes it — `done`
+
+  Cut, not built. `needs_attention` reads the task list and the `blocks` edges and never looks at a milestone, so "overdue milestones" was not merely unimplemented — the section it was promised in is task-only. The same claim in the doc comment on `Digest::attention` went with it. The `active` line was cut back too: it still advertised a target date the digest stopped emitting an hour earlier.
+
+  <sub>commit:pending · doc:spc_01KZKMPVNTZAZHC9HY1TSNZNGM</sub>
 
 - **KEEL-333** Backfill the ten shipped versions as release rows, so the roadmap has a real time axis — `done`
 
@@ -1306,6 +1312,14 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → ["commit:pending","doc:spc_01KZKMPVNTZAZHC9HY1TSNZNGM"] |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (394 characters) |
+| 2026-08-19 | human | revised spec “Specline — Technical Specification” to v10 |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_e1aa5ce8-c196-4c0e-8882-d4422009c9f4 |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T11:20:30.391650Z |
 | 2026-08-19 | claude | status open → answered |
 | 2026-08-19 | claude | created task “SPEC promises "overdue milestones" in the digest and nothing computes it” |
 | 2026-08-19 | claude | “The roadmap shows derived progress, not a target date, and…” resolves “The roadmap's target column is empty on every open phase.…” |
@@ -1498,14 +1512,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | status todo → in_progress |
 | 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
 | 2026-08-18 | claude | claimed_at none → 2026-08-18T21:11:13.109811Z |
-| 2026-08-18 | claude | created task “The What’s next heading prints ’ instead of an apostrophe” |
-| 2026-08-18 | human | status in_progress → todo |
-| 2026-08-18 | human | claimed_by ses_e732e14b-2a50-4c4a-8aab-a416f993b8e2 → none |
-| 2026-08-18 | human | claimed_at 2026-08-18T07:08:51.433320Z → none |
-| 2026-08-18 | human | labels [] → ["feature-request"] |
-| 2026-08-18 | human | labels [] → ["feature-request"] |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → (104 characters) |
 
-*Showing the 200 most recent of 2430 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2438 changes. Use `specline_activity` for the rest.*
 

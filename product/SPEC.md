@@ -590,8 +590,8 @@ Returns, budgeted to roughly 3–4k tokens at `standard`:
 
 ```
 project        name, slug, status, one-line description
-active         current milestone(s), target date, % tasks done
-attention      open P0/P1 tasks, blocked tasks, overdue milestones
+active         current milestone(s), derived state, tasks closed of total
+attention      open P0/P1 tasks, blocked tasks
 recent         last N events, summarised
 decisions      last 5 accepted decisions, title + one-line
 questions      all open questions and unmitigated risks   ← never truncated
