@@ -14,7 +14,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use specline_core::{
-    Actor, EntityId, EntityStore, Feedback, FeedbackKind, Project, Provenance, Store, Task,
+    Actor, Direction, EntityId, EntityStore, Feedback, FeedbackKind, GraphStore, NewLink, Project,
+    Provenance, Relation, Spec, SpecKind, Store, Task,
     digest::{self, Depth},
 };
 
@@ -188,4 +189,80 @@ fn the_digest_says_how_many_signals_are_waiting() {
         prose.contains("0 open task(s)"),
         "and the task count stays a task count: {prose}"
     );
+}
+
+// --- Picking a signal up (KEEL-323) ---------------------------------------
+
+/// A signal that survives triage becomes a **feature spec**, not a task.
+///
+/// That is the structural call B-90 turns on: the thinking outlives the work.
+/// The spec exists whether or not the thing is ever built, which is what a
+/// session picking up child task nine reads to learn why the other eight
+/// matter — and it is what keeps an unbuilt idea off the board entirely, since
+/// the epic task is created only at the moment somebody decides to build.
+#[test]
+fn a_picked_up_signal_becomes_a_feature_spec_that_remembers_where_it_came_from() {
+    let (_d, mut store, project) = fixture();
+    let signal = file_signal(&mut store, &project, "this should work with codex");
+
+    let mut spec = Spec::new(project.clone(), "Specline works with OpenAI Codex");
+    spec.kind = SpecKind::Feature;
+    let feature = store
+        .create_with_document(
+            spec.into(),
+            Some(
+                "Madhu asked for this. The open question is whether it means the MCP endpoint \
+                 or the whole plugin surface."
+                    .to_owned(),
+            ),
+            None,
+            &prov(),
+        )
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+
+    store
+        .link(
+            NewLink::new(feature.clone(), Relation::DerivedFrom, signal.clone()),
+            &prov(),
+        )
+        .unwrap();
+
+    // Both directions, because an inverted traversal returns an empty set that
+    // is indistinguishable from "nothing is linked here" — which here would
+    // mean a feature whose origin is silently unrecoverable.
+    let out: Vec<EntityId> = store
+        .neighbours(&feature, Direction::Outbound, &[Relation::DerivedFrom], 1)
+        .unwrap()
+        .into_iter()
+        .map(|n| n.id)
+        .collect();
+    assert!(
+        out.contains(&signal),
+        "the feature derives from the signal: {out:?}"
+    );
+
+    let inbound: Vec<EntityId> = store
+        .neighbours(&signal, Direction::Inbound, &[Relation::DerivedFrom], 1)
+        .unwrap()
+        .into_iter()
+        .map(|n| n.id)
+        .collect();
+    assert!(
+        inbound.contains(&feature),
+        "and the signal knows what it became, which is how the loop gets closed \
+         back to whoever asked: {inbound:?}"
+    );
+}
+
+/// `feature` is a real value of the enum and the refusal lists it, because a
+/// model reading "`feature` is not valid" without being shown that it is would
+/// simply guess something else.
+#[test]
+fn feature_is_one_of_the_spec_kinds_and_the_refusal_says_so() {
+    assert_eq!(SpecKind::parse("feature").unwrap(), SpecKind::Feature);
+    let err = SpecKind::parse("epic").unwrap_err().to_string();
+    assert!(err.contains("feature"), "{err}");
 }

@@ -241,7 +241,7 @@ enum Command {
         /// What to store them as.
         #[arg(long, default_value = "spec")]
         r#as: String,
-        /// Override the inferred spec kind: prd, spec, rfc, design-doc, note.
+        /// Override the inferred spec kind: prd, spec, rfc, design-doc, feature, note.
         #[arg(long)]
         kind: Option<String>,
         /// Override the title, which otherwise comes from the first heading.

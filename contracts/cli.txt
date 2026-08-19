@@ -519,7 +519,7 @@ Options:
           Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
 
       --kind <KIND>
-          Override the inferred spec kind: prd, spec, rfc, design-doc, note
+          Override the inferred spec kind: prd, spec, rfc, design-doc, feature, note
 
       --title <TITLE>
           Override the title, which otherwise comes from the first heading

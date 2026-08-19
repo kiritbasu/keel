@@ -414,6 +414,15 @@ string_enum! {
         Rfc = "rfc",
         /// A design document.
         DesignDoc = "design-doc",
+        /// One idea that survived triage, and why it is worth building.
+        ///
+        /// A feature is a spec rather than a task because the thinking
+        /// outlives the work: it exists whether or not the thing is ever
+        /// built, and it is what a session picking up child task nine reads to
+        /// understand why the other eight matter. The unit of work is a
+        /// separate epic task created at the moment somebody decides to build,
+        /// which is what keeps unbuilt ideas off the board entirely (B-90).
+        Feature = "feature",
         /// Anything else worth keeping as prose.
         Note = "note",
     }
