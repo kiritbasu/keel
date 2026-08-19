@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T12:41:04Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T12:42:02Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (287)
+## Closed work (288)
 
 ### 2026-08-19
+
+- **KEEL-336** Split the Roadmap: phases grouped by state, releases on a screen of their own — `done`
+
+  Releases is its own screen at 6 in the rail, and the Roadmap is phases grouped by what they are doing — in flight first, then finished-but-not-declared with a line saying what to do about it. Every phase carries its full description again. Releases is a table, newest first, rather than ten cards wearing a phase's clothes.
+
+  <sub>commit:098f3b2 · doc:dec_01M0D0KX0ZGSDTSQE1JPG5P8ZY · test:npx vitest run · url:http://127.0.0.1:7654/#/projects/specline/releases</sub>
 
 - **KEEL-335** Fix what the review found in the roadmap progress work — `done`
 
@@ -1318,6 +1324,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status todo → done |
+| 2026-08-19 | claude | evidence [] → (134 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (323 characters) |
 | 2026-08-19 | claude | revised decision “Phases and releases get a screen each, and the roadmap groups by state” to v1 |
 | 2026-08-19 | claude | created decision “Phases and releases get a screen each, and the roadmap groups by state” |
 | 2026-08-19 | claude | created task “Split the Roadmap: phases grouped by state, releases on a screen of their own” |
@@ -1514,10 +1524,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | claimed_at none → 2026-08-18T21:49:18.195701Z |
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → ["commit:72f81e2","test:cd apps/desktop && npx vitest run"] |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (496 characters) |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
 
-*Showing the 200 most recent of 2449 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2453 changes. Use `specline_activity` for the rest.*
 
