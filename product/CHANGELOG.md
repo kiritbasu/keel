@@ -1,15 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T08:37:53Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T09:15:18Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (279)
+## Closed work (280)
 
 ### 2026-08-19
+
+- **KEEL-318** Make the version footer a compact version-and-icon control — `done`
+
+  Built as agreed with KB over two rounds of layout review: version reads `Specline v0.3.0`, glyph is a 22px cloud-download in a 30px slot, state on a dot rather than on the glyph.
+  
+  Both objections on this row are answered structurally rather than by promise. The five-state problem: only the up-to-date state collapses to a bare icon, and every state that needs the reader to know something keeps its sentence, so failure and staleness are exactly the cases that stay expanded. The pun: the glyph is always the verb, the dot is always the state, and there is no checkmark in the control.
+  
+  One existing test reverses, deliberately. It asserted the check button was hidden once something was staged — correct while the control was only a button, wrong now it is also the indicator, since hiding it removes the one sign that there is something to take. Added a test that the switched-off state fires no request, since `specline doctor` promises that daemon makes none at all.
+  
+  Verified in the running app rather than only in tests: computed 22px glyph in a 30px slot, ink-faint, no dot and no sentence at rest, `Specline v0.3.0` rendered, legible in light and dark, no console errors. 337 desktop tests green, tsc clean.
+
+  <sub>commit:d96450d · test:npm test --run</sub>
 
 - **KEEL-317** Check for updates every 30 minutes, and make the footer an icon that colours when one is waiting — `done`
 
@@ -1266,6 +1278,15 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → ["commit:d96450d","test:npm test --run"] |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (1216 characters) |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_e7e72d13-4a31-4ee7-95f4-d4c53b1c53f3 |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T09:09:25.827743Z |
+| 2026-08-19 | claude | revised spec “How feature requests should work, end to end” to v1 |
+| 2026-08-19 | claude | created spec “How feature requests should work, end to end” |
 | 2026-08-19 | claude | created task “Make the version footer a compact version-and-icon control” |
 | 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → ["commit:1e57620","test:cargo test --workspace","test:npm test --run"] |
@@ -1457,15 +1478,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | close_reason none → done |
 | 2026-08-18 | claude | close_message none → (727 characters) |
 | 2026-08-18 | claude | revised feedback “Linear, Shortcut and Kata all sell the same thing, and it is not what Specline sells” to v1 |
-| 2026-08-18 | claude | created feedback “Linear, Shortcut and Kata all sell the same thing, and it is not what Specline sells” |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T07:38:27.538485Z |
-| 2026-08-18 | claude | created task “The next strip says "in an active phase" when it could name the phase” |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → (120 characters) |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (1049 characters) |
 
-*Showing the 200 most recent of 2328 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2337 changes. Use `specline_activity` for the rest.*
 

@@ -1,7 +1,18 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-19T08:37:53.268693+00:00",
+  "generated_at": "2026-08-19T09:15:18.704369+00:00",
   "files": [
+    {
+      "path": ".specline/specs/how-feature-requests-should-work-end-to-end.md",
+      "contributors": [
+        {
+          "entity_id": "spc_01M0CMDKDPWZ0CS317SEPXTDVS",
+          "entity_type": "spec",
+          "version": 1,
+          "hash": "59b6046c361bb48170fa1a4db5893a61ffbdea42ae32daceebae41a96e9cc26b"
+        }
+      ]
+    },
     {
       "path": ".specline/specs/keel-what-needs-to-happen.md",
       "contributors": [
