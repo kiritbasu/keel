@@ -18,6 +18,7 @@ expression: result
     "decisions": [],
     "environments": [],
     "estimated_tokens": 165,
+    "inbox": [],
     "next": [
       "No milestone is active, but there is open work. Consider grouping it under one.",
       "Nothing is marked p0 or p1. If something is actually urgent, say so on the task."

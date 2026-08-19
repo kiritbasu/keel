@@ -18,6 +18,7 @@ expression: result
     "decisions": [],
     "environments": [],
     "estimated_tokens": 77,
+    "inbox": [],
     "next": [],
     "next_up": null,
     "project": null,

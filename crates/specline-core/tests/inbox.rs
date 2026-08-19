@@ -192,6 +192,65 @@ fn the_digest_says_how_many_signals_are_waiting() {
     );
 }
 
+/// The digest **lists** the Inbox, and this reverses KEEL-321 deliberately.
+///
+/// That task carried the size and the age only, on the stated reasoning that
+/// `specline_search` would fetch the rows when somebody was going to triage
+/// them. It cannot: search requires a query and has no filter for "everything
+/// untriaged". So a count with no way to reach the contents left a session
+/// able to know the Inbox was long and unable to read it, which is precisely
+/// the position KEEL-303 complains about.
+#[test]
+fn the_digest_lists_the_oldest_signals_and_says_how_many_it_left() {
+    let (_d, mut store, project) = fixture();
+    for i in 0..12 {
+        file_signal(&mut store, &project, &format!("somebody wanted thing {i}"));
+    }
+
+    let built = digest::build(&store, Some(&project), Depth::Standard, None).unwrap();
+    assert_eq!(built.inbox.len(), 8, "a small slice, not the whole pile");
+    assert_eq!(
+        built.inbox.first().map(|i| i.label.as_str()),
+        Some("somebody wanted thing 0"),
+        "oldest first, so the thing ignored longest is not buried"
+    );
+
+    // Hard constraint 4, and it matters most here: eight of twelve with
+    // nothing saying so reads as an Inbox of eight.
+    let cut = built
+        .truncated
+        .iter()
+        .find(|t| t.section == "inbox")
+        .expect("a cut Inbox says it was cut");
+    assert_eq!(cut.shown, 8);
+    assert_eq!(cut.total, 12);
+
+    let prose = built.to_prose();
+    assert!(prose.contains("Inbox — untriaged"), "{prose}");
+    assert!(
+        prose.contains("somebody wanted thing 0"),
+        "the signals are readable, not merely counted: {prose}"
+    );
+}
+
+/// Who asked and how long it has waited, together, because that is what makes
+/// a signal triageable without opening it — one person's passing idea from
+/// yesterday and a request three people have made over two months want
+/// different answers.
+#[test]
+fn a_listed_signal_carries_its_source_and_its_age() {
+    let (_d, mut store, project) = fixture();
+    let mut signal = Feedback::new(project.clone(), "this should work with codex");
+    signal.kind = FeedbackKind::Idea;
+    signal.source = Some("Madhu".to_owned());
+    store.create(signal.into(), &prov()).unwrap();
+
+    let built = digest::build(&store, Some(&project), Depth::Standard, None).unwrap();
+    let detail = built.inbox[0].detail.as_deref().unwrap_or_default();
+    assert!(detail.contains("Madhu"), "{detail}");
+    assert!(detail.contains("today"), "{detail}");
+}
+
 // --- Picking a signal up (KEEL-323) ---------------------------------------
 
 /// A signal that survives triage becomes a **feature spec**, not a task.

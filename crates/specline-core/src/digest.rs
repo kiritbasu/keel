@@ -191,6 +191,15 @@ pub struct Digest {
     pub questions: Vec<Item>,
     /// Current specs.
     pub specs: Vec<Item>,
+    /// The Inbox — untriaged signals, oldest first.
+    ///
+    /// Listed rather than merely counted, which reverses the call KEEL-321
+    /// made. That one carried the size and the age on the reasoning that
+    /// `specline_search` would fetch the rows when somebody was going to
+    /// triage them. It cannot: search requires a query and has no filter for
+    /// "everything untriaged", so a count with no way to reach the contents
+    /// left a session able to know the Inbox was long and unable to read it.
+    pub inbox: Vec<Item>,
     /// **Never truncated.** The glossary.
     pub terms: Vec<TermEntry>,
     /// What is live, at what version.
@@ -335,6 +344,10 @@ impl Digest {
 
         section(&mut out, "Active", &self.active);
         section(&mut out, "Needs attention", &self.attention);
+        // Above the questions and below what needs attention, which is where
+        // it belongs in a reader's priority: work in flight first, then the
+        // things nobody has decided about, then the things nobody has answered.
+        section(&mut out, "Inbox — untriaged, oldest first", &self.inbox);
         section(&mut out, "Open questions and risks", &self.questions);
         section(&mut out, "Recent decisions", &self.decisions);
         section(&mut out, "Specs", &self.specs);
@@ -413,6 +426,7 @@ pub fn build(
         decisions: Vec::new(),
         questions: Vec::new(),
         specs: Vec::new(),
+        inbox: Vec::new(),
         terms: Vec::new(),
         environments: Vec::new(),
         next: Vec::new(),
@@ -515,6 +529,42 @@ pub fn build(
                 });
             }
 
+            // Fewer than the other sections, deliberately. A signal is one line
+            // and the Inbox is the section most likely to be long — that is
+            // the condition it exists to report — so it takes a small slice
+            // and says how much it left. Oldest first comes from the store.
+            let inbox = store.inbox(project_id, INBOX_IN_DIGEST.min(limit))?;
+            digest.inbox = inbox
+                .items
+                .iter()
+                .map(|e| {
+                    // Who asked and how long it has waited, which together are
+                    // what makes a signal triageable without opening it: one
+                    // person's passing idea from yesterday and a request three
+                    // people have made over two months want different answers.
+                    let detail = match e {
+                        Entity::Feedback(f) => {
+                            let waited = (chrono::Utc::now() - f.audit.created_at).num_days();
+                            Some(match (&f.source, waited) {
+                                (Some(who), 0) => format!("{who} · today"),
+                                (Some(who), d) => format!("{who} · waiting {d}d"),
+                                (None, 0) => "today".to_owned(),
+                                (None, d) => format!("waiting {d}d"),
+                            })
+                        }
+                        _ => None,
+                    };
+                    item(store, e, detail)
+                })
+                .collect();
+            if inbox.total > digest.inbox.len() {
+                digest.truncated.push(Truncation {
+                    section: "inbox".to_owned(),
+                    shown: digest.inbox.len(),
+                    total: inbox.total,
+                });
+            }
+
             digest.environments = environments(store, project_id)?;
             digest.recent = recent_activity(store, Some(project_id), since, limit)?;
             let ranked = crate::next::rank(store, project_id)?;
@@ -539,7 +589,11 @@ pub fn build(
         // Trim in order of what an agent can most cheaply re-fetch. Recent
         // activity first — `specline_activity` is one call away and rarely
         // changes a decision.
-        for section in ["recent", "specs", "decisions", "attention"] {
+        // The Inbox is trimmed late, ahead only of what needs attention: it is
+        // already the smallest section, and unlike the others it is the one a
+        // session is meant to *act* on rather than re-fetch — there is no
+        // one-call equivalent of `specline_activity` for untriaged signals.
+        for section in ["recent", "specs", "decisions", "inbox", "attention"] {
             if rendered.len() <= depth.budget_chars() {
                 break;
             }
@@ -565,6 +619,12 @@ fn trim_section(digest: &mut Digest, section: &str) {
         "specs" => (digest.specs.len(), digest.specs.len() / 2),
         "decisions" => (digest.decisions.len(), digest.decisions.len() / 2),
         "attention" => (digest.attention.len(), digest.attention.len() / 2),
+        // Trimmable, unlike the questions and the glossary. It is already
+        // capped at eight and always reports its true total, so halving it
+        // under pressure loses a few lines and no information — whereas the
+        // question register exists precisely so nothing gets re-litigated,
+        // which a shortened list would let happen.
+        "inbox" => (digest.inbox.len(), digest.inbox.len() / 2),
         _ => return,
     };
     if len == 0 {
@@ -575,6 +635,7 @@ fn trim_section(digest: &mut Digest, section: &str) {
         "specs" => digest.specs.truncate(keep),
         "decisions" => digest.decisions.truncate(keep),
         "attention" => digest.attention.truncate(keep),
+        "inbox" => digest.inbox.truncate(keep),
         _ => {}
     }
     match digest.truncated.iter_mut().find(|t| t.section == section) {
@@ -1047,6 +1108,14 @@ fn suggestions(line: &ProjectLine, digest: &Digest) -> Vec<String> {
     out
 }
 
+/// How many signals the digest lists before it starts saying "and N more".
+///
+/// Small on purpose. The Inbox being long is the thing the digest reports; it
+/// is not the thing the digest is for, and REQ-3's budget belongs to the work.
+/// Enough to triage the oldest handful in one pass, and the total is always
+/// there for anyone who wants the rest.
+const INBOX_IN_DIGEST: usize = 8;
+
 /// How long an untriaged signal may sit before the digest mentions it.
 ///
 /// A fortnight, chosen so that a normal week of capture never trips it and a
@@ -1158,6 +1227,7 @@ mod tests {
                 detail: None,
             }],
             specs: vec![],
+            inbox: vec![],
             terms: vec![TermEntry {
                 term: "Digest".into(),
                 definition: "…".into(),
@@ -1191,6 +1261,7 @@ mod tests {
             decisions: vec![],
             questions: vec![],
             specs: vec![],
+            inbox: vec![],
             terms: vec![],
             environments: vec![],
             next: vec![],
