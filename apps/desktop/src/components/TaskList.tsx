@@ -81,7 +81,15 @@ export function TaskList({
                   className="bg-surface-raised px-2 py-1 text-left text-micro font-medium tracking-wide text-ink-muted uppercase"
                 >
                   {group.label}
-                  <span className="ml-2 tabular-nums text-ink-faint">{group.tasks.length}</span>
+                  {/* An epic reports how far through it is; every other
+                      grouping reports its size. The fraction is read off the
+                      children rather than stored, so it cannot disagree with
+                      the rows underneath it. */}
+                  <span className="ml-2 tabular-nums text-ink-faint">
+                    {group.done === undefined
+                      ? group.tasks.length
+                      : `${group.done}/${group.tasks.length} done`}
+                  </span>
                 </th>
               </tr>
             )}

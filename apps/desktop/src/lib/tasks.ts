@@ -173,7 +173,23 @@ export interface Group {
   /** What to print at the top of it. */
   label: string;
   tasks: Entity[];
+  /**
+   * How many of `tasks` are finished, when the count means something.
+   *
+   * Set only for parent groups — an epic's progress is the one number a
+   * container exists to answer, and it is *read off the children* rather than
+   * stored, so it cannot drift out of step with the work.
+   *
+   * Left undefined elsewhere on purpose. "3 of 8 done" under a heading that
+   * says `done` is noise, and under `p2` it is a number about an unrelated
+   * axis. A count that is meaningless in most groupings should be absent in
+   * most groupings rather than rendered and ignored.
+   */
+  done?: number;
 }
+
+/** Statuses that mean the work is finished. Shared with the board's columns. */
+const FINISHED = new Set(["done", "wont_do"]);
 
 const PRIORITIES = ["p0", "p1", "p2", "p3"];
 
@@ -251,13 +267,31 @@ export function groupTasks(
     const ids = [...new Set(tasks.map((t) => (t.parent_id ? String(t.parent_id) : "")))]
       .filter(Boolean)
       .sort((a, b) => (names.get(a) ?? a).localeCompare(names.get(b) ?? b));
-    const groups = ids.map((id) => ({
-      key: id,
-      label: names.get(id) ?? id,
-      tasks: tasks.filter((t) => String(t.parent_id) === id),
-    }));
-    const rest = tasks.filter((t) => !t.parent_id);
-    if (rest.length) groups.push({ key: "none", label: "not part of anything", tasks: rest });
+    const groups: Group[] = ids.map((id) => {
+      const children = tasks.filter((t) => String(t.parent_id) === id);
+      return {
+        key: id,
+        label: names.get(id) ?? id,
+        tasks: children,
+        // Counted over the children *in this list*, which is the honest
+        // number when a filter is on: an epic showing 3/8 under a filter that
+        // hides five of its children would be reporting on rows the reader
+        // cannot see.
+        done: children.filter((t) => FINISHED.has(String(t.status))).length,
+      };
+    });
+    // An epic heading its own group must not also appear as a loose row
+    // below. It did, so a four-child epic rendered as one heading plus five
+    // rows and the counts summed to one more than the task total — "one row,
+    // not eight" undone by the container turning up twice.
+    const heading = new Set(ids);
+    const rest = tasks.filter((t) => !t.parent_id && !heading.has(String(t.id)));
+    // No fraction on this one. It is not an epic and its members have nothing
+    // in common but the absence of a parent, so "4 of 11 done" would be a
+    // progress bar for a thing that is not in progress.
+    if (rest.length) {
+      groups.push({ key: "none", label: "not part of anything", tasks: rest });
+    }
     return groups;
   }
 

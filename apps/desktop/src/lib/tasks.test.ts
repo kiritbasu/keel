@@ -130,6 +130,80 @@ describe("groupTasks", () => {
     expect(groups.find((g) => g.key === "todo")?.tasks).toEqual([]);
   });
 
+  // An epic's progress is the one number a container exists to answer, and it
+  // is read off the children rather than stored, so it cannot drift out of
+  // step with the rows underneath it (KEEL-327).
+  it("says how far through an epic is, counted from its children", () => {
+    const names = new Map([["epic1", "Codex support"]]);
+    const groups = groupTasks(
+      [
+        task("a", { parent_id: "epic1", status: "done" }),
+        task("b", { parent_id: "epic1", status: "wont_do" }),
+        task("c", { parent_id: "epic1", status: "todo" }),
+        task("d", { parent_id: "epic1", status: "in_progress" }),
+      ],
+      "parent",
+      names,
+    );
+
+    const epic = groups.find((g) => g.key === "epic1");
+    expect(epic?.label).toBe("Codex support");
+    expect(epic?.tasks).toHaveLength(4);
+    // `wont_do` counts as finished. A child somebody decided against is not
+    // outstanding work, and counting it as such would leave every epic that
+    // dropped something permanently short of done.
+    expect(epic?.done).toBe(2);
+  });
+
+  // Counted over the children the reader can actually see. An epic reporting
+  // 3/8 under a filter that hides five of them would be describing rows that
+  // are not on the screen.
+  it("counts only the children a filter left in", () => {
+    const groups = groupTasks(
+      [task("a", { parent_id: "epic1", status: "done" })],
+      "parent",
+      new Map(),
+    );
+    expect(groups[0]?.done).toBe(1);
+    expect(groups[0]?.tasks).toHaveLength(1);
+  });
+
+  // The container turning up twice is "one row, not eight" undone: a
+  // four-child epic rendered as a heading plus five rows, and the group counts
+  // summed to one more than the task total.
+  it("does not also list an epic among the tasks that have no parent", () => {
+    const groups = groupTasks(
+      [
+        task("epic1", { kind: "feature" }),
+        task("a", { parent_id: "epic1", status: "todo" }),
+      ],
+      "parent",
+      new Map([["epic1", "Codex support"]]),
+    );
+
+    expect(groups.map((g) => g.key)).toEqual(["epic1"]);
+    expect(groups.flatMap((g) => g.tasks.map((t) => String(t.id)))).toEqual(["a"]);
+  });
+
+  // But an epic nobody has given children to is still work somebody has to
+  // do, so it stays in the list rather than vanishing for being empty.
+  it("keeps a childless epic among the loose rows", () => {
+    const groups = groupTasks([task("epic1", { kind: "feature" })], "parent", new Map());
+    expect(groups.find((g) => g.key === "none")?.tasks.map((t) => String(t.id))).toEqual([
+      "epic1",
+    ]);
+  });
+
+  // A fraction under a heading that is not a container would be a progress bar
+  // for a thing that is not in progress.
+  it("leaves the fraction off groupings where it would mean nothing", () => {
+    const byStatus = groupTasks([task("a", { status: "done" })], "status", noMilestones);
+    expect(byStatus.every((g) => g.done === undefined)).toBe(true);
+
+    const byParent = groupTasks([task("loose")], "parent", new Map());
+    expect(byParent.find((g) => g.key === "none")?.done).toBeUndefined();
+  });
+
   // Blocked is a column, but a derived one, and it comes first because it is
   // the one that needs a person.
   it("pulls blocked work into its own column, out of whatever status it has", () => {
