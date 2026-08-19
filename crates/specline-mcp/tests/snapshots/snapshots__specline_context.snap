@@ -40,6 +40,8 @@ expression: result
       "active_milestone": null,
       "blocked_tasks": 0,
       "id": "[id]",
+      "inbox": 0,
+      "inbox_oldest_days": null,
       "key": "HARB",
       "milestone_noun": null,
       "name": "Harbour",

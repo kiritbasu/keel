@@ -104,6 +104,17 @@ pub struct ProjectLine {
     pub blocked_tasks: usize,
     /// Unresolved questions and risks.
     pub open_questions: usize,
+    /// Untriaged signals — the Inbox. Reported separately from `open_tasks`
+    /// and never folded into it: a signal is something somebody wants, not
+    /// work anybody has committed to, and a count that mixes the two cannot
+    /// answer "how much is left", which is the only question it is for.
+    pub inbox: usize,
+    /// How many days the oldest untriaged signal has been waiting, if any.
+    ///
+    /// The count alone does not say whether anything is wrong — forty signals
+    /// filed this week is a good week, and four that have sat for two months
+    /// is the pile KEEL-303 is about. Only the age tells them apart.
+    pub inbox_oldest_days: Option<i64>,
     /// The milestone currently in flight, if any.
     pub active_milestone: Option<String>,
     /// What this project calls a milestone, when it has a word of its own.
@@ -208,6 +219,22 @@ impl Digest {
                 "status: {} · {} open task(s), {} urgent, {} blocked · {} open question(s)\n",
                 p.status, p.open_tasks, p.urgent_tasks, p.blocked_tasks, p.open_questions
             ));
+            // On its own line rather than appended to the one above, because
+            // it is a different kind of number: everything on that line is
+            // work somebody committed to, and the Inbox is what nobody has
+            // decided about yet. Printed only when there is something in it —
+            // "0 untriaged" is a line every session would read forever to
+            // learn nothing.
+            if p.inbox > 0 {
+                out.push_str(&format!(
+                    "inbox: {} untriaged signal(s){}\n",
+                    p.inbox,
+                    match p.inbox_oldest_days {
+                        Some(d) if d >= 1 => format!(", oldest waiting {d} day(s)"),
+                        _ => String::new(),
+                    }
+                ));
+            }
             if let Some(m) = &p.active_milestone {
                 // The project's own word, lowercased for the middle of a
                 // sentence. A session that reads "active phase: Phase 8" here
@@ -574,6 +601,12 @@ fn project_line(store: &Store, p: &crate::Project) -> Result<ProjectLine> {
             .limited(2000),
     )?;
 
+    // Counted, not listed. The Inbox can be long by design — that is the
+    // condition KEEL-303 describes — so the digest carries its size and its
+    // age rather than its contents, and `specline_search` fetches the rows
+    // when somebody is actually going to triage them.
+    let (signals, oldest_signal) = store.untriaged_signals(&p.id)?;
+
     // Which phases are in flight is derived, not filtered on a column. The
     // column used to say, and for a week it said Phase 9 — a phase that had
     // finished — to every session that opened this project (B-57).
@@ -605,6 +638,8 @@ fn project_line(store: &Store, p: &crate::Project) -> Result<ProjectLine> {
         urgent_tasks: urgent,
         blocked_tasks: blocked,
         open_questions: questions.total,
+        inbox: signals,
+        inbox_oldest_days: oldest_signal.map(|t| (chrono::Utc::now() - t).num_days()),
         // Every phase in flight, not the first one found. Two are normal —
         // Phase 11 and 12 are both live as this is written — and a singular
         // field over plural data picks one arbitrarily and hides the rest.
@@ -985,8 +1020,29 @@ fn suggestions(line: &ProjectLine, digest: &Digest) -> Vec<String> {
                 .to_owned(),
         );
     }
+    // KEEL-303, and the reason the surface is called an Inbox: a pile that
+    // grows until it is too expensive to read is the failure, and nothing
+    // pointing it out is what lets it happen. Suggested on age rather than
+    // size, because a big Inbox somebody is working through is fine and a
+    // small one nobody has looked at in a month is not.
+    if let (n, Some(days)) = (line.inbox, line.inbox_oldest_days)
+        && n > 0
+        && days >= INBOX_STALE_DAYS
+    {
+        out.push(format!(
+            "{n} signal(s) are untriaged and the oldest has waited {days} day(s). Triaging is \
+             cheaper than deciding the same thing twice."
+        ));
+    }
     out
 }
+
+/// How long an untriaged signal may sit before the digest mentions it.
+///
+/// A fortnight, chosen so that a normal week of capture never trips it and a
+/// pile that has genuinely been abandoned always does. It is a suggestion and
+/// not a warning, so being slightly wrong in either direction is cheap.
+const INBOX_STALE_DAYS: i64 = 14;
 
 /// Suggestions for the cross-project view.
 fn rollup_suggestions(projects: &[ProjectLine]) -> Vec<String> {

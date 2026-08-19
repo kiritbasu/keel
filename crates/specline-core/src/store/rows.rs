@@ -273,7 +273,7 @@ fn get_os(row: &Row<'_>, table: &str, col: &str) -> Result<Option<String>> {
 /// it wrote are sitting in real stores on disk today, so refusing them would
 /// make those rows unreadable. Everything Specline writes itself is
 /// [`TIMESTAMP_FORMAT`].
-pub(super) fn parse_ts(table: &str, col: &str, raw: &str) -> Result<DateTime<Utc>> {
+pub(crate) fn parse_ts(table: &str, col: &str, raw: &str) -> Result<DateTime<Utc>> {
     if let Ok(v) = DateTime::parse_from_rfc3339(raw) {
         return Ok(v.with_timezone(&Utc));
     }

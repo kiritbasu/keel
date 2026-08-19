@@ -515,6 +515,48 @@ impl Store {
             .map_err(Error::storage(format!("count the tasks in {project_id}")))
     }
 
+    /// How many of a project's signals are still untriaged, and how long the
+    /// oldest has been waiting.
+    ///
+    /// Untriaged is `triaged = 0`, which is the whole definition of the Inbox:
+    /// a signal nobody has picked up or set down yet. Counted here rather than
+    /// by listing, for the same reason [`Store::task_counts`] is — the digest
+    /// asks once per project on the most-called tool in the surface.
+    ///
+    /// The age comes back with the count because the count alone does not say
+    /// whether anything is wrong. Forty signals filed this week is a good
+    /// week; four that have sat for two months is the pile KEEL-303 is about,
+    /// and only the second number tells them apart.
+    ///
+    /// Returns `(count, oldest_created_at)`. The timestamp is `None` exactly
+    /// when the count is zero.
+    pub fn untriaged_signals(
+        &self,
+        project_id: &EntityId,
+    ) -> Result<(usize, Option<DateTime<Utc>>)> {
+        self.conn
+            .query_row(
+                "SELECT count(*), min(created_at) FROM feedback
+                 WHERE project_id = ?1 AND archived_at IS NULL AND triaged = 0",
+                [project_id.as_str()],
+                |r| Ok((r.get::<_, i64>(0)? as usize, r.get::<_, Option<String>>(1)?)),
+            )
+            .map_err(Error::storage(format!(
+                "count the untriaged signals in {project_id}"
+            )))
+            .and_then(|(count, oldest)| {
+                // Parsed rather than passed on as text, so a caller computing
+                // an age cannot accidentally compare two different renderings
+                // of the same instant — `parse_ts` is deliberately lenient
+                // about the ones the DuckDB migration left behind, and that
+                // leniency only helps if everything goes through it.
+                let oldest = oldest
+                    .map(|raw| crate::store::rows::parse_ts("feedback", "created_at", &raw))
+                    .transpose()?;
+                Ok((count, oldest))
+            })
+    }
+
     /// Every milestone in a project, with the state derived from its tasks.
     ///
     /// Two queries for the whole project rather than three per phase. The
