@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T12:42:02Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T12:59:15Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1324,6 +1324,11 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_e1aa5ce8-c196-4c0e-8882-d4422009c9f4 |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T12:45:21.200311Z |
+| 2026-08-19 | claude | created task “Cut 0.4.0 — the Releases screen, the roadmap that says where you are, and the Inbox” |
+| 2026-08-19 | claude | summary (74 characters) → (80 characters) |
 | 2026-08-19 | claude | status todo → done |
 | 2026-08-19 | claude | evidence [] → (134 characters) |
 | 2026-08-19 | claude | close_reason none → done |
@@ -1519,11 +1524,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | labels ["phase9","9c","testing"] → ["phase9","testing"] |
 | 2026-08-18 | claude | labels ["phase9","9c","tooling","storage"] → ["phase9","tooling","storage"] |
 | 2026-08-18 | claude | created task “A card shows the same word twice when a label repeats the kind” |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T21:49:18.195701Z |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → ["commit:72f81e2","test:cd apps/desktop && npx vitest run"] |
 
-*Showing the 200 most recent of 2453 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2458 changes. Use `specline_activity` for the rest.*
 
