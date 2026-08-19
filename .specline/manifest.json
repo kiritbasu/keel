@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-19T09:15:18.704369+00:00",
+  "generated_at": "2026-08-19T09:30:08.512724+00:00",
   "files": [
     {
       "path": ".specline/specs/how-feature-requests-should-work-end-to-end.md",
@@ -65,6 +65,17 @@
           "entity_type": "spec",
           "version": 2,
           "hash": "8693e49c88fc2ad31cb195dd2fc89dca7a4eb1266ca568fb37bda5f231c92ea3"
+        }
+      ]
+    },
+    {
+      "path": ".specline/decisions/feature-requests-get-a-lifecycle-and-it-starts-at-an-inbox-of-signals.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M0CNH5V9B58M5J50E8ZM76Y3",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "7b3c469cc4669a4018457daef441b004da5c6c22e69d32479944834ffb2047db"
         }
       ]
     },
@@ -1050,6 +1061,12 @@
     {
       "path": ".specline/questions.md",
       "contributors": [
+        {
+          "entity_id": "que_01M0CNP75150X4E5Q65K66R85K",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "5c7b8731fd8877876489ef17046cf662b286b47f7c2984032b734c901f0cf33e"
+        },
         {
           "entity_id": "que_01M04PW3ZCQJ37M7EC27K58HC0",
           "entity_type": "question",

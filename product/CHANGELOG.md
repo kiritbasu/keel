@@ -1,15 +1,19 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T09:15:18Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T09:30:08Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (280)
+## Closed work (281)
 
 ### 2026-08-19
+
+- **KEEL-302** product feature request triage — `superseded`
+
+  Arrived as a sentence — "set up some sort of feature where you can slice and dice features and build some sort of triage capability" — and became the whole of Phase 14. The thinking is in the spec "How feature requests should work, end to end" and settled in B-90; the triage capability itself is KEEL-325, with the eleven rows around it covering the rest of the lifecycle this turned out to be one part of.
 
 - **KEEL-318** Make the version footer a compact version-and-icon control — `done`
 
@@ -1278,6 +1282,40 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | “product feature request triage” supersedes “The triage pass: read the whole Inbox, cluster it, and…” |
+| 2026-08-19 | claude | status in_progress → wont_do |
+| 2026-08-19 | claude | close_reason none → superseded |
+| 2026-08-19 | claude | close_message none → (407 characters) |
+| 2026-08-19 | claude | revised question “Does every signal we set down become a numbered decision, or only the ones worth remembering?” to v1 |
+| 2026-08-19 | claude | created question “Does every signal we set down become a numbered decision, or only the ones worth remembering?” |
+| 2026-08-19 | claude | “Feature requests get a lifecycle, and it starts at an Inbox…” references “How feature requests should work, end to end” |
+| 2026-08-19 | claude | milestone_id none → mst_01M0CNHN7YMEBGD30NWVCJD9FA |
+| 2026-08-19 | claude | labels [] → ["inbox"] |
+| 2026-08-19 | claude | priority p2 → p1 |
+| 2026-08-19 | claude | milestone_id none → mst_01M0CNHN7YMEBGD30NWVCJD9FA |
+| 2026-08-19 | claude | labels [] → ["inbox","core"] |
+| 2026-08-19 | claude | priority p2 → p1 |
+| 2026-08-19 | claude | milestone_id none → mst_01M0CNHN7YMEBGD30NWVCJD9FA |
+| 2026-08-19 | claude | labels [] → ["inbox","desktop"] |
+| 2026-08-19 | claude | priority p2 → p1 |
+| 2026-08-19 | claude | milestone_id none → mst_01M0CNHN7YMEBGD30NWVCJD9FA |
+| 2026-08-19 | claude | labels [] → ["inbox","core"] |
+| 2026-08-19 | claude | created task “Whoever asked can be told what happened” |
+| 2026-08-19 | claude | created task “The Inbox tells you it is getting long, without being asked” |
+| 2026-08-19 | claude | created task “Breaking a feature into tasks is proposed, not typed” |
+| 2026-08-19 | claude | created task “The board shows an epic as one row that opens into its children” |
+| 2026-08-19 | claude | created task “An epic is a task with children, and it appears only when we decide to build” |
+| 2026-08-19 | claude | created task “The triage pass: read the whole Inbox, cluster it, and check it against everything already decided” |
+| 2026-08-19 | claude | created task “Setting a signal down writes the argument, so the same idea does not arrive fresh in four months” |
+| 2026-08-19 | claude | created task “A signal that gets picked up becomes a feature, and a feature is a spec” |
+| 2026-08-19 | claude | created task “Move the four rows KB filed in a hurry into the Inbox they should have gone to” |
+| 2026-08-19 | claude | created task “An untriaged signal is not work, and nothing that counts work should count it” |
+| 2026-08-19 | claude | created task “The Inbox screen, and filing a signal in six seconds” |
+| 2026-08-19 | claude | created task “Write a signal into the store, for the first time” |
+| 2026-08-19 | claude | created milestone “Phase 14 — Feature requests: the Inbox and the lifecycle” |
+| 2026-08-19 | claude | status proposed → accepted |
+| 2026-08-19 | claude | revised decision “Feature requests get a lifecycle, and it starts at an Inbox of signals” to v1 |
+| 2026-08-19 | claude | created decision “Feature requests get a lifecycle, and it starts at an Inbox of signals” |
 | 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → ["commit:d96450d","test:npm test --run"] |
 | 2026-08-19 | claude | close_reason none → done |
@@ -1444,40 +1482,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | claimed_at none → 2026-08-18T11:57:53.402483Z |
 | 2026-08-18 | claude | created task “What changed shows field writes where a person did one thing” |
 | 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → (112 characters) |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (1130 characters) |
-| 2026-08-18 | claude | created task “BREAKING.md says its entries reach the release notes, and nothing carries them there” |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T09:12:17.340276Z |
-| 2026-08-18 | claude | created task “Cut 0.3.0 — the tool rename, the next page, and the h2 advisory” |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → (83 characters) |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (897 characters) |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T08:54:22.276655Z |
-| 2026-08-18 | claude | created task “h2 advisory turns CI red, and it is in the daemon's own serving path” |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → ["commit:7ef731d"] |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (496 characters) |
-| 2026-08-18 | human | revised spec “Specline — Handoff to Claude Code” to v4 |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T08:47:21.293597Z |
-| 2026-08-18 | claude | created task “The orientation docs still call the read surface a Tauri desktop app” |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → ["url:https://github.com/kiritbasu/specline/security/dependabot/2"] |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (1067 characters) |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → ["commit:16706af","test:cargo test -p specline-core --lib next"] |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (727 characters) |
-| 2026-08-18 | claude | revised feedback “Linear, Shortcut and Kata all sell the same thing, and it is not what Specline sells” to v1 |
 
-*Showing the 200 most recent of 2337 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2371 changes. Use `specline_activity` for the rest.*
 
