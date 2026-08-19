@@ -33,7 +33,10 @@ describe("VersionFooter", () => {
       />,
     );
 
-    const link = screen.getByRole("link", { name: "0.1.3" });
+    // `v0.1.3`, not `0.1.3`. The prefix is how a version reads everywhere else
+    // — the tag, the release page, the changelog — and the footer saying it
+    // differently made you translate between them.
+    const link = screen.getByRole("link", { name: "v0.1.3" });
     expect(link.getAttribute("href")).toBe(NOTES);
     // A new tab, because this is a desktop shell and navigating it away from
     // the app would strand the reader with no way back.
@@ -50,7 +53,7 @@ describe("VersionFooter", () => {
       />,
     );
 
-    expect(screen.getByText("0.1.3").tagName).toBe("SPAN");
+    expect(screen.getByText("v0.1.3").tagName).toBe("SPAN");
     expect(screen.queryByRole("link")).toBeNull();
   });
 
@@ -297,15 +300,50 @@ describe("VersionFooter — asking for a check", () => {
     expect(screen.getByRole("button", { name: /check for updates/i })).toBeTruthy();
   });
 
-  it("does not offer one when an update is already downloaded", () => {
+  it("keeps the control when an update is downloaded, because it is the signal", () => {
     render(
       <VersionFooter version="0.1.4" stagedVersion="0.1.5" onStaged={() => {}}
         onApplied={() => {}} />,
     );
-    // The useful button at that point is the one that takes it. A second look
-    // asks a question the daemon has already answered.
-    expect(screen.queryByRole("button", { name: /check for updates/i })).toBeNull();
+
+    // This used to assert the opposite — the check button was hidden once
+    // something was staged, on the grounds that the useful button then is the
+    // one that takes it. That reasoning held while the control was a button
+    // reading "Check for updates" and nothing else. It is now also the *state*:
+    // the glyph goes accent and grows a dot precisely when an update is
+    // waiting, so hiding it would remove the one indication that there is
+    // something to take (KEEL-318).
+    expect(screen.getByRole("button", { name: /check for updates/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /restart into it/i })).toBeTruthy();
+  });
+
+  /**
+   * The switched-off state does not fire a request, and says why.
+   *
+   * The daemon refuses this call when `SPECLINE_AUTO_UPDATE=0`, and `specline
+   * doctor` tells that person Specline makes no network requests at all. A
+   * control that fired one anyway would make a printed statement false — so
+   * the refusal is in the interface too, not only behind it.
+   */
+  it("will not check when checks are switched off", async () => {
+    const spy = vi.spyOn(api, "checkForUpdate");
+    render(
+      <VersionFooter
+        version="0.1.5"
+        stagedVersion={null}
+        updateCheck={{ enabled: false }}
+        onStaged={() => {}}
+        onApplied={() => {}}
+      />,
+    );
+
+    const control = screen.getByRole("button", { name: /update checks are off/i });
+    await userEvent.click(control);
+    expect(spy).not.toHaveBeenCalled();
+
+    // And the reason is on screen, not only in the label. Somebody who set
+    // this six months ago will not remember that they did.
+    expect(screen.getByText(/update checks are off/i)).toBeTruthy();
   });
 
   it("says so when there is nothing new, rather than staying silent", async () => {

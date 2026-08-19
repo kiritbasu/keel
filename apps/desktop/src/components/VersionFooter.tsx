@@ -132,6 +132,89 @@ export function checkStatus(
   return null;
 }
 
+/**
+ * The three glyphs this control needs, drawn here rather than pulled from a
+ * package.
+ *
+ * The app has no icon dependency and these are the fourth, fifth and sixth
+ * icons in it — see `ThemeControl` for the other three. A package for six
+ * icons would be a dependency, a build step and a licence for something that
+ * is thirty lines of path data.
+ *
+ * **22px, in a 30px slot.** The size is deliberate and was chosen by looking:
+ * at 13px the control read as decoration beside 11px type rather than
+ * something to press. The slot is larger than the glyph so there is a real
+ * click target, and so the spinner can swap in without the row changing
+ * height.
+ *
+ * A 24 viewBox where `ThemeControl` uses 16, because these are Tabler-derived
+ * outlines whose geometry is authored at 24 and rescaling the path data by
+ * hand would be four chances to introduce a wobble for no gain. `strokeWidth`
+ * is set to match the optical weight of the 16-box icons, not to match their
+ * number.
+ */
+const ICON = "size-[22px]";
+const STROKE = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.8,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
+
+/**
+ * A cloud with an arrow coming down out of it.
+ *
+ * Chosen over a refresh arrow, which was the first draft: circling arrows mean
+ * "reload what you are looking at", and this fetches a thing from somewhere
+ * else. The cloud says the release is elsewhere and the arrow says bring it
+ * here, which is what pressing this does.
+ */
+function CloudDownload() {
+  return (
+    <svg viewBox="0 0 24 24" className={ICON} aria-hidden="true">
+      <g {...STROKE}>
+        <path d="M19 18a3.5 3.5 0 0 0 0-7h-1a5 4.5 0 0 0-11-2 4.6 4.4 0 0 0-2.1 8.4" />
+        <path d="M12 13v9" />
+        <path d="M9 19l3 3l3-3" />
+      </g>
+    </svg>
+  );
+}
+
+/** The same cloud, struck through. Checks are off, and that is a setting. */
+function CloudOff() {
+  return (
+    <svg viewBox="0 0 24 24" className={ICON} aria-hidden="true">
+      <g {...STROKE}>
+        <path d="M13.5 5.5a5 4.5 0 0 1 5.5 4.5h1a3.5 3.5 0 0 1 2.4 6.1" />
+        <path d="M17 17H6a4.6 4.4 0 0 1-.7-8.7" />
+        <path d="M3 3l18 18" />
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * An arc, spinning.
+ *
+ * In the same slot as the glyph it replaces, so pressing the button does not
+ * move anything — a control that jumps when you use it reads as a mistake.
+ */
+function Spinner() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={`${ICON} animate-spin`}
+      aria-hidden="true"
+    >
+      <g {...STROKE}>
+        <path d="M12 3a9 9 0 1 0 9 9" />
+      </g>
+    </svg>
+  );
+}
+
 export function VersionFooter({
   version,
   stagedVersion,
@@ -267,42 +350,117 @@ export function VersionFooter({
   // back it is talking to, without asking anything.
   const status = checkStatus(updateCheck, stagedVersion !== undefined);
 
+  // Switched off is its own glyph rather than its own colour. It is a choice
+  // somebody made, not a fault, and an amber badge would nag about a setting
+  // they chose deliberately.
+  const off = updateCheck?.enabled === false;
+  // The dot, and only for the two things worth interrupting for: something is
+  // waiting, or the updater itself is not working. `null` is the resting state
+  // and it is the only one that says nothing — see `checkStatus` for why that
+  // silence is a claim the component is entitled to make.
+  const dot = stagedVersion
+    ? "accent"
+    : status?.tone === "warn"
+      ? "warn"
+      : null;
+  const glyph = stagedVersion
+    ? "text-accent"
+    : status?.tone === "warn"
+      ? "text-warn"
+      : "text-ink-faint";
+
   return (
     <div className="mt-cosy px-2.5">
-      <p
-        className="text-micro text-ink-faint"
-        // Which binary, not only which version. Two installs and the one on
-        // your PATH not being the one you updated is the case this footer
-        // exists for, and a version alone cannot tell them apart.
-        title={executable ? `Running ${executable}` : undefined}
-      >
-        Specline{" "}
-        {releaseNotes ? (
-          // A version with no way to find out what is in it is a number. The
-          // link is the release's own notes, which the release job generates,
-          // so it is the changelog for exactly this build.
-          <a
-            href={releaseNotes}
-            target="_blank"
-            rel="noreferrer"
-            className="font-mono underline decoration-dotted underline-offset-2 hover:text-ink"
-            title={`What changed in ${version}`}
-          >
-            {version}
-          </a>
-        ) : (
-          <span className="font-mono">{version}</span>
-        )}
-      </p>
+      <div className="flex items-center gap-tight">
+        <p
+          className="text-micro text-ink-faint"
+          // Which binary, not only which version. Two installs and the one on
+          // your PATH not being the one you updated is the case this footer
+          // exists for, and a version alone cannot tell them apart.
+          title={executable ? `Running ${executable}` : undefined}
+        >
+          Specline{" "}
+          {releaseNotes ? (
+            // A version with no way to find out what is in it is a number. The
+            // link is the release's own notes, which the release job generates,
+            // so it is the changelog for exactly this build.
+            <a
+              href={releaseNotes}
+              target="_blank"
+              rel="noreferrer"
+              className="font-mono underline decoration-dotted underline-offset-2 hover:text-ink"
+              title={`What changed in v${version}`}
+            >
+              v{version}
+            </a>
+          ) : (
+            <span className="font-mono">v{version}</span>
+          )}
+        </p>
+
+        <span className="flex-1" />
+
+        {/*
+          The action, and only the action. The glyph is always "go and look",
+          never "you are up to date" — a tick would mean both, which is one
+          glyph carrying a verb and a state.
+
+          Refused rather than hidden when checks are off, because the button
+          disappearing would leave nothing to explain why, and `specline doctor`
+          promises this daemon makes no request at all in that mode.
+        */}
+        <button
+          type="button"
+          onClick={check}
+          disabled={checking || off}
+          aria-label={
+            off
+              ? "Update checks are off"
+              : checking
+                ? "Checking for updates"
+                : "Check for updates"
+          }
+          title={
+            off
+              ? "Update checks are off (SPECLINE_AUTO_UPDATE=0)"
+              : status
+                ? status.text
+                : "Check for updates now"
+          }
+          className={`relative inline-flex size-[30px] shrink-0 items-center justify-center rounded-control transition-colors ${glyph} ${
+            off
+              ? "cursor-default"
+              : stagedVersion
+                ? "bg-accent-quiet hover:bg-surface-hover"
+                : "hover:bg-surface-hover hover:text-ink"
+          }`}
+        >
+          {checking ? <Spinner /> : off ? <CloudOff /> : <CloudDownload />}
+          {dot && (
+            <span
+              aria-hidden="true"
+              className={`absolute top-[2px] right-[2px] size-[8px] rounded-full ring-2 ring-surface ${
+                dot === "accent" ? "bg-accent" : "bg-warn"
+              }`}
+            />
+          )}
+        </button>
+      </div>
 
       {/*
         Said only when nothing is staged. An update sitting there ready is the
         more useful thing to read, and two notices about updating at once is
         one too many.
+
+        The resting state — checked recently, nothing waiting — prints nothing
+        at all, and that is the one state allowed to. Every state that needs
+        the reader to know something keeps its sentence, which is what stops a
+        silent icon meaning "fine" when the updater has been broken for a month
+        (KEEL-227).
       */}
       {!stagedVersion && status && (
         <p
-          className={`mt-cosy text-micro ${
+          className={`mt-tight text-micro ${
             status.tone === "warn" ? "text-ink-muted" : "text-ink-faint"
           }`}
         >
@@ -311,25 +469,14 @@ export function VersionFooter({
       )}
 
       {/*
-        Only when nothing is staged. With an update already downloaded, the
-        useful button is the one that takes it — offering a second look at that
-        point is asking a question the daemon has already answered.
-
-        It is here at all because waiting up to half an hour was the only way to find
-        out, and "I checked and there is nothing" looked identical to "I have
-        not looked since before it was published" (KEEL-258).
+        What the button found, when it found something worth a sentence. The
+        staged case says nothing here — the offer below is the answer, and
+        announcing it twice would be the interface talking over itself.
       */}
-      {!stagedVersion && (
-        <div className="mt-cosy">
-          <Button size="sm" variant="ghost" onClick={check} disabled={checking}>
-            {checking ? "Checking…" : "Check for updates"}
-          </Button>
-          {checkResult && (
-            <p role="status" className="mt-cosy text-micro text-ink-muted">
-              {checkResult}
-            </p>
-          )}
-        </div>
+      {!stagedVersion && checkResult && (
+        <p role="status" className="mt-tight text-micro text-ink-muted">
+          {checkResult}
+        </p>
       )}
 
       {stagedVersion && !applying && (
