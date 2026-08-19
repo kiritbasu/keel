@@ -1,15 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T08:23:13Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T08:37:53Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (278)
+## Closed work (279)
 
 ### 2026-08-19
+
+- **KEEL-317** Check for updates every 30 minutes, and make the footer an icon that colours when one is waiting — `done`
+
+  The two halves KB asked for are in: the default check interval is half an hour, and the daemon now announces a staged release so the footer learns about it without waiting for an unrelated store write.
+  
+  Three things beyond the literal ask, each because leaving it would have made the change harmful rather than incomplete. The re-stage defect — plan() never looked at what was already staged, so a daemon left overnight with an update pending would have pulled ~176 MB to no effect at the new interval, and re-announced every half hour. The six disclosure sites that told people Specline makes one hourly request, which would have become a false statement about network behaviour. And check_interval extracted from the task it runs in, so its floor is testable.
+  
+  The UI half of the row — replacing the button with a version-and-icon control — is deliberately not done. It needs the three design answers on this row settled first, and KB asked to see a layout before the glyphs are chosen. Filed separately as KEEL-318.
+  
+  Checks: fmt clean, clippy clean in both the default and --no-default-features --exclude specline-embed configurations, full Rust suite green, desktop 336 tests green and tsc clean.
+
+  <sub>commit:1e57620 · test:cargo test --workspace · test:npm test --run</sub>
 
 - **KEEL-315** Three generated phase specs mirror into the repository root — `done`
 
@@ -1254,6 +1266,17 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | created task “Make the version footer a compact version-and-icon control” |
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → ["commit:1e57620","test:cargo test --workspace","test:npm test --run"] |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (1200 characters) |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T08:32:06.600217Z |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_e7e72d13-4a31-4ee7-95f4-d4c53b1c53f3 |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T08:23:53.208921Z |
 | 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → ["commit:a57b3a3","test:specline generate specline --check"] |
 | 2026-08-19 | claude | close_reason none → done |
@@ -1443,17 +1466,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | evidence [] → (120 characters) |
 | 2026-08-18 | claude | close_reason none → done |
 | 2026-08-18 | claude | close_message none → (1049 characters) |
-| 2026-08-18 | human | revised spec “Specline — standing instructions” to v16 |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T07:24:25.312246Z |
-| 2026-08-18 | claude | created task “Rename ready to next everywhere, including the MCP tool” |
-| 2026-08-18 | claude | revised decision “The ranked list is called next, and the MCP tool is renamed with it” to v1 |
-| 2026-08-18 | claude | created decision “The ranked list is called next, and the MCP tool is renamed with it” |
-| 2026-08-18 | claude | “A landing page for Specline, served from this repository by…” references “The landing page lives in this repository, at site/, with…” |
-| 2026-08-18 | claude | “The landing page lives in this repository, at site/, with…” resolves “Where should the marketing site live — this repository, or…” |
-| 2026-08-18 | claude | status open → answered |
-| 2026-08-18 | claude | revised decision “The landing page lives in this repository, at site/, with no build step” to v1 |
 
-*Showing the 200 most recent of 2317 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2328 changes. Use `specline_activity` for the rest.*
 
