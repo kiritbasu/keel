@@ -1,0 +1,285 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+  <style>
+    :root {
+      --sunken: oklch(0.965 0.003 250);
+      --surface: oklch(0.985 0.002 250);
+      --raised: oklch(1 0 0);
+      --hover: oklch(0.955 0.004 250);
+      --line: oklch(0.90 0.006 250);
+      --line-strong: oklch(0.80 0.010 250);
+      --ink: oklch(0.22 0.010 250);
+      --muted: oklch(0.46 0.012 250);
+      --faint: oklch(0.60 0.010 250);
+      --accent: oklch(0.50 0.17 250);
+      --accent-quiet: oklch(0.50 0.17 250 / 0.10);
+      --brand: oklch(0.55 0.12 70);
+      --good: oklch(0.50 0.14 155);
+      --warn: oklch(0.54 0.13 70);
+      --bad: oklch(0.52 0.20 25);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+      font-size: 14px; line-height: 1.5;
+      color: var(--ink); background: var(--surface);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: oklch(0.42 0.17 250); }
+    .num { font-variant-numeric: tabular-nums; }
+    .mono { font-family: "Geist Mono", ui-monospace, "SF Mono", monospace; font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+<div style="width:1280px;height:820px;display:flex;overflow:hidden;background:var(--surface);">
+  <aside style="width:208px;flex-shrink:0;display:flex;flex-direction:column;background:var(--sunken);border-right:1px solid var(--line);">
+      <div style="padding:16px 12px 10px;">
+        <div style="font-size:20px;font-weight:600;letter-spacing:-0.015em;color:var(--brand);">Specline</div>
+        <div style="font-size:11px;color:var(--faint);margin-top:1px;">the project spine</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:0 12px 12px;">
+        <span style="display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:5px;padding:2px 6px;font-size:11px;color:var(--muted);background:var(--raised);">Specline <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>
+        <span style="font-size:11px;color:var(--faint);margin-left:auto;">Jump to… ⌘K</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:1px;padding:0 8px;"><div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:5px;color:var(--muted);"><span style="flex:1">Overview</span><span style="font-size:11px;opacity:0.6">1</span></div><div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:5px;color:var(--muted);"><span style="flex:1">What's next</span><span style="font-size:11px;opacity:0.6">2</span></div><div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:5px;color:var(--muted);"><span style="flex:1">Board</span><span style="font-size:11px;opacity:0.6">3</span></div><div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:5px;color:var(--muted);"><span style="flex:1">Inbox</span><span style="font-size:11px;opacity:0.6">4</span></div><div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:5px;background:var(--accent-quiet);color:var(--accent);font-weight:500;"><span style="flex:1">Roadmap</span><span style="font-size:11px;opacity:0.6">5</span></div><div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:5px;color:var(--muted);"><span style="flex:1">Releases</span><span style="font-size:11px;opacity:0.6">6</span></div><div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:5px;color:var(--muted);"><span style="flex:1">Library</span><span style="font-size:11px;opacity:0.6">6</span></div></div>
+      <div style="height:1px;background:var(--line);margin:12px 12px;"></div>
+      <div style="display:flex;flex-direction:column;gap:1px;padding:0 8px;"><div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:5px;color:var(--muted);"><span style="flex:1">All projects</span><span style="font-size:11px;opacity:0.6">7</span></div><div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:5px;color:var(--muted);"><span style="flex:1">Search</span><span style="font-size:11px;opacity:0.6">8</span></div><div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:5px;color:var(--muted);"><span style="flex:1">What changed</span><span style="font-size:11px;opacity:0.6">9</span></div></div>
+      <div style="margin-top:auto;padding:12px;font-size:11px;color:var(--faint);">Specline v0.3.0</div>
+    </aside>
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column;">
+    <header style="flex-shrink:0;border-bottom:1px solid var(--line);padding:16px 24px 12px;">
+        <nav style="margin-bottom:4px;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--faint);">
+          <span>Projects</span><span>/</span><span>specline</span><span>/</span><span>Roadmap</span>
+        </nav>
+        <div style="display:flex;align-items:baseline;gap:12px;">
+          <h1 style="margin:0;font-size:20px;font-weight:600;letter-spacing:-0.015em;">Roadmap</h1>
+          <span style="font-size:13px;color:var(--faint);">15 phases · 3 in flight</span>
+        </div>
+      </header>
+    <div style="flex:1;min-height:0;overflow:hidden;padding:16px 24px 24px;"><div style="display:flex;align-items:center;gap:8px;margin:18px 0 6px;">
+            <span style="font-size:11px;font-weight:500;letter-spacing:0.04em;text-transform:uppercase;color:var(--faint);">In flight</span>
+            <span class="num" style="font-size:11px;color:var(--faint);">3</span>
+            <span style="flex:1;height:1px;background:var(--line);"></span>
+          </div>
+<div style="display:flex;flex-direction:column;gap:8px;">
+<div style="display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-left:2px solid var(--warn);border-radius:8px;background:var(--raised);padding:12px 14px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-weight:500;">Phase 10 — Release, distribution and install</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--warn);border-color:oklch(0.54 0.13 70 / 0.4);background:oklch(0.54 0.13 70 / 0.1);">active</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span aria-hidden="true" style="display:block;width:72px;height:5px;flex-shrink:0;border-radius:999px;overflow:hidden;background:var(--line);"><span style="display:block;height:100%;width:83%;border-radius:999px;background:var(--accent);"></span></span><span class="num">30 / 36</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span>moved today</span>
+              </span>
+            </div>
+            <p style="margin:0;font-size:13px;line-height:1.45;color:var(--muted);">Turn Specline into something a stranger can install and trust: three commands and a restart inside Claude Code, with nothing compiling on their machine.</p>
+          </div>
+<div style="display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-left:2px solid var(--warn);border-radius:8px;background:var(--raised);padding:12px 14px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-weight:500;">Phase 11 — Hardening: deep engineering review and strengthening</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--warn);border-color:oklch(0.54 0.13 70 / 0.4);background:oklch(0.54 0.13 70 / 0.1);">active</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span aria-hidden="true" style="display:block;width:72px;height:5px;flex-shrink:0;border-radius:999px;overflow:hidden;background:var(--line);"><span style="display:block;height:100%;width:91%;border-radius:999px;background:var(--accent);"></span></span><span class="num">43 / 47</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span>moved today</span>
+              </span>
+            </div>
+            <p style="margin:0;font-size:13px;line-height:1.45;color:var(--muted);">Take a hard look at everything already built — how it is structured, how safe it is, how fast it is — then fix what the review finds, in priority order.</p>
+          </div>
+<div style="display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-left:2px solid var(--warn);border-radius:8px;background:var(--raised);padding:12px 14px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-weight:500;">Phase 14 — Feature requests: the Inbox and the lifecycle</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--warn);border-color:oklch(0.54 0.13 70 / 0.4);background:oklch(0.54 0.13 70 / 0.1);">active</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span aria-hidden="true" style="display:block;width:72px;height:5px;flex-shrink:0;border-radius:999px;overflow:hidden;background:var(--line);"><span style="display:block;height:100%;width:17%;border-radius:999px;background:var(--accent);"></span></span><span class="num">2 / 12</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span>moved today</span>
+              </span>
+            </div>
+            <p style="margin:0;font-size:13px;line-height:1.45;color:var(--muted);">Feature requests get a lifecycle: an Inbox for signals, and a path from a sentence somebody said to a row on the board.</p>
+          </div>
+</div>
+<div style="display:flex;align-items:center;gap:8px;margin:18px 0 6px;">
+            <span style="font-size:11px;font-weight:500;letter-spacing:0.04em;text-transform:uppercase;color:var(--faint);">Finished, not yet declared</span>
+            <span class="num" style="font-size:11px;color:var(--faint);">3</span>
+            <span style="flex:1;height:1px;background:var(--line);"></span>
+          </div>
+<div style="display:flex;flex-direction:column;gap:1px;">
+<div style="display:flex;flex-direction:column;gap:1px;padding:7px 14px;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="color:var(--ink);">Phase 4 — Integrations</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--muted);border-color:var(--line);">complete</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span class="num">3 / 3</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span style="width:52px;text-align:right;">Aug 11</span>
+              </span>
+            </div>
+            <div style="font-size:12px;line-height:1.4;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">GitHub App, design artifacts, metrics charts. Needs KB's GitHub account.</div>
+          </div>
+<div style="display:flex;flex-direction:column;gap:1px;padding:7px 14px;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="color:var(--ink);">Phase 12 — Search that reads the whole document</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--muted);border-color:var(--line);">complete</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span class="num">4 / 4</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span style="width:52px;text-align:right;">Aug 15</span>
+              </span>
+            </div>
+            <div style="font-size:12px;line-height:1.4;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Semantic search has never run, and three things have to be fixed before it can.</div>
+          </div>
+<div style="display:flex;flex-direction:column;gap:1px;padding:7px 14px;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="color:var(--ink);">Phase 13 — Rename to Specline</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--muted);border-color:var(--line);">complete</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span class="num">16 / 16</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span style="width:52px;text-align:right;">Aug 17</span>
+              </span>
+            </div>
+            <div style="font-size:12px;line-height:1.4;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Rename the product from Keel to Specline everywhere the name is load-bearing.</div>
+          </div>
+</div>
+<div style="display:flex;align-items:center;gap:8px;margin:18px 0 6px;">
+            <span style="font-size:11px;font-weight:500;letter-spacing:0.04em;text-transform:uppercase;color:var(--faint);">Shipped</span>
+            <span class="num" style="font-size:11px;color:var(--faint);">8</span>
+            <span style="flex:1;height:1px;background:var(--line);"></span>
+          </div>
+<div style="display:flex;flex-direction:column;gap:1px;">
+<div style="display:flex;flex-direction:column;gap:1px;padding:7px 14px;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="color:var(--ink);">Phase 0 — Spine</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--good);border-color:oklch(0.50 0.14 155 / 0.4);background:oklch(0.50 0.14 155 / 0.1);">shipped</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span class="num">17 / 17</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span style="width:52px;text-align:right;">Aug 9</span>
+              </span>
+            </div>
+            <div style="font-size:12px;line-height:1.4;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Storage, schema, event log, graph, search, backup. No network, no UI.</div>
+          </div>
+<div style="display:flex;flex-direction:column;gap:1px;padding:7px 14px;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="color:var(--ink);">Phase 1 — Daemon</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--good);border-color:oklch(0.50 0.14 155 / 0.4);background:oklch(0.50 0.14 155 / 0.1);">shipped</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span class="num">19 / 19</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span style="width:52px;text-align:right;">Aug 11</span>
+              </span>
+            </div>
+            <div style="font-size:12px;line-height:1.4;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">axum, the nine MCP tools, keel_context, concurrency safety, render-status.</div>
+          </div>
+<div style="display:flex;flex-direction:column;gap:1px;padding:7px 14px;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="color:var(--ink);">Phase 2 — Plugin</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--good);border-color:oklch(0.50 0.14 155 / 0.4);background:oklch(0.50 0.14 155 / 0.1);">shipped</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span class="num">15 / 15</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span style="width:52px;text-align:right;">Aug 11</span>
+              </span>
+            </div>
+            <div style="font-size:12px;line-height:1.4;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Skill, session-ID threading, project confirmation, mirror hooks.</div>
+          </div>
+<div style="display:flex;flex-direction:column;gap:1px;padding:7px 14px;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="color:var(--ink);">Phase 3 — Desktop</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--good);border-color:oklch(0.50 0.14 155 / 0.4);background:oklch(0.50 0.14 155 / 0.1);">shipped</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span class="num">11 / 11</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span style="width:52px;text-align:right;">Aug 9</span>
+              </span>
+            </div>
+            <div style="font-size:12px;line-height:1.4;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Tauri shell, daemon as sidecar, screens 1–6 and 9.</div>
+          </div>
+<div style="display:flex;flex-direction:column;gap:1px;padding:7px 14px;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="color:var(--ink);">Phase 6 — Make the tracker real</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--good);border-color:oklch(0.50 0.14 155 / 0.4);background:oklch(0.50 0.14 155 / 0.1);">shipped</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span class="num">15 / 15</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span style="width:52px;text-align:right;">Aug 10</span>
+              </span>
+            </div>
+            <div style="font-size:12px;line-height:1.4;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Turn the tracker from prose into rows you can work: every task gets an address and a page.</div>
+          </div>
+<div style="display:flex;flex-direction:column;gap:1px;padding:7px 14px;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="color:var(--ink);">Phase 7 — Clean up the footprint</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--good);border-color:oklch(0.50 0.14 155 / 0.4);background:oklch(0.50 0.14 155 / 0.1);">shipped</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span class="num">7 / 7</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span style="width:52px;text-align:right;">Aug 10</span>
+              </span>
+            </div>
+            <div style="font-size:12px;line-height:1.4;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Cut the documentation down and give each instruction one owner.</div>
+          </div>
+<div style="display:flex;flex-direction:column;gap:1px;padding:7px 14px;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="color:var(--ink);">Phase 8 — The working loop</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--good);border-color:oklch(0.50 0.14 155 / 0.4);background:oklch(0.50 0.14 155 / 0.1);">shipped</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span class="num">23 / 23</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span style="width:52px;text-align:right;">Aug 18</span>
+              </span>
+            </div>
+            <div style="font-size:12px;line-height:1.4;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">File a bug in seconds, see what's ready to start, read the board without opening every card.</div>
+          </div>
+<div style="display:flex;flex-direction:column;gap:1px;padding:7px 14px;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="color:var(--ink);">Phase 9 — One database</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--good);border-color:oklch(0.50 0.14 155 / 0.4);background:oklch(0.50 0.14 155 / 0.1);">shipped</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span class="num">8 / 8</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span style="width:52px;text-align:right;">Aug 18</span>
+              </span>
+            </div>
+            <div style="font-size:12px;line-height:1.4;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Fold DuckDB and Lance into one database, so a backup is one file.</div>
+          </div>
+</div>
+<div style="display:flex;align-items:center;gap:8px;margin:18px 0 6px;">
+            <span style="font-size:11px;font-weight:500;letter-spacing:0.04em;text-transform:uppercase;color:var(--faint);">Cut</span>
+            <span class="num" style="font-size:11px;color:var(--faint);">1</span>
+            <span style="flex:1;height:1px;background:var(--line);"></span>
+          </div>
+<div style="display:flex;flex-direction:column;gap:1px;">
+<div style="display:flex;flex-direction:column;gap:1px;padding:7px 14px;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="color:var(--ink);">Phase 5 — Remote</span>
+              <span style="display:inline-flex;align-items:center;border:1px solid;border-radius:5px;padding:2px 6px;font-size:11px;line-height:1;white-space:nowrap;color:var(--faint);border-color:var(--line);background:var(--hover);text-decoration:line-through;">cut</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--faint);">
+                <span class="num">1 / 1</span>
+                <span style="width:1px;height:11px;background:var(--line);"></span>
+                <span style="width:52px;text-align:right;">Aug 11</span>
+              </span>
+            </div>
+            <div style="font-size:12px;line-height:1.4;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Deployable daemon, auth, mobile client.</div>
+          </div>
+</div></div>
+  </main>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

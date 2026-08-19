@@ -1,37 +1,38 @@
 /**
- * Screen 3 — Roadmap. Milestones over time, one project or all.
+ * Screen 5 — Roadmap. The phases of one project, or of all of them.
  *
  * Built from milestones because that is what they are for: SPEC §6 calls them
  * the planning unit and says the roadmap view is built from them. Nothing here
  * infers a timeline from task dates.
  *
- * **Two strands, not one list.** A milestone is either a phase — the plan — or
- * a release, which is what actually went out, and they answer different
- * questions. Interleaving them by date reads badly here: the first ten phases
- * finished inside three days and the ten releases all landed the week after, so
- * one chronological list buries the plan in the middle of a changelog. The
- * phases keep their manual order; the releases go in the order they shipped.
+ * **Phases only.** Releases used to share this screen and now have one of their
+ * own (KEEL-336). A phase and a release are different nouns — a phase is a unit
+ * of plan that holds tasks and has progress, a release is a unit of record that
+ * went out on a date and holds nothing — and one list containing both implied a
+ * relationship neither has to the other. Splitting them into two sections on
+ * one page was the first attempt and did not fix it: two lists stacked still
+ * read as one page about one thing.
+ *
+ * **Grouped by what a phase is doing, not by plan order.** `sort_order` gives
+ * the list the order somebody typed; it does not answer "where is this project
+ * now", which is the question the screen exists for. Fifteen phases in plan
+ * order buried the three that are moving in the middle of the twelve that are
+ * not. The groups run in the order a reader cares about them, and the manual
+ * order still holds *within* a group.
  */
 
 import { api, type Entity, type Page as PageOf } from "../lib/api";
 import { href } from "../lib/router";
 import { useAsync } from "../lib/useAsync";
-import {
-  Badge,
-  Empty,
-  ErrorBox,
-  Spinner,
-  When,
-  statusTone,
-} from "../components/ui";
+import { Badge, Empty, ErrorBox, Spinner, When, statusTone } from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
 import type { ScreenProps } from "../App";
 
 /** The order a human asked for, then a date, then the name. */
-function byPlan(a: Entity, b: Entity): number {
+export function byPlan(a: Entity, b: Entity): number {
   // `sort_order` first, because SPEC §3.2 gives milestones that column
-  // specifically for "manual ordering for the roadmap view" — a human who
-  // has said what order they want should get it.
+  // specifically for "manual ordering for the roadmap view" — a human who has
+  // said what order they want should get it, within the group.
   const ao = a.sort_order as number | null;
   const bo = b.sort_order as number | null;
   if (ao != null && bo != null && ao !== bo) return ao - bo;
@@ -39,10 +40,7 @@ function byPlan(a: Entity, b: Entity): number {
   if (ao == null && bo != null) return 1;
 
   // Then by target date, for the rare phase that has one. Dated before undated,
-  // since a milestone with no target is unplanned rather than far-future. This
-  // is close to dead code — four rows in this store carry a date and all four
-  // say the day it was seeded — but a date somebody does set should still order
-  // the roadmap (KEEL-332).
+  // since a milestone with no target is unplanned rather than far-future.
   const at = a.target_date as string | null;
   const bt = b.target_date as string | null;
   if (at && bt && at !== bt) return at.localeCompare(bt);
@@ -52,58 +50,65 @@ function byPlan(a: Entity, b: Entity): number {
   // Finally by name, so ties never fall back to insertion order. Without this
   // the four phases that shipped on the same day came back newest first, so the
   // roadmap read 3, 2, 1, 0.
-  return String(a.name).localeCompare(String(b.name), undefined, {
-    numeric: true,
-  });
+  return String(a.name).localeCompare(String(b.name), undefined, { numeric: true });
 }
 
 /**
- * When it shipped, oldest first.
+ * The groups, in the order a reader wants them.
  *
- * A release's date is the one fact about it that cannot be wrong, so it beats
- * the manual ordering here — a version cut without a `sort_order` still lands
- * in the right place, which matters because the next one will be created by
- * whoever is cutting it rather than by a backfill that thought about ordering.
+ * `complete` has a group to itself rather than being folded in with `shipped`,
+ * because the difference is the whole of B-57: every task closed is a fact the
+ * store can derive, and "it shipped" is a declaration only a person can make.
+ * A phase sitting here is waiting on somebody to say which — and three of this
+ * project's phases sat in exactly that state, unnoticed, until the digest grew
+ * a section for it.
+ *
+ * Every derived state appears in exactly one group, so no phase can fall
+ * through and vanish from a screen whose whole job is to list them. The test
+ * asserting that is what makes this list safe to extend.
  */
-function byShipped(a: Entity, b: Entity): number {
-  const as = a.shipped_at as string | null;
-  const bs = b.shipped_at as string | null;
-  if (as && bs && as !== bs) return as.localeCompare(bs);
-  if (as && !bs) return -1;
-  if (!as && bs) return 1;
-  return byPlan(a, b);
-}
+const GROUPS: Array<{ states: string[]; title: string; hint?: string }> = [
+  { states: ["active", "blocked"], title: "In flight" },
+  {
+    states: ["complete"],
+    title: "Finished, not yet declared",
+    hint: "Every task is closed. Whether that means shipped or cut is not derivable — say which.",
+  },
+  { states: ["planned"], title: "Planned" },
+  { states: ["shipped"], title: "Shipped" },
+  { states: ["paused", "cut"], title: "Set aside" },
+];
 
-export function RoadmapScreen({
-  route,
-  generation,
-  milestoneNoun,
-}: ScreenProps) {
+export function RoadmapScreen({ route, generation, milestoneNoun }: ScreenProps) {
   const noun = milestoneNoun ?? "milestone";
   const plural = `${noun.toLowerCase()}s`;
   const project = route.project;
   const { data, error, loading, reload } = useAsync<PageOf<Entity>>(
-    () => api.entities({ project, type: "milestone" }),
+    () => api.entities({ project, type: "milestone", limit: 500 }),
     [project, generation],
   );
 
   if (loading && !data) return <Spinner />;
   if (error) {
     return (
-      <Page
-        title="Roadmap"
-        crumbs={project ? projectCrumbs(route, "Roadmap") : undefined}
-      >
+      <Page title="Roadmap" crumbs={project ? projectCrumbs(route, "Roadmap") : undefined}>
         <ErrorBox error={error} retry={reload} />
       </Page>
     );
   }
 
-  const all = data?.items ?? [];
-  const phases = all.filter((m) => String(m.kind) !== "release").sort(byPlan);
-  const releases = all
-    .filter((m) => String(m.kind) === "release")
-    .sort(byShipped);
+  const phases = (data?.items ?? []).filter((m) => String(m.kind) !== "release").sort(byPlan);
+  const inFlight = phases.filter((m) => {
+    const state = stateOf(m);
+    return state === "active" || state === "blocked";
+  });
+
+  // Anything whose state is in no group. Zero today, and the point is that it
+  // stays visible if a new state is ever added to the enum without being added
+  // here — a phase silently missing from the roadmap is the failure this screen
+  // cannot afford.
+  const grouped = new Set(GROUPS.flatMap((g) => g.states));
+  const ungrouped = phases.filter((m) => !grouped.has(stateOf(m)));
 
   return (
     <Page
@@ -111,29 +116,141 @@ export function RoadmapScreen({
       crumbs={project ? projectCrumbs(route, "Roadmap") : undefined}
       meta={
         <span className="text-small text-ink-faint">
-          {project ? project : "all projects"}
+          {phases.length} {phases.length === 1 ? noun.toLowerCase() : plural}
+          {inFlight.length > 0 ? ` · ${inFlight.length} in flight` : ""}
         </span>
       }
     >
-      {all.length === 0 ? (
+      {phases.length === 0 ? (
         <Empty
           message={`No ${plural} yet.`}
           hint={`${noun[0]?.toUpperCase()}${noun.slice(1).toLowerCase()}s are what the roadmap is built from.`}
         />
       ) : (
-        <>
-          {phases.length > 0 ? (
-            <Strand items={phases} noun={noun} project={project} />
-          ) : null}
-          {releases.length > 0 ? (
-            <>
-              <h2 className="mt-8 mb-3 font-medium">Released</h2>
-              <Strand items={releases} noun={noun} project={project} />
-            </>
-          ) : null}
-        </>
+        <div>
+          {[...GROUPS, { states: [], title: "Everything else" }].map((group) => {
+            const rows =
+              group.states.length === 0
+                ? ungrouped
+                : phases.filter((m) => group.states.includes(stateOf(m)));
+            if (rows.length === 0) return null;
+            return (
+              <section key={group.title}>
+                <GroupHeading
+                  title={group.title}
+                  count={rows.length}
+                  hint={"hint" in group ? group.hint : undefined}
+                />
+                <ol className="space-y-2">
+                  {rows.map((m) => (
+                    <li key={String(m.id)}>
+                      <Row m={m} noun={noun} project={project} />
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            );
+          })}
+        </div>
       )}
     </Page>
+  );
+}
+
+/**
+ * `state`, not `status`.
+ *
+ * The column only holds what was declared — shipped, cut, paused, or nothing at
+ * all — and what the phase is actually doing is worked out from its tasks by
+ * the daemon (B-57). Reading `status` here is what showed a finished phase as
+ * active for a week. Falling back keeps an older daemon readable.
+ */
+function stateOf(m: Entity): string {
+  return String(m.state ?? m.status);
+}
+
+function GroupHeading({ title, count, hint }: { title: string; count: number; hint?: string }) {
+  return (
+    <div className="mt-6 mb-2 first:mt-0">
+      <div className="flex items-center gap-2">
+        <h2 className="text-micro font-medium tracking-wider text-ink-faint uppercase">{title}</h2>
+        <span className="tabular text-micro text-ink-faint">{count}</span>
+        <span className="h-px flex-1 bg-border-subtle" />
+      </div>
+      {hint ? <p className="mt-1 text-small text-ink-faint">{hint}</p> : null}
+    </div>
+  );
+}
+
+function Row({ m, noun, project }: { m: Entity; noun: string; project?: string }) {
+  const status = stateOf(m);
+  const date = m.target_date as string | null;
+  const shipped = m.shipped_at as string | null;
+  // Counted by the daemon, beside the state it already derived. The browser has
+  // only this project's milestones, so working it out here would mean fetching
+  // every task to count it (KEEL-332).
+  //
+  // Absent and zero are different answers and must not collapse. A daemon that
+  // predates these fields sends neither, and `?? 0` would turn that silence
+  // into "not scoped" — a claim about the phase rather than an admission about
+  // the reply.
+  const counted = typeof m.tasks_total === "number";
+  const total = counted ? (m.tasks_total as number) : 0;
+  const closed = typeof m.tasks_closed === "number" ? (m.tasks_closed as number) : 0;
+  const moved = m.last_activity as string | null;
+  const live = status === "active" || status === "blocked";
+
+  return (
+    <div
+      className={
+        // A left edge on the phases that are moving. It is the only ornament on
+        // the row and it earns its place: the group heading says which section
+        // you are in, this says it again at the point your eye lands.
+        live
+          ? "rounded-card border border-l-2 border-border-subtle border-l-warn bg-surface-raised px-4 py-3"
+          : "rounded-card border border-border-subtle bg-surface-raised px-4 py-3"
+      }
+    >
+      <div className="flex items-center gap-2">
+        {/* A milestone on the roadmap and a chip on a card describe the same
+            thing and used not to know about each other. */}
+        {project ? (
+          <a
+            href={`${href({ screen: "board", project })}?milestone=${encodeURIComponent(String(m.id))}`}
+            className="font-medium hover:text-accent"
+            title={`Show the tasks in this ${noun.toLowerCase()}`}
+          >
+            {String(m.name)}
+          </a>
+        ) : (
+          <span className="font-medium">{String(m.name)}</span>
+        )}
+        <Badge tone={statusTone(status)}>{status}</Badge>
+        <span className="ml-auto flex items-center gap-3 text-small text-ink-faint">
+          {/* A target only while it is still a target. On a phase that shipped
+              it is history, and printing "due Aug 9" beside "shipped Aug 9" is
+              two dates where one is the answer. */}
+          {!shipped && date ? <Due iso={date} /> : null}
+          {counted ? <Progress closed={closed} total={total} /> : null}
+          {/* When it shipped beats when it last moved: a finished phase someone
+              left a note on last week did not move last week in any sense a
+              reader cares about. */}
+          {shipped ? (
+            <When iso={shipped} prefix="shipped" />
+          ) : moved ? (
+            <When iso={moved} prefix="moved" />
+          ) : null}
+        </span>
+      </div>
+      {/* Every phase carries its summary in full, finished ones included. It is
+          the sentence saying what the phase was *for*, and a roadmap of fifteen
+          bare names answers that only for whoever wrote them. This was briefly
+          clamped to one line to keep the page short; a short page is not worth
+          unreadable phases, and grouping already did most of that work. */}
+      {m.summary ? (
+        <p className="selectable mt-1 text-small text-ink-muted">{String(m.summary)}</p>
+      ) : null}
+    </div>
   );
 }
 
@@ -152,154 +269,20 @@ function Due({ iso }: { iso: string }) {
   return <When iso={at.toISOString()} prefix="due" />;
 }
 
-/** One vertical run of milestone rows against a timeline rule. */
-function Strand({
-  items,
-  noun,
-  project,
-}: {
-  items: Entity[];
-  noun: string;
-  project?: string;
-}) {
-  return (
-    <ol className="relative space-y-3 border-l border-border-subtle pl-6">
-      {items.map((m) => (
-        <Row key={String(m.id)} m={m} noun={noun} project={project} />
-      ))}
-    </ol>
-  );
-}
-
-function Row({
-  m,
-  noun,
-  project,
-}: {
-  m: Entity;
-  noun: string;
-  project?: string;
-}) {
-  // `state`, not `status`. The column only holds what was declared — shipped,
-  // cut, paused, or nothing at all — and what the phase is actually doing is
-  // worked out from its tasks by the daemon (B-57). Reading `status` here is
-  // what showed a finished phase as active for a week. Falling back keeps an
-  // older daemon readable.
-  const status = String(m.state ?? m.status);
-  const date = m.target_date as string | null;
-  const shipped = m.shipped_at as string | null;
-  // What a row says on the right is decided by what it *is*, not by whether it
-  // happens to carry a date. Keying this off `shipped_at` meant the eight
-  // phases that have one showed no progress at all — the thing this column
-  // exists to show, hidden on more than half the phases — while an unshipped
-  // release fell through to the progress branch and was labelled "not scoped",
-  // the exact false claim the rest of this file is careful to avoid.
-  const isRelease = String(m.kind) === "release";
-  // Counted by the daemon, beside the state it already derived. The browser has
-  // only this project's milestones, so working it out here would mean fetching
-  // every task to count it (KEEL-332).
-  //
-  // Absent and zero are different answers and must not collapse. A daemon that
-  // predates these fields sends neither, and `?? 0` would turn that silence
-  // into "not scoped" — a claim about the phase rather than an admission about
-  // the reply.
-  const counted = typeof m.tasks_total === "number";
-  const total = counted ? (m.tasks_total as number) : 0;
-  const closed =
-    typeof m.tasks_closed === "number" ? (m.tasks_closed as number) : 0;
-  const moved = m.last_activity as string | null;
-
-  return (
-    <li className="relative">
-      <span
-        className="absolute top-4 -left-[26px] h-2.5 w-2.5 rounded-full ring-4 ring-surface"
-        style={{
-          background:
-            status === "shipped"
-              ? "var(--color-good)"
-              : status === "active"
-                ? "var(--color-warn)"
-                : status === "blocked"
-                  ? "var(--color-bad)"
-                  : "var(--color-border-subtle)",
-        }}
-      />
-      <div className="rounded-card border border-border-subtle bg-surface-raised px-4 py-3">
-        <div className="flex items-center gap-2">
-          {/* A milestone on the roadmap and a chip on a card describe the same
-              thing and used not to know about each other. */}
-          {project ? (
-            <a
-              href={`${href({ screen: "board", project })}?milestone=${encodeURIComponent(String(m.id))}`}
-              className="font-medium hover:text-accent"
-              title={`Show the tasks in this ${noun.toLowerCase()}`}
-            >
-              {String(m.name)}
-            </a>
-          ) : (
-            <span className="font-medium">{String(m.name)}</span>
-          )}
-          <Badge tone={statusTone(status)}>{status}</Badge>
-          {String(m.kind) === "release" && m.version_string ? (
-            <Badge>v{String(m.version_string)}</Badge>
-          ) : null}
-          <span className="ml-auto flex items-center gap-3 text-small text-ink-faint">
-            {isRelease ? (
-              // A release carries no tasks, so its date is the whole story. An
-              // undated one is a version somebody has named and not yet cut.
-              shipped ? (
-                <When iso={shipped} prefix="shipped" />
-              ) : (
-                <span title="Named, but not cut yet">unreleased</span>
-              )
-            ) : (
-              <>
-                {/* A target is a future date, which is exactly the case the old
-                    helper rendered as "-3d ago". Kept for a phase that
-                    genuinely has one; it is no longer what the column falls
-                    back to. */}
-                {/* A target only while it is still a target. On a phase
-                    that shipped it is history, and printing "due Aug 9"
-                    beside "shipped Aug 9" is two dates where one is the
-                    answer. */}
-                {!shipped && date ? <Due iso={date} /> : null}
-                {counted ? <Progress closed={closed} total={total} /> : null}
-                {/* When it shipped beats when it last moved: a finished phase
-                    someone left a note on last week did not move last week in
-                    any sense a reader cares about. */}
-                {shipped ? (
-                  <When iso={shipped} prefix="shipped" />
-                ) : moved ? (
-                  <When iso={moved} prefix="moved" />
-                ) : null}
-              </>
-            )}
-          </span>
-        </div>
-        {m.summary ? (
-          <p className="selectable mt-1 text-small text-ink-muted">
-            {String(m.summary)}
-          </p>
-        ) : null}
-      </div>
-    </li>
-  );
-}
-
 /**
  * How far through a phase is: the fraction, and a bar to read it at a glance.
  *
- * This is what the roadmap's right-hand column says instead of a target date.
- * Seven of fifteen phases rendered "no target" there, because `target_date` is
- * only reachable through an undocumented field bag and nobody had ever set one
- * — so the column promised a plan that did not exist and said nothing about
- * whether the phase was moving (KEEL-332).
+ * This is what the roadmap says instead of a target date. Seven of fifteen
+ * phases rendered "no target" there, because `target_date` is only reachable
+ * through an undocumented field bag and nobody had ever set one — so the column
+ * promised a plan that did not exist and said nothing about whether the phase
+ * was moving (KEEL-332).
  *
  * A phase with no tasks says so rather than showing `0 / 0` or an empty bar.
  * "Not scoped" is a real and useful state: it is a phase that has been named
  * and not yet broken down, which is different from one that has not started.
  */
-function Progress({ closed, total }: { closed: number; total: number }) {
+export function Progress({ closed, total }: { closed: number; total: number }) {
   if (total === 0) {
     return <span title="No tasks filed under this one yet">not scoped</span>;
   }
@@ -313,14 +296,10 @@ function Progress({ closed, total }: { closed: number; total: number }) {
         aria-hidden
         // Hidden on a narrow window. The bar is decoration — the fraction
         // beside it carries the same fact — and adding 64px to every row is
-        // what pushed "Phase 0 — Spine" onto two lines in a half-width
-        // window. Information first, then the picture of it.
+        // what pushed "Phase 0 — Spine" onto two lines in a half-width window.
         className="hidden h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-border-subtle md:block"
       >
-        <span
-          className="block h-full rounded-full bg-accent"
-          style={{ width: `${pct}%` }}
-        />
+        <span className="block h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
       </span>
       {/* The numbers, not the percentage. "29 / 35" says how much is left in the
           unit the board is counted in; "83%" needs the total to be useful and

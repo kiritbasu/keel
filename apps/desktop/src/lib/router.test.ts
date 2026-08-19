@@ -168,6 +168,9 @@ describe("NEEDS_PROJECT", () => {
       project: true,
       inbox: true,
       roadmap: false,
+      // Like the roadmap: a version belongs to one project, but "what has
+      // shipped lately" is worth asking across all of them.
+      releases: false,
       board: true,
       // "What's next" ranks one project's work. Across every project it would
       // be a list with no shared ordering to be best-first in.

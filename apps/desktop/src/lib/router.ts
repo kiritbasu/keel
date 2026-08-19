@@ -27,6 +27,7 @@ export type ScreenId =
   | "home"
   | "project"
   | "roadmap"
+  | "releases"
   | "board"
   | "next"
   | "inbox"
@@ -60,6 +61,7 @@ const ROUTES: Array<{ pattern: string; screen: ScreenId }> = [
   { pattern: "/projects/:project/documents", screen: "documents" },
   { pattern: "/projects/:project/tasks/:taskId", screen: "task" },
   { pattern: "/projects/:project/roadmap", screen: "roadmap" },
+  { pattern: "/projects/:project/releases", screen: "releases" },
   { pattern: "/projects/:project/board", screen: "board" },
   { pattern: "/projects/:project/next", screen: "next" },
   { pattern: "/projects/:project/inbox", screen: "inbox" },
@@ -67,6 +69,7 @@ const ROUTES: Array<{ pattern: string; screen: ScreenId }> = [
   { pattern: "/projects/:project/changed", screen: "changed" },
   { pattern: "/projects/:project", screen: "project" },
   { pattern: "/roadmap", screen: "roadmap" },
+  { pattern: "/releases", screen: "releases" },
   { pattern: "/search", screen: "search" },
   { pattern: "/changed", screen: "changed" },
   { pattern: "/", screen: "home" },
@@ -77,6 +80,10 @@ export const NEEDS_PROJECT: Record<ScreenId, boolean> = {
   home: false,
   project: true,
   roadmap: false,
+  // Like the roadmap, and for the same reason: a version that went out is a
+  // fact about one project, but "what has shipped lately" is a question worth
+  // asking across all of them.
+  releases: false,
   board: true,
   next: true,
   inbox: true,
@@ -185,6 +192,9 @@ export function toHash(route: Route): string {
       break;
     case "roadmap":
       path = project ? `/projects/${project}/roadmap` : "/roadmap";
+      break;
+    case "releases":
+      path = project ? `/projects/${project}/releases` : "/releases";
       break;
     case "search":
       path = project ? `/projects/${project}/search` : "/search";

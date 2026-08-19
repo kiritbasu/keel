@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T12:09:37Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T12:41:04Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1318,6 +1318,9 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | revised decision “Phases and releases get a screen each, and the roadmap groups by state” to v1 |
+| 2026-08-19 | claude | created decision “Phases and releases get a screen each, and the roadmap groups by state” |
+| 2026-08-19 | claude | created task “Split the Roadmap: phases grouped by state, releases on a screen of their own” |
 | 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → (189 characters) |
 | 2026-08-19 | claude | close_reason none → done |
@@ -1515,9 +1518,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | close_message none → (496 characters) |
 | 2026-08-18 | claude | status todo → in_progress |
 | 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T21:28:38.773807Z |
-| 2026-08-18 | claude | created task “On an alias URL the app loses every task reference and the project's own words” |
-| 2026-08-18 | human | created task “remove 8a 8b labels” |
 
-*Showing the 200 most recent of 2446 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2449 changes. Use `specline_activity` for the rest.*
 

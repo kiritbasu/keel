@@ -29,6 +29,7 @@ import { VersionFooter } from "./components/VersionFooter";
 import { HomeScreen } from "./screens/Home";
 import { ProjectScreen } from "./screens/Project";
 import { RoadmapScreen } from "./screens/Roadmap";
+import { ReleasesScreen } from "./screens/Releases";
 import { BoardScreen } from "./screens/Board";
 import { NextScreen } from "./screens/Next";
 import { InboxScreen } from "./screens/Inbox";
@@ -64,7 +65,13 @@ const PROJECT_SCREENS: NavItem[] = [
   // clear the way for it.
   { id: "inbox", label: "Inbox", key: "4" },
   { id: "roadmap", label: "Roadmap", key: "5" },
-  { id: "documents", label: "Library", key: "6" },
+  // Beside the roadmap, not inside it. A phase and a release are different
+  // nouns — a phase is a unit of plan that holds tasks and has progress, a
+  // release is a unit of record that went out on a date and holds nothing —
+  // and stacking them on one screen implied a relationship neither has to the
+  // other (KEEL-336). Two nouns, two screens.
+  { id: "releases", label: "Releases", key: "6" },
+  { id: "documents", label: "Library", key: "7" },
 ];
 
 /**
@@ -76,9 +83,13 @@ const PROJECT_SCREENS: NavItem[] = [
  * have, and the screen already carried one header claiming a job it did not do.
  */
 const GLOBAL_SCREENS: NavItem[] = [
-  { id: "home", label: "All projects", key: "7" },
-  { id: "search", label: "Search", key: "8" },
-  { id: "changed", label: "What changed", key: "9" },
+  { id: "home", label: "All projects", key: "8" },
+  { id: "search", label: "Search", key: "9" },
+  // The tenth item, so `0` — the same place a browser puts the last tab.
+  // Adding Releases shifted the four below it by one, which costs a day of
+  // muscle memory once. The alternative was the only unnumbered row in a
+  // numbered rail, which is wrong every day.
+  { id: "changed", label: "What changed", key: "0" },
 ];
 
 const SCREENS: NavItem[] = [...PROJECT_SCREENS, ...GLOBAL_SCREENS];
@@ -376,6 +387,8 @@ export function App() {
         return <ProjectScreen {...shared} />;
       case "roadmap":
         return <RoadmapScreen {...shared} />;
+      case "releases":
+        return <ReleasesScreen {...shared} />;
       case "board":
         return <BoardScreen {...shared} />;
       case "next":

@@ -1,0 +1,47 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "title": "Option A — Two tabs", "x": 0, "y": 0, "w": 1280, "h": 820 },
+    { "file": "OptionB.dc.html", "title": "Option B — Two screens", "x": 1400, "y": 0, "w": 1280, "h": 820 },
+    { "file": "Releases.dc.html", "title": "The Releases view (A and B share it)", "x": 2800, "y": 0, "w": 1280, "h": 820 },
+    { "file": "OptionC.dc.html", "title": "Option C — Plan, with the record as a rail", "x": 0, "y": 980, "w": 1280, "h": 820 },
+    { "file": "OptionD.dc.html", "title": "Option D — Demote, don't move", "x": 1400, "y": 980, "w": 1280, "h": 820 }
+  ],
+  "annotations": [
+    {
+      "id": "the-question",
+      "x": 0,
+      "y": -300,
+      "w": 520,
+      "text": "The question\n\nPhases and releases are orthogonal. A phase is a unit of PLAN — named ahead of time, holds tasks, has progress. A release is a unit of RECORD — a version that went out on a date, holds no tasks.\n\nStacking them on one page implies a relationship neither has to the other. Each option below answers \"so where do releases live\" differently.\n\nOne thing is shared by all four, so it isn't what you're choosing between: the phase list is grouped by state, and finished phases collapse to one line. That's what kills the wall of summary text."
+    },
+    {
+      "id": "note-a",
+      "x": 0,
+      "y": -140,
+      "w": 520,
+      "text": "Option A — Two tabs\n\nYour suggestion. One nav slot, one thing on screen at a time.\n\nFor: the cheapest change, and the tab bar states outright that these are two lists rather than one.\nAgainst: a tab is a place things hide. Releases become invisible unless you remember to look, and you can't see the plan and the record together."
+    },
+    {
+      "id": "note-b",
+      "x": 1400,
+      "y": -140,
+      "w": 520,
+      "text": "Option B — Two screens\n\nReleases gets its own rail entry and its own keyboard number. Roadmap means phases, full stop.\n\nFor: the honest structure — two nouns, two screens — and each gets a title that says what it is.\nAgainst: a tenth nav item for ten rows that change once a week. The rail is the app's scarcest space."
+    },
+    {
+      "id": "note-c",
+      "x": 0,
+      "y": 840,
+      "w": 520,
+      "text": "Option C — Plan, with the record as a rail\n\nBoth on one screen, but shaped so differently that nobody would read them as one list. The rail is the only thing here with real dates.\n\nFor: you see what shipped while looking at what's planned, which is the question a Sunday review actually asks.\nAgainst: 300px off the phase column, and it still puts two nouns on one screen — the thing you flagged."
+    },
+    {
+      "id": "note-d",
+      "x": 1400,
+      "y": 840,
+      "w": 520,
+      "text": "Option D — Demote, don't move\n\nThe argument against your diagnosis, included so the vote isn't rigged. Maybe adjacency was never the problem — maybe it was that ten release rows got full card treatment they don't deserve.\n\nFor: no new tab, no new screen, one scroll answers both questions.\nAgainst: if you're right that these are orthogonal, this leaves them adjacent and just makes one of them quieter."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

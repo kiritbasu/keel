@@ -167,140 +167,6 @@ describe("what a shipped row says", () => {
     expect(screen.getByText(/^shipped /)).toBeTruthy();
     expect(screen.queryByText(/^moved /)).toBeNull();
   });
-
-  // A release carries no tasks, so the progress branch would render it as
-  // "not scoped" — which is true and useless. It is the shipped date that says
-  // what a release row is for.
-  it("does not call a release unscoped", async () => {
-    await show([
-      phase({
-        kind: "release",
-        name: "v0.3.0",
-        version_string: "0.3.0",
-        state: "shipped",
-        status: "shipped",
-        shipped_at: "2026-08-18T09:26:23Z",
-        tasks_total: 0,
-        tasks_closed: 0,
-        last_activity: null,
-      }),
-    ]);
-    expect(screen.queryByText("not scoped")).toBeNull();
-    expect(screen.getByText(/^shipped /)).toBeTruthy();
-  });
-
-  // The other half of the same bug. A release that has been named and not cut
-  // has no `shipped_at`, so it fell through to the progress branch and was
-  // labelled "not scoped" — a claim about tasks, on a row that never has any.
-  it("calls an uncut release unreleased, not unscoped", async () => {
-    await show([
-      phase({
-        kind: "release",
-        name: "0.4.0 — next",
-        version_string: "0.4.0",
-        state: "planned",
-        status: "open",
-        shipped_at: null,
-        tasks_total: 0,
-        tasks_closed: 0,
-        last_activity: null,
-      }),
-    ]);
-    expect(screen.getByText("unreleased")).toBeTruthy();
-    expect(screen.queryByText("not scoped")).toBeNull();
-  });
-});
-
-describe("the two strands", () => {
-  // A phase and a release answer different questions, and the store now holds
-  // ten of each. One chronological list buries the plan inside a changelog.
-  it("keeps releases out of the phase list, under their own heading", async () => {
-    await show([
-      phase({ id: "mst_1", name: "Phase 10 — Release" }),
-      phase({
-        id: "mst_2",
-        kind: "release",
-        name: "0.3.0 — what to pick up next",
-        version_string: "0.3.0",
-        state: "shipped",
-        status: "shipped",
-        shipped_at: "2026-08-18T09:26:23Z",
-        sort_order: 109,
-      }),
-    ]);
-    expect(screen.getByText("Released")).toBeTruthy();
-    const lists = screen.getAllByRole("list");
-    expect(lists).toHaveLength(2);
-    expect(lists[0]?.textContent).toContain("Phase 10");
-    expect(lists[0]?.textContent).not.toContain("0.3.0");
-    expect(lists[1]?.textContent).toContain("0.3.0");
-  });
-
-  it("says nothing about releases when there are none", async () => {
-    await show([phase({})]);
-    expect(screen.queryByText("Released")).toBeNull();
-    expect(screen.getAllByRole("list")).toHaveLength(1);
-  });
-
-  // `sort_order` was assigned by a backfill. The next release will be created
-  // by whoever cuts it, and the date is the fact that cannot be wrong.
-  it("orders releases by when they shipped, not by name or arrival", async () => {
-    // The date order and the name order must *disagree*, or the fallback name
-    // tiebreak does the work and the test passes with the whole date
-    // comparison deleted — which is what the first version of this did.
-    // `0.10.0` shipped first and sorts second by name.
-    await show([
-      phase({
-        id: "mst_2",
-        kind: "release",
-        name: "0.9.0",
-        state: "shipped",
-        shipped_at: "2026-08-18T09:26:23Z",
-        sort_order: null,
-      }),
-      phase({
-        id: "mst_1",
-        kind: "release",
-        name: "0.10.0",
-        state: "shipped",
-        shipped_at: "2026-08-15T07:58:25Z",
-        sort_order: null,
-      }),
-    ]);
-    const names = screen
-      .getAllByText(/^0\.\d+\.0$/)
-      .map((el) => el.textContent);
-    expect(names).toEqual(["0.10.0", "0.9.0"]);
-  });
-
-  // `Option::cmp` puts `None` first in Rust, and the tracker's table sorts the
-  // same list. The two surfaces disagreeing about where an uncut version goes
-  // is worse than either answer.
-  it("puts a named-but-uncut release last, the way the tracker does", async () => {
-    await show([
-      phase({
-        id: "mst_2",
-        kind: "release",
-        name: "0.4.0",
-        state: "planned",
-        status: "open",
-        shipped_at: null,
-        sort_order: null,
-      }),
-      phase({
-        id: "mst_1",
-        kind: "release",
-        name: "0.3.0",
-        state: "shipped",
-        shipped_at: "2026-08-18T09:26:23Z",
-        sort_order: null,
-      }),
-    ]);
-    const names = screen
-      .getAllByText(/^0\.\d+\.0$/)
-      .map((el) => el.textContent);
-    expect(names).toEqual(["0.3.0", "0.4.0"]);
-  });
 });
 
 describe("an older daemon", () => {
@@ -330,5 +196,140 @@ describe("an older daemon", () => {
   it("still says unscoped when the daemon actually reported zero", async () => {
     await show([phase({ tasks_total: 0, tasks_closed: 0 })]);
     expect(screen.getByText("not scoped")).toBeTruthy();
+  });
+});
+
+describe("grouping", () => {
+  // Plan order is what somebody typed; it does not answer "where is this
+  // project now". Fifteen phases in `sort_order` buried the three that were
+  // moving in the middle of the twelve that were not.
+  it("puts what is in flight above what is finished", async () => {
+    await show([
+      phase({
+        id: "mst_1",
+        name: "Phase 0 — Spine",
+        state: "shipped",
+        sort_order: 0,
+      }),
+      phase({
+        id: "mst_2",
+        name: "Phase 10 — Release",
+        state: "active",
+        sort_order: 10,
+      }),
+    ]);
+    const headings = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((h) => h.textContent);
+    expect(headings).toEqual(["In flight", "Shipped"]);
+
+    const body = document.body.textContent ?? "";
+    expect(body.indexOf("Phase 10")).toBeLessThan(body.indexOf("Phase 0"));
+  });
+
+  it("keeps the manual order inside a group", async () => {
+    await show([
+      phase({
+        id: "mst_2",
+        name: "Phase 11 — Hardening",
+        state: "active",
+        sort_order: 11,
+      }),
+      phase({
+        id: "mst_1",
+        name: "Phase 10 — Release",
+        state: "active",
+        sort_order: 10,
+      }),
+    ]);
+    const body = document.body.textContent ?? "";
+    expect(body.indexOf("Phase 10")).toBeLessThan(body.indexOf("Phase 11"));
+  });
+
+  // `complete` is derived and `shipped` is declared, and only a person can say
+  // which (B-57). Three of this project's phases sat in that state unnoticed.
+  it("gives finished-not-declared its own heading and says what to do", async () => {
+    await show([phase({ state: "complete", name: "Phase 12 — Search" })]);
+    expect(screen.getByText("Finished, not yet declared")).toBeTruthy();
+    expect(screen.getByText(/say which/)).toBeTruthy();
+  });
+
+  // The failure this guards is a phase vanishing from the one screen whose job
+  // is to list them — which a new state in the enum would cause silently.
+  it("shows a phase whose state matches no group rather than dropping it", async () => {
+    await show([phase({ state: "something_new", name: "Phase 99 — Unknown" })]);
+    expect(screen.getByText("Everything else")).toBeTruthy();
+    expect(screen.getByText("Phase 99 — Unknown")).toBeTruthy();
+  });
+
+  it("renders every phase exactly once across the groups", async () => {
+    const states = [
+      "active",
+      "blocked",
+      "complete",
+      "planned",
+      "shipped",
+      "paused",
+      "cut",
+    ];
+    await show(
+      states.map((s, i) =>
+        phase({ id: `mst_${i}`, name: `Phase ${i} — ${s}`, state: s }),
+      ),
+    );
+    for (let i = 0; i < states.length; i++) {
+      expect(screen.getAllByText(`Phase ${i} — ${states[i]}`)).toHaveLength(1);
+    }
+  });
+
+  it("counts the phases and how many are moving", async () => {
+    await show([
+      phase({ id: "mst_1", state: "active", name: "A" }),
+      phase({ id: "mst_2", state: "shipped", name: "B" }),
+      phase({ id: "mst_3", state: "shipped", name: "C" }),
+    ]);
+    expect(screen.getByText(/3 phases · 1 in flight/)).toBeTruthy();
+  });
+});
+
+describe("releases are not here any more", () => {
+  // They have a screen of their own. A release carries no tasks, so on this
+  // screen it could only ever render as "not scoped" in a column about
+  // progress — which is the second reason it did not belong.
+  it("ignores a release row entirely", async () => {
+    await show([
+      phase({ id: "mst_1", name: "Phase 10 — Release", state: "active" }),
+      phase({
+        id: "mst_2",
+        kind: "release",
+        name: "0.3.0 — what to pick up next",
+        version_string: "0.3.0",
+        state: "shipped",
+        shipped_at: "2026-08-18T09:26:23Z",
+        tasks_total: 0,
+        tasks_closed: 0,
+      }),
+    ]);
+    expect(screen.queryByText(/0\.3\.0/)).toBeNull();
+    expect(screen.queryByText("not scoped")).toBeNull();
+    expect(screen.getByText("Phase 10 — Release")).toBeTruthy();
+    expect(screen.getByText(/1 phase · 1 in flight/)).toBeTruthy();
+  });
+});
+
+describe("the description", () => {
+  // Briefly clamped to one line to keep the page short. KB asked for it back
+  // in full: it is the sentence saying what the phase was for, and a roadmap
+  // of bare names answers that only for whoever wrote them.
+  it("shows a finished phase's summary in full, not truncated", async () => {
+    const summary =
+      "Fold DuckDB and Lance into one database, so a backup is one file and there " +
+      "is one thing to keep consistent.";
+    await show([
+      phase({ state: "shipped", name: "Phase 9 — One database", summary }),
+    ]);
+    const el = screen.getByText(summary);
+    expect(el.className).not.toMatch(/truncate|line-clamp/);
+    expect(getComputedStyle(el).whiteSpace).not.toBe("nowrap");
   });
 });

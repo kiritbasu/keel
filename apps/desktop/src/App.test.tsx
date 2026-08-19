@@ -239,18 +239,17 @@ describe("navigation keys", () => {
   it("moves to a global screen and puts it in the address", async () => {
     render(<App />);
     await settle();
-    // 8, not 7. The Inbox went in at 4 — between the board and the roadmap,
-    // which is where it belongs in the lifecycle — and everything below it
-    // moved down one, the globals included. That is five shortcuts changing
-    // under somebody who had learnt them, which is a real cost and was taken
-    // deliberately: the alternative was the Inbox at the end of the rail,
-    // below "What changed", where nothing about its position would say it is
-    // live rather than reference.
+    // 9, not 8. Releases went in at 6 — beside the roadmap, because a phase
+    // and a release are different nouns and a screen each is the honest shape
+    // (KEEL-336) — and everything below it moved down one, the globals
+    // included. The alternative was the only unnumbered row in a numbered
+    // rail, which is wrong every day rather than once.
     //
-    // Removing the Metrics screen had moved these the other way for the same
-    // reason. This test failing is what a shortcut change is supposed to look
-    // like — the numbers are a contract with whoever has learnt them.
-    fireEvent.keyDown(window, { key: "8" });
+    // The Inbox did the same thing at 4, and removing the Metrics screen moved
+    // them the other way. This test failing is what a shortcut change is
+    // supposed to look like — the numbers are a contract with whoever has
+    // learnt them.
+    fireEvent.keyDown(window, { key: "9" });
     await waitFor(() => expect(window.location.hash).toBe("#/search"));
   });
 
