@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T09:30:08Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T09:32:57Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1282,6 +1282,14 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status open → answered |
+| 2026-08-19 | claude | revised question “Does every signal we set down become a numbered decision, or only the ones worth remembering?” to v2 |
+| 2026-08-19 | claude | summary (518 characters) → (525 characters) |
+| 2026-08-19 | claude | “Set-down reasoning lives on the signal; only a no that…” references “Feature requests get a lifecycle, and it starts at an Inbox…” |
+| 2026-08-19 | claude | “Set-down reasoning lives on the signal; only a no that…” resolves “Does every signal we set down become a numbered decision,…” |
+| 2026-08-19 | claude | status proposed → accepted |
+| 2026-08-19 | claude | revised decision “Set-down reasoning lives on the signal; only a no that binds future choices gets a number” to v1 |
+| 2026-08-19 | claude | created decision “Set-down reasoning lives on the signal; only a no that binds future choices gets a number” |
 | 2026-08-19 | claude | “product feature request triage” supersedes “The triage pass: read the whole Inbox, cluster it, and…” |
 | 2026-08-19 | claude | status in_progress → wont_do |
 | 2026-08-19 | claude | close_reason none → superseded |
@@ -1474,14 +1482,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | human | created task “product feature request triage” |
 | 2026-08-18 | claude | status in_progress → done |
 | 2026-08-18 | claude | evidence [] → ["commit:9495be5","test:cargo test --workspace","test:npx vitest run"] |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (1474 characters) |
-| 2026-08-18 | claude | created task “A change row says "milestone id changed" where it could name the phase” |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_226dee6d-ed6e-4557-b19c-276941ffa148 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T11:57:53.402483Z |
-| 2026-08-18 | claude | created task “What changed shows field writes where a person did one thing” |
-| 2026-08-18 | claude | status in_progress → done |
 
-*Showing the 200 most recent of 2371 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2379 changes. Use `specline_activity` for the rest.*
 

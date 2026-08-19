@@ -7,26 +7,6 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
-### Does every signal we set down become a numbered decision, or only the ones worth remembering?
-
-`que_01M0CNP75150X4E5Q65K66R85K` · question · open
-
-Left open deliberately by B-90 rather than assumed, because it is the one part of the feature-request lifecycle that could quietly ruin something already working.
-
-**The tension.** B-90 turns on rejections being durable: a signal that is set down writes the argument for setting it down, so the same idea arriving in four months finds reasoning instead of silence. That is the strongest claim Specline has over any tracker, and it depends on the reasoning being *findable*.
-
-The obvious way to make it findable is to write a `decision` — numbered `B-nn`, in the decision log, rendered into `product/DECISIONS.md`. Which works beautifully for "we are not doing a public request portal, here is why" and terribly for "somebody suggested renaming a button and we said no". There are 90 decisions today and every one of them is load-bearing. A rule that mints a numbered decision per rejected idea would put "no thanks" entries next to the storage-engine change inside a month, and the value of the decision log is precisely that everything in it matters.
-
-**The options, as far as they go:**
-
-1. **Every set-down is a decision.** Simplest rule, nothing to judge, and the log floods.
-2. **Only some are.** The reasoning lives on the signal itself by default, and is promoted to a numbered decision when it is the kind of no that should bind future choices. Needs a judgement call at the moment of triage, which is a cost — though it is a judgement Claude can propose and KB can override, like everything else in this phase.
-3. **A separate, unnumbered home.** The signal carries its own set-down reasoning and search finds it there; the decision log stays for decisions. Cheapest, and risks the reasoning being second-class — a body on a `feedback` row is not somewhere anybody currently looks.
-
-**Leaning towards 2**, on the grounds that the distinction is real and worth making rather than an overhead: "we are not building X, and that constrains what we build next" is a decision, and "not this, it is a bad idea" is a note. But it means the durability promise has two tiers, and it is worth KB agreeing to that rather than discovering it.
-
-Nothing in Phase A depends on this. It has to be answered before KEEL-324.
-
 ### Seven rows have no reasoning in them. Reconstruct them, or leave them empty and say so?
 
 `que_01M04PW3ZCQJ37M7EC27K58HC0` · question · open
@@ -217,6 +197,30 @@ It grows forever. Keep everything, which is probably fine for a decade at this w
 ## Settled
 
 *Decided, with the reasoning. Do not re-litigate these.*
+
+### Does every signal we set down become a numbered decision, or only the ones worth remembering?
+
+`que_01M0CNP75150X4E5Q65K66R85K` · question · answered
+
+**Answered — option 2.** KB's call, 2026-08-19: *"reasoning lives on the signal, promote only when it binds future choices."* Recorded as B-91, which also records the thing that makes it safe: a signal's body is a document like any other, indexed by both halves of hybrid search, so the two tiers differ in standing rather than in whether the reasoning can be found. Everything below is the question as it was asked.
+
+---
+
+Left open deliberately by B-90 rather than assumed, because it is the one part of the feature-request lifecycle that could quietly ruin something already working.
+
+**The tension.** B-90 turns on rejections being durable: a signal that is set down writes the argument for setting it down, so the same idea arriving in four months finds reasoning instead of silence. That is the strongest claim Specline has over any tracker, and it depends on the reasoning being *findable*.
+
+The obvious way to make it findable is to write a `decision` — numbered `B-nn`, in the decision log, rendered into `product/DECISIONS.md`. Which works beautifully for "we are not doing a public request portal, here is why" and terribly for "somebody suggested renaming a button and we said no". There are 90 decisions today and every one of them is load-bearing. A rule that mints a numbered decision per rejected idea would put "no thanks" entries next to the storage-engine change inside a month, and the value of the decision log is precisely that everything in it matters.
+
+**The options, as far as they go:**
+
+1. **Every set-down is a decision.** Simplest rule, nothing to judge, and the log floods.
+2. **Only some are.** The reasoning lives on the signal itself by default, and is promoted to a numbered decision when it is the kind of no that should bind future choices. Needs a judgement call at the moment of triage, which is a cost — though it is a judgement Claude can propose and KB can override, like everything else in this phase.
+3. **A separate, unnumbered home.** The signal carries its own set-down reasoning and search finds it there; the decision log stays for decisions. Cheapest, and risks the reasoning being second-class — a body on a `feedback` row is not somewhere anybody currently looks.
+
+**Leaning towards 2**, on the grounds that the distinction is real and worth making rather than an overhead: "we are not building X, and that constrains what we build next" is a decision, and "not this, it is a bad idea" is a note. But it means the durability promise has two tiers, and it is worth KB agreeing to that rather than discovering it.
+
+Nothing in Phase A depends on this. It has to be answered before KEEL-324.
 
 ### Where should the marketing site live — this repository, or one of its own?
 
