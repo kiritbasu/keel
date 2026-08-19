@@ -1,15 +1,39 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T13:16:06Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T14:10:17Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (289)
+## Closed work (294)
 
 ### 2026-08-19
+
+- **KEEL-322** Move the four rows KB filed in a hurry into the Inbox they should have gone to — `done`
+
+  KEEL-303, 305 and 306 are signals in the Inbox with their verbatim preserved and their real source recorded; the task rows are closed and linked. KEEL-302 was already superseded by KEEL-325 before this ran. The Inbox on the real store now holds five, which is three more than anybody could see yesterday and two more than were filed today.
+
+  <sub>url:http://127.0.0.1:7654/#/projects/specline/documents/fbk_01M0D5JPRSQVCSBJAGT8WYH708 · url:http://127.0.0.1:7654/#/projects/specline/documents/fbk_01M0D5K79M1A5ZHR2MY45QJX9M · url:http://127.0.0.1:7654/#/projects/specline/documents/fbk_01M0D5KE9KZKSZV9R74ZXRSEFZ</sub>
+
+- **KEEL-306** Support openai codex — `wont_do`
+
+  Not doing this as a task, because it was never one — and it is not even KB's own ask. Re-filed as a signal sourced to Madhu, which is the first time anybody other than KB has a request recorded as theirs: fbk_01M0D5JPRSQVCSBJAGT8WYH708. Whether "work with codex" means the MCP endpoint or the whole plugin surface is what triage has to settle.
+
+- **KEEL-305** allow adding new Feature Requests — `wont_do`
+
+  Not doing this as a task, because it was never one. Re-filed as a signal with the verbatim preserved: fbk_01M0D5KE9KZKSZV9R74ZXRSEFZ. The ask itself is being built — the Inbox half is done (KEEL-319, 320, 321) and decomposition is KEEL-326 and KEEL-328.
+
+- **KEEL-303** periodic management of lots of open issues — `wont_do`
+
+  Not doing this as a task, because it was never one — nobody had committed to it and there was nothing to claim. Re-filed as a signal in the Inbox with the verbatim preserved: fbk_01M0D5K79M1A5ZHR2MY45QJX9M. `wont_do` is the closest of the five reasons and it is not the right word; see KEEL-338.
+
+- **KEEL-320** The Inbox screen, and filing a signal in six seconds — `done`
+
+  The Inbox screen, the two endpoints behind it, and filing in one field. Verified in a browser against a daemon serving the built bundle, not only in tests — which is where the one real defect turned up.
+
+  <sub>commit:f538160 · test:cargo test -p specline-daemon --test ui_writes · test:npx vitest run src/screens/Inbox.test.tsx</sub>
 
 - **KEEL-337** Cut 0.4.0 — the Releases screen, the roadmap that says where you are, and the Inbox — `done`
 
@@ -1331,6 +1355,36 @@ What has finished. What is happening now is in the tracker beside this file.
 | Date | Actor | Change |
 |---|---|---|
 | 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → (268 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (339 characters) |
+| 2026-08-19 | claude | created task “A task that turns out to be a signal has no honest way to close” |
+| 2026-08-19 | claude | “Support openai codex” references “Specline should work with OpenAI Codex, not only Claude Code” |
+| 2026-08-19 | claude | “allow adding new Feature Requests” references “A feature request needs somewhere to live that is not a…” |
+| 2026-08-19 | claude | “periodic management of lots of open issues” references “Open work piles up until it is too expensive to read, and…” |
+| 2026-08-19 | claude | status todo → wont_do |
+| 2026-08-19 | claude | close_reason none → wont_do |
+| 2026-08-19 | claude | close_message none → (343 characters) |
+| 2026-08-19 | claude | status todo → wont_do |
+| 2026-08-19 | claude | close_reason none → wont_do |
+| 2026-08-19 | claude | close_message none → (253 characters) |
+| 2026-08-19 | claude | status todo → wont_do |
+| 2026-08-19 | claude | close_reason none → wont_do |
+| 2026-08-19 | claude | close_message none → (295 characters) |
+| 2026-08-19 | claude | revised feedback “A feature request needs somewhere to live that is not a task, and it should break into subtasks” to v1 |
+| 2026-08-19 | claude | created feedback “A feature request needs somewhere to live that is not a task, and it should break into subtasks” |
+| 2026-08-19 | claude | revised feedback “Open work piles up until it is too expensive to read, and nothing points that out” to v1 |
+| 2026-08-19 | claude | created feedback “Open work piles up until it is too expensive to read, and nothing points that out” |
+| 2026-08-19 | claude | revised feedback “Specline should work with OpenAI Codex, not only Claude Code” to v1 |
+| 2026-08-19 | claude | created feedback “Specline should work with OpenAI Codex, not only Claude Code” |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T14:07:21.446938Z |
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → (121 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (202 characters) |
+| 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → (181 characters) |
 | 2026-08-19 | claude | close_reason none → done |
 | 2026-08-19 | claude | close_message none → (268 characters) |
@@ -1500,36 +1554,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | status todo → done |
 | 2026-08-18 | claude | evidence [] → (86 characters) |
 | 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (503 characters) |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → ["commit:b03083e","url:http://127.0.0.1:7654/#/projects/specline/board"] |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (624 characters) |
-| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
-| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
-| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
-| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
-| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
-| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
-| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
-| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
-| 2026-08-18 | claude | labels ["desktop","phase8","8c"] → ["desktop","phase8"] |
-| 2026-08-18 | claude | labels ["cli","mcp","desktop","phase8","8a"] → ["cli","mcp","desktop","phase8"] |
-| 2026-08-18 | claude | labels ["cli","mcp","storage","phase8","8a"] → ["cli","mcp","storage","phase8"] |
-| 2026-08-18 | claude | labels ["cli","mcp","storage","phase8","8a"] → ["cli","mcp","storage","phase8"] |
-| 2026-08-18 | claude | labels ["storage","phase8","8a"] → ["storage","phase8"] |
-| 2026-08-18 | claude | labels ["storage","mcp","phase8","8g"] → ["storage","mcp","phase8"] |
-| 2026-08-18 | claude | labels ["cli","phase8","8g"] → ["cli","phase8"] |
-| 2026-08-18 | claude | labels ["desktop","daemon","phase8","8b"] → ["desktop","daemon","phase8"] |
-| 2026-08-18 | claude | labels ["mcp","daemon","phase8","8b"] → ["mcp","daemon","phase8"] |
-| 2026-08-18 | claude | labels ["mcp","storage","phase8","8f"] → ["mcp","storage","phase8"] |
-| 2026-08-18 | claude | labels ["daemon","mcp","phase8","8e"] → ["daemon","mcp","phase8"] |
-| 2026-08-18 | claude | labels ["desktop","phase8","8e"] → ["desktop","phase8"] |
-| 2026-08-18 | claude | labels ["mcp","storage","phase8","8f"] → ["mcp","storage","phase8"] |
-| 2026-08-18 | claude | labels ["phase9","9a","daemon","desktop","testing"] → ["phase9","daemon","desktop","testing"] |
-| 2026-08-18 | claude | labels ["phase9","9b","storage"] → ["phase9","storage"] |
-| 2026-08-18 | claude | labels ["phase9","9b","storage"] → ["phase9","storage"] |
-| 2026-08-18 | claude | labels ["phase9","9b","storage"] → ["phase9","storage"] |
 
-*Showing the 200 most recent of 2463 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2493 changes. Use `specline_activity` for the rest.*
 
