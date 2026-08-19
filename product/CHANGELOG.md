@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T14:52:58Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T15:16:48Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (297)
+## Closed work (298)
 
 ### 2026-08-19
+
+- **KEEL-341** Put the Inbox behind a flag, off by default, until the lifecycle is finished — `done`
+
+  `SPECLINE_INBOX`, off by default. Hides the nav item, both endpoints, the digest count and section, and the two CLI verbs — and hides no data. Verified against a real daemon in both states: off gives 404 and a zero count with the rows untouched in the store; on gives 200 and eleven signals.
+
+  <sub>commit:521c7a1 · test:cargo test -p specline-daemon --test ui_writes · test:cargo test -p specline-core --test inbox</sub>
 
 - **KEEL-325** The triage pass: read the whole Inbox, cluster it, and check it against everything already decided — `done`
 
@@ -1372,6 +1378,14 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → (120 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (291 characters) |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T14:58:39.995682Z |
+| 2026-08-19 | claude | created task “Put the Inbox behind a flag, off by default, until the lifecycle is finished” |
 | 2026-08-19 | claude | status todo → done |
 | 2026-08-19 | claude | evidence [] → (100 characters) |
 | 2026-08-19 | claude | close_reason none → done |
@@ -1564,14 +1578,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-19 | claude | revised spec “How feature requests should work, end to end” to v1 |
 | 2026-08-19 | claude | created spec “How feature requests should work, end to end” |
 | 2026-08-19 | claude | created task “Make the version footer a compact version-and-icon control” |
-| 2026-08-19 | claude | status in_progress → done |
-| 2026-08-19 | claude | evidence [] → ["commit:1e57620","test:cargo test --workspace","test:npm test --run"] |
-| 2026-08-19 | claude | close_reason none → done |
-| 2026-08-19 | claude | close_message none → (1200 characters) |
-| 2026-08-19 | claude | status todo → in_progress |
-| 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
-| 2026-08-19 | claude | claimed_at none → 2026-08-19T08:32:06.600217Z |
-| 2026-08-19 | claude | status todo → in_progress |
 
-*Showing the 200 most recent of 2519 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2527 changes. Use `specline_activity` for the rest.*
 
