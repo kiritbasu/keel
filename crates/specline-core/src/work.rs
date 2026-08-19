@@ -22,8 +22,8 @@
 //! question the store already answers.
 
 use crate::{
-    CloseReason, Entity, EntityId, EntityStore, EntityType, Error, NewLink, Provenance, Relation,
-    Result, Task, TaskStatus,
+    CloseReason, Document, DocumentStore, Entity, EntityId, EntityStore, EntityType, Error,
+    Feedback, NewLink, Provenance, Relation, Result, SpecKind, Task, TaskStatus,
 };
 use chrono::Utc;
 
@@ -280,6 +280,191 @@ fn expect_task(entity: Entity, id: &EntityId) -> Result<Task> {
             "id",
             format!("{id} is a {entity_type}, and only a task can be claimed or closed"),
             "a `tsk_…` id or a readable task identifier such as `KEEL-42`",
+        )),
+    }
+}
+
+/// What triage decided about a signal.
+///
+/// Two outcomes, and the words are chosen rather than inherited. *Picked up*
+/// and *set down* say what actually happens: a signal that is set down is not
+/// destroyed, its argument is written where search will find it, and it can be
+/// picked up again when the same idea arrives in four months. "Rejected" would
+/// make it sound like the tombstone it deliberately is not, which is the
+/// property B-90 turns on and the one thing no ticketing system has.
+#[derive(Debug, Clone)]
+pub enum TriageOutcome {
+    /// It becomes a feature. The named spec carries the why.
+    PickedUp {
+        /// A `spc_…` whose kind is `feature`.
+        feature: EntityId,
+    },
+    /// Not this, and here is the argument.
+    SetDown {
+        /// Why, in enough words to be worth finding later.
+        reason: String,
+    },
+}
+
+/// What a triage did.
+#[derive(Debug, Clone)]
+pub struct Triaged {
+    /// The signal, now out of the Inbox.
+    pub signal: Feedback,
+    /// The `derived_from` edge a pick-up drew.
+    pub linked: Option<(Relation, EntityId)>,
+    /// The revision a set-down wrote.
+    pub revision: Option<Document>,
+}
+
+/// The shortest set-down reason worth storing.
+///
+/// Not a style rule. B-91 lets the reasoning live on the signal rather than in
+/// the decision log *on the grounds that it stays findable*, and "no" is not
+/// findable — nobody searches for it and it answers nothing when found. The
+/// number is deliberately low: the bar is "a sentence", not "an essay".
+const SHORTEST_USEFUL_REASON: usize = 20;
+
+/// Triage a signal: pick it up, or set it down with the argument.
+///
+/// The invariant this exists to enforce is that **a signal cannot leave the
+/// Inbox without an outcome**. Marking `triaged` through the ordinary update
+/// path would let a signal be cleared with nothing recorded, which is exactly
+/// the silent loss B-90 is built to prevent — so this is the way, and it is
+/// checked here rather than asked for.
+///
+/// A set-down **appends** to the body rather than replacing it. The signal's
+/// body is the verbatim, and overwriting it with the reason for setting it
+/// down would destroy what somebody actually said in the act of recording why
+/// we are not doing it. Revisions keep the original either way; appending
+/// means the *current* text — the one search reads — carries both.
+pub fn triage(
+    store: &mut (impl EntityStore + crate::GraphStore + DocumentStore),
+    id: &EntityId,
+    outcome: &TriageOutcome,
+    provenance: &Provenance,
+) -> Result<Triaged> {
+    let signal = read_signal(store, id)?;
+
+    if signal.triaged {
+        return Err(Error::invalid(
+            EntityType::Feedback,
+            "triaged",
+            format!("{id} has already been triaged"),
+            "read what it became before triaging it again — a second outcome would replace \
+             the first and the first is the one somebody reasoned about",
+        ));
+    }
+
+    let mut linked = None;
+    let mut revision = None;
+
+    match outcome {
+        TriageOutcome::PickedUp { feature } => {
+            let entity = store.get(feature)?.ok_or_else(|| Error::NotFound {
+                entity_type: feature.entity_type(),
+                id: feature.to_string(),
+            })?;
+            // A feature and not merely a spec, because "picked up" means an
+            // argued case exists. Pointing at a PRD or a design doc would
+            // record an outcome that does not say why.
+            match &entity {
+                Entity::Spec(spec) if spec.kind == SpecKind::Feature => {}
+                Entity::Spec(spec) => {
+                    return Err(Error::invalid(
+                        EntityType::Feedback,
+                        "feature",
+                        format!("{feature} is a `{}` spec, not a `feature`", spec.kind),
+                        "the feature spec holding the case for building this — create one with \
+                         kind `feature`, or set the signal down instead",
+                    ));
+                }
+                other => {
+                    return Err(Error::invalid(
+                        EntityType::Feedback,
+                        "feature",
+                        format!("{feature} is a {}, not a spec", other.entity_type()),
+                        "a `spc_…` whose kind is `feature`",
+                    ));
+                }
+            }
+            store.link(
+                NewLink::new(feature.clone(), Relation::DerivedFrom, id.clone()),
+                provenance,
+            )?;
+            linked = Some((Relation::DerivedFrom, feature.clone()));
+        }
+        TriageOutcome::SetDown { reason } => {
+            let reason = reason.trim();
+            if reason.chars().count() < SHORTEST_USEFUL_REASON {
+                return Err(Error::invalid(
+                    EntityType::Feedback,
+                    "reason",
+                    "a set-down needs an argument, not a word".to_owned(),
+                    "why this is not worth doing, in a sentence somebody will find useful when \
+                     the same idea arrives again in four months",
+                ));
+            }
+
+            let current = store.revision(id, None)?;
+            let title = current
+                .as_ref()
+                .map_or_else(|| signal.summary.clone(), |d| d.title.clone());
+            let body = match &current {
+                Some(existing) => format!("{}\n\n---\n\n**Set down.** {reason}", existing.body),
+                None => format!("**Set down.** {reason}"),
+            };
+            revision = Some(store.write_revision(Document::revision(
+                EntityType::Feedback,
+                id.clone(),
+                Some(signal.project_id.clone()),
+                title,
+                body,
+                provenance.actor,
+                Utc::now(),
+                current.as_ref().map(|d| d.version),
+            )?)?);
+        }
+    }
+
+    let changes = serde_json::json!({ "triaged": true });
+    let Some(changes) = changes.as_object() else {
+        return Err(Error::Invariant {
+            operation: format!("triage {id}"),
+            problem: "the triage did not serialise to an object".to_owned(),
+        });
+    };
+    // Read the version again rather than reusing the one from the top: a
+    // set-down has written a revision since, which bumps the row.
+    let version = read_signal(store, id)?.audit.version;
+    let updated = store.update(id, version, changes, provenance)?;
+
+    Ok(Triaged {
+        signal: expect_signal(updated, id)?,
+        linked,
+        revision,
+    })
+}
+
+/// Read a signal, or say what was found instead.
+fn read_signal(store: &impl EntityStore, id: &EntityId) -> Result<Feedback> {
+    let entity = store.get(id)?.ok_or_else(|| Error::NotFound {
+        entity_type: id.entity_type(),
+        id: id.to_string(),
+    })?;
+    expect_signal(entity, id)
+}
+
+/// Narrow an entity to a signal.
+fn expect_signal(entity: Entity, id: &EntityId) -> Result<Feedback> {
+    let entity_type = entity.entity_type();
+    match entity {
+        Entity::Feedback(f) => Ok(f),
+        _ => Err(Error::invalid(
+            entity_type,
+            "id",
+            format!("{id} is a {entity_type}, and only a signal can be triaged"),
+            "a `fbk_…` id — the thing somebody said, not what it became",
         )),
     }
 }

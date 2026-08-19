@@ -616,6 +616,23 @@ enum Command {
         #[arg(long)]
         body: Option<String>,
     },
+    /// Triage a signal: pick it up, or set it down with the argument.
+    ///
+    /// A signal cannot leave the Inbox without an outcome, which is why this
+    /// is a verb of its own rather than a field somebody sets. Setting one
+    /// down is not deleting it: the argument is written onto the signal where
+    /// search will find it, and the same idea arriving in four months finds
+    /// the reasoning instead of silence.
+    Triage {
+        /// The signal, `fbk_…`.
+        id: String,
+        /// Pick it up: the `spc_…` feature spec making the case for building it.
+        #[arg(long, conflicts_with = "set_down")]
+        feature: Option<String>,
+        /// Set it down: why, in a sentence worth finding later.
+        #[arg(long, conflicts_with = "feature")]
+        set_down: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -804,6 +821,18 @@ fn main() -> Result<()> {
                 occurred_at: occurred_at.clone(),
                 body: body.clone(),
             },
+            cli.force,
+            cli.json,
+        ),
+        Command::Triage {
+            id,
+            feature,
+            set_down,
+        } => run_triage(
+            &home,
+            id,
+            feature.as_deref(),
+            set_down.as_deref(),
             cli.force,
             cli.json,
         ),
@@ -1352,6 +1381,58 @@ fn run_signal_add(home: &Path, draft: SignalDraft<'_>, force: bool, json: bool) 
             "{} — already existed, returned unchanged",
             created.entity.id()
         );
+    }
+    Ok(())
+}
+
+/// Triage a signal, and say what became of it.
+///
+/// Exactly one of `--feature` and `--set-down` is required, and clap enforces
+/// that they are mutually exclusive. Neither being given is caught here rather
+/// than by clap, because the message worth printing is about the two outcomes
+/// rather than about arguments.
+fn run_triage(
+    home: &Path,
+    id: &str,
+    feature: Option<&str>,
+    set_down: Option<&str>,
+    force: bool,
+    json: bool,
+) -> Result<()> {
+    use specline_core::{Actor, EntityId, EntityType, Provenance, Surface, work};
+
+    let outcome = match (feature, set_down) {
+        (Some(spec), None) => work::TriageOutcome::PickedUp {
+            feature: EntityId::parse_as(spec, EntityType::Spec)?,
+        },
+        (None, Some(reason)) => work::TriageOutcome::SetDown {
+            reason: reason.to_owned(),
+        },
+        _ => anyhow::bail!(
+            "say what became of it: --feature <spc_…> to pick it up, or --set-down \
+             \"<why>\" to set it down. A signal does not leave the Inbox without an outcome"
+        ),
+    };
+
+    let mut store = writes::open_for_write(
+        home,
+        &writes::daemon_url_for(home),
+        force,
+        "triage a signal",
+    )?;
+    let signal = EntityId::parse_as(id, EntityType::Feedback)?;
+    let prov = Provenance::anonymous(Actor::Human).with_surface(Surface::Cli);
+
+    let triaged = work::triage(&mut store, &signal, &outcome, &prov)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&triaged.signal)?);
+    } else {
+        match &triaged.linked {
+            Some((_, feature)) => println!("{signal} — picked up as {feature}"),
+            None => println!(
+                "{signal} — set down. The argument is on the signal, and search will find it."
+            ),
+        }
     }
     Ok(())
 }

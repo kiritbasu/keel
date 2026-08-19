@@ -28,6 +28,7 @@ Commands:
   close             Close a task, saying why and showing the work
   task              Create a task row
   signal            File a signal into the Inbox — something somebody wants, before anybody has decided whether to build it
+  triage            Triage a signal: pick it up, or set it down with the argument
   help              Print this message or the help of the given subcommand(s)
 
 Options:
@@ -975,6 +976,44 @@ Options:
           p0, p1, p2, p3
           
           [default: p2]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== triage =====
+
+Triage a signal: pick it up, or set it down with the argument.
+
+A signal cannot leave the Inbox without an outcome, which is why this is a verb of its own rather than a field somebody sets. Setting one down is not deleting it: the argument is written onto the signal where search will find it, and the same idea arriving in four months finds the reasoning instead of silence.
+
+Usage: specline triage [OPTIONS] <ID>
+
+Arguments:
+  <ID>
+          The signal, `fbk_…`
+
+Options:
+      --feature <FEATURE>
+          Pick it up: the `spc_…` feature spec making the case for building it
+
+      --home <HOME>
+          Where the store lives. Defaults to `~/.specline`.
+          
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: SPECLINE_HOME=]
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --set-down <SET_DOWN>
+          Set it down: why, in a sentence worth finding later
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
 
   -h, --help
           Print help (see a summary with '-h')

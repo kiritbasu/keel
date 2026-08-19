@@ -17,6 +17,7 @@ use specline_core::{
     Actor, Direction, EntityId, EntityStore, Feedback, FeedbackKind, GraphStore, NewLink, Project,
     Provenance, Relation, Spec, SpecKind, Store, Task,
     digest::{self, Depth},
+    work::TriageOutcome,
 };
 
 fn prov() -> Provenance {
@@ -265,4 +266,209 @@ fn feature_is_one_of_the_spec_kinds_and_the_refusal_says_so() {
     assert_eq!(SpecKind::parse("feature").unwrap(), SpecKind::Feature);
     let err = SpecKind::parse("epic").unwrap_err().to_string();
     assert!(err.contains("feature"), "{err}");
+}
+
+// --- Triage: picked up, or set down (KEEL-324) ----------------------------
+
+fn a_feature(store: &mut Store, project: &EntityId, title: &str) -> EntityId {
+    let mut spec = Spec::new(project.clone(), title);
+    spec.kind = SpecKind::Feature;
+    store
+        .create_with_document(
+            spec.into(),
+            Some("The case for building it, which is the whole of what a feature is.".to_owned()),
+            None,
+            &prov(),
+        )
+        .unwrap()
+        .entity
+        .id()
+        .clone()
+}
+
+#[test]
+fn picking_a_signal_up_names_the_feature_and_leaves_the_inbox() {
+    let (_d, mut store, project) = fixture();
+    let signal = file_signal(&mut store, &project, "this should work with codex");
+    let feature = a_feature(&mut store, &project, "Specline works with OpenAI Codex");
+
+    let triaged = specline_core::work::triage(
+        &mut store,
+        &signal,
+        &TriageOutcome::PickedUp {
+            feature: feature.clone(),
+        },
+        &prov(),
+    )
+    .unwrap();
+
+    assert!(triaged.signal.triaged);
+    assert_eq!(triaged.linked, Some((Relation::DerivedFrom, feature)));
+    assert_eq!(store.untriaged_signals(&project).unwrap().0, 0);
+}
+
+/// Setting down **appends**. The signal's body is the verbatim, and replacing
+/// it with the reason for setting it down would destroy what somebody actually
+/// said in the act of recording why we are not doing it.
+#[test]
+fn setting_a_signal_down_keeps_the_verbatim_and_adds_the_argument() {
+    let (_d, mut store, project) = fixture();
+    let mut signal = Feedback::new(project.clone(), "we should build a public request portal");
+    signal.kind = FeedbackKind::Idea;
+    let signal = store
+        .create_with_document(
+            signal.into(),
+            Some("Said in passing, twice in one week.".to_owned()),
+            None,
+            &prov(),
+        )
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+
+    let triaged = specline_core::work::triage(
+        &mut store,
+        &signal,
+        &TriageOutcome::SetDown {
+            reason: "There is no customer stream yet, so a portal would collect nothing. \
+                     Worth revisiting once somebody other than us is filing."
+                .to_owned(),
+        },
+        &prov(),
+    )
+    .unwrap();
+
+    assert!(triaged.signal.triaged);
+    let body = triaged.revision.expect("a set-down writes a revision").body;
+    assert!(
+        body.contains("Said in passing, twice in one week."),
+        "the verbatim survives: {body}"
+    );
+    assert!(
+        body.contains("Set down"),
+        "and the argument is on it: {body}"
+    );
+
+    // The original is still readable on its own, which is what makes the
+    // append safe rather than merely tidy.
+    let first = store.revision(&signal, Some(1)).unwrap().unwrap();
+    assert!(!first.body.contains("Set down"));
+}
+
+/// B-91 lets set-down reasoning live on the signal rather than in the decision
+/// log *on the grounds that it stays findable*. A one-word reason is not
+/// findable — nobody searches for it and it answers nothing when found — so
+/// the promise only holds if there is something there.
+#[test]
+fn a_set_down_with_no_argument_is_refused() {
+    let (_d, mut store, project) = fixture();
+    let signal = file_signal(&mut store, &project, "add dark mode to the emails");
+
+    let err = specline_core::work::triage(
+        &mut store,
+        &signal,
+        &TriageOutcome::SetDown {
+            reason: "no".to_owned(),
+        },
+        &prov(),
+    )
+    .unwrap_err()
+    .to_string();
+
+    assert!(err.contains("argument"), "{err}");
+    assert_eq!(
+        store.untriaged_signals(&project).unwrap().0,
+        1,
+        "a refused triage leaves the signal in the Inbox, not half out of it"
+    );
+}
+
+/// Picking up has to name a *feature*, not any spec. Pointing at a PRD would
+/// record an outcome that does not say why, which is the whole thing a pick-up
+/// is supposed to produce.
+#[test]
+fn picking_up_something_that_is_not_a_feature_spec_is_refused() {
+    let (_d, mut store, project) = fixture();
+    let signal = file_signal(&mut store, &project, "this should work with codex");
+
+    let mut spec = Spec::new(project.clone(), "The technical specification");
+    spec.kind = SpecKind::Spec;
+    let plain = store
+        .create_with_document(
+            spec.into(),
+            Some("Not a feature.".to_owned()),
+            None,
+            &prov(),
+        )
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+
+    let err = specline_core::work::triage(
+        &mut store,
+        &signal,
+        &TriageOutcome::PickedUp { feature: plain },
+        &prov(),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("feature"), "{err}");
+    assert_eq!(store.untriaged_signals(&project).unwrap().0, 1);
+}
+
+/// A second outcome would replace the first, and the first is the one somebody
+/// reasoned about.
+#[test]
+fn a_signal_cannot_be_triaged_twice() {
+    let (_d, mut store, project) = fixture();
+    let signal = file_signal(&mut store, &project, "this should work with codex");
+    let feature = a_feature(&mut store, &project, "Codex support");
+
+    specline_core::work::triage(
+        &mut store,
+        &signal,
+        &TriageOutcome::PickedUp {
+            feature: feature.clone(),
+        },
+        &prov(),
+    )
+    .unwrap();
+
+    let err = specline_core::work::triage(
+        &mut store,
+        &signal,
+        &TriageOutcome::PickedUp { feature },
+        &prov(),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("already been triaged"), "{err}");
+}
+
+#[test]
+fn only_a_signal_can_be_triaged() {
+    let (_d, mut store, project) = fixture();
+    let task = store
+        .create(
+            Task::new(project.clone(), "A task", "Not a signal.").into(),
+            &prov(),
+        )
+        .unwrap()
+        .entity
+        .id()
+        .clone();
+
+    let err = specline_core::work::triage(
+        &mut store,
+        &task,
+        &TriageOutcome::SetDown {
+            reason: "this reason is long enough to pass the length check".to_owned(),
+        },
+        &prov(),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("only a signal can be triaged"), "{err}");
 }
