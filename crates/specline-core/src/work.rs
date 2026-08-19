@@ -304,6 +304,17 @@ pub enum TriageOutcome {
         /// Why, in enough words to be worth finding later.
         reason: String,
     },
+    /// The same want, already recorded. The other signal keeps the history.
+    ///
+    /// Distinct from setting down, and the difference is not pedantry: a
+    /// duplicate is evidence that more than one person wants the thing, which
+    /// is the demand signal the Inbox has no other way to carry. Collapsing it
+    /// into a set-down would record "we said no to this twice" where the truth
+    /// is "two people asked".
+    Duplicate {
+        /// The `fbk_…` that keeps the history.
+        of: EntityId,
+    },
 }
 
 /// What a triage did.
@@ -394,6 +405,33 @@ pub fn triage(
             )?;
             linked = Some((Relation::DerivedFrom, feature.clone()));
         }
+        TriageOutcome::Duplicate { of } => {
+            if of == id {
+                return Err(Error::invalid(
+                    EntityType::Feedback,
+                    "of",
+                    "a signal cannot be a duplicate of itself".to_owned(),
+                    "the signal that keeps the history",
+                ));
+            }
+            let other = read_signal(store, of)?;
+            if other.triaged {
+                // Pointing a live signal at one already dealt with would put
+                // the want on a row nobody will look at again, which is the
+                // opposite of what recording a duplicate is for.
+                return Err(Error::invalid(
+                    EntityType::Feedback,
+                    "of",
+                    format!("{of} has already been triaged"),
+                    "an untriaged signal — the one still carrying the want",
+                ));
+            }
+            store.link(
+                NewLink::new(id.clone(), Relation::Duplicates, of.clone()),
+                provenance,
+            )?;
+            linked = Some((Relation::Duplicates, of.clone()));
+        }
         TriageOutcome::SetDown { reason } => {
             let reason = reason.trim();
             if reason.chars().count() < SHORTEST_USEFUL_REASON {
@@ -465,6 +503,113 @@ fn expect_signal(entity: Entity, id: &EntityId) -> Result<Feedback> {
             "id",
             format!("{id} is a {entity_type}, and only a signal can be triaged"),
             "a `fbk_…` id — the thing somebody said, not what it became",
+        )),
+    }
+}
+
+/// Close a signal: the same verb as closing a task, applied to a want.
+///
+/// B-94. "This is dealt with, here is why, and here is the proof" is one
+/// sentence for both, and `close` already enforces exactly what triage needs —
+/// a reason, a message on every reason, evidence on `done` — in the storage
+/// layer where the CLI and MCP cannot disagree. So triage reaches MCP without
+/// a fourteenth tool.
+///
+/// This **translates and delegates**. [`triage`] stays the only path a signal
+/// can leave the Inbox by, so there is one set of invariants rather than two
+/// that have to be kept in step.
+///
+/// Three of the five reasons mean something about a want:
+///
+/// - `done` — picked up. Evidence names the feature spec, the same demand
+///   `done` already makes of a task: show the thing that proves it.
+/// - `wont_do` — set down. The message is the argument.
+/// - `duplicate` — the same want, already recorded.
+///
+/// `superseded` and `no_change` are refused. A signal is not replaced by a
+/// later signal the way a decision is by a later decision, and "nothing
+/// changed" describes work rather than an idea.
+pub fn close_signal(
+    store: &mut (impl EntityStore + crate::GraphStore + DocumentStore),
+    id: &EntityId,
+    close: &Close,
+    provenance: &Provenance,
+) -> Result<Triaged> {
+    let outcome = match close.reason {
+        CloseReason::Done => TriageOutcome::PickedUp {
+            feature: feature_from_evidence(&close.evidence)?,
+        },
+        // The message is already required for every reason, so a set-down
+        // arriving through this door cannot be reasonless — `triage` still
+        // checks it is more than a word.
+        CloseReason::WontDo => TriageOutcome::SetDown {
+            reason: close.message.clone(),
+        },
+        CloseReason::Duplicate => {
+            let of = close.other.clone().ok_or_else(|| {
+                Error::invalid(
+                    EntityType::Feedback,
+                    "other",
+                    "closing a signal as `duplicate` has to name the other signal".to_owned(),
+                    "the `fbk_…` that keeps the history",
+                )
+            })?;
+            if of.entity_type() != EntityType::Feedback {
+                return Err(Error::invalid(
+                    EntityType::Feedback,
+                    "other",
+                    format!("{of} is a {}, not a signal", of.entity_type()),
+                    "a `fbk_…` — two people asking for the same thing, not a task",
+                ));
+            }
+            TriageOutcome::Duplicate { of }
+        }
+        reason @ (CloseReason::Superseded | CloseReason::NoChange) => {
+            return Err(Error::invalid(
+                EntityType::Feedback,
+                "reason",
+                format!("`{reason}` does not describe what happens to a signal"),
+                "`done` if it became a feature, `wont_do` to set it down with the argument, \
+                 or `duplicate` if somebody had already asked",
+            ));
+        }
+    };
+
+    triage(store, id, &outcome, provenance)
+}
+
+/// Pull the feature spec out of a close's evidence.
+///
+/// `done` on a task means "show me the commit"; on a signal it means "show me
+/// the case you made". Reusing evidence rather than adding an argument keeps
+/// the two closes one shape, and it means the feature is recorded where
+/// anybody reading the closed signal already looks.
+fn feature_from_evidence(evidence: &[String]) -> Result<EntityId> {
+    let wanted = "the feature spec this became, as `doc:spc_…`";
+    let specs: Vec<&str> = evidence
+        .iter()
+        .filter_map(|e| e.strip_prefix("doc:"))
+        .filter(|v| v.starts_with("spc_"))
+        .collect();
+
+    match specs.as_slice() {
+        [one] => EntityId::parse_as(one, EntityType::Spec),
+        [] => Err(Error::invalid(
+            EntityType::Feedback,
+            "evidence",
+            "closing a signal as `done` means it became a feature, and none is named".to_owned(),
+            wanted,
+        )),
+        // Two would leave "which one did this become?" unanswerable, and the
+        // `derived_from` edge can only point at one.
+        many => Err(Error::invalid(
+            EntityType::Feedback,
+            "evidence",
+            format!(
+                "{} feature specs are named, and a signal becomes one",
+                many.len()
+            ),
+            wanted,
         )),
     }
 }

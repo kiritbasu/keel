@@ -295,11 +295,28 @@ pub fn close(
         println!("{}", serde_json::to_string_pretty(&structured)?);
         return Ok(());
     }
-    let reference = structured
-        .get("reference")
+    // A signal has no `KEEL-42` and nothing called a title, so it reports what
+    // it *became* rather than what it was — which is the interesting half, and
+    // the reason closing one is worth a different sentence (B-94).
+    if let Some(summary) = structured
+        .pointer("/signal/summary")
         .and_then(Value::as_str)
-        .unwrap_or(task);
-    println!("{reference} closed as {reason}");
+    {
+        println!(
+            "{} — {summary}",
+            match reason {
+                CloseReason::Done => "picked up",
+                CloseReason::Duplicate => "already asked for",
+                _ => "set down",
+            }
+        );
+    } else {
+        let reference = structured
+            .get("reference")
+            .and_then(Value::as_str)
+            .unwrap_or(task);
+        println!("{reference} closed as {reason}");
+    }
     if let Some(to) = structured.pointer("/linked/to").and_then(Value::as_str) {
         let rel = structured
             .pointer("/linked/rel")

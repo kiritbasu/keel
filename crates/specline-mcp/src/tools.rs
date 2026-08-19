@@ -870,7 +870,7 @@ pub fn all() -> Vec<Tool> {
         },
         Tool {
             name: "specline_close",
-            title: "Finish a task, saying why and showing the work",
+            title: "Finish a task or triage a signal, saying why and showing the work",
             description:
                 "Close a task with a reason, a message, and — for `done` — evidence. This is the \
                  tool for finishing work; `specline_update` can move a status but will refuse a \
@@ -887,7 +887,17 @@ pub fn all() -> Vec<Tool> {
                  query rather than prose: `commit:<sha>`, `pr:<url>`, `test:<command>`, \
                  `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`. A bare sha is refused.\n\n\
                  The message is the one sentence that belongs to the transition. Anything else \
-                 you learned along the way belongs in `specline_note`, which keeps accumulating."
+                 you learned along the way belongs in `specline_note`, which keeps accumulating.\n\n\
+                 **This also triages a signal.** Pass a `fbk_…` and the same three reasons mean \
+                 what happens to a want rather than to work:\n\
+                 - `done` — picked up. It became a feature; name the feature spec as \
+                 `doc:spc_…` evidence.\n\
+                 - `wont_do` — set down. The message is the argument, and it is appended to the \
+                 signal so the same idea arriving in four months finds the reasoning instead of \
+                 silence. Nothing is destroyed and it can be picked up again.\n\
+                 - `duplicate` — somebody had already asked. Names the other signal.\n\n\
+                 `superseded` and `no_change` are refused for a signal: neither describes what \
+                 happens to a want. A signal cannot leave the Inbox without one of the three."
                     .to_owned(),
             read_only: false,
             destructive: true,

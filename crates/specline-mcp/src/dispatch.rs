@@ -2297,6 +2297,11 @@ fn specline_close(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     let id = resolve_required(store, "id", &req_str(args, "id")?)?;
     let reason = specline_core::CloseReason::parse(&req_str(args, "reason")?)
         .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e.to_string()))?;
+    // Closing is what you do to anything that is dealt with, not only to a task
+    // (B-94). A signal takes the same verb, and `close_signal` translates the
+    // reason into a triage outcome rather than reimplementing the invariants.
+    let closing_a_signal = id.entity_type() == specline_core::EntityType::Feedback;
+
     let other = match opt_str(args, "other") {
         None => None,
         Some(raw) => {
@@ -2306,11 +2311,23 @@ fn specline_close(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
             // duplicate of a *spec* therefore succeeded, leaving a `duplicates`
             // edge between two things that cannot stand in that relation and a
             // close message that reads perfectly well.
-            if resolved.entity_type() != specline_core::EntityType::Task {
+            //
+            // A signal duplicates a signal, for the same reason and with the
+            // same consequence if it is not checked.
+            let wanted = if closing_a_signal {
+                specline_core::EntityType::Feedback
+            } else {
+                specline_core::EntityType::Task
+            };
+            if resolved.entity_type() != wanted {
                 return Err(bad_arg(
                     "other",
-                    &format!("`{raw}` is a {}, not a task", resolved.entity_type()),
-                    "the task this one duplicates or was superseded by",
+                    &format!("`{raw}` is a {}, not a {wanted}", resolved.entity_type()),
+                    if closing_a_signal {
+                        "the signal that keeps the history — two people asking for the same thing"
+                    } else {
+                        "the task this one duplicates or was superseded by"
+                    },
                 ));
             }
             Some(resolved)
@@ -2324,6 +2341,10 @@ fn specline_close(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
         evidence: opt_str_list(args, "evidence"),
         other,
     };
+
+    if closing_a_signal {
+        return close_a_signal(store, &id, &request, &provenance);
+    }
 
     let closed = specline_core::close(store, &id, &request, &provenance)
         .map_err(|e| to_rpc_error(store, e))?;
@@ -2354,6 +2375,61 @@ fn specline_close(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
                 "rel": rel.as_str(),
                 "to": to.to_string(),
             })),
+        }),
+    ))
+}
+
+/// Close a signal — triage, reached through the verb that already exists.
+///
+/// Separate from the task path rather than woven into it, because almost
+/// nothing is shared: a signal has no reference like `KEEL-42`, no status to
+/// report, and the interesting result is what it *became* rather than what it
+/// was. Sharing the argument parsing and splitting here keeps both readable.
+fn close_a_signal(
+    store: &mut Store,
+    id: &specline_core::EntityId,
+    request: &specline_core::Close,
+    provenance: &specline_core::Provenance,
+) -> Result<Value, RpcError> {
+    let triaged = specline_core::work::close_signal(store, id, request, provenance)
+        .map_err(|e| to_rpc_error(store, e))?;
+
+    let mut summary = match (&request.reason, &triaged.linked) {
+        (specline_core::CloseReason::Done, Some((_, feature))) => format!(
+            "Signal picked up — “{}” became {feature}.",
+            triaged.signal.summary
+        ),
+        (specline_core::CloseReason::Duplicate, Some((_, other))) => format!(
+            "Signal marked a duplicate of {other} — “{}”. Two people wanting the same thing is \
+             worth more than one, and the other row carries it.",
+            triaged.signal.summary
+        ),
+        _ => format!(
+            "Signal set down — “{}”. The argument is on the signal, so the same idea arriving \
+             again finds the reasoning rather than silence.",
+            triaged.signal.summary
+        ),
+    };
+    // B-91: the reasoning lives on the signal by default and is promoted to a
+    // numbered decision only when it is a no that binds future choices. Said
+    // at the moment of setting down, because that is when somebody can tell
+    // which kind of no it was.
+    if request.reason == specline_core::CloseReason::WontDo {
+        summary.push_str(
+            "\n\nIf this is a no that constrains what gets built next, rather than just \
+             \"not this\", record it as a decision too.",
+        );
+    }
+
+    Ok(tool_result(
+        summary,
+        json!({
+            "signal": entity_json_linked(store, &Entity::Feedback(triaged.signal)),
+            "linked": triaged.linked.map(|(rel, to)| json!({
+                "rel": rel.as_str(),
+                "to": to.to_string(),
+            })),
+            "revision": triaged.revision.map(|d| json!({ "version": d.version })),
         }),
     ))
 }

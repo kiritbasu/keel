@@ -14,8 +14,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use specline_core::{
-    Actor, Direction, EntityId, EntityStore, Feedback, FeedbackKind, GraphStore, NewLink, Project,
-    Provenance, Relation, Spec, SpecKind, Store, Task,
+    Actor, Close, CloseReason, Direction, EntityId, EntityStore, Feedback, FeedbackKind,
+    GraphStore, NewLink, Project, Provenance, Relation, Spec, SpecKind, Store, Task,
     digest::{self, Depth},
     work::TriageOutcome,
 };
@@ -471,4 +471,142 @@ fn only_a_signal_can_be_triaged() {
     .unwrap_err()
     .to_string();
     assert!(err.contains("only a signal can be triaged"), "{err}");
+}
+
+// --- Triage through `close` (B-94, KEEL-325) ------------------------------
+//
+// Closing is what you do to anything that is dealt with, not only to a task.
+// These assert the translation, not the invariants — `close_signal` delegates
+// to `triage`, so the invariants are already covered above and duplicating
+// them here would mean two sets to keep in step.
+
+fn closing(reason: CloseReason, message: &str) -> Close {
+    Close {
+        reason,
+        message: message.to_owned(),
+        evidence: vec![],
+        other: None,
+    }
+}
+
+#[test]
+fn closing_a_signal_as_done_picks_it_up_and_names_the_feature() {
+    let (_d, mut store, project) = fixture();
+    let signal = file_signal(&mut store, &project, "this should work with codex");
+    let feature = a_feature(&mut store, &project, "Codex support");
+
+    let mut request = closing(CloseReason::Done, "Picked up — Madhu and two others.");
+    request.evidence = vec![format!("doc:{feature}")];
+
+    let triaged =
+        specline_core::work::close_signal(&mut store, &signal, &request, &prov()).unwrap();
+    assert!(triaged.signal.triaged);
+    assert_eq!(triaged.linked, Some((Relation::DerivedFrom, feature)));
+}
+
+/// `done` on a task means "show me the commit". On a signal it means "show me
+/// the case you made", and a pick-up with no feature named is a signal that
+/// left the Inbox having become nothing.
+#[test]
+fn closing_a_signal_as_done_with_no_feature_named_is_refused() {
+    let (_d, mut store, project) = fixture();
+    let signal = file_signal(&mut store, &project, "this should work with codex");
+
+    let mut request = closing(CloseReason::Done, "Doing it.");
+    request.evidence = vec!["commit:abc1234".to_owned()];
+
+    let err = specline_core::work::close_signal(&mut store, &signal, &request, &prov())
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("doc:spc_"), "{err}");
+    assert_eq!(store.untriaged_signals(&project).unwrap().0, 1);
+}
+
+#[test]
+fn closing_a_signal_as_wont_do_sets_it_down_with_the_message_as_the_argument() {
+    let (_d, mut store, project) = fixture();
+    let signal = file_signal(&mut store, &project, "build a public request portal");
+
+    let triaged = specline_core::work::close_signal(
+        &mut store,
+        &signal,
+        &closing(
+            CloseReason::WontDo,
+            "There is no customer stream yet, so a portal would collect nothing.",
+        ),
+        &prov(),
+    )
+    .unwrap();
+
+    let body = triaged.revision.expect("a set-down writes a revision").body;
+    assert!(body.contains("would collect nothing"), "{body}");
+}
+
+/// A duplicate is not a set-down, and the difference carries information: two
+/// people asking is the demand signal the Inbox has no other way to hold.
+#[test]
+fn closing_a_signal_as_a_duplicate_points_at_the_one_that_keeps_the_history() {
+    let (_d, mut store, project) = fixture();
+    let first = file_signal(&mut store, &project, "search should look inside documents");
+    let again = file_signal(&mut store, &project, "search only reads titles");
+
+    let mut request = closing(CloseReason::Duplicate, "Same want, said differently.");
+    request.other = Some(first.clone());
+
+    let triaged = specline_core::work::close_signal(&mut store, &again, &request, &prov()).unwrap();
+    assert_eq!(triaged.linked, Some((Relation::Duplicates, first)));
+    assert!(
+        triaged.revision.is_none(),
+        "a duplicate records where the want went, not an argument against it"
+    );
+}
+
+#[test]
+fn a_duplicate_of_an_already_triaged_signal_is_refused() {
+    let (_d, mut store, project) = fixture();
+    let first = file_signal(&mut store, &project, "search should look inside documents");
+    let again = file_signal(&mut store, &project, "search only reads titles");
+    specline_core::work::triage(
+        &mut store,
+        &first,
+        &TriageOutcome::SetDown {
+            reason: "Not now — the index rebuild is the expensive part.".to_owned(),
+        },
+        &prov(),
+    )
+    .unwrap();
+
+    let mut request = closing(CloseReason::Duplicate, "Same want.");
+    request.other = Some(first);
+    let err = specline_core::work::close_signal(&mut store, &again, &request, &prov())
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("already been triaged"),
+        "pointing a live want at a dead row hides it: {err}"
+    );
+}
+
+/// The two that mean nothing about a want. Refused with the three that do,
+/// because a caller told only that `superseded` is wrong will try `no_change`.
+#[test]
+fn superseded_and_no_change_do_not_describe_a_signal() {
+    let (_d, mut store, project) = fixture();
+    let signal = file_signal(&mut store, &project, "this should work with codex");
+
+    for reason in [CloseReason::Superseded, CloseReason::NoChange] {
+        let err = specline_core::work::close_signal(
+            &mut store,
+            &signal,
+            &closing(reason, "Trying it anyway."),
+            &prov(),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("does not describe"), "{err}");
+        assert!(
+            err.contains("wont_do") && err.contains("duplicate"),
+            "the refusal has to list the ones that do work: {err}"
+        );
+    }
 }
