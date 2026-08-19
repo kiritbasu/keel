@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T14:26:05Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T14:52:58Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (296)
+## Closed work (297)
 
 ### 2026-08-19
+
+- **KEEL-325** The triage pass: read the whole Inbox, cluster it, and check it against everything already decided — `done`
+
+  Triage reaches MCP through a widened `specline_close` (B-94), and the digest now lists the Inbox rather than only counting it — which KEEL-321 had left uncounterable, because search needs a query and cannot enumerate "everything untriaged". A pass over the real five-signal Inbox proposed an outcome for each and named the one it could not settle; it is on the row, awaiting KB's yes. Running it found and fixed a real bug.
+
+  <sub>commit:05e5c14 · commit:1835ad5 · commit:87f623c · test:cargo test -p specline-core --test inbox</sub>
 
 - **KEEL-324** Setting a signal down writes the argument, so the same idea does not arrive fresh in four months — `done`
 
@@ -1366,6 +1372,14 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status todo → done |
+| 2026-08-19 | claude | evidence [] → (100 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (423 characters) |
+| 2026-08-19 | claude | “Closing is what you do to anything that is dealt with, not…” resolves “How does triage reach MCP without a fourteenth tool?” |
+| 2026-08-19 | claude | status proposed → accepted |
+| 2026-08-19 | claude | revised decision “Closing is what you do to anything that is dealt with, not only to a task” to v1 |
+| 2026-08-19 | claude | created decision “Closing is what you do to anything that is dealt with, not only to a task” |
 | 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → ["commit:f3dcc8a","test:cargo test -p specline-core --test inbox"] |
 | 2026-08-19 | claude | close_reason none → done |
@@ -1558,14 +1572,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
 | 2026-08-19 | claude | claimed_at none → 2026-08-19T08:32:06.600217Z |
 | 2026-08-19 | claude | status todo → in_progress |
-| 2026-08-19 | claude | claimed_by none → ses_e7e72d13-4a31-4ee7-95f4-d4c53b1c53f3 |
-| 2026-08-19 | claude | claimed_at none → 2026-08-19T08:23:53.208921Z |
-| 2026-08-19 | claude | status in_progress → done |
-| 2026-08-19 | claude | evidence [] → ["commit:a57b3a3","test:specline generate specline --check"] |
-| 2026-08-19 | claude | close_reason none → done |
-| 2026-08-19 | claude | close_message none → (832 characters) |
-| 2026-08-19 | claude | status in_progress → done |
-| 2026-08-19 | claude | evidence [] → ["commit:a57b3a3"] |
 
-*Showing the 200 most recent of 2511 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2519 changes. Use `specline_activity` for the rest.*
 

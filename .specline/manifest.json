@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-19T14:26:05.905647+00:00",
+  "generated_at": "2026-08-19T14:52:58.246907+00:00",
   "files": [
     {
       "path": ".specline/specs/how-feature-requests-should-work-end-to-end.md",
@@ -65,6 +65,17 @@
           "entity_type": "spec",
           "version": 2,
           "hash": "8693e49c88fc2ad31cb195dd2fc89dca7a4eb1266ca568fb37bda5f231c92ea3"
+        }
+      ]
+    },
+    {
+      "path": ".specline/decisions/closing-is-what-you-do-to-anything-that-is-dealt-with-not-only-to-a-task.md",
+      "contributors": [
+        {
+          "entity_id": "dec_01M0D6TFDNXGY9W38NABX4VJ9X",
+          "entity_type": "decision",
+          "version": 1,
+          "hash": "03557960497cc527828a00fea95d1ae475d7c04912da7ec826f2f17183b937df"
         }
       ]
     },
