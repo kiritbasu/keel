@@ -1,6 +1,6 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T20:19:48Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T20:22:29Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
@@ -1414,6 +1414,11 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | human | revised spec “Specline — standing instructions” to v17 |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_e1aa5ce8-c196-4c0e-8882-d4422009c9f4 |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T20:21:17.551450Z |
+| 2026-08-19 | claude | unlinked “Phase 14 — Feature requests: the Inbox and the lifecycle” blocks “Cut 0.4.1 — the rail without its shortcuts, and the signal…” |
 | 2026-08-19 | claude | created task “Write the release-row-then-tag loop into the standing contract” |
 | 2026-08-19 | claude | status todo → done |
 | 2026-08-19 | claude | evidence [] → (112 characters) |
@@ -1609,11 +1614,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-19 | claude | close_message none → (212 characters) |
 | 2026-08-19 | claude | created task “Every task created from the CLI has the summary "A row this test needs in the store."” |
 | 2026-08-19 | claude | status todo → in_progress |
-| 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
-| 2026-08-19 | claude | claimed_at none → 2026-08-19T09:35:10.620275Z |
-| 2026-08-19 | claude | status open → answered |
-| 2026-08-19 | claude | revised question “Does every signal we set down become a numbered decision, or only the ones worth remembering?” to v2 |
-| 2026-08-19 | claude | summary (518 characters) → (525 characters) |
 
-*Showing the 200 most recent of 2576 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2581 changes. Use `specline_activity` for the rest.*
 
