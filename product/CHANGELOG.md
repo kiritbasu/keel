@@ -1,15 +1,33 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T16:05:06Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T16:35:04Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (299)
+## Closed work (302)
 
 ### 2026-08-19
+
+- **KEEL-328** Breaking a feature into tasks is proposed, not typed — `done`
+
+  Nothing needed building — the whole decomposition path already works over MCP with existing tools, verified against a live daemon: a feature spec, an epic, an `implements` edge, and three children under it. What was missing is the habit rather than the mechanism, so the guidance is written as a note here and moving it into the plugin skill is KEEL-344, held until the flag flips.
+
+  <sub>test:curl /mcp specline_create + specline_link against a live daemon · doc:spc_01M0DDZ3MKMAMFC26MRMSXX7MV · commit:131ab51</sub>
+
+- **KEEL-327** The board shows an epic as one row that opens into its children — `done`
+
+  An epic heads its own group with "2/4 done" read off its children, and no longer appears a second time as a loose row. Grouping by parent already existed, so this was a fraction and a de-duplication rather than a feature. Verified on screen against a seeded epic — the double-listing was invisible to every test.
+
+  <sub>commit:131ab51 · test:npx vitest run src/lib/tasks.test.ts</sub>
+
+- **KEEL-326** An epic is a task with children, and it appears only when we decide to build — `done`
+
+  `feature` is a task kind, offered in the app's three kind lists while the lifecycle is on. Far smaller than the task assumed: `parent_id` was already fully implemented and guarded by `check_task_parent`, so composition needed nothing. The task's premise that it "has never been used" was true of the data and false of the code.
+
+  <sub>commit:a1308fd · test:cargo test -p specline-core --test epics · test:cargo test -p specline-mcp --test argument_edges</sub>
 
 - **KEEL-342** Take the shortcut keycaps out of the rail — `done`
 
@@ -1384,6 +1402,28 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → (126 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (381 characters) |
+| 2026-08-19 | claude | created task “Teach the skill the feature-request lifecycle, once the flag flips” |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T16:33:41.853794Z |
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → ["commit:131ab51","test:npx vitest run src/lib/tasks.test.ts"] |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (312 characters) |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T16:25:05.417738Z |
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → (122 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (327 characters) |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T16:06:54.828842Z |
 | 2026-08-19 | claude | “Phase 14 — Feature requests: the Inbox and the lifecycle” blocks “Cut 0.4.1 — the rail without its shortcuts, and the signal…” |
 | 2026-08-19 | claude | created task “Cut 0.4.1 — the rail without its shortcuts, and the signal lifecycle” |
 | 2026-08-19 | claude | retracted a note on tsk_01M0DB5TTNDFT9DR6DNXY3GBZ4 |
@@ -1562,28 +1602,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-19 | claude | priority p2 → p1 |
 | 2026-08-19 | claude | milestone_id none → mst_01M0CNHN7YMEBGD30NWVCJD9FA |
 | 2026-08-19 | claude | labels [] → ["inbox","core"] |
-| 2026-08-19 | claude | priority p2 → p1 |
-| 2026-08-19 | claude | milestone_id none → mst_01M0CNHN7YMEBGD30NWVCJD9FA |
-| 2026-08-19 | claude | labels [] → ["inbox","desktop"] |
-| 2026-08-19 | claude | priority p2 → p1 |
-| 2026-08-19 | claude | milestone_id none → mst_01M0CNHN7YMEBGD30NWVCJD9FA |
-| 2026-08-19 | claude | labels [] → ["inbox","core"] |
-| 2026-08-19 | claude | created task “Whoever asked can be told what happened” |
-| 2026-08-19 | claude | created task “The Inbox tells you it is getting long, without being asked” |
-| 2026-08-19 | claude | created task “Breaking a feature into tasks is proposed, not typed” |
-| 2026-08-19 | claude | created task “The board shows an epic as one row that opens into its children” |
-| 2026-08-19 | claude | created task “An epic is a task with children, and it appears only when we decide to build” |
-| 2026-08-19 | claude | created task “The triage pass: read the whole Inbox, cluster it, and check it against everything already decided” |
-| 2026-08-19 | claude | created task “Setting a signal down writes the argument, so the same idea does not arrive fresh in four months” |
-| 2026-08-19 | claude | created task “A signal that gets picked up becomes a feature, and a feature is a spec” |
-| 2026-08-19 | claude | created task “Move the four rows KB filed in a hurry into the Inbox they should have gone to” |
-| 2026-08-19 | claude | created task “An untriaged signal is not work, and nothing that counts work should count it” |
-| 2026-08-19 | claude | created task “The Inbox screen, and filing a signal in six seconds” |
-| 2026-08-19 | claude | created task “Write a signal into the store, for the first time” |
-| 2026-08-19 | claude | created milestone “Phase 14 — Feature requests: the Inbox and the lifecycle” |
-| 2026-08-19 | claude | status proposed → accepted |
-| 2026-08-19 | claude | revised decision “Feature requests get a lifecycle, and it starts at an Inbox of signals” to v1 |
-| 2026-08-19 | claude | created decision “Feature requests get a lifecycle, and it starts at an Inbox of signals” |
 
-*Showing the 200 most recent of 2537 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2559 changes. Use `specline_activity` for the rest.*
 
