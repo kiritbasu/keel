@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T12:00:17Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T12:09:37Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (286)
+## Closed work (287)
 
 ### 2026-08-19
+
+- **KEEL-335** Fix what the review found in the roadmap progress work — `done`
+
+  All six fixed. The roadmap now shows a fraction on all fifteen phases rather than seven; the activity query goes through `parse_ts` and takes its maximum in Rust, so no timestamp format can make a phase look untouched; the daemon derives progress only from the milestone rows a page actually contains; release table cells are escaped; and the two surfaces agree about where an uncut release goes. Every test that passed under mutation now fails under it.
+
+  <sub>commit:4ab9f77 · test:cargo test -p specline-core --test phase_progress · test:cargo test -p specline-daemon --test milestone_progress · test:npx vitest run src/screens/Roadmap.test.tsx</sub>
 
 - **KEEL-334** SPEC promises "overdue milestones" in the digest and nothing computes it — `done`
 
@@ -1312,6 +1318,10 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → (189 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (454 characters) |
 | 2026-08-19 | claude | status todo → in_progress |
 | 2026-08-19 | claude | claimed_by none → ses_e1aa5ce8-c196-4c0e-8882-d4422009c9f4 |
 | 2026-08-19 | claude | claimed_at none → 2026-08-19T11:44:37.582422Z |
@@ -1508,10 +1518,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | claimed_at none → 2026-08-18T21:28:38.773807Z |
 | 2026-08-18 | claude | created task “On an alias URL the app loses every task reference and the project's own words” |
 | 2026-08-18 | human | created task “remove 8a 8b labels” |
-| 2026-08-18 | human | labels [] → ["feature-request"] |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → ["commit:c215f0b","test:cd apps/desktop && npx vitest run"] |
-| 2026-08-18 | claude | close_reason none → done |
 
-*Showing the 200 most recent of 2442 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2446 changes. Use `specline_activity` for the rest.*
 
