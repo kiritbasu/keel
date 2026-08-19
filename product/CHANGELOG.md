@@ -1,15 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T20:01:14Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T20:19:48Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (302)
+## Closed work (304)
 
 ### 2026-08-19
+
+- **KEEL-343** Cut 0.4.1 — the rail without its shortcuts, and the signal lifecycle — `done`
+
+  v0.4.1 is out on all three platforms with build provenance. Briefly held for the rest of Phase 14 and then released: the session that work belonged to had already finished and the remaining rows were unstarted, so holding would have parked a finished fix behind days of new work.
+
+  <sub>commit:37808e0 · url:https://github.com/kiritbasu/specline/releases/tag/v0.4.1 · test:cargo test --workspace</sub>
+
+- **KEEL-345** A release reads like something a person wrote, and carries five files instead of fourteen — `done`
+
+  Proven on v0.4.1, the first release through the new path: five assets instead of fourteen, and the notes are the release row's prose rather than a list of commit subjects. The provenance caveat correctly did not appear — the repository is public now, so attestations ran instead, which is what the old caveat said would happen.
+
+  <sub>commit:1f4e662 · url:https://github.com/kiritbasu/specline/releases/tag/v0.4.1 · url:https://github.com/kiritbasu/specline/actions/runs/32296286655</sub>
 
 - **KEEL-328** Breaking a feature into tasks is proposed, not typed — `done`
 
@@ -1402,6 +1414,17 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | created task “Write the release-row-then-tag loop into the standing contract” |
+| 2026-08-19 | claude | status todo → done |
+| 2026-08-19 | claude | evidence [] → (112 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (279 characters) |
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → (151 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (327 characters) |
+| 2026-08-19 | claude | status open → shipped |
+| 2026-08-19 | claude | shipped_at none → 2026-08-19T20:18:09Z |
 | 2026-08-19 | claude | created milestone “0.4.1 — a quieter rail, and the start of the signal lifecycle” |
 | 2026-08-19 | claude | status todo → in_progress |
 | 2026-08-19 | claude | claimed_by none → ses_e1aa5ce8-c196-4c0e-8882-d4422009c9f4 |
@@ -1591,17 +1614,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-19 | claude | status open → answered |
 | 2026-08-19 | claude | revised question “Does every signal we set down become a numbered decision, or only the ones worth remembering?” to v2 |
 | 2026-08-19 | claude | summary (518 characters) → (525 characters) |
-| 2026-08-19 | claude | “Set-down reasoning lives on the signal; only a no that…” references “Feature requests get a lifecycle, and it starts at an Inbox…” |
-| 2026-08-19 | claude | “Set-down reasoning lives on the signal; only a no that…” resolves “Does every signal we set down become a numbered decision,…” |
-| 2026-08-19 | claude | status proposed → accepted |
-| 2026-08-19 | claude | revised decision “Set-down reasoning lives on the signal; only a no that binds future choices gets a number” to v1 |
-| 2026-08-19 | claude | created decision “Set-down reasoning lives on the signal; only a no that binds future choices gets a number” |
-| 2026-08-19 | claude | “product feature request triage” supersedes “The triage pass: read the whole Inbox, cluster it, and…” |
-| 2026-08-19 | claude | status in_progress → wont_do |
-| 2026-08-19 | claude | close_reason none → superseded |
-| 2026-08-19 | claude | close_message none → (407 characters) |
-| 2026-08-19 | claude | revised question “Does every signal we set down become a numbered decision, or only the ones worth remembering?” to v1 |
-| 2026-08-19 | claude | created question “Does every signal we set down become a numbered decision, or only the ones worth remembering?” |
 
-*Showing the 200 most recent of 2565 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2576 changes. Use `specline_activity` for the rest.*
 
