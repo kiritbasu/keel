@@ -1,15 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T14:10:17Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T14:26:05Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (294)
+## Closed work (296)
 
 ### 2026-08-19
+
+- **KEEL-324** Setting a signal down writes the argument, so the same idea does not arrive fresh in four months — `done`
+
+  `work::triage` enforces that a signal cannot leave the Inbox without an outcome, and `specline triage` exposes it. Two holes found and filed rather than papered over: notes are not indexed (KEEL-339), and `triaged` can still be set through the ordinary update path (KEEL-340). Triage over MCP is left to KB because it needs either a fourteenth tool or a widened `specline_close`.
+
+  <sub>commit:f3dcc8a · test:cargo test -p specline-core --test inbox</sub>
+
+- **KEEL-323** A signal that gets picked up becomes a feature, and a feature is a spec — `done`
+
+  `feature` is a spec kind, and a feature spec remembers the signal it came from in both traversal directions. Smaller than expected because the `derived_from` edge and its direction test already existed — the relation table in SPEC §3.3 had spec → feedback from the start.
+
+  <sub>commit:76bc1c0 · test:cargo test -p specline-core --test inbox</sub>
 
 - **KEEL-322** Move the four rows KB filed in a hurry into the Inbox they should have gone to — `done`
 
@@ -1355,6 +1367,24 @@ What has finished. What is happening now is in the tracker beside this file.
 | Date | Actor | Change |
 |---|---|---|
 | 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → ["commit:f3dcc8a","test:cargo test -p specline-core --test inbox"] |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (379 characters) |
+| 2026-08-19 | claude | created task “A signal can be cleared out of the Inbox with no outcome, going round work::triage” |
+| 2026-08-19 | claude | revised question “How does triage reach MCP without a fourteenth tool?” to v1 |
+| 2026-08-19 | claude | created question “How does triage reach MCP without a fourteenth tool?” |
+| 2026-08-19 | claude | created task “Notes are not in the search index, so every finding recorded on a task is unfindable” |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T14:16:58.472793Z |
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → ["commit:76bc1c0","test:cargo test -p specline-core --test inbox"] |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (271 characters) |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T14:10:27.785045Z |
+| 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → (268 characters) |
 | 2026-08-19 | claude | close_reason none → done |
 | 2026-08-19 | claude | close_message none → (339 characters) |
@@ -1536,24 +1566,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-19 | claude | close_message none → (832 characters) |
 | 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → ["commit:a57b3a3"] |
-| 2026-08-19 | claude | close_reason none → done |
-| 2026-08-19 | claude | close_message none → (836 characters) |
-| 2026-08-19 | claude | created task “Check for updates every 30 minutes, and make the footer an icon that colours when one is waiting” |
-| 2026-08-19 | claude | created task “An abandoned adopted file is never reported as an orphan” |
-| 2026-08-19 | claude | mirror_path PHASE-9.md → none |
-| 2026-08-19 | claude | mirror_path PHASE-8.md → none |
-| 2026-08-19 | claude | mirror_path PHASE-10.md → none |
-| 2026-08-19 | claude | status todo → in_progress |
-| 2026-08-19 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
-| 2026-08-19 | claude | claimed_at none → 2026-08-19T08:16:06.579999Z |
-| 2026-08-19 | claude | created task “Three generated phase specs mirror into the repository root” |
-| 2026-08-19 | claude | status todo → in_progress |
-| 2026-08-19 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
-| 2026-08-19 | claude | claimed_at none → 2026-08-19T08:08:51.444506Z |
-| 2026-08-19 | claude | created task “The README and ARCHITECTURE still say the app cannot change a task's fields” |
-| 2026-08-18 | claude | status todo → done |
-| 2026-08-18 | claude | evidence [] → (86 characters) |
-| 2026-08-18 | claude | close_reason none → done |
 
-*Showing the 200 most recent of 2493 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2511 changes. Use `specline_activity` for the rest.*
 

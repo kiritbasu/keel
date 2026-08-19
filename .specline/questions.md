@@ -7,6 +7,24 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
+### How does triage reach MCP without a fourteenth tool?
+
+`que_01M0D6DWN1WPVXAHAJRANB6P48` · question · open
+
+**Blocks nothing today and blocks the point of the phase tomorrow.** `specline triage` exists and works from a terminal. Triage over MCP does not, and MCP is where triage is actually supposed to happen — B-90's whole argument is that a session reads the Inbox, clusters it, checks it against every decision ever made, and proposes outcomes for KB to accept or refuse. A terminal-only verb leaves the human doing the reading, which is the half the design says a model should do.
+
+Thirteen tools is a ceiling KB agreed to, and raising it needs his agreement and an argument at least as good as the last. So this is his call rather than a judgement to take quietly.
+
+**Option 1 — a fourteenth tool, `specline_triage`.** Honest and obvious. It costs the thing the cap exists to protect: more tools means worse selection, not more capability. It would also be a tool used rarely compared with the twelve around it.
+
+**Option 2 — extend `specline_close` to accept a signal.** No new tool. The semantics genuinely match — "this is dealt with, here is why, here is the proof" is the same sentence for a task and for a signal — and `close` already enforces reason, message and evidence in the storage layer, which is exactly the enforcement triage needs. Two costs: the five close reasons are named for work (`done`, `wont_do`, `duplicate`, `superseded`, `no_change`) and none of them says "picked up" or "set down", which is the same vocabulary mismatch KEEL-338 already reports from the other direction; and `close` would stop being about tasks, which is a widening somebody should agree to rather than discover.
+
+**Option 3 — `specline_update` carries it.** Cheapest and worst. `{triaged: true}` bypasses the reason entirely, which is the one invariant `work::triage` exists to enforce, so this is not really an option unless the enforcement moves into the update path — and there is nothing in an update to key the check on.
+
+**Leaning towards 2**, mostly because of KEEL-338: the close vocabulary already fails to describe things that are not units of work, and fixing that once would serve both. But it is a real widening of a tool's contract and the cap is KB's rule.
+
+**A fourth thing worth noticing, whichever wins.** The bypass in option 3 exists today: `specline_update(fbk_…, {triaged: true})` clears a signal out of the Inbox with no outcome recorded, going round `work::triage` entirely. That is a hole in the invariant regardless of how triage reaches MCP, and it is filed separately.
+
 ### Seven rows have no reasoning in them. Reconstruct them, or leave them empty and say so?
 
 `que_01M04PW3ZCQJ37M7EC27K58HC0` · question · open
