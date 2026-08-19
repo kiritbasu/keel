@@ -198,75 +198,67 @@ describe("the rail carries no shortcut glyph", () => {
   });
 
   /**
-   * Removed from the rail, not from the app. Somebody who learnt `3` still
-   * gets the board, and the row says which key when you hover it — the digit
-   * is quiet, not gone.
+   * Not in a tooltip either. The hover hint was the halfway house when only
+   * the glyph had gone; with the keypress gone too there is no key to name,
+   * and a title advertising one would be a lie.
    */
-  it("still names the key on hover", async () => {
+  it("advertises no key in a tooltip", async () => {
     render(<App />);
     await settle();
-    const board = [...document.querySelectorAll("nav a")].find((a) =>
-      a.textContent?.includes("Board"),
-    );
-    expect(board?.getAttribute("title")).toBe("Board — press 3");
+    for (const a of document.querySelectorAll("nav a")) {
+      expect(a.getAttribute("title") ?? "").not.toMatch(/press/i);
+    }
   });
 });
 
-describe("navigation keys", () => {
-  it("moves to a global screen and puts it in the address", async () => {
+describe("the keys the rail no longer claims", () => {
+  /**
+   * Digit-to-screen is gone, keypress and glyph together (KEEL-342).
+   *
+   * The glyph went first, and keeping the keypress would have left the worse
+   * half: an undiscoverable bare `3` swallowed from anywhere outside a text
+   * field, for a destination one click away. Three attempts at drawing the
+   * digit legibly is also three pieces of evidence that nobody was reaching
+   * for it.
+   */
+  it("does nothing when a digit is pressed", async () => {
+    window.location.hash = "#/projects/specline";
     render(<App />);
     await settle();
-    // 9, not 8. Releases went in at 6 — beside the roadmap, because a phase
-    // and a release are different nouns and a screen each is the honest shape
-    // (KEEL-336) — and everything below it moved down one, the globals
-    // included. The alternative was the only unnumbered row in a numbered
-    // rail, which is wrong every day rather than once.
-    //
-    // The Inbox did the same thing at 4, and removing the Metrics screen moved
-    // them the other way. This test failing is what a shortcut change is
-    // supposed to look like — the numbers are a contract with whoever has
-    // learnt them.
-    fireEvent.keyDown(window, { key: "9" });
-    await waitFor(() => expect(window.location.hash).toBe("#/search"));
+    for (const key of ["1", "3", "5", "9", "0"]) {
+      fireEvent.keyDown(window, { key });
+      await settle();
+      expect(window.location.hash).toBe("#/projects/specline");
+    }
   });
 
-  it("sends `/` to search", async () => {
+  /**
+   * `/` and `⌘K` stay, and the difference is that both are conventions a
+   * reader already has — neither needed a glyph in the rail to be found.
+   */
+  it("still sends `/` to search", async () => {
     render(<App />);
     await settle();
     fireEvent.keyDown(window, { key: "/" });
     await waitFor(() => expect(window.location.hash).toBe("#/search"));
   });
 
-  it("carries the current project onto a project-scoped screen", async () => {
-    window.location.hash = "#/projects/specline";
+  it("still opens the palette on ⌘K", async () => {
     render(<App />);
     await settle();
-    fireEvent.keyDown(window, { key: "3" });
-    await waitFor(() =>
-      expect(window.location.hash).toBe("#/projects/specline/board"),
-    );
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(screen.getByLabelText("Jump to")).toBeTruthy();
   });
 
-  // This used to do nothing, and that was the bug rather than the safeguard.
-  // A project-scoped shortcut pressed from a global screen now falls back to
-  // the project you were last in, because there is always one.
-  it("falls back to the remembered project rather than doing nothing", async () => {
-    render(<App />);
-    await settle();
-    fireEvent.keyDown(window, { key: "3" });
-    await waitFor(() =>
-      expect(window.location.hash).toBe("#/projects/specline/board"),
-    );
-  });
-
-  // Failure case: this is the bug that put a stray "6" in the search box.
+  // `/` is a navigation key and a character somebody types. The guard that
+  // kept a stray "6" out of the search box has to keep a stray "/" out too.
   it("does not navigate on a keypress inside a text field", async () => {
     render(<App />);
     await settle();
     fireEvent.keyDown(window, { key: "k", metaKey: true });
     const input = screen.getByLabelText("Jump to");
 
-    fireEvent.keyDown(input, { key: "3" });
+    fireEvent.keyDown(input, { key: "/" });
     await settle();
     expect(window.location.hash).toBe("#/");
   });

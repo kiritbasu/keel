@@ -40,7 +40,7 @@ import { ChangedScreen } from "./screens/Changed";
 
 export type { ScreenId } from "./lib/router";
 
-type NavItem = { id: ScreenId; label: string; key: string };
+type NavItem = { id: ScreenId; label: string };
 
 /**
  * The screens that belong to the project you are in. Always live, because a
@@ -51,27 +51,27 @@ type NavItem = { id: ScreenId; label: string; key: string };
  * ten. The all-projects address still exists and the palette still reaches it.
  */
 const PROJECT_SCREENS: NavItem[] = [
-  { id: "project", label: "Overview", key: "1" },
+  { id: "project", label: "Overview" },
   // Second, ahead of the board. The board is every task; this is the handful
   // that can be started now, which is the question actually being asked when
   // someone opens the app.
-  { id: "next", label: "What’s next", key: "2" },
-  { id: "board", label: "Board", key: "3" },
+  { id: "next", label: "What’s next" },
+  { id: "board", label: "Board" },
   // Between the board and the roadmap, which is where it belongs in the
   // lifecycle: the board is work somebody committed to, the Inbox is what
   // nobody has decided about yet, and the roadmap is where the decided things
   // are going. Not first, deliberately — an Inbox at the top of the rail
   // invites treating triage as the day's work rather than a thing you do to
   // clear the way for it.
-  { id: "inbox", label: "Inbox", key: "4" },
-  { id: "roadmap", label: "Roadmap", key: "5" },
+  { id: "inbox", label: "Inbox" },
+  { id: "roadmap", label: "Roadmap" },
   // Beside the roadmap, not inside it. A phase and a release are different
   // nouns — a phase is a unit of plan that holds tasks and has progress, a
   // release is a unit of record that went out on a date and holds nothing —
   // and stacking them on one screen implied a relationship neither has to the
   // other (KEEL-336). Two nouns, two screens.
-  { id: "releases", label: "Releases", key: "6" },
-  { id: "documents", label: "Library", key: "7" },
+  { id: "releases", label: "Releases" },
+  { id: "documents", label: "Library" },
 ];
 
 /**
@@ -83,27 +83,21 @@ const PROJECT_SCREENS: NavItem[] = [
  * have, and the screen already carried one header claiming a job it did not do.
  */
 const GLOBAL_SCREENS: NavItem[] = [
-  { id: "home", label: "All projects", key: "8" },
-  { id: "search", label: "Search", key: "9" },
+  { id: "home", label: "All projects" },
+  { id: "search", label: "Search" },
   // The tenth item, so `0` — the same place a browser puts the last tab.
   // Adding Releases shifted the four below it by one, which costs a day of
   // muscle memory once. The alternative was the only unnumbered row in a
   // numbered rail, which is wrong every day.
-  { id: "changed", label: "What changed", key: "0" },
+  { id: "changed", label: "What changed" },
 ];
 
-const SCREENS: NavItem[] = [...PROJECT_SCREENS, ...GLOBAL_SCREENS];
-
-/**
- * Whether a nav item should carry the project in its address.
- *
- * Not the same as `NEEDS_PROJECT`, and the difference is Roadmap: it renders
- * happily without one, so the router does not require it, but in the rail it is
- * a project screen and should link to the project you are in.
- */
-function isProjectScreen(id: ScreenId): boolean {
-  return PROJECT_SCREENS.some((s) => s.id === id);
-}
+// `SCREENS` — the two lists concatenated — and `isProjectScreen` lived here.
+// Both existed only to serve the digit shortcuts, which are gone (KEEL-342):
+// the handler needed one flat list to match a keypress against, and needed to
+// know whether the matched screen took the project in its address. The rail
+// itself never used either; it maps over the two lists directly, and `NavLink`
+// is handed the project it should link to.
 
 /**
  * Screens the daemon has switched off, so the rail does not offer them.
@@ -113,9 +107,9 @@ function isProjectScreen(id: ScreenId): boolean {
  * endpoints still answer — the interface lying about what the daemon can do,
  * which is worse than showing an unfinished screen (KEEL-341).
  *
- * The shortcut digits are left alone rather than renumbered when a screen is
- * hidden. They are a contract with whoever has learnt them, and having them
- * mean different things depending on a daemon flag would be worse than a gap.
+ * Hiding a screen used to raise the question of whether to renumber the
+ * shortcut digits below it. There are none now (KEEL-342), so a hidden screen
+ * simply leaves the rail one row shorter.
  */
 function isSwitchedOff(id: ScreenId, surfaces?: { inbox?: boolean }): boolean {
   return id === "inbox" && surfaces?.inbox === false;
@@ -134,10 +128,11 @@ function isSwitchedOff(id: ScreenId, surfaces?: { inbox?: boolean }): boolean {
  * keypresses on purpose, because ⌘1–⌘9 are the browser's tab shortcuts. A
  * boxed keycap was the third attempt and did not land either (KEEL-342).
  *
- * Three attempts at making one glyph legible is the point to stop drawing it.
- * The keys still work for whoever has learnt them, and the row's `title` still
- * names the key — present when somebody goes looking, absent the rest of the
- * time, which is the right weight for a hint nobody needs twice.
+ * Three attempts at making one glyph legible is the point to stop drawing it —
+ * and, once it was gone, to stop handling the keypress too. Keeping the key
+ * without the glyph left the worse half: a bare `3` swallowed from anywhere
+ * outside a text field, for a destination one click or one `⌘K` away, with
+ * nothing on screen to say it would happen.
  */
 function NavLink({
   item,
@@ -153,7 +148,6 @@ function NavLink({
     <a
       href={href({ screen: item.id, project })}
       aria-current={here ? "page" : undefined}
-      title={`${item.label} — press ${item.key}`}
       className={cx(
         "flex w-full items-center rounded-control px-2.5 py-1.5 text-left text-small",
         here
@@ -315,8 +309,7 @@ export function App() {
     }
   }, [canonical]);
 
-  // Keyboard. Digits switch screens, `/` jumps to search, Cmd-K opens the
-  // palette.
+  // Keyboard. `/` jumps to search and Cmd-K opens the palette.
   //
   // The modifier check used to be `if (e.metaKey || e.ctrlKey || e.altKey)
   // return`, which discarded every modified keypress before anything could see
@@ -348,17 +341,15 @@ export function App() {
         return;
       }
 
-      const match = SCREENS.find((s) => s.key === e.key);
-      if (match && (!NEEDS_PROJECT[match.id] || activeProject)) {
-        // Consume the key. Without this, navigating to a screen whose input
-        // autofocuses means the same physical keypress also lands *in* that
-        // input — pressing 6 for Search left a stray "6" in the search box.
-        e.preventDefault();
-        navigate({
-          screen: match.id,
-          ...(isProjectScreen(match.id) ? { project: activeProject } : {}),
-        });
-      }
+      // Digit-to-screen used to live here — `1` for Overview, `2` for What's
+      // next, and so on. It is gone, keypress and glyph together (KEEL-342).
+      // Three drawings of that digit in the rail all read wrong, and an
+      // undiscoverable bare keypress is worse than a visible one: it swallows
+      // a plain `3` from anywhere outside a text field, for a destination one
+      // click or one `⌘K` away.
+      //
+      // `/` and `⌘K` stay, above. Both are conventions a reader already has,
+      // which is the difference.
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
