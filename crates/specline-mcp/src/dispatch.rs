@@ -1466,7 +1466,30 @@ fn build_entity(
                 })?;
             Term::new(project_id.clone(), need_title()?, definition).into()
         }
-        EntityType::Feedback => Feedback::new(need_project()?, need_title()?).into(),
+        EntityType::Feedback => {
+            // The column is `summary`, not `title`, and §3.2 says why: a piece
+            // of feedback is what somebody said, so titling it would mean
+            // inventing one. Accept `summary` first — that is the name a
+            // caller who read the schema will reach for — then fall back to
+            // `title`/`name` for the generic create shape.
+            //
+            // Before this the arm was `need_title()`, so the one type whose
+            // design is "do not invent a title" was the only type that
+            // refused to be created without one, and the refusal named a
+            // field the table does not have. `body` is deliberately not a
+            // fallback here as it is for a task: a feedback body is the
+            // verbatim, which is exactly the thing too long to be a summary.
+            let summary = opt_str(args, "summary")
+                .or_else(|| title.clone())
+                .ok_or_else(|| {
+                    bad_arg(
+                        "summary",
+                        "feedback needs the thing that was said",
+                        "one line of what somebody actually said, in their own words",
+                    )
+                })?;
+            Feedback::new(need_project()?, summary).into()
+        }
         EntityType::Design => Design::new(need_project()?, need_title()?).into(),
         EntityType::Environment => Environment::new(need_project()?, need_title()?).into(),
         EntityType::Metric => Metric::new(need_project()?, need_title()?).into(),

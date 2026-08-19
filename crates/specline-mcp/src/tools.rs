@@ -479,12 +479,16 @@ pub fn all() -> Vec<Tool> {
                         // thirty gate sessions invoked the skill zero times.
                         "summary": {
                             "type": "string",
-                            "description": "Tasks and milestones: REQUIRED. One or two plain sentences \
+                            "description": "Tasks, milestones and feedback: REQUIRED. One or two \
+                                            plain sentences \
                                             a colleague could read cold six weeks from now, \
                                             without having been in this conversation. For a \
                                             task: what is wrong or wanted, what it affects, and \
                                             what done looks like. For a milestone: what the \
-                                            phase covers. It is what lists show, so a row \
+                                            phase covers. For feedback this is the whole row — \
+                                            what somebody said, in their words, because \
+                                            feedback has no title to invent. It is what lists \
+                                            show, so a row \
                                             without one means something only to whoever wrote \
                                             it.\n\n\
                                             Write it like a person, not like a release note. No \

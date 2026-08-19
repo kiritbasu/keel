@@ -205,12 +205,30 @@ impl EntityType {
     /// store that way (KEEL-171), and a decision log that says what was chosen
     /// and nothing about why is the one shape it exists to prevent.
     ///
-    /// `Feedback` is in: what a customer said is the artifact. `Design` is out:
-    /// its content is the image, and a caption is a caption.
+    /// `Feedback` was in this list and is now out, which is worth explaining
+    /// because the reasoning that put it there — "what a customer said is the
+    /// artifact" — is still true. It is out because feedback's content column
+    /// is `summary`, it is `NOT NULL`, and §3.2 is explicit that it is called
+    /// that rather than `title` precisely so it holds what somebody said
+    /// rather than a name invented for it. So feedback fails the test in the
+    /// paragraph above for the same reason a task does: the row still says
+    /// something without a body. The refusal also had to claim "there is no
+    /// summary column to fall back on" about the one type whose only content
+    /// column is exactly that.
+    ///
+    /// The verbatim still belongs in the body and is where an interview
+    /// transcript or the whole of what was said goes. It is no longer a
+    /// precondition of capture, because B-90 turns on filing a signal costing
+    /// no more than typing the thought did — and a rule that demands a second,
+    /// longer field for a one-line idea is answered either by writing it twice
+    /// or by padding, and padding is worse than nothing.
+    ///
+    /// `Design` is out for the older reason: its content is the image, and a
+    /// caption is a caption.
     pub const fn needs_prose(self) -> bool {
         matches!(
             self,
-            EntityType::Spec | EntityType::Decision | EntityType::Question | EntityType::Feedback
+            EntityType::Spec | EntityType::Decision | EntityType::Question
         )
     }
 

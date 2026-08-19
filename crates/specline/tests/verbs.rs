@@ -535,3 +535,121 @@ fn doctor_says_which_build_this_is_where_embeddings_are_concerned() {
         );
     }
 }
+
+// --- Filing a signal (KEEL-319) -------------------------------------------
+//
+// The Inbox's write path, driven the way a person drives it. Worth testing at
+// this layer specifically because everything interesting about a signal is
+// what it is *not* — not a task, not on the board, not in `next` — and none of
+// that is visible from the function underneath.
+
+#[test]
+fn a_signal_is_filed_with_only_the_thing_that_was_said() {
+    let (home, _task) = seeded();
+
+    let out = specline(
+        home.path(),
+        &[
+            "--force",
+            "signal",
+            "--project",
+            "harbour",
+            "this should work with codex",
+        ],
+    )
+    .expect_ok("file a signal");
+
+    assert!(out.contains("fbk_"), "a signal gets a feedback id: {out}");
+    // The line has to say where it went, because somebody who has just filed
+    // one will otherwise look for it on the board and conclude it was lost.
+    assert!(
+        out.contains("Inbox") && out.contains("untriaged"),
+        "the confirmation should say where it landed: {out}"
+    );
+}
+
+#[test]
+fn a_signal_keeps_who_said_it_and_when() {
+    let (home, _task) = seeded();
+
+    let out = specline(
+        home.path(),
+        &[
+            "--force",
+            "--json",
+            "signal",
+            "--project",
+            "harbour",
+            "this should work with codex",
+            "--source",
+            "Madhu",
+            "--kind",
+            "idea",
+            "--occurred-at",
+            "2026-08-18",
+        ],
+    )
+    .expect_ok("file a sourced signal");
+
+    let value: serde_json::Value = serde_json::from_str(&out).expect("--json should be json");
+    assert_eq!(value.get("source"), Some(&serde_json::json!("Madhu")));
+    assert_eq!(value.get("kind"), Some(&serde_json::json!("idea")));
+    assert_eq!(value.get("triaged"), Some(&serde_json::json!(false)));
+    assert!(
+        value
+            .get("occurred_at")
+            .and_then(|v| v.as_str())
+            .is_some_and(|t| t.starts_with("2026-08-18")),
+        "a bare date becomes midnight UTC rather than being refused: {out}"
+    );
+}
+
+/// The failure cases. Both are things a person will actually type, and both
+/// used to be the difference between a signal and a lost one.
+#[test]
+fn a_signal_refuses_a_time_it_cannot_read_and_says_what_it_would_take() {
+    let (home, _task) = seeded();
+
+    let out = specline(
+        home.path(),
+        &[
+            "--force",
+            "signal",
+            "--project",
+            "harbour",
+            "somebody said a thing",
+            "--occurred-at",
+            "last tuesday",
+        ],
+    )
+    .expect_failure("`last tuesday` is not a date");
+
+    assert!(
+        out.contains("2026-08-18"),
+        "the refusal should show a shape that would work: {out}"
+    );
+}
+
+#[test]
+fn a_signal_refuses_a_kind_that_is_not_one_and_lists_the_ones_that_are() {
+    let (home, _task) = seeded();
+
+    let out = specline(
+        home.path(),
+        &[
+            "--force",
+            "signal",
+            "--project",
+            "harbour",
+            "somebody said a thing",
+            "--kind",
+            "wish",
+        ],
+    )
+    .expect_failure("`wish` is not a feedback kind");
+
+    assert!(
+        out.contains("observation") && out.contains("competitor"),
+        "the refusal should list the values that exist: {out}"
+    );
+}

@@ -27,6 +27,7 @@ Commands:
   claim             Take a task: move it to in_progress and record who is on it
   close             Close a task, saying why and showing the work
   task              Create a task row
+  signal            File a signal into the Inbox — something somebody wants, before anybody has decided whether to build it
   help              Print this message or the help of the given subcommand(s)
 
 Options:
@@ -840,6 +841,58 @@ Options:
           Write to the store even though a daemon appears to be running.
           
           Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+
+===== signal =====
+
+File a signal into the Inbox — something somebody wants, before anybody has decided whether to build it.
+
+A signal is not a task. Nothing has been committed to, there is nothing to claim, and it stays out of `next` and out of the open count until somebody triages it. The only required argument is what was said, because capture that costs more than the thought did is capture that does not happen.
+
+Usage: specline signal [OPTIONS] --project <PROJECT> <SUMMARY>
+
+Arguments:
+  <SUMMARY>
+          What was said, in their words. Not a title — a signal has none
+
+Options:
+      --home <HOME>
+          Where the store lives. Defaults to `~/.specline`.
+          
+          `specline-core` never reads the environment; resolving this is the CLI's job, which is why the flag exists here and not there.
+          
+          [env: SPECLINE_HOME=]
+
+      --project <PROJECT>
+          Project id, slug or name
+
+      --json
+          Print machine-readable JSON instead of prose
+
+      --kind <KIND>
+          interview, support, sales, idea, competitor, observation
+          
+          [default: idea]
+
+      --force
+          Write to the store even though a daemon appears to be running.
+          
+          Every command that writes probes for a daemon first and refuses if one answers, because the daemon owns the single write path and a write that goes round it skips six of the seven steps. This is the escape for the cases where a person knows better — a wedged daemon, a store being repaired. A flag rather than an environment variable, so that using it shows up in a shell history.
+
+      --source <SOURCE>
+          Who said it, or where it came from
+
+      --contact <CONTACT>
+          How to reach them, if closing the loop will need it
+
+      --occurred-at <OCCURRED_AT>
+          When it was said, if that was not today
+
+      --body <BODY>
+          The verbatim, or the context. Optional, and kept when given
 
   -h, --help
           Print help (see a summary with '-h')

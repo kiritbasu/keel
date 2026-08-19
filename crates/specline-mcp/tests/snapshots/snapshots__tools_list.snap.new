@@ -1,10 +1,19 @@
+---
+source: crates/specline-mcp/tests/snapshots.rs
+assertion_line: 120
+expression: "specline_mcp::list_result()"
+---
 {
-  "count": 13,
-  "protocol": "2026-07-28",
+  "cacheScope": "public",
   "tools": [
     {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": true
+      },
       "description": "START HERE in any new conversation about a project. Returns a compact digest: what the project is, the active milestone, urgent and blocked work, recent decisions, every unresolved question, the glossary, what is deployed, and a suggested next action.\n\nCall this before reading files or asking the human what is going on — it is one call and roughly 3–4k tokens. With no `project`, returns a one-line roll-up of every project plus anything at risk.\n\nPass `cwd` when you are in a repository. It scopes the digest to whichever project owns that checkout, and if none does it tells you so directly — rather than returning other projects and leaving you to conclude that yours is missing.\n\nOpen questions and glossary terms are never truncated. A missing open question makes you re-litigate something already settled; a missing glossary term makes you use the wrong word for a domain concept. Everything else degrades and the response reports what it dropped.",
-      "input_schema": {
+      "inputSchema": {
         "properties": {
           "cwd": {
             "description": "The absolute directory you are working in. Resolves to the project whose checkout contains it, and — when nothing matches — says so plainly instead of leaving you to infer it from a list of other projects. Always pass this when you are working in a repository.",
@@ -47,11 +56,17 @@
         },
         "type": "object"
       },
-      "name": "specline_context"
+      "name": "specline_context",
+      "title": "Orient on a project"
     },
     {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": true
+      },
       "description": "Hybrid keyword and semantic search across every artifact that carries text, in every project. Use it to answer 'what do we know about X', 'has anyone raised this before', or 'what did customers say about onboarding'.\n\nSearches specs, decisions, questions, feedback and design captions by meaning and by keyword together, and tasks, milestones, terms, environments, artifacts and projects by keyword. Metrics are deliberately excluded — they are numbers, and reaching them is a filter rather than a search.\n\nPrefer a natural question over keywords; the semantic half is what makes 'why is billing slow' find a decision titled 'Aggregate hourly, not per-minute'.",
-      "input_schema": {
+      "inputSchema": {
         "properties": {
           "limit": {
             "default": 20,
@@ -118,11 +133,17 @@
         ],
         "type": "object"
       },
-      "name": "specline_search"
+      "name": "specline_search",
+      "title": "Search everything"
     },
     {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": true
+      },
       "description": "Fetch one or more artifacts by id, optionally with their prose body, their linked neighbours, or a diff between two revisions.\n\nUse `depth` to pull in the graph around something — `specline_get(ids: [spec_id], depth: 2)` answers 'what implements this spec, and what do those things depend on' in one call. Use `version` to read an older revision and `diff_against` to see what changed between two.",
-      "input_schema": {
+      "inputSchema": {
         "properties": {
           "depth": {
             "default": 0,
@@ -200,11 +221,17 @@
         ],
         "type": "object"
       },
-      "name": "specline_get"
+      "name": "specline_get",
+      "title": "Fetch by id"
     },
     {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": true
+      },
       "description": "List projects, or resolve a name to one. **Call this before creating a project, every time.** It fuzzy-matches on name, slug, aliases and repository URL, and when anything plausible matches it returns `requires_confirmation: true` with the candidates.\n\nWhen that happens, ask the human before creating anything. Nine near-duplicate projects is the failure mode that quietly ruins the cross-project view, and it is much cheaper to ask than to merge later.",
-      "input_schema": {
+      "inputSchema": {
         "properties": {
           "include_archived": {
             "default": false,
@@ -232,11 +259,17 @@
         },
         "type": "object"
       },
-      "name": "specline_projects"
+      "name": "specline_projects",
+      "title": "List and resolve projects"
     },
     {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": true
+      },
       "description": "Every mutation since a timestamp or an event cursor, oldest first. Use it to catch up: 'what happened since I last looked', or to see what another session did while you were working.\n\nPass the `cursor` from a previous response to continue exactly where you left off, with no gaps and no repeats.\n\nFor one row's own story, read its notes with `specline_get` — a note says what was learned, where an event says only which field moved.",
-      "input_schema": {
+      "inputSchema": {
         "properties": {
           "cursor": {
             "description": "An event id from a previous response. Takes precedence over `since`.",
@@ -273,11 +306,17 @@
         },
         "type": "object"
       },
-      "name": "specline_activity"
+      "name": "specline_activity",
+      "title": "What changed"
     },
     {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
       "description": "Create any of the thirteen artifact types. Returns the created artifact, so you never need to read it back.\n\nCreates are idempotent: calling twice with the same project, type and title returns the existing artifact with `created: false` rather than making a duplicate. Whitespace and capitalisation are normalised, so 'Add login page' and 'add  Login  Page' are one task.\n\nBefore creating a **project**, call `specline_projects` first and confirm with the human (see that tool). Prefer consolidating into fewer, larger artifacts: a project with forty trivial tasks that should be eight is worse than useless.",
-      "input_schema": {
+      "inputSchema": {
         "properties": {
           "body": {
             "description": "For prose-bearing types (spec, decision, question, feedback, design) this is written as the first document revision. For a task it is the short detail field — anything long-form belongs in a spec.\n\nWrite it the way you would say it to a colleague. Plain words, no padding, no sentence that exists to sound considered. Avoid \"leverage\", \"utilize\", \"robust\", \"seamless\", \"delve\", \"in order to\", \"it's worth noting\" — these are refused. Quoting an error message or what someone actually said is fine: put it in a code fence or a block quote and it is exempt.",
@@ -368,11 +407,17 @@
         ],
         "type": "object"
       },
-      "name": "specline_create"
+      "name": "specline_create",
+      "title": "Create an artifact"
     },
     {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
       "description": "Change fields on an existing artifact, including status transitions. Returns the updated artifact.\n\n**Not for prose.** A document body belongs to `specline_write_doc`, which versions it; this tool is for the fields around it — title, status, kind. Sending a body here would overwrite without a revision, and the previous author's text would be gone.\n\nPass the `version` you read. If someone else changed it since, the call is rejected with the current state and the events that happened in between, so you can usually merge and retry without asking anyone.\n\nAn accepted decision's content is immutable — supersede it with a new decision linked by `supersedes` rather than editing it. Use `archive: true` to soft-delete; nothing in Specline is ever really deleted.\n\nTo reorder a task, put `rank_after` or `rank_before` in `changes` naming another task — `{\"rank_after\": \"KEEL-12\"}` — rather than choosing a number. To make one task part of another, set `parent_id`; that is composition, and it is a different thing from `blocks`, which means \"must happen first\".\n\n**Two task transitions belong to their own tools.** Starting work is `specline_claim`, which records who is on it; finishing is `specline_close`, which asks for the reason, the message and the evidence together. A `status` of `done` or `wont_do` sent here is refused without all three, so reaching for this tool to close something only costs you a round trip.\n\nTo attach an image to a design or artifact that already exists, put `image_path` in `changes` with an absolute path — the daemon reads the file, so the bytes never enter your context.",
-      "input_schema": {
+      "inputSchema": {
         "properties": {
           "archive": {
             "default": false,
@@ -417,11 +462,17 @@
         ],
         "type": "object"
       },
-      "name": "specline_update"
+      "name": "specline_update",
+      "title": "Update an artifact"
     },
     {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
       "description": "Append a new revision of an artifact's prose body — for specs, decisions, questions, feedback and design captions.\n\nUse this whenever the *content* of a document changes. Use `specline_update` instead for the fields around it: title, status, kind. The two are separate because a body is versioned and a status is not, and conflating them would either version every status flip or lose the history of every edit.\n\nAlways send the **full** body, not a patch — the revision is a snapshot. The previous one is kept and stays readable by version, and `specline_get` will diff any two. Writing content identical to the current revision is a no-op rather than a new version, so regenerating a document you have not changed is safe.",
-      "input_schema": {
+      "inputSchema": {
         "properties": {
           "body": {
             "description": "The full markdown body.\n\nWrite it the way you would say it to a colleague. Plain words, no padding, no sentence that exists to sound considered. Avoid \"leverage\", \"utilize\", \"robust\", \"seamless\", \"delve\", \"in order to\", \"it's worth noting\" — these are refused. Quoting an error message or what someone actually said is fine: put it in a code fence or a block quote and it is exempt.",
@@ -460,11 +511,17 @@
         ],
         "type": "object"
       },
-      "name": "specline_write_doc"
+      "name": "specline_write_doc",
+      "title": "Write a document revision"
     },
     {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "readOnlyHint": false
+      },
       "description": "Append a note to any artifact — a finding, a gotcha, a measurement, a reason something was harder than expected. Use it the moment you learn something worth the next session knowing, not at the end.\n\nThis is the tool for the sentence that starts 'turns out…'. A task's status says a colour; its notes say what actually happened. Prefer a note over rewriting the artifact's body: notes accumulate and stay attributed to the conversation that wrote them, whereas a body is overwritten and the previous author's finding is gone.\n\nDo not ask permission first — record it, then say in one line that you did. Notes are append-only: to withdraw one, pass `retract` with its id.\n\n`body` is required unless you are passing `list` or `retract`.",
-      "input_schema": {
+      "inputSchema": {
         "properties": {
           "body": {
             "description": "The note. One or two sentences beats a heading — say what you found and why it matters.\n\nWrite it the way you would say it to a colleague. Plain words, no padding, no sentence that exists to sound considered. Avoid \"leverage\", \"utilize\", \"robust\", \"seamless\", \"delve\", \"in order to\", \"it's worth noting\" — these are refused. Quoting an error message or what someone actually said is fine: put it in a code fence or a block quote and it is exempt.",
@@ -504,11 +561,17 @@
         ],
         "type": "object"
       },
-      "name": "specline_note"
+      "name": "specline_note",
+      "title": "Record what you learned about something"
     },
     {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
       "description": "Create or remove a typed edge. Direction matters and reads left to right: `from` does the verb to `to`.\n\nA task **implements** a spec. A blocker **blocks** the thing waiting on it. A newer decision **supersedes** an older one. A decision **resolves** a question. Feedback **informs** a spec. If you find yourself wanting to say 'A depends on B', use `depends_on` and Specline will store it the right way round.\n\nUse `anchor` to link to one requirement inside a spec (`REQ-4`) rather than the whole document — that is what makes traceability answerable per requirement.",
-      "input_schema": {
+      "inputSchema": {
         "properties": {
           "anchor": {
             "description": "A block inside the target, e.g. `REQ-4`. Omit for a whole-artifact link.",
@@ -572,11 +635,17 @@
         ],
         "type": "object"
       },
-      "name": "specline_link"
+      "name": "specline_link",
+      "title": "Link two artifacts"
     },
     {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": true
+      },
       "description": "The answer to 'what should I do next', ranked. Open work with nothing live in its way, best first.\n\nCall this rather than `specline_context` when the project is already familiar and the question is only what to pick up — the digest costs roughly 3,500 tokens and this costs a fraction of it.\n\nThe order is deliberate: **what a task unblocks comes before its priority**, so a p1 that releases three other tasks ranks above a p0 that releases nothing. Each row carries the reason it is where it is.\n\nParents are excluded, because their children are the actual work. Decisions waiting on a human are excluded too — they are in `specline_context`'s open questions, and nothing can start on them until someone answers.\n\nThen `specline_claim` the one you pick, so the row says who is on it.",
-      "input_schema": {
+      "inputSchema": {
         "properties": {
           "labels": {
             "description": "Only tasks carrying **all** of these labels.",
@@ -633,11 +702,17 @@
         ],
         "type": "object"
       },
-      "name": "specline_next"
+      "name": "specline_next",
+      "title": "What can be worked on right now"
     },
     {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
       "description": "Move a task to `in_progress` and record that this session is doing it. Call this **before** the work, not after — the point is that someone looking at the board can see what is happening now rather than only what has finished.\n\nRefused if another session is already holding it, and the refusal names that session. A claim releases itself after three days, so a conversation that died mid-task does not hold work hostage, and `force` takes a live claim deliberately. Closing releases it immediately.\n\nRe-claiming your own task is a no-op, so a retry costs nothing.\n\nThis needs your `session_id`. It is the one call that is refused without one: everywhere else an anonymous write is merely less traceable, but a claim naming nobody says the task is taken and not by whom.",
-      "input_schema": {
+      "inputSchema": {
         "properties": {
           "force": {
             "default": false,
@@ -673,11 +748,17 @@
         ],
         "type": "object"
       },
-      "name": "specline_claim"
+      "name": "specline_claim",
+      "title": "Take a task, so the row says who is on it"
     },
     {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "readOnlyHint": false
+      },
       "description": "Close a task with a reason, a message, and — for `done` — evidence. This is the tool for finishing work; `specline_update` can move a status but will refuse a terminal one without all of this, so use this instead of working around it.\n\nThe five reasons:\n- `done` — finished. Needs a message and at least one piece of evidence.\n- `wont_do` — deliberately not doing it. Needs a message.\n- `duplicate` — the same work as another task. Names it, and draws a `duplicates` edge.\n- `superseded` — replaced by another task. Names it, and draws a `supersedes` edge.\n- `no_change` — looked at it, nothing needed doing. Needs a message.\n\nEvidence is typed so that 'what shipped this week, with the commits' is a query rather than prose: `commit:<sha>`, `pr:<url>`, `test:<command>`, `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`. A bare sha is refused.\n\nThe message is the one sentence that belongs to the transition. Anything else you learned along the way belongs in `specline_note`, which keeps accumulating.",
-      "input_schema": {
+      "inputSchema": {
         "properties": {
           "evidence": {
             "description": "Typed proof, at least one for `done`: `commit:<sha>`, `pr:<url>`, `test:<command>`, `doc:<entity-id>`, `url:<url>`, `image:<blob-id>`.",
@@ -736,7 +817,9 @@
         ],
         "type": "object"
       },
-      "name": "specline_close"
+      "name": "specline_close",
+      "title": "Finish a task, saying why and showing the work"
     }
-  ]
+  ],
+  "ttlMs": 86400000
 }

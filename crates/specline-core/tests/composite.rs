@@ -11,8 +11,8 @@
 mod faults;
 
 use specline_core::{
-    Actor, Decision, Design, EntityId, EntityQuery, EntityStore, EntityType, Project, Provenance,
-    Question, Spec, Store, Task,
+    Actor, Decision, Design, EntityId, EntityQuery, EntityStore, EntityType, Feedback, Project,
+    Provenance, Question, Spec, Store, Task,
 };
 
 fn prov() -> Provenance {
@@ -323,6 +323,62 @@ fn a_task_still_needs_no_body_because_its_summary_carries_the_meaning() {
         .expect("a task's summary is its content, and it is required already");
     assert!(created.created);
     assert!(created.document.is_none());
+}
+
+/// Feedback used to be in the prose-bearing set, on the reasoning that what a
+/// customer said is the artifact. It came out because its content column is
+/// `summary`, it is required, and §3.2 is explicit that it is named that rather
+/// than `title` so that it holds what was said instead of a name invented for
+/// it. So feedback passes the same test a task does — and the refusal had to
+/// claim "there is no summary column to fall back on" about the one type whose
+/// only content column is exactly that.
+///
+/// This is what makes six-second capture possible: B-90 turns on filing a
+/// signal costing no more than typing the thought did, and demanding a second,
+/// longer field for a one-line idea is answered by writing it twice or by
+/// padding.
+#[test]
+fn a_signal_can_be_captured_with_only_the_thing_that_was_said() {
+    let (_d, mut store, project) = fixture();
+
+    let created = store
+        .create_with_document(
+            Feedback::new(project.clone(), "this should work with codex").into(),
+            None,
+            None,
+            &prov(),
+        )
+        .expect("what somebody said is in the summary, and the summary is required");
+    assert!(created.created);
+    assert!(
+        created.document.is_none(),
+        "no body was supplied, so there is no revision to write"
+    );
+}
+
+/// And the verbatim still lands as a revision when there is one — coming out of
+/// the required set must not mean the body stopped being written, which would
+/// lose the interview transcript rather than merely stop demanding it.
+#[test]
+fn a_signal_with_a_verbatim_still_keeps_it() {
+    let (_d, mut store, project) = fixture();
+
+    let created = store
+        .create_with_document(
+            Feedback::new(project.clone(), "Onboarding felt slow").into(),
+            Some("Twenty minutes before I saw anything happen.".to_owned()),
+            None,
+            &prov(),
+        )
+        .expect("a signal with a verbatim is the ordinary case");
+    let document = created
+        .document
+        .expect("the verbatim is written as revision 1");
+    assert_eq!(
+        document.body,
+        "Twenty minutes before I saw anything happen."
+    );
+    assert_eq!(document.version, 1);
 }
 
 /// A design's content is the image. A caption is a caption, and requiring one

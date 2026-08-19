@@ -586,6 +586,36 @@ enum Command {
         #[arg(long, default_value = "p2")]
         priority: String,
     },
+    /// File a signal into the Inbox — something somebody wants, before
+    /// anybody has decided whether to build it.
+    ///
+    /// A signal is not a task. Nothing has been committed to, there is
+    /// nothing to claim, and it stays out of `next` and out of the open
+    /// count until somebody triages it. The only required argument is
+    /// what was said, because capture that costs more than the thought
+    /// did is capture that does not happen.
+    Signal {
+        /// Project id, slug or name.
+        #[arg(long)]
+        project: String,
+        /// What was said, in their words. Not a title — a signal has none.
+        summary: String,
+        /// interview, support, sales, idea, competitor, observation.
+        #[arg(long, default_value = "idea")]
+        kind: String,
+        /// Who said it, or where it came from.
+        #[arg(long)]
+        source: Option<String>,
+        /// How to reach them, if closing the loop will need it.
+        #[arg(long)]
+        contact: Option<String>,
+        /// When it was said, if that was not today.
+        #[arg(long)]
+        occurred_at: Option<String>,
+        /// The verbatim, or the context. Optional, and kept when given.
+        #[arg(long)]
+        body: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -751,6 +781,28 @@ fn main() -> Result<()> {
                 body: body.clone(),
                 status,
                 priority,
+            },
+            cli.force,
+            cli.json,
+        ),
+        Command::Signal {
+            project,
+            summary,
+            kind,
+            source,
+            contact,
+            occurred_at,
+            body,
+        } => run_signal_add(
+            &home,
+            SignalDraft {
+                project,
+                summary,
+                kind,
+                source: source.clone(),
+                contact: contact.clone(),
+                occurred_at: occurred_at.clone(),
+                body: body.clone(),
             },
             cli.force,
             cli.json,
@@ -1218,6 +1270,90 @@ struct TaskDraft<'a> {
     body: Option<String>,
     status: &'a str,
     priority: &'a str,
+}
+
+/// Read `--occurred-at`, accepting a bare date as well as a full timestamp.
+///
+/// A bare date is the common case by a wide margin — somebody recording what
+/// was said in a conversation last Tuesday knows the day and not the minute —
+/// and it becomes midnight UTC rather than being refused. Refusing it would
+/// push callers towards inventing a time, which is worse than a coarse one:
+/// an invented time cannot be told apart from a real one afterwards.
+fn parse_occurred_at(raw: &str) -> Result<chrono::DateTime<chrono::Utc>> {
+    use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+
+    if let Ok(t) = DateTime::parse_from_rfc3339(raw) {
+        return Ok(t.with_timezone(&Utc));
+    }
+    if let Ok(d) = NaiveDate::parse_from_str(raw, "%Y-%m-%d") {
+        return Utc
+            .from_local_datetime(&d.and_hms_opt(0, 0, 0).context(
+                "a date with no valid midnight, which should not be reachable for a real date",
+            )?)
+            .single()
+            .context("that date has no single UTC midnight");
+    }
+    anyhow::bail!(
+        "could not read `{raw}` as a time. Give a date like 2026-08-18, or a full \
+         timestamp like 2026-08-18T17:03:00Z"
+    )
+}
+
+/// The arguments of a signal, for the same reason [`TaskDraft`] exists: they
+/// arrive together from one clap variant.
+struct SignalDraft<'a> {
+    project: &'a str,
+    summary: &'a str,
+    kind: &'a str,
+    source: Option<String>,
+    contact: Option<String>,
+    occurred_at: Option<String>,
+    body: Option<String>,
+}
+
+/// File a signal, and say what it is and is not on the way out.
+///
+/// Written through `create_with_document` rather than `create` so that a
+/// verbatim supplied with `--body` lands as revision 1 — the same path the
+/// MCP surface takes, so a signal filed from a terminal is indistinguishable
+/// from one filed from a session apart from its `surface`.
+///
+/// The human-readable line says the row is not on the board, because the whole
+/// point of a signal is that it does not compete with committed work, and
+/// somebody who has just filed one will otherwise go looking for it there.
+fn run_signal_add(home: &Path, draft: SignalDraft<'_>, force: bool, json: bool) -> Result<()> {
+    use specline_core::{Actor, Feedback, FeedbackKind, Provenance, Surface};
+
+    let mut store =
+        writes::open_for_write(home, &writes::daemon_url_for(home), force, "file a signal")?;
+    let found = resolve_project(&store, draft.project)?;
+    let prov = Provenance::anonymous(Actor::Human).with_surface(Surface::Cli);
+
+    let mut signal = Feedback::new(found.id().clone(), draft.summary);
+    signal.kind = FeedbackKind::parse(draft.kind)?;
+    signal.source = draft.source;
+    signal.contact = draft.contact;
+    signal.occurred_at = draft
+        .occurred_at
+        .as_deref()
+        .map(parse_occurred_at)
+        .transpose()?;
+
+    let created = store.create_with_document(signal.into(), draft.body, None, &prov)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&created.entity)?);
+    } else if created.created {
+        println!(
+            "{} — filed in the Inbox, untriaged. Not on the board and not in `next`.",
+            created.entity.id()
+        );
+    } else {
+        println!(
+            "{} — already existed, returned unchanged",
+            created.entity.id()
+        );
+    }
+    Ok(())
 }
 
 fn run_task_add(home: &Path, draft: TaskDraft<'_>, force: bool, json: bool) -> Result<()> {

@@ -307,3 +307,80 @@ fn recording_a_measurement_against_no_metric_says_how_to_find_one() {
         "the refusal should say how to find the metric: {error}"
     );
 }
+
+/// Feedback is the one type whose column is `summary` rather than `title`, and
+/// §3.2 says why: what somebody said has no name, so titling it would mean
+/// inventing one. The create path nonetheless required `title` and refused
+/// `summary` — the field the table actually has — so a caller who had read the
+/// schema was told "feedback needs a name" about a column that does not exist.
+#[test]
+fn a_signal_is_created_from_the_summary_the_table_actually_has() {
+    let mut f = fixture();
+    let created = call(
+        &mut f.store,
+        "specline_create",
+        json!({
+            "type": "feedback",
+            "project": "edges",
+            "summary": "Specline should work with OpenAI Codex, not only Claude Code",
+            "fields": {"kind": "idea", "source": "Madhu"},
+        }),
+    )
+    .expect("`summary` is the column feedback has");
+
+    let entity = created.pointer("/structuredContent/entity").unwrap();
+    assert_eq!(
+        entity.get("summary"),
+        Some(&json!(
+            "Specline should work with OpenAI Codex, not only Claude Code"
+        ))
+    );
+    assert_eq!(entity.get("kind"), Some(&json!("idea")));
+    assert_eq!(entity.get("source"), Some(&json!("Madhu")));
+    assert_eq!(
+        entity.get("triaged"),
+        Some(&json!(false)),
+        "a new signal is untriaged, which is what puts it in the Inbox"
+    );
+}
+
+/// And the spelling that already worked keeps working, for the same reason the
+/// metric fix kept both: moving the argument rather than widening where it is
+/// looked for would be the same bug pointing the other way.
+#[test]
+fn a_signal_can_still_be_created_from_a_title() {
+    let mut f = fixture();
+    let created = call(
+        &mut f.store,
+        "specline_create",
+        json!({"type": "feedback", "project": "edges", "title": "Onboarding felt slow"}),
+    )
+    .expect("the older spelling is what existing callers send");
+    assert_eq!(
+        created.pointer("/structuredContent/entity/summary"),
+        Some(&json!("Onboarding felt slow"))
+    );
+}
+
+/// The failure case. A signal with neither has nothing in it, and the refusal
+/// has to name `summary` — pointing a caller at `title` would send them to a
+/// column the table does not have, which is how this went wrong in the first
+/// place.
+#[test]
+fn a_signal_with_nothing_said_in_it_is_refused_by_the_right_name() {
+    let mut f = fixture();
+    let error = call(
+        &mut f.store,
+        "specline_create",
+        json!({"type": "feedback", "project": "edges", "fields": {"kind": "idea"}}),
+    )
+    .expect_err("a signal is what somebody said, so there has to be something said");
+    assert!(
+        error.contains("summary"),
+        "the refusal should name the column that exists: {error}"
+    );
+    assert!(
+        !error.contains("needs a name"),
+        "feedback has no name to need: {error}"
+    );
+}
