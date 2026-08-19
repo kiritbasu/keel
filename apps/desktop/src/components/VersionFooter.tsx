@@ -180,6 +180,13 @@ export function VersionFooter({
           // itself. A refetch, not a reload — nothing has restarted.
           onStaged();
           break;
+        case "already_staged":
+          // Reachable in one ordinary way: press the button, decline the
+          // restart, press it again. Saying "up to date" there would be false
+          // with the update sitting on disk, and saying "staged" would claim
+          // this press found it.
+          onStaged();
+          break;
         case "up_to_date":
           setCheckResult(`${r.version ?? version} is the latest release.`);
           break;
@@ -308,7 +315,7 @@ export function VersionFooter({
         useful button is the one that takes it — offering a second look at that
         point is asking a question the daemon has already answered.
 
-        It is here at all because waiting up to an hour was the only way to find
+        It is here at all because waiting up to half an hour was the only way to find
         out, and "I checked and there is nothing" looked identical to "I have
         not looked since before it was published" (KEEL-258).
       */}

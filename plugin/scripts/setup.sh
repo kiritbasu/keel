@@ -25,7 +25,7 @@
 #
 # ## What leaves your machine
 #
-# One thing: an hourly GET of the latest release manifest, so the daemon can
+# One thing: a half-hourly GET of the latest release manifest, so the daemon can
 # tell you a new version exists. It sends nothing from your store — not a
 # project name, not a count, not an identifier. `--no-update-check` turns it off
 # at install time, `SPECLINE_AUTO_UPDATE=0` turns it off afterwards, and `specline
@@ -434,16 +434,16 @@ printf '  Embeddings %s\n' \
     "$([ "$EMBEDDINGS" = true ] && echo "on" || echo "off — keyword search works either way")"
 printf '  Updates    %s\n\n' \
     "$([ "$UPDATE_CHECK" = true ] \
-        && echo "checks hourly for a new release — see below" \
+        && echo "checks every half hour for a new release — see below" \
         || echo "off — Specline makes no network requests at all")"
 
 # Said plainly, every install, whichever way it is set. A tool whose pitch is
 # that your project stays on your machine has to be the one that mentions its
 # own network request; discovering it later is the version that costs trust.
 if [ "$UPDATE_CHECK" = true ]; then
-    printf '  \033[1mWhat leaves your machine:\033[0m one hourly request, fetching the latest\n'
-    printf '  release manifest so Specline can tell you a new version exists. It sends\n'
-    printf '  nothing from your store — no project names, no counts, no identifier.\n'
+    printf '  \033[1mWhat leaves your machine:\033[0m one request every half hour, fetching the\n'
+    printf '  latest release manifest so Specline can tell you a new version exists. It\n'
+    printf '  sends nothing from your store — no project names, no counts, no identifier.\n'
     printf '  Turn it off with SPECLINE_AUTO_UPDATE=0, or re-run this with\n'
     printf '  --no-update-check. `specline doctor` says which it is and when it last ran.\n\n'
 fi

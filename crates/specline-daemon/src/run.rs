@@ -254,7 +254,7 @@ pub async fn run() -> Result<()> {
     // SIGKILL — which is how an ART index ends up disagreeing with its table,
     // and how this project spent an evening chasing a store that looked
     // corrupt while `fsck` insisted it was clean.
-    spawn_update_check();
+    spawn_update_check(state.clone());
 
     let deadline = std::time::Duration::from_secs(5);
     let serving = axum::serve(listener, app).with_graceful_shutdown(shutdown());
@@ -387,6 +387,45 @@ pub(crate) fn reexec() {
     tracing::info!("updated. Restart the daemon to run the new version.");
 }
 
+/// How long to wait between update checks, given `SPECLINE_UPDATE_INTERVAL`.
+///
+/// A day was the wrong number and was chosen for the wrong project: it suits a
+/// tool whose releases are rare, and Specline's currently land every few hours.
+/// Half an hour is the default, and the variable takes seconds, because the
+/// right number now is not the right number in six months and neither is worth
+/// a release to change.
+///
+/// Nothing is applied by finding an update, so a short interval costs a request
+/// and a staged file rather than a surprise restart — which is what made a day
+/// feel like the safe choice in the first place.
+///
+/// The cost was measured rather than guessed before halving it again
+/// (KEEL-317). A check that finds nothing is one unauthenticated GET of
+/// `specline-release.json` — 1,545 bytes, around 0.3s — because
+/// `check_and_stage` reads the manifest first and only downloads the 11 MB
+/// archive on `Plan::Apply`. So the download is once per release rather than
+/// once per check, and half-hourly is 48 requests and ~74 KB a day.
+///
+/// The floor is a minute and it is deliberate: this makes an unauthenticated
+/// request to somebody else's server, and a mistyped variable should not turn
+/// a laptop into a scraper. A value under it is ignored rather than clamped,
+/// because the person who wrote `1` meant something the floor cannot honour
+/// and should get the default rather than a number they did not choose.
+///
+/// Extracted from the task it runs in so the three ways it can be wrong — the
+/// default, the parse and the floor — can be tested without waiting half an
+/// hour for any of them.
+fn check_interval(raw: Option<&str>) -> std::time::Duration {
+    const DEFAULT: u64 = 30 * 60;
+    const FLOOR: u64 = 60;
+
+    let seconds = raw
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .filter(|seconds| *seconds >= FLOOR)
+        .unwrap_or(DEFAULT);
+    std::time::Duration::from_secs(seconds)
+}
+
 /// Look for a newer release on a schedule, and stage one when it is safe.
 ///
 /// **This is the daemon's only outbound request.** Nothing else in this process
@@ -401,7 +440,7 @@ pub(crate) fn reexec() {
 /// The first check waits five minutes. Starting the daemon should not depend on
 /// the network being up, and a machine that has just booted is the case where
 /// it most often is not.
-fn spawn_update_check() {
+fn spawn_update_check(state: AppState) {
     if !specline_update::auto_update_enabled() {
         tracing::info!("automatic update checks are off (SPECLINE_AUTO_UPDATE=0)");
         return;
@@ -423,23 +462,8 @@ fn spawn_update_check() {
     };
 
     tokio::spawn(async move {
-        // A day was the wrong number and was chosen for the wrong project: it
-        // suits a tool whose releases are rare, and Specline's currently land every
-        // few hours. An hour is the new default, and `SPECLINE_UPDATE_INTERVAL`
-        // takes seconds, because the right number now is not the right number
-        // in six months and neither is worth a release to change.
-        //
-        // Nothing is applied by finding an update, so a short interval costs a
-        // request and a staged file rather than a surprise restart — which is
-        // what made a day feel like the safe choice in the first place.
         let settle = std::time::Duration::from_secs(5 * 60);
-        let interval = std::time::Duration::from_secs(
-            std::env::var("SPECLINE_UPDATE_INTERVAL")
-                .ok()
-                .and_then(|raw| raw.trim().parse::<u64>().ok())
-                .filter(|seconds| *seconds >= 60)
-                .unwrap_or(60 * 60),
-        );
+        let interval = check_interval(std::env::var("SPECLINE_UPDATE_INTERVAL").ok().as_deref());
         tokio::time::sleep(settle).await;
 
         let stamp_dir = dir.clone();
@@ -468,9 +492,25 @@ fn spawn_update_check() {
             }
 
             match outcome {
-                Ok(Ok(specline_update::Plan::Apply { version, .. })) => tracing::info!(
+                Ok(Ok(specline_update::Plan::Apply { version, .. })) => {
+                    tracing::info!(
+                        %version,
+                        "staged Specline {version}; it will be applied the next time the daemon \
+                         starts"
+                    );
+                    // Told, not just logged. The app refetches health on any
+                    // announced change, and this is the only thing that makes
+                    // an update appear in the footer without waiting for an
+                    // unrelated write to the store (KEEL-317).
+                    state.announce_update(&version);
+                }
+                // Already staged, so nothing was downloaded and nothing is new.
+                // Not announced: the app was told when it was staged, and
+                // repeating it every interval would make the footer refetch
+                // health for the rest of the day over one update.
+                Ok(Ok(specline_update::Plan::AlreadyStaged { version })) => tracing::debug!(
                     %version,
-                    "staged Specline {version}; it will be applied the next time the daemon starts"
+                    "Specline {version} is already staged; waiting for a restart"
                 ),
                 Ok(Ok(specline_update::Plan::NeedsAPerson { version, from, to })) => {
                     tracing::info!(
@@ -532,6 +572,49 @@ mod tests {
 
     fn addr(s: &str) -> SocketAddr {
         s.parse().unwrap()
+    }
+
+    #[test]
+    fn the_default_is_half_an_hour() {
+        assert_eq!(check_interval(None).as_secs(), 30 * 60);
+    }
+
+    #[test]
+    fn a_number_of_seconds_is_honoured() {
+        assert_eq!(check_interval(Some("900")).as_secs(), 900);
+        // Whitespace is what a shell export picks up by accident.
+        assert_eq!(check_interval(Some("  120  ")).as_secs(), 120);
+    }
+
+    #[test]
+    fn the_floor_is_a_minute_exactly() {
+        assert_eq!(check_interval(Some("60")).as_secs(), 60);
+    }
+
+    /// The failure cases, which are the point of the floor and the parse.
+    ///
+    /// Every one of these falls back to the default rather than to something
+    /// smaller. A mistyped variable that produced a one-second interval would
+    /// make this daemon hammer github.com, and it would do it quietly.
+    #[test]
+    fn anything_unusable_falls_back_to_the_default() {
+        for raw in [
+            "0",
+            "1",
+            "59",
+            "-30",
+            "",
+            "   ",
+            "half an hour",
+            "30m",
+            "1e3",
+        ] {
+            assert_eq!(
+                check_interval(Some(raw)).as_secs(),
+                30 * 60,
+                "{raw:?} should have fallen back to the default"
+            );
+        }
     }
 
     /// The default, and the only shape that should ever be silent.

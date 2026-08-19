@@ -553,8 +553,8 @@ fn update_check() -> Check {
 
     let detail = match last {
         Some(stamp) if stamp.error.is_none() => format!(
-            "on — fetches the release manifest hourly, sending nothing from the store. \
-             Last checked {}",
+            "on — fetches the release manifest every half hour, sending nothing from the \
+             store. Last checked {}",
             stamp.at
         ),
         Some(stamp) => format!(
@@ -562,12 +562,12 @@ fn update_check() -> Check {
             stamp.at,
             stamp.error.unwrap_or_default()
         ),
-        // No stamp is the ordinary state for a daemon that has not been up an
-        // hour, and also what a daemon too old to record one looks like. Both
+        // No stamp is the ordinary state for a daemon that has not been up
+        // half an hour, and also what a daemon too old to record one looks like. Both
         // mean the same thing to a reader: nothing here can tell you the check
         // is working.
-        None => "on — fetches the release manifest hourly, sending nothing from the store. \
-                 No completed check on record"
+        None => "on — fetches the release manifest every half hour, sending nothing from the \
+                 store. No completed check on record"
             .to_owned(),
     };
 

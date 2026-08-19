@@ -101,7 +101,7 @@ specline doctor
 ### What leaves your machine
 
 One thing, and you should hear it here rather than find it later. The daemon
-checks for a new release once an hour. It sends nothing from your store: no
+checks for a new release every half hour. It sends nothing from your store: no
 project names, no counts, no identifier. Nothing installs without you agreeing
 to the restart.
 

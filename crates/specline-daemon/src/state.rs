@@ -41,6 +41,17 @@ pub enum ChangeKind {
     Entity,
     /// A note appended to a row's commentary.
     Note,
+    /// A release was downloaded, verified and staged, and is waiting for a
+    /// restart.
+    ///
+    /// Nothing was written to the store, so this is the second kind — after
+    /// `Note` — that the event log cannot see. Before it existed the update
+    /// task staged a release and told nobody: the app refetches health when a
+    /// change arrives, and a change only arrived when somebody happened to
+    /// write to the store, so an update could sit there ready for hours while
+    /// the footer said nothing (KEEL-317). Checking more often does not fix
+    /// that; the daemon knowing and not saying is the whole of it.
+    Update,
 }
 
 /// Everything a request handler needs.
@@ -386,6 +397,20 @@ impl AppState {
             event_id: Some(event_id),
             entity_id: None,
             summary: summary.into(),
+        });
+    }
+
+    /// Announce that a release is staged and waiting for a restart.
+    ///
+    /// Carries the version as the summary rather than the entity id, which is
+    /// meaningless here — there is no row. A subscriber that does not know the
+    /// kind refetches, which is the right thing to do anyway.
+    pub fn announce_update(&self, version: &str) {
+        let _ = self.changes.send(Change {
+            kind: ChangeKind::Update,
+            event_id: None,
+            entity_id: None,
+            summary: format!("{version} is staged and waiting for a restart"),
         });
     }
 

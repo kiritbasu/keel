@@ -92,6 +92,24 @@ pub enum Plan {
         /// The archive to fetch.
         artifact: String,
     },
+    /// This exact version is already staged and waiting for a restart.
+    ///
+    /// [`plan`] cannot reach this — it compares the *running* binary against
+    /// the manifest, and staging does not change the running binary, so once
+    /// something is staged every later check planned `Apply` for it again and
+    /// re-downloaded, re-verified, re-unpacked and re-staged bytes already on
+    /// disk. Harmless-looking, and it meant a daemon left running overnight
+    /// with an update pending fetched the same 11 MB archive every interval
+    /// until somebody restarted it (KEEL-317).
+    ///
+    /// So this is decided by [`check_and_stage`], which is the only layer that
+    /// can see the install directory. Its own outcome rather than `UpToDate`
+    /// because the two are opposite advice: one means there is nothing to take
+    /// and the other means there is something to take and it is already here.
+    AlreadyStaged {
+        /// The version sitting staged.
+        version: String,
+    },
     /// The schema moves, so a person decides.
     NeedsAPerson {
         /// The version that is published.
@@ -566,12 +584,53 @@ pub fn check_and_stage(install_dir: &Path, target: &str) -> Result<Plan> {
     )?;
 
     if let Plan::Apply { version, artifact } = &decision {
+        // Already here? Then stop, before the 11 MB.
+        //
+        // `plan` compares the running binary against the manifest and cannot
+        // see the install directory, so it goes on planning `Apply` for a
+        // version already staged — every interval, for as long as the daemon
+        // runs without being restarted. Checking here rather than teaching
+        // `plan` about the filesystem keeps that function pure and testable,
+        // which is the property that made the policy worth separating in the
+        // first place.
+        //
+        // A failure to read the marker is deliberately *not* fatal: the worst
+        // it costs is the redundant download this avoids, and refusing to
+        // check for updates because a file could not be read would be the
+        // larger fault.
+        if already_staged(install_dir, version) {
+            return Ok(Plan::AlreadyStaged {
+                version: version.clone(),
+            });
+        }
+
         let archive = download(work.path(), artifact)?;
         verify(&archive, artifact, &manifest)?;
         let unpacked = unpack(&archive, work.path(), target)?;
         stage(&unpacked, install_dir, version)?;
     }
     Ok(decision)
+}
+
+/// Is this exact version already staged and waiting?
+///
+/// The guard that stops [`check_and_stage`] re-fetching an archive already on
+/// disk. Its own function so the filesystem case can be tested — the call site
+/// is behind a network fetch, so a test there would need GitHub.
+///
+/// **Unreadable is answered `false`**, deliberately. The cost of being wrong
+/// that way is one redundant download; the cost of the other way is an update
+/// that silently never gets staged because a marker file could not be read.
+/// Between a wasted 11 MB and an update that never arrives, the download wins.
+fn already_staged(install_dir: &Path, version: &str) -> bool {
+    match staged_version(install_dir) {
+        Ok(Some(staged)) => staged == version,
+        Ok(None) => false,
+        Err(e) => {
+            tracing::debug!("could not read what is staged, so re-staging: {e:#}");
+            false
+        }
+    }
 }
 
 /// Restore the binaries kept by the last [`install_from`].
@@ -910,6 +969,19 @@ pub fn run(
             }
             Ok(())
         }
+        // Only `check_and_stage` produces this, and `run` calls `plan` directly,
+        // so the CLI cannot currently reach it. Answered properly anyway rather
+        // than with a catch-all: if the two ever converge, a wrong-but-plausible
+        // "up to date" is exactly the failure this crate keeps meeting.
+        Plan::AlreadyStaged { version } => {
+            if !json {
+                println!(
+                    "Specline {version} is already downloaded and waiting. Restart the daemon to \
+                     run it."
+                );
+            }
+            Ok(())
+        }
         Plan::NeedsAPerson { version, from, to } => {
             if !json {
                 println!(
@@ -970,6 +1042,11 @@ fn describe(plan: &Plan) -> serde_json::Value {
         Plan::Ahead { published } => {
             serde_json::json!({ "action": "none", "reason": "ahead", "published": published })
         }
+        Plan::AlreadyStaged { version } => serde_json::json!({
+            "action": "none",
+            "reason": "already_staged",
+            "version": version,
+        }),
         Plan::NeedsAPerson { version, from, to } => serde_json::json!({
             "action": "needs_a_person",
             "reason": "schema_change",
@@ -997,6 +1074,76 @@ mod tests {
             schema_version: schema,
             artifacts: BTreeMap::new(),
         }
+    }
+
+    /// The guard that stops an update being downloaded over and over.
+    ///
+    /// `plan` compares the *running* binary against the manifest and cannot see
+    /// the install directory, so once something is staged it goes on planning
+    /// `Apply` for it — and before this guard existed, a daemon left running
+    /// with an update pending re-downloaded, re-verified, re-unpacked and
+    /// re-staged the same 11 MB archive every interval until somebody
+    /// restarted it (KEEL-317). Halving the check interval doubled that.
+    #[test]
+    fn a_version_already_staged_is_not_staged_again() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(STAGED_VERSION), "0.2.0").unwrap();
+
+        assert!(
+            already_staged(dir.path(), "0.2.0"),
+            "the staged version is the candidate, so there is nothing to fetch"
+        );
+    }
+
+    /// The cases that must still download, which are what makes the guard safe
+    /// rather than merely cheap. Getting any of these wrong means an update
+    /// that never arrives — a far worse failure than a wasted download, and an
+    /// invisible one.
+    #[test]
+    fn anything_other_than_an_exact_match_still_stages() {
+        let dir = tempfile::tempdir().unwrap();
+
+        // Nothing staged at all: the ordinary first-time case.
+        assert!(
+            !already_staged(dir.path(), "0.2.0"),
+            "no marker means nothing is waiting"
+        );
+
+        // A *different* version staged. The newer release must replace it, not
+        // be skipped because the directory happens to be non-empty.
+        std::fs::write(dir.path().join(STAGED_VERSION), "0.1.9").unwrap();
+        assert!(
+            !already_staged(dir.path(), "0.2.0"),
+            "0.1.9 is staged and 0.2.0 is the candidate, so 0.2.0 must still be fetched"
+        );
+
+        // A marker that cannot be parsed as a version is still not a match.
+        std::fs::write(dir.path().join(STAGED_VERSION), "").unwrap();
+        assert!(
+            !already_staged(dir.path(), "0.2.0"),
+            "an empty marker vouches for nothing"
+        );
+    }
+
+    /// `AlreadyStaged` must not be confused with `UpToDate`.
+    ///
+    /// They are opposite advice — one means there is nothing to take, the other
+    /// means there is something to take and it is already here — and the JSON
+    /// is read by whatever watches `specline update --json`.
+    #[test]
+    fn already_staged_describes_itself_as_its_own_reason() {
+        let described = describe(&Plan::AlreadyStaged {
+            version: "0.2.0".to_owned(),
+        });
+        assert_eq!(described["action"], "none");
+        assert_eq!(described["reason"], "already_staged");
+        assert_eq!(described["version"], "0.2.0");
+
+        let up_to_date = describe(&Plan::UpToDate);
+        assert_ne!(
+            described["reason"], up_to_date["reason"],
+            "these are opposite advice and must not render the same"
+        );
     }
 
     /// A daemon-shaped thing on loopback, for the restart tests.

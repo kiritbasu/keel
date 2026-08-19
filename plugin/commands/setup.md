@@ -19,7 +19,7 @@ Code**: MCP servers are connected at startup, so the `specline_*` tools will not
 appear in this session however well the install went.
 
 Relay the "What leaves your machine" paragraph too, rather than summarising it
-away. Specline checks hourly for a new release and that is the only request it
+away. Specline checks every half hour for a new release and that is the only request it
 makes; the person installing a local-first tool is entitled to hear about it
 from the tool rather than find it later. `--no-update-check` turns it off at
 install time and `SPECLINE_AUTO_UPDATE=0` afterwards — if they say they would rather

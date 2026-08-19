@@ -176,3 +176,72 @@ async fn a_lagged_subscriber_is_told_and_the_daemon_keeps_serving() {
         .unwrap();
     assert_eq!(after.status(), 200);
 }
+
+/// A staged release reaches an open stream, without anything being written to
+/// the store.
+///
+/// The whole point of the `update` kind. Everything else the daemon announces
+/// is downstream of a write, so before this the update task staged a release
+/// and told nobody: the app refetches health when a change arrives, and a
+/// change only arrived when somebody happened to write. An update could sit
+/// there ready for hours while the footer said nothing (KEEL-317).
+///
+/// Note what this test does *not* do: it never touches the store. If this ever
+/// starts passing only because some incidental write is announced alongside,
+/// the thing being covered has gone.
+#[tokio::test]
+async fn a_staged_release_reaches_an_open_stream_with_no_write_at_all() {
+    let (base, state, _dir) = daemon().await;
+
+    let response = reqwest::Client::new()
+        .get(format!("{base}/api/events"))
+        .send()
+        .await
+        .unwrap();
+
+    // Subscribe first, then announce. The other order is a race.
+    let reading = tokio::spawn(read_until(
+        response,
+        "event: change",
+        Duration::from_secs(10),
+    ));
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    state.announce_update("0.9.9");
+
+    let seen = reading.await.unwrap();
+    let payload = seen
+        .lines()
+        .find_map(|line| line.strip_prefix("data: "))
+        .expect("the change should have carried a data line");
+    let change: Value = serde_json::from_str(payload).expect("the payload should be JSON");
+
+    assert_eq!(
+        change["kind"], "update",
+        "a staged release is not an entity write and must not claim to be: {change}"
+    );
+    assert_eq!(
+        change["event_id"],
+        Value::Null,
+        "nothing was written, so there is no event to point at: {change}"
+    );
+    assert!(
+        change["summary"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("0.9.9"),
+        "the version is the one useful thing in the summary: {change}"
+    );
+}
+
+/// Announcing with nobody listening is not an error.
+///
+/// The ordinary case: the update task runs on a daemon with no app open, and
+/// `broadcast::send` fails when there are no receivers. If that ever became a
+/// hard failure the update check would start erroring on exactly the machines
+/// where it matters least, and the log would fill with it.
+#[tokio::test]
+async fn announcing_an_update_with_nobody_listening_is_fine() {
+    let (_base, state, _dir) = daemon().await;
+    state.announce_update("0.9.9");
+}

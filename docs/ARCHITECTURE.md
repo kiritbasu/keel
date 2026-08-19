@@ -163,7 +163,7 @@ One axum server on `127.0.0.1:7654`, serving three things:
 It binds loopback only. There is no account, no cloud and no telemetry.
 
 One request leaves your machine: the daemon fetches the latest release manifest
-once an hour so it can tell you a new version exists. It sends nothing from your
+every half hour so it can tell you a new version exists. It sends nothing from your
 store. `SPECLINE_AUTO_UPDATE=0` turns it off, and with it off Specline makes no
 network requests at all.
 

@@ -453,7 +453,13 @@ export const api = {
    */
   checkForUpdate: () =>
     post<{
-      outcome: "up_to_date" | "staged" | "needs_a_person" | "ahead" | "failed";
+      outcome:
+        | "up_to_date"
+        | "staged"
+        | "already_staged"
+        | "needs_a_person"
+        | "ahead"
+        | "failed";
       version?: string;
       published?: string;
       release_notes?: string;
@@ -772,12 +778,16 @@ export function subscribe(
 /** One announced write. */
 export interface ChangeEvent {
   /**
-   * `entity` for anything that wrote an event; `note` for a note.
+   * `entity` for anything that wrote an event; `note` for a note; `update`
+   * for a release staged and waiting for a restart.
    *
    * Notes are announced separately because they are not events, and the daemon
-   * cannot see them by watching the event log (TQ-29).
+   * cannot see them by watching the event log (TQ-29). `update` is the same
+   * shape of problem one step further out: nothing is written to the store at
+   * all, so before it existed a staged release reached the footer only when
+   * some unrelated write happened to refresh health (KEEL-317).
    */
-  kind: "entity" | "note";
+  kind: "entity" | "note" | "update";
   /** The row it is about, when known. */
   entity_id?: string;
   /** One line describing it. */

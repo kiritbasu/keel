@@ -648,7 +648,7 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
 
 /// Look for a new release now, and stage it if it is safe to apply.
 ///
-/// The same call the hourly task makes, on a person's say-so instead of a
+/// The same call the scheduled task makes, on a person's say-so instead of a
 /// timer. It exists because there was no way to ask: KB published 0.1.5, opened
 /// the interface and saw nothing, and the reason was that the last automatic
 /// check had run twenty-four minutes before the release existed (KEEL-258).
@@ -664,7 +664,7 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
 /// `ahead`. The last is not exotic — anybody running an `-rc` is ahead of what
 /// `releases/latest` resolves to, and reporting that as "no update" would be
 /// true and useless.
-async fn api_update_check() -> Response {
+async fn api_update_check(State(state): State<AppState>) -> Response {
     if !specline_update::auto_update_enabled() {
         return bad_request(
             "update checks are switched off for this daemon (SPECLINE_AUTO_UPDATE=0), so it will \
@@ -692,7 +692,7 @@ async fn api_update_check() -> Response {
     let outcome =
         tokio::task::spawn_blocking(move || specline_update::check_and_stage(&dir, target)).await;
 
-    // Stamped whichever way it went, the same as the hourly task, so "when did
+    // Stamped whichever way it went, the same as the scheduled task, so "when did
     // this last check" has one answer regardless of who asked (KEEL-227).
     let failure = match &outcome {
         Ok(Ok(_)) => None,
@@ -717,6 +717,11 @@ async fn api_update_check() -> Response {
         .into_response(),
         Ok(Ok(specline_update::Plan::Apply { version, .. })) => {
             tracing::info!(%version, "staged {version} on request");
+            // Announced as well as answered. The window that pressed the button
+            // learns from the response, but a second one open on the same
+            // daemon would not — and "which window asked" is not a distinction
+            // an update waiting to be taken should depend on.
+            state.announce_update(&version);
             Json(json!({
                 "outcome": "staged",
                 "version": version,
@@ -724,6 +729,16 @@ async fn api_update_check() -> Response {
             }))
             .into_response()
         }
+        // Pressing the button with something already staged. Its own outcome
+        // rather than `staged`, which would claim this check found it, and
+        // certainly not `up_to_date`, which would say the opposite of the truth
+        // while an update sat on disk.
+        Ok(Ok(specline_update::Plan::AlreadyStaged { version })) => Json(json!({
+            "outcome": "already_staged",
+            "version": version,
+            "release_notes": specline_update::release_notes_url(&version),
+        }))
+        .into_response(),
         Ok(Ok(specline_update::Plan::NeedsAPerson { version, from, to })) => Json(json!({
             "outcome": "needs_a_person",
             "version": version,
