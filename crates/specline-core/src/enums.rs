@@ -129,10 +129,15 @@ string_enum! {
 /// Never stored and never accepted as input. Three of these come from counting
 /// the phase's tasks, one from its edges, and the last three are whatever was
 /// declared — see [`MilestoneStatus`] and B-57.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MilestoneState {
     /// No task has moved off `todo`.
+    ///
+    /// Also the default, which is the honest answer for a phase nothing is
+    /// known about: a milestone with no tasks under it derives to exactly this
+    /// anyway, so the fallback and the derivation agree.
+    #[default]
     Planned,
     /// A task has started and something is still open.
     Active,
@@ -196,6 +201,30 @@ pub struct TaskTally {
     pub closed: usize,
     /// Open and picked up: anything not `todo` and not closed.
     pub started: usize,
+}
+
+/// Where a phase has actually got to, as opposed to what its column says.
+///
+/// The three facts the roadmap needs to answer "is this moving, and how far
+/// through is it" without anyone having typed a date. They travel together
+/// because they come out of the same pair of queries and every caller wants
+/// all three: the digest, the tracker, and the API behind the roadmap screen.
+///
+/// This replaces a bare [`MilestoneState`], which was the derived half of the
+/// answer with the counts it was derived *from* thrown away — so the app
+/// recounted them in the browser and `render_status` recounted them again.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MilestoneProgress {
+    /// What the phase is doing, worked out from the rest.
+    pub state: MilestoneState,
+    /// How its live tasks are distributed.
+    pub tally: TaskTally,
+    /// When anything under it last moved, from the event log.
+    ///
+    /// `None` means nothing has ever happened to one of its tasks, which for a
+    /// release row is the normal case rather than a gap — releases carry no
+    /// tasks. Read it with the tally beside it, not alone.
+    pub last_activity: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl MilestoneState {

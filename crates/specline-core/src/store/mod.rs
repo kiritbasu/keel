@@ -600,20 +600,26 @@ impl Store {
         Ok(Page::new(items, total))
     }
 
-    /// Every milestone in a project, with the state derived from its tasks.
+    /// Every milestone in a project, with where it has actually got to.
     ///
-    /// Two queries for the whole project rather than three per phase. The
+    /// Three queries for the whole project rather than four per phase. The
     /// alternative is what the digest used to do for blocked tasks — walk once
     /// per row — and this is the same question one level up.
     ///
     /// Returned as a map because every caller has the milestones already and
-    /// wants the state beside them: the digest, the tracker, and the API that
-    /// hands them to the desktop app.
-    pub fn milestone_states(
+    /// wants the progress beside them: the digest, the tracker, and the API
+    /// that hands them to the desktop app.
+    ///
+    /// This used to return the derived state alone, which meant handing back a
+    /// conclusion and discarding the counts it was drawn from. Both other
+    /// callers then recounted: `render_status` filtered the task list itself,
+    /// and the roadmap screen had no counts at all, so its right-hand column
+    /// fell back to a target date nobody had ever set (KEEL-332).
+    pub fn milestone_progress(
         &self,
         project_id: &EntityId,
-    ) -> Result<std::collections::HashMap<EntityId, crate::MilestoneState>> {
-        use crate::{MilestoneState, MilestoneStatus, TaskTally};
+    ) -> Result<std::collections::HashMap<EntityId, crate::MilestoneProgress>> {
+        use crate::{MilestoneProgress, MilestoneState, MilestoneStatus, TaskTally};
 
         // The task distribution per phase. `closed` and `started` are built
         // from the enum predicates rather than spelled in SQL, for the reason
@@ -692,6 +698,45 @@ impl Store {
         drop(rows);
         drop(stmt);
 
+        // When each phase last moved. Events on its tasks rather than on the
+        // phase row: a milestone row is written once and then almost never
+        // again, so its own `updated_at` says when somebody renamed it, not
+        // when the work last progressed. Archived tasks are left in, because a
+        // task being archived is itself the phase moving.
+        let mut latest: std::collections::HashMap<String, chrono::DateTime<chrono::Utc>> =
+            Default::default();
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT t.milestone_id, max(e.at)
+                 FROM events e
+                 JOIN tasks t ON t.id = e.entity_id
+                 WHERE t.project_id = ?1 AND t.milestone_id IS NOT NULL
+                 GROUP BY t.milestone_id",
+            )
+            .map_err(Error::storage("prepare the per-phase activity query"))?;
+        let mut rows = stmt
+            .query([project_id.as_str()])
+            .map_err(Error::storage("run the per-phase activity query"))?;
+        while let Some(row) = rows
+            .next()
+            .map_err(Error::storage("read a per-phase activity time"))?
+        {
+            let id: String = row.get(0).map_err(Error::storage("read a milestone id"))?;
+            let at: Option<String> = row.get(1).ok();
+            // A timestamp that will not parse is dropped rather than defaulted.
+            // `Some(the epoch)` on the roadmap reads as "last touched in 1970",
+            // which is a worse answer than the blank the column already handles.
+            if let Some(parsed) = at
+                .as_deref()
+                .and_then(|v| chrono::DateTime::parse_from_rfc3339(v).ok())
+            {
+                latest.insert(id, parsed.with_timezone(&chrono::Utc));
+            }
+        }
+        drop(rows);
+        drop(stmt);
+
         let page = self.list(
             &EntityQuery::in_project(project_id.clone())
                 .of_type(EntityType::Milestone)
@@ -705,12 +750,16 @@ impl Store {
             };
             let key = m.id.as_str().to_owned();
             let declared: MilestoneStatus = m.status;
-            let state = MilestoneState::derive(
-                declared,
-                tallies.get(&key).copied().unwrap_or_default(),
-                blocked.contains(&key),
+            let tally: TaskTally = tallies.get(&key).copied().unwrap_or_default();
+            let state = MilestoneState::derive(declared, tally, blocked.contains(&key));
+            out.insert(
+                m.id,
+                MilestoneProgress {
+                    state,
+                    tally,
+                    last_activity: latest.get(&key).copied(),
+                },
             );
-            out.insert(m.id, state);
         }
         Ok(out)
     }

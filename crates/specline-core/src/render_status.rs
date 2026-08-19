@@ -79,12 +79,12 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
     // Derived, not read off the column. The column said Phase 9 for a week
     // after Phase 9 finished, and this line is what put that at the top of the
     // tracker and of every session's digest (B-57).
-    let states = store.milestone_states(project_id)?;
+    let states = store.milestone_progress(project_id)?;
     let in_flight: Vec<&Entity> = milestones
         .iter()
         .filter(|m| {
             matches!(
-                states.get(m.id()),
+                states.get(m.id()).map(|p| p.state),
                 Some(crate::MilestoneState::Active | crate::MilestoneState::Blocked)
             )
         })
@@ -134,15 +134,40 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
     writeln!(out)?;
 
     // --- Milestones ------------------------------------------------------
-    if !milestones.is_empty() {
+    //
+    // Split by kind. A release row carries no tasks, so listing it beside the
+    // phases put ten rows of `planned  0 / 0  —` in the middle of the one table
+    // a reader opens to see how the plan is going (KEEL-333).
+    let mut phase_rows: Vec<&Entity> = Vec::new();
+    let mut release_rows: Vec<&crate::Milestone> = Vec::new();
+    for m in &milestones {
+        match m {
+            Entity::Milestone(r) if r.kind == crate::MilestoneKind::Release => {
+                release_rows.push(r);
+            }
+            _ => phase_rows.push(m),
+        }
+    }
+
+    if !phase_rows.is_empty() {
         writeln!(out, "---")?;
         writeln!(out)?;
         writeln!(out, "## {}", plural(noun))?;
         writeln!(out)?;
-        writeln!(out, "| {noun} | Status | Target | Tasks done |")?;
+        // `Last activity` rather than `Target`. The target column was blank on
+        // eleven of fifteen phases and wrong on the other four — every one of
+        // them dated the day the store was seeded (KEEL-332). A date derived
+        // from the event log cannot go stale, and it answers the question the
+        // column was there for: is this phase moving.
+        //
+        // An absolute date, not "2 days ago". The table body has to be a pure
+        // function of the store or `generate --check` fails whenever a run
+        // straddles midnight, for the same reason the header carries no
+        // timestamp.
+        writeln!(out, "| {noun} | Status | Tasks done | Last activity |")?;
         writeln!(out, "|---|---|---|---|")?;
 
-        let mut sorted: Vec<&Entity> = milestones.iter().collect();
+        let mut sorted: Vec<&Entity> = phase_rows;
         sorted.sort_by_key(|m| match m {
             Entity::Milestone(m) => (m.sort_order.unwrap_or(i32::MAX), m.name.clone()),
             _ => (i32::MAX, String::new()),
@@ -152,27 +177,55 @@ pub fn render(store: &Store, project_id: &EntityId) -> Result<String> {
             let Entity::Milestone(milestone) = m else {
                 continue;
             };
-            let under: Vec<&Entity> = tasks
-                .iter()
-                .filter(|t| matches!(t, Entity::Task(t) if t.milestone_id.as_ref() == Some(&milestone.id)))
-                .collect();
-            let done = under
-                .iter()
-                .filter(|t| matches!(t, Entity::Task(t) if !t.status.is_open()))
-                .count();
+            // Counted by the store, not here. This file used to filter the
+            // task list itself while the digest counted the same rows in its
+            // own query, which is two answers to one question kept in step by
+            // nothing.
+            let progress = states.get(&milestone.id).copied().unwrap_or_default();
             writeln!(
                 out,
-                "| {} | `{}` | {} | {done} / {} |",
+                "| {} | `{}` | {} / {} | {} |",
                 milestone.name,
-                states
-                    .get(&milestone.id)
-                    .copied()
-                    .unwrap_or(crate::MilestoneState::Planned)
-                    .as_str(),
-                milestone
-                    .target_date
-                    .map_or("—".to_owned(), |d| d.to_string()),
-                under.len()
+                progress.state.as_str(),
+                progress.tally.closed,
+                progress.tally.total,
+                progress
+                    .last_activity
+                    .map_or("—".to_owned(), |t| t.date_naive().to_string()),
+            )?;
+        }
+        writeln!(out)?;
+    }
+
+    // --- Releases ----------------------------------------------------------
+    //
+    // What actually went out, as against what was planned. Ten versions had
+    // shipped before any of them was a row in the store, so "what shipped, and
+    // when" was answerable only from `git tag` — which is the one question the
+    // changelog beside this file exists to answer (KEEL-333).
+    if !release_rows.is_empty() {
+        release_rows.sort_by(|a, b| {
+            // By the date it went out. A version cut without a `sort_order`
+            // still lands in the right place, which matters because the next
+            // one is created by whoever cuts it.
+            a.shipped_at
+                .cmp(&b.shipped_at)
+                .then_with(|| a.name.cmp(&b.name))
+        });
+        writeln!(out, "---")?;
+        writeln!(out)?;
+        writeln!(out, "## Released")?;
+        writeln!(out)?;
+        writeln!(out, "| Version | Shipped | What went out |")?;
+        writeln!(out, "|---|---|---|")?;
+        for r in release_rows {
+            writeln!(
+                out,
+                "| {} | {} | {} |",
+                r.version_string.as_deref().unwrap_or(&r.name),
+                r.shipped_at
+                    .map_or("—".to_owned(), |t| t.date_naive().to_string()),
+                r.summary.as_deref().unwrap_or("—"),
             )?;
         }
         writeln!(out)?;

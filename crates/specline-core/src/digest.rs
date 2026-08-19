@@ -610,7 +610,7 @@ fn project_line(store: &Store, p: &crate::Project) -> Result<ProjectLine> {
     // Which phases are in flight is derived, not filtered on a column. The
     // column used to say, and for a week it said Phase 9 — a phase that had
     // finished — to every session that opened this project (B-57).
-    let states = store.milestone_states(&p.id)?;
+    let states = store.milestone_progress(&p.id)?;
     let milestones = store.list(
         &EntityQuery::in_project(p.id.clone())
             .of_type(EntityType::Milestone)
@@ -621,7 +621,7 @@ fn project_line(store: &Store, p: &crate::Project) -> Result<ProjectLine> {
         .iter()
         .filter(|m| {
             matches!(
-                states.get(m.id()),
+                states.get(m.id()).map(|p| p.state),
                 Some(crate::MilestoneState::Active | crate::MilestoneState::Blocked)
             )
         })
@@ -668,7 +668,7 @@ fn milestones_in_state(
     project: &EntityId,
     wanted: &[crate::MilestoneState],
 ) -> Result<Vec<Item>> {
-    let states = store.milestone_states(project)?;
+    let states = store.milestone_progress(project)?;
     let page = store.list(
         &EntityQuery::in_project(project.clone())
             .of_type(EntityType::Milestone)
@@ -677,15 +677,19 @@ fn milestones_in_state(
     Ok(page
         .items
         .iter()
-        .filter_map(|m| states.get(m.id()).map(|state| (m, *state)))
-        .filter(|(_, state)| wanted.contains(state))
-        .map(|(e, state)| {
-            let detail = match e {
-                Entity::Milestone(m) => m.target_date.map(|d| format!("target {d}")),
-                _ => None,
+        .filter_map(|m| states.get(m.id()).map(|p| (m, *p)))
+        .filter(|(_, progress)| wanted.contains(&progress.state))
+        .map(|(e, progress)| {
+            // How far through, not when it is due. The date was the only detail
+            // here and four of fifteen phases had one, all of them the same day
+            // the store was seeded — so this line said nothing for eleven
+            // phases and something misleading for four (KEEL-332).
+            let detail = match progress.tally.total {
+                0 => None,
+                total => Some(format!("{} of {total} done", progress.tally.closed)),
             };
             Item {
-                status: Some(state.as_str().to_owned()),
+                status: Some(progress.state.as_str().to_owned()),
                 ..item(store, e, detail)
             }
         })

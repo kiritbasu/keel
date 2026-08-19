@@ -2269,19 +2269,64 @@ async fn api_entities(
             // phase is doing is derived (B-57). The app has no task counts to
             // work it out from, so it is computed here and sent alongside.
             // Without it the roadmap shows `open` for everything.
-            let states = query
-                .project_id
-                .as_ref()
-                .and_then(|p| store.milestone_states(p).ok())
-                .unwrap_or_default();
+            //
+            // The counts travel with it rather than staying behind the
+            // derivation. The roadmap needs them to say how far a phase has
+            // got, and the alternative is the browser fetching every task in
+            // the project to count them again (KEEL-332).
+            //
+            // Computed per project rather than only for the one that was
+            // asked for. The roadmap has an all-projects mode, and scoping
+            // this to `query.project_id` left every row in it with no counts —
+            // which the screen would have rendered as "not scoped", a claim
+            // that is false rather than merely unhelpful. There are four
+            // projects in the store, so the loop is not worth avoiding.
+            let mut wanted: Vec<specline_core::EntityId> = Vec::new();
+            if let Some(p) = query.project_id.as_ref() {
+                wanted.push(p.clone());
+            } else {
+                for e in &page.items {
+                    if let Some(p) = e.project_id()
+                        && !wanted.contains(p)
+                    {
+                        wanted.push(p.clone());
+                    }
+                }
+            }
+            let mut states = std::collections::HashMap::new();
+            for p in &wanted {
+                // A project whose progress cannot be read is skipped rather
+                // than failing the whole list: the rows still render, with the
+                // counts absent, which is the same degradation an older daemon
+                // produces and the app already handles.
+                match store.milestone_progress(p) {
+                    Ok(map) => states.extend(map),
+                    Err(e) => {
+                        tracing::warn!(project = %p, error = %e, "could not derive phase progress")
+                    }
+                }
+            }
 
             let items: Vec<Value> = page
                 .items
                 .iter()
                 .map(|e| {
                     let mut json = specline_mcp::entity_json(e);
-                    if let (Some(state), Some(map)) = (states.get(e.id()), json.as_object_mut()) {
-                        map.insert("state".to_owned(), Value::String(state.as_str().to_owned()));
+                    if let (Some(progress), Some(map)) = (states.get(e.id()), json.as_object_mut())
+                    {
+                        map.insert(
+                            "state".to_owned(),
+                            Value::String(progress.state.as_str().to_owned()),
+                        );
+                        map.insert("tasks_total".to_owned(), json!(progress.tally.total));
+                        map.insert("tasks_closed".to_owned(), json!(progress.tally.closed));
+                        map.insert("tasks_started".to_owned(), json!(progress.tally.started));
+                        map.insert(
+                            "last_activity".to_owned(),
+                            progress
+                                .last_activity
+                                .map_or(Value::Null, |t| json!(t.to_rfc3339())),
+                        );
                     }
                     json
                 })

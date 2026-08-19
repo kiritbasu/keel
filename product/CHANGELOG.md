@@ -1,15 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T09:32:57Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T10:32:02Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (281)
+## Closed work (283)
 
 ### 2026-08-19
+
+- **KEEL-321** An untriaged signal is not work, and nothing that counts work should count it — `done`
+
+  Signals are counted by nothing that counts work, and the digest now says the Inbox exists rather than staying silent about it. The task as written assumed signals were leaking into the task counts; they never were, and the real defect was the opposite one.
+
+  <sub>commit:19f0580 · test:cargo test -p specline-core --test inbox</sub>
+
+- **KEEL-319** Write a signal into the store, for the first time — `done`
+
+  A signal can be written from MCP and from the CLI, and the feedback table holds rows for the first time. Two defects were in the way and neither was visible from reading — both were found by trying to create one.
+
+  <sub>commit:ffbbca1 · test:cargo test -p specline-mcp --test argument_edges · test:cargo test -p specline-core --test composite · test:cargo test -p specline --test verbs</sub>
 
 - **KEEL-302** product feature request triage — `superseded`
 
@@ -1282,6 +1294,44 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | created milestone “0.3.0 — what to pick up next, with a page of its own” |
+| 2026-08-19 | claude | created milestone “0.2.1 — store relocation fixes” |
+| 2026-08-19 | claude | created milestone “0.2.0 — Keel is now Specline” |
+| 2026-08-19 | claude | created milestone “0.1.5 — three platforms, and no embeddings in a released binary” |
+| 2026-08-19 | claude | created milestone “0.1.5-rc.1 — a prerelease to exercise the release path” |
+| 2026-08-19 | claude | created milestone “0.1.4 — the update restarts the daemon” |
+| 2026-08-19 | claude | created milestone “0.1.3 — the installer verifies what it downloads” |
+| 2026-08-19 | claude | created milestone “0.1.2 — the updater, and the manifest it reads” |
+| 2026-08-19 | claude | created milestone “0.1.1 — private release assets” |
+| 2026-08-19 | claude | created milestone “0.1.0 — the first installable build” |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_e1aa5ce8-c196-4c0e-8882-d4422009c9f4 |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T10:18:04.483729Z |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_e1aa5ce8-c196-4c0e-8882-d4422009c9f4 |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T10:07:19.587426Z |
+| 2026-08-19 | claude | created task “Backfill the ten shipped versions as release rows, so the roadmap has a real time axis” |
+| 2026-08-19 | claude | created task “The roadmap shows how far a phase has got, instead of a target date nobody set” |
+| 2026-08-19 | claude | revised question “The roadmap's target column is empty on every open phase. Date, release, or drop it?” to v1 |
+| 2026-08-19 | claude | created question “The roadmap's target column is empty on every open phase. Date, release, or drop it?” |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T09:54:42.498502Z |
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → ["commit:19f0580","test:cargo test -p specline-core --test inbox"] |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (256 characters) |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T09:47:23.421076Z |
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → (169 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (212 characters) |
+| 2026-08-19 | claude | created task “Every task created from the CLI has the summary "A row this test needs in the store."” |
+| 2026-08-19 | claude | status todo → in_progress |
+| 2026-08-19 | claude | claimed_by none → ses_964b1889-ae01-4634-9dad-c0ca98e1546c |
+| 2026-08-19 | claude | claimed_at none → 2026-08-19T09:35:10.620275Z |
 | 2026-08-19 | claude | status open → answered |
 | 2026-08-19 | claude | revised question “Does every signal we set down become a numbered decision, or only the ones worth remembering?” to v2 |
 | 2026-08-19 | claude | summary (518 characters) → (525 characters) |
@@ -1444,44 +1494,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | close_reason none → done |
 | 2026-08-18 | claude | close_message none → (676 characters) |
 | 2026-08-18 | claude | “Drag a card between board columns to move its status” references “Dragging a card is refused in the open, not on release” |
-| 2026-08-18 | claude | revised decision “Dragging a card is refused in the open, not on release” to v1 |
-| 2026-08-18 | claude | created decision “Dragging a card is refused in the open, not on release” |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T18:22:45.513986Z |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → (150 characters) |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (729 characters) |
-| 2026-08-18 | claude | created task “No mutating route carries CORS, and the comment on the layer says it does” |
-| 2026-08-18 | claude | “A task's fields cannot be changed once it exists” references “The interface changes a task's fields through one narrow…” |
-| 2026-08-18 | claude | revised decision “The interface changes a task's fields through one narrow endpoint, and three statuses are not among them” to v1 |
-| 2026-08-18 | claude | created decision “The interface changes a task's fields through one narrow endpoint, and three statuses are not among them” |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T17:54:49.969471Z |
-| 2026-08-18 | claude | “A task's fields cannot be changed once it exists” blocks “Drag a card between board columns to move its status” |
-| 2026-08-18 | claude | created task “Drag a card between board columns to move its status” |
-| 2026-08-18 | claude | title Labels cannot be changed once the task exists → A task's fields cannot be changed once it exists |
-| 2026-08-18 | claude | summary (450 characters) → (871 characters) |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → (96 characters) |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (618 characters) |
-| 2026-08-18 | claude | “adding a new label in New Task doesn't add it” references “The label box creates labels, and normalises what it creates” |
-| 2026-08-18 | claude | revised decision “The label box creates labels, and normalises what it creates” to v1 |
-| 2026-08-18 | claude | created decision “The label box creates labels, and normalises what it creates” |
-| 2026-08-18 | claude | created task “Labels cannot be changed once the task exists” |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_2d4002d8-2042-420e-9e25-3f7d886f1ec0 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T17:06:56.222487Z |
-| 2026-08-18 | human | created task “Support openai codex” |
-| 2026-08-18 | human | created task “allow adding new Feature Requests” |
-| 2026-08-18 | human | created task “adding a new label in New Task doesn't add it” |
-| 2026-08-18 | human | created task “periodic management of lots of open issues” |
-| 2026-08-18 | human | created task “product feature request triage” |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → ["commit:9495be5","test:cargo test --workspace","test:npx vitest run"] |
 
-*Showing the 200 most recent of 2379 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2417 changes. Use `specline_activity` for the rest.*
 

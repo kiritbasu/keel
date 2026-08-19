@@ -1,6 +1,6 @@
 {
   "project_id": "prj_01KZKMPVHJNCCQH3JQNAXJJ03M",
-  "generated_at": "2026-08-19T09:32:57.252470+00:00",
+  "generated_at": "2026-08-19T10:34:03.320298+00:00",
   "files": [
     {
       "path": ".specline/specs/how-feature-requests-should-work-end-to-end.md",
@@ -1072,6 +1072,12 @@
     {
       "path": ".specline/questions.md",
       "contributors": [
+        {
+          "entity_id": "que_01M0CQJGHK1B3TPDMQ69C6MF7Q",
+          "entity_type": "question",
+          "version": 1,
+          "hash": "49cff5f5db9af09b2caea1c8df97f4f0635dde7eb3c18a88721224c3328e6d18"
+        },
         {
           "entity_id": "que_01M04PW3ZCQJ37M7EC27K58HC0",
           "entity_type": "question",

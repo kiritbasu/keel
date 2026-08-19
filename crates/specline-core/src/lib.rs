@@ -73,9 +73,9 @@ pub use embed::{Embedder, HashEmbedder};
 pub use entity::{Actor, EntityType, ProjectScope, Surface};
 pub use enums::{
     ArtifactKind, CloseReason, DecisionStatus, DesignState, EnvironmentStatus, FeedbackKind,
-    MetricDirection, MilestoneKind, MilestoneState, MilestoneStatus, ProjectStatus, QuestionKind,
-    QuestionStatus, RiskSeverity, Sentiment, SpecKind, SpecStatus, TaskKind, TaskPriority,
-    TaskStatus, TaskTally,
+    MetricDirection, MilestoneKind, MilestoneProgress, MilestoneState, MilestoneStatus,
+    ProjectStatus, QuestionKind, QuestionStatus, RiskSeverity, Sentiment, SpecKind, SpecStatus,
+    TaskKind, TaskPriority, TaskStatus, TaskTally,
 };
 pub use environment::{Hazard, hazards};
 pub use error::{Error, Result};

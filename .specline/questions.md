@@ -7,6 +7,46 @@
 
 *Nothing here is decided. Do not build on any of it without saying so.*
 
+### The roadmap's target column is empty on every open phase. Date, release, or drop it?
+
+`que_01M0CQJGHK1B3TPDMQ69C6MF7Q` · question · open · severity medium
+
+KB, looking at the roadmap: *"how come many of the roadmap items show no target, what is the target supposed to be? an associated release?"*
+
+## What is there now
+
+`milestones.target_date` is an optional date — "when it is meant to land". Nothing else. It is not a release and has no connection to one.
+
+Four of fifteen phases have one, and all four say `2026-08-09`, because `specline bootstrap` set them when it seeded Phases 0–3. Every phase created since has none, because `Milestone::new` sets `target_date: None` and nothing on any create path asks for it. It is reachable — `fields: {target_date: "…"}` on create or update — but it appears in the tool schema as one word in a list of examples, so in practice it is never written.
+
+That leaves seven rows rendering "no target": Phases 4, 5, 10, 11, 12, 13 and 14. The four shipped phases with no date are hiding the same gap behind `shipped …`.
+
+## The field drives nothing
+
+Three call sites read it — the roadmap's right-hand column, the digest's `target 2026-08-09` detail, and the `Target` column in `STATUS.md`. All three display it. None computes anything from it.
+
+SPEC §7 says the digest's `attention` block carries "overdue milestones". That was never built: the only occurrence of the word "overdue" in the workspace is a doc comment on the struct field. So an overdue phase has never been detectable, and would not have been noticed if one were.
+
+TQ-16 already recorded half of this — *"every phase target date is today, so the roadmap has no time axis"* — and filed it as an artifact of dogfooding that a real project would not have. That was wrong. It is not the dates being fake; it is that nothing ever asks for one and nothing ever reads one.
+
+## Releases are the other half
+
+`MilestoneKind::Release` exists, carries `version_string`, and the roadmap already renders a `v…` badge for it. There are zero release rows in the store, against ten git tags. So the concept a phase would point at when it says "this ships in v0.4.0" is modelled and unused, which is why the target column has nothing better to fall back on than a date.
+
+## Options
+
+a. **Ask for a date, the way `summary` is asked for.** Make it an argument on the milestone create path so the compiler finds anyone who forgets. Cheap. The cost is that it forces a guess, and an invented date is worse than a blank one: it makes the roadmap look planned when it is one person working through a list.
+
+b. **Replace the column with something derived.** The state is already computed from the tasks (B-57) and `STATUS.md` already shows `done / total`. Put progress and last activity where the date is. Always true, never maintained, and it answers the question a reader is actually asking — is this moving — rather than a promise nobody made.
+
+c. **Make releases real rows and let a phase name one.** Backfill the ten tags as `kind: release` milestones and link each phase to the release that carries it. Then "target" reads `v0.4.0` instead of a date, which for this project is the meaningful commitment. Also gets the changelog the thing it has been missing since 0.1.2 — CLAUDE.md already says cutting a release is a task, but never says a release is a row.
+
+d. **Drop `target_date` and say so.** Delete the column from the three renderers, keep the storage column. Honest, and the smallest diff.
+
+Recommendation: **(b) and (c)**. They are not alternatives — (b) fixes what the column shows today and (c) gives it something real to show when a phase genuinely is aimed at a version. Leave the field in place and unadvertised for the day an external commitment exists. (a) is the one to avoid: it makes the gap invisible without making the roadmap truer.
+
+Either way, SPEC §7's "overdue milestones" needs deleting or building. It has claimed a behaviour that does not exist for the life of the project.
+
 ### Seven rows have no reasoning in them. Reconstruct them, or leave them empty and say so?
 
 `que_01M04PW3ZCQJ37M7EC27K58HC0` · question · open
