@@ -1,13 +1,27 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T08:22:36Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T08:23:13Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (276)
+## Closed work (278)
+
+### 2026-08-19
+
+- **KEEL-315** Three generated phase specs mirror into the repository root — `done`
+
+  The repository root has five markdown files again — CLAUDE.md, README.md, CONTRIBUTING.md, SECURITY.md, CODE_OF_CONDUCT.md — and generate leaves it that way. The three phase specs are at .specline/specs/keel-phase-{8,9,10}.md, which git recorded as renames at 97–99% similarity, so the history follows them. CONTRIBUTING's claim that everything generated lives under product/ and .specline/ is now true. Five Rust doc comments that cited the old filenames name the spec instead; the citations inside generated decisions and SPEC.md were deliberately left, being historical records. Worth reading the note: KB chose "stop mirroring them at all" and that is not something the generator can do — clearing mirror_path moves a document to the mirror's own directory rather than suppressing it, and there is no opt-out short of archiving.
+
+  <sub>commit:a57b3a3 · test:specline generate specline --check</sub>
+
+- **KEEL-314** The README and ARCHITECTURE still say the app cannot change a task's fields — `done`
+
+  The README and docs/ARCHITECTURE.md now describe the app as it is: creating, commenting, closing, archiving, and moving a status, priority, kind, phase or labels, from the task screen or by dragging a card. Both also state the two refusals, which ARCHITECTURE was missing entirely — a close owes a reason, a message and evidence, and starting work is a claim that records which session holds it. Everything else in the README was checked against the code rather than reread and was already correct: thirteen artifact types, thirteen MCP tools, six crates, twenty-four CLI commands matching docs/CLI.md exactly, every path and image present, no broken internal links, no rename leftovers. The one further edit was "All of it is in product/", which was never quite true and is less so now that three more specs sit under .specline/specs/.
+
+  <sub>commit:a57b3a3</sub>
 
 ### 2026-08-18
 
@@ -1240,6 +1254,14 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → ["commit:a57b3a3","test:specline generate specline --check"] |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (832 characters) |
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → ["commit:a57b3a3"] |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (836 characters) |
 | 2026-08-19 | claude | created task “Check for updates every 30 minutes, and make the footer an icon that colours when one is waiting” |
 | 2026-08-19 | claude | created task “An abandoned adopted file is never reported as an orphan” |
 | 2026-08-19 | claude | mirror_path PHASE-9.md → none |
@@ -1432,14 +1454,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | “The landing page lives in this repository, at site/, with…” resolves “Where should the marketing site live — this repository, or…” |
 | 2026-08-18 | claude | status open → answered |
 | 2026-08-18 | claude | revised decision “The landing page lives in this repository, at site/, with no build step” to v1 |
-| 2026-08-18 | claude | created decision “The landing page lives in this repository, at site/, with no build step” |
-| 2026-08-18 | claude | status in_progress → done |
-| 2026-08-18 | claude | evidence [] → ["commit:ae876f1","test:cargo test --workspace"] |
-| 2026-08-18 | claude | close_reason none → done |
-| 2026-08-18 | claude | close_message none → (1156 characters) |
-| 2026-08-18 | claude | status todo → in_progress |
-| 2026-08-18 | claude | claimed_by none → ses_e732e14b-2a50-4c4a-8aab-a416f993b8e2 |
-| 2026-08-18 | claude | claimed_at none → 2026-08-18T07:08:51.433320Z |
 
-*Showing the 200 most recent of 2309 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2317 changes. Use `specline_activity` for the rest.*
 
