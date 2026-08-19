@@ -387,6 +387,61 @@ jobs:
       # A missing manifest fails the release. It means no build leg produced one
       # and every updater would fall back to having nothing to compare against,
       # which is exactly the silence this file is meant not to ship.
+      - name: Decide what the release carries
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # The upload set, written once and read by both steps below.
+          #
+          # It used to be `find target/distrib -maxdepth 1 -type f` in two
+          # places, with a comment asking the second to stay in step with the
+          # first. That published fourteen files, of which nothing downloads
+          # nine: three `*-dist-manifest.json`, three `*.tar.xz.sha256`,
+          # `sha256.sum`, and a `source.tar.gz` GitHub already attaches to
+          # every tag by itself.
+          #
+          # The manifests are not junk — `dist` merges every one it finds in
+          # `target/distrib` on startup, and that is where the installer's
+          # embedded checksums come from (KEEL-228, when they were missing and
+          # the installer shipped with nothing to verify). They are needed
+          # *here*, during the build. They are not needed by anybody
+          # downloading a release, and `plugin/scripts/setup.sh` pulls the
+          # whole release with `--pattern '*'`, so every one of them was a file
+          # somebody's install waited for.
+          #
+          # Per-file `.sha256` sidecars go for the same reason: the updater
+          # verifies against `specline-release.json`, which carries every
+          # digest in one file, and the installer carries its own.
+          # Absolute paths, so neither reader has to care what directory it
+          # is standing in. The manifest step runs from inside `target/distrib`
+          # and the publish step from the workspace root.
+          dir="$GITHUB_WORKSPACE/target/distrib"
+          list="$RUNNER_TEMP/release-files.txt"
+          : > "$list"
+
+          # `*.tar.*` rather than `*.tar.xz`, deliberately: `unix-archive` is
+          # unset in `dist-workspace.toml`, so the extension is a default that
+          # could move, and a fixed one here would silently stop uploading the
+          # archives the day it did. The `.sha256` sidecars beside them are
+          # what this filter is actually excluding.
+          for f in "$dir"/specline-installer.sh "$dir"/specline-release.json "$dir"/specline-*.tar.*; do
+            [ -f "$f" ] || continue
+            case "$f" in *.sha256) continue ;; esac
+            printf '%s\n' "$f" >> "$list"
+          done
+
+          # An archive missing here is a platform silently absent from the
+          # release, which reads to a downloader as "not supported yet" rather
+          # than as a broken build.
+          archives="$(grep -c '/specline-[^/]*\.tar\.' "$list" || true)"
+          if [ "$archives" -ne 3 ]; then
+            echo "expected 3 archives in the release, found $archives:" >&2
+            cat "$list" >&2
+            exit 1
+          fi
+          cat "$list"
+
       - name: Put the artifact checksums in the release manifest
         shell: bash
         run: |
@@ -400,16 +455,19 @@ jobs:
           fi
 
           # Every file about to be uploaded except the manifest, which cannot
-          # state its own hash. `find` rather than a glob so the set matches the
-          # one the publish step below collects.
+          # state its own hash. Read from the list the step above wrote, so the
+          # manifest describes exactly what the release carries — it used to
+          # hash everything in the directory, and so published digests for nine
+          # files nobody could download.
           work="$(mktemp)"
           cp specline-release.json "$work"
           while IFS= read -r file; do
             name="$(basename "$file")"
+            [ "$name" = "specline-release.json" ] && continue
             sum="$(sha256sum "$file" | awk '{print $1}')"
             jq --arg n "$name" --arg s "$sum" '.artifacts[$n] = $s' "$work" > "$work.next"
             mv "$work.next" "$work"
-          done < <(find . -maxdepth 1 -type f ! -name specline-release.json | sort)
+          done < "$RUNNER_TEMP/release-files.txt"
 
           mv "$work" specline-release.json
           cat specline-release.json
@@ -424,6 +482,49 @@ jobs:
 
           args=(--title "$tag" --generate-notes --verify-tag)
 
+          # What the release says it is, taken from the annotated tag.
+          #
+          # It used to be `--generate-notes` alone: a bulleted list of commit
+          # subjects, which reads as a changelog for people who already know
+          # the codebase and as noise for everybody else. The prose describing
+          # a version already exists — it is the summary on that version's
+          # release row in Specline — and the tag message is where it can reach
+          # CI, since the runner cannot see the store.
+          #
+          # So the loop is: write the release row, tag with its summary, and
+          # the tag is what GitHub publishes. The notes and the tag cannot
+          # disagree, because they are the same bytes.
+          #
+          # `git fetch --tags` because checkout leaves the tag *ref* but the
+          # annotated tag *object* carrying the message is not guaranteed to
+          # be local, and reading it through `gh api` would need two calls and
+          # a branch for lightweight tags.
+          git fetch --force --tags --quiet origin || true
+
+          # The tag must be *annotated*. `%(contents)` on a lightweight tag
+          # silently falls through to the commit it points at, so a `git tag
+          # v0.5.0` with no `-a` would publish the last commit's subject as the
+          # release notes — wrong, and wrong in the way nobody checks. Measured:
+          # a lightweight tag on a repo whose only commit was "init" produced
+          # notes reading "init".
+          if [ "$(git cat-file -t "$tag" 2>/dev/null || true)" != "tag" ]; then
+            echo "$tag is a lightweight tag, so it carries no message of its own" >&2
+            echo "and this release would publish the commit subject as its notes." >&2
+            echo "Cut it with: git tag -a $tag -F -" >&2
+            exit 1
+          fi
+
+          notes="$(git tag -l --format='%(contents)' "$tag")"
+
+          # And it must actually say something. `git tag -a -m ""` is annotated
+          # and empty, which would pass the check above.
+          if [ -z "${notes//[[:space:]]/}" ]; then
+            echo "the tag $tag carries an empty message, so this release would" >&2
+            echo "ship with nothing but a list of commit subjects. Tag with the" >&2
+            echo "release row's summary." >&2
+            exit 1
+          fi
+
           # A prerelease must not become `latest`. The standalone install line
           # in §1 fetches `.../releases/latest/download/specline-installer.sh`, so
           # an rc landing there would become the default download for everyone
@@ -432,11 +533,12 @@ jobs:
             *-*) args+=(--prerelease) ;;
           esac
 
-          # Files only, one level deep: `dist` leaves working directories under
-          # `target/distrib` and `gh` errors on a directory argument.
-          mapfile -t files < <(find target/distrib -maxdepth 1 -type f | sort)
+          # The list the "Decide what the release carries" step wrote, which is
+          # also what the manifest hashed. One definition, so the release and
+          # the manifest describing it cannot drift apart.
+          mapfile -t files < "$RUNNER_TEMP/release-files.txt"
           if [ "${#files[@]}" -eq 0 ]; then
-            echo "no artifacts in target/distrib — refusing to create an empty release" >&2
+            echo "nothing to upload — refusing to create an empty release" >&2
             exit 1
           fi
 
@@ -447,18 +549,25 @@ jobs:
           # able to see that `gh attestation verify` will not recognise these
           # files, and why, without going looking for it.
           #
-          # `--notes` prepends to `--generate-notes` rather than replacing it,
-          # so the generated changelog still appears underneath. Built with
-          # printf rather than a heredoc: a heredoc terminator inside a YAML
-          # block scalar has to sit at column zero, which is a rule that quietly
-          # stops holding the first time somebody re-indents this step.
+          # Built with printf rather than a heredoc: a heredoc terminator inside
+          # a YAML block scalar has to sit at column zero, which is a rule that
+          # quietly stops holding the first time somebody re-indents this step.
           if [ "${{ github.event.repository.private }}" = "true" ]; then
-            args+=(--notes "$(printf '%s\n' \
+            notes="$(printf '%s\n' \
+              "$notes" \
+              '' \
+              '---' \
+              '' \
               '> **No build provenance on this release.** GitHub does not offer artifact' \
               '> attestations for user-owned private repositories, so `gh attestation verify`' \
               '> will not recognise these files. The checksums embedded in the installer are' \
               '> still verified on download. Attestations resume on their own if this' \
-              '> repository is ever made public.')")
+              '> repository is ever made public.')"
           fi
+
+          # The caveat goes *under* the prose now rather than above it. It is a
+          # footnote about how the files were built, and it was the first thing
+          # anybody opening a release read.
+          args+=(--notes "$notes")
 
           gh release create "$tag" "${args[@]}" "${files[@]}"
