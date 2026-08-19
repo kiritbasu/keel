@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T15:16:48Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T15:52:12Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (298)
+## Closed work (299)
 
 ### 2026-08-19
+
+- **KEEL-342** Take the shortcut keycaps out of the rail — `done`
+
+  The rail is labels only. The keys still work and the row's title names its key on hover, so the shortcut is quiet rather than gone — removing it outright is one line further if that turns out to be what was wanted. The signal that reported it is triaged and linked.
+
+  <sub>commit:b53121e · test:npx vitest run src/App.test.tsx</sub>
 
 - **KEEL-341** Put the Inbox behind a flag, off by default, until the lifecycle is finished — `done`
 
@@ -1378,6 +1384,13 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status todo → done |
+| 2026-08-19 | claude | evidence [] → ["commit:b53121e","test:npx vitest run src/App.test.tsx"] |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (265 characters) |
+| 2026-08-19 | claude | triaged false → true |
+| 2026-08-19 | claude | “The rail's `·1` markers read as unclear, and ⌘ was the…” informs “Take the shortcut keycaps out of the rail” |
+| 2026-08-19 | claude | created task “Take the shortcut keycaps out of the rail” |
 | 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → (120 characters) |
 | 2026-08-19 | claude | close_reason none → done |
@@ -1571,13 +1584,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-19 | claude | status in_progress → done |
 | 2026-08-19 | claude | evidence [] → ["commit:d96450d","test:npm test --run"] |
 | 2026-08-19 | claude | close_reason none → done |
-| 2026-08-19 | claude | close_message none → (1216 characters) |
-| 2026-08-19 | claude | status todo → in_progress |
-| 2026-08-19 | claude | claimed_by none → ses_e7e72d13-4a31-4ee7-95f4-d4c53b1c53f3 |
-| 2026-08-19 | claude | claimed_at none → 2026-08-19T09:09:25.827743Z |
-| 2026-08-19 | claude | revised spec “How feature requests should work, end to end” to v1 |
-| 2026-08-19 | claude | created spec “How feature requests should work, end to end” |
-| 2026-08-19 | claude | created task “Make the version footer a compact version-and-icon control” |
 
-*Showing the 200 most recent of 2527 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2534 changes. Use `specline_activity` for the rest.*
 
