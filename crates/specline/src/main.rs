@@ -1301,6 +1301,24 @@ struct TaskDraft<'a> {
     priority: &'a str,
 }
 
+/// Refuse unless the Inbox is switched on.
+///
+/// Off by default (KEEL-341): v0.4.0 shipped filing and the nav item without
+/// triage, so signals could go in and not come out. The refusal names the
+/// variable, because somebody who typed `specline signal` meant to file one
+/// and "unknown command" would be a worse answer than "not yet, here is how".
+fn require_inbox() -> Result<()> {
+    if !specline_mcp::dispatch::surfaces().inbox {
+        anyhow::bail!(
+            "the Inbox is switched off. Set SPECLINE_INBOX=1 to switch it on.\n\n\
+             It is off by default while the feature-request lifecycle is unfinished. \
+             Switching it on hides nothing and loses nothing — signals already in the store \
+             are untouched either way."
+        );
+    }
+    Ok(())
+}
+
 /// Read `--occurred-at`, accepting a bare date as well as a full timestamp.
 ///
 /// A bare date is the common case by a wide margin — somebody recording what
@@ -1353,6 +1371,8 @@ struct SignalDraft<'a> {
 fn run_signal_add(home: &Path, draft: SignalDraft<'_>, force: bool, json: bool) -> Result<()> {
     use specline_core::{Actor, Feedback, FeedbackKind, Provenance, Surface};
 
+    require_inbox()?;
+
     let mut store =
         writes::open_for_write(home, &writes::daemon_url_for(home), force, "file a signal")?;
     let found = resolve_project(&store, draft.project)?;
@@ -1400,6 +1420,8 @@ fn run_triage(
     json: bool,
 ) -> Result<()> {
     use specline_core::{Actor, EntityId, EntityType, Provenance, Surface, work};
+
+    require_inbox()?;
 
     let outcome = match (feature, set_down) {
         (Some(spec), None) => work::TriageOutcome::PickedUp {

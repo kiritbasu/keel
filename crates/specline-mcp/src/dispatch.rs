@@ -468,7 +468,7 @@ fn specline_context(store: &Store, args: &Value) -> Result<Value, RpcError> {
     .map_err(|e| RpcError::new(codes::INVALID_PARAMS, e))?;
     let since = opt_time(args, "since")?;
 
-    let digest = specline_core::digest::build(store, project.as_ref(), depth, since)
+    let digest = specline_core::digest::build(store, project.as_ref(), depth, since, surfaces())
         .map_err(|e| to_rpc_error(store, e))?;
 
     let unmatched = cwd.as_deref().filter(|_| matched_by_cwd.is_none());
@@ -2343,6 +2343,18 @@ fn specline_close(store: &mut Store, args: &Value) -> Result<Value, RpcError> {
     };
 
     if closing_a_signal {
+        // Triage is part of the Inbox, and the Inbox is off by default until
+        // the lifecycle is finished (KEEL-341). Refused rather than silently
+        // doing nothing, and the refusal says how to switch it on — a caller
+        // told only "no" would reasonably conclude signals cannot be closed.
+        if !surfaces().inbox {
+            return Err(bad_arg(
+                "id",
+                "the Inbox is switched off, so signals cannot be triaged",
+                "a task id — or set SPECLINE_INBOX=1 to switch the Inbox on, which is off by \
+                 default while the feature-request lifecycle is unfinished",
+            ));
+        }
         return close_a_signal(store, &id, &request, &provenance);
     }
 
@@ -2432,6 +2444,35 @@ fn close_a_signal(
             "revision": triaged.revision.map(|d| json!({ "version": d.version })),
         }),
     ))
+}
+
+/// Which unfinished surfaces are switched on, read from the environment.
+///
+/// Resolved here rather than in `specline-core`, which never reads the
+/// environment — that boundary is what makes every surface cheap to add, and a
+/// config lookup inside the digest would be the first crack in it.
+///
+/// Read per call rather than cached. This is one process serving one user and
+/// the cost is a `getenv`; caching it would mean a flag that needs a restart
+/// to take effect, which for something switched on to try it out is exactly
+/// the wrong trade.
+pub fn surfaces() -> specline_core::digest::Surfaces {
+    specline_core::digest::Surfaces {
+        inbox: flag_is_on("SPECLINE_INBOX"),
+    }
+}
+
+/// Whether an environment flag reads as on.
+///
+/// Deliberately narrow about what counts as yes. Anything else — including an
+/// empty string, which is what `SPECLINE_INBOX=` gives you — is off, because a
+/// half-finished surface appearing because a variable was set to something
+/// unintended is the failure this exists to prevent.
+fn flag_is_on(name: &str) -> bool {
+    matches!(
+        std::env::var(name).as_deref().map(str::trim),
+        Ok("1" | "true" | "yes" | "on")
+    )
 }
 
 /// The display label of a serialised entity.

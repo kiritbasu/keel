@@ -634,6 +634,10 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
         // means the store was busy rather than that no model is there. Three
         // fields because "cannot", "could and has not yet" and "is" are three
         // different answers and only one of them is worth acting on.
+        // So the interface can hide the nav item rather than showing a screen
+        // whose every request 404s. Reported as a fact about this daemon, not
+        // as a permission — the app has no say in it.
+        "surfaces": { "inbox": state.surfaces.inbox },
         "embeddings": {
             "built_in": crate::EMBEDDINGS_BUILT_IN,
             "loaded": embedder_loaded,
@@ -851,6 +855,32 @@ async fn api_update_restart() -> Response {
 // page it served rather than any page the browser has open. That is what makes
 // the attribution below honest.
 
+/// Why the Inbox can be switched off, and what that does and does not hide.
+///
+/// Off by default (KEEL-341). v0.4.0 shipped filing, the nav item and the
+/// digest count without triage, so signals could go in and not come out; the
+/// flag hides every surface this phase added until the lifecycle is finished.
+///
+/// **It hides surfaces and never data.** Nothing is archived, nothing is
+/// deleted, and the signals already in a store reappear intact when it goes
+/// on. `specline_create(type: "feedback")` is deliberately *not* gated —
+/// feedback predates this phase and two rows were written by earlier sessions.
+/// The refusal, which has to say how to switch it on.
+///
+/// 404 rather than 403: as far as a caller is concerned the route does not
+/// exist in this configuration, which is the honest answer and the one that
+/// does not imply a permissions problem somebody could fix by authenticating.
+fn inbox_is_off() -> Response {
+    api_error(
+        StatusCode::NOT_FOUND,
+        codes::INVALID_PARAMS,
+        "the Inbox is switched off. Set SPECLINE_INBOX=1 to switch it on — it is off by \
+         default while the feature-request lifecycle is unfinished, and turning it on hides \
+         nothing and loses nothing"
+            .to_owned(),
+    )
+}
+
 /// How a write from the interface is attributed.
 ///
 /// `actor: human` because a person clicked something, and `surface: ui` because
@@ -952,6 +982,10 @@ async fn api_create_task(State(state): State<AppState>, Json(body): Json<Value>)
 /// an endpoint accepting a document revision is on the wrong side of the line.
 async fn api_create_signal(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
     use specline_core::{Entity, EntityStore, Feedback};
+
+    if !state.surfaces.inbox {
+        return inbox_is_off();
+    }
 
     let Some(project) = body.get("project").and_then(Value::as_str) else {
         return bad_request("`project` is required — the project id, slug or name");
@@ -2192,6 +2226,9 @@ async fn api_inbox(
     State(state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
+    if !state.surfaces.inbox {
+        return inbox_is_off();
+    }
     let store = state.store();
     let Some(project) = params.get("project") else {
         return bad_request("`project` is required — the project id, slug or name");

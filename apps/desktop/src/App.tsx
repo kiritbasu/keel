@@ -105,6 +105,22 @@ function isProjectScreen(id: ScreenId): boolean {
   return PROJECT_SCREENS.some((s) => s.id === id);
 }
 
+/**
+ * Screens the daemon has switched off, so the rail does not offer them.
+ *
+ * **An absent `surfaces` means on.** Every 0.4.0 daemon predates the flag and
+ * does serve the Inbox, so reading silence as off would hide a screen whose
+ * endpoints still answer — the interface lying about what the daemon can do,
+ * which is worse than showing an unfinished screen (KEEL-341).
+ *
+ * The shortcut digits are left alone rather than renumbered when a screen is
+ * hidden. They are a contract with whoever has learnt them, and having them
+ * mean different things depending on a daemon flag would be worse than a gap.
+ */
+function isSwitchedOff(id: ScreenId, surfaces?: { inbox?: boolean }): boolean {
+  return id === "inbox" && surfaces?.inbox === false;
+}
+
 /** One row in the rail. Never disabled — see `lib/lastProject`. */
 function NavLink({
   item,
@@ -246,6 +262,7 @@ export function App() {
       last_error?: string | null;
     };
     executable?: string | null;
+    surfaces?: { inbox?: boolean };
   } | null>(null);
   useEffect(() => {
     api
@@ -436,7 +453,9 @@ export function App() {
 
         <div className="px-2">
           {activeProject &&
-            PROJECT_SCREENS.map((s) => (
+            PROJECT_SCREENS.filter(
+              (s) => !isSwitchedOff(s.id, health?.surfaces),
+            ).map((s) => (
               <NavLink
                 key={s.id}
                 item={s}

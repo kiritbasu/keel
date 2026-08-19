@@ -16,7 +16,7 @@
 use specline_core::{
     Actor, Close, CloseReason, Direction, EntityId, EntityStore, Feedback, FeedbackKind,
     GraphStore, NewLink, Project, Provenance, Relation, Spec, SpecKind, Store, Task,
-    digest::{self, Depth},
+    digest::{self, Depth, Surfaces},
     work::TriageOutcome,
 };
 
@@ -159,7 +159,14 @@ fn a_signal_is_not_a_task_and_is_counted_by_nothing_that_counts_tasks() {
 fn the_digest_says_how_many_signals_are_waiting() {
     let (_d, mut store, project) = fixture();
 
-    let quiet = digest::build(&store, Some(&project), Depth::Standard, None).unwrap();
+    let quiet = digest::build(
+        &store,
+        Some(&project),
+        Depth::Standard,
+        None,
+        Surfaces::all(),
+    )
+    .unwrap();
     assert_eq!(quiet.project.as_ref().unwrap().inbox, 0);
     assert!(
         !quiet.to_prose().contains("inbox:"),
@@ -170,7 +177,14 @@ fn the_digest_says_how_many_signals_are_waiting() {
     file_signal(&mut store, &project, "this should work with codex");
     file_signal(&mut store, &project, "search should look inside documents");
 
-    let built = digest::build(&store, Some(&project), Depth::Standard, None).unwrap();
+    let built = digest::build(
+        &store,
+        Some(&project),
+        Depth::Standard,
+        None,
+        Surfaces::all(),
+    )
+    .unwrap();
     let line = built.project.as_ref().unwrap();
     assert_eq!(line.inbox, 2);
     assert_eq!(
@@ -207,7 +221,14 @@ fn the_digest_lists_the_oldest_signals_and_says_how_many_it_left() {
         file_signal(&mut store, &project, &format!("somebody wanted thing {i}"));
     }
 
-    let built = digest::build(&store, Some(&project), Depth::Standard, None).unwrap();
+    let built = digest::build(
+        &store,
+        Some(&project),
+        Depth::Standard,
+        None,
+        Surfaces::all(),
+    )
+    .unwrap();
     assert_eq!(built.inbox.len(), 8, "a small slice, not the whole pile");
     assert_eq!(
         built.inbox.first().map(|i| i.label.as_str()),
@@ -245,7 +266,14 @@ fn a_listed_signal_carries_its_source_and_its_age() {
     signal.source = Some("Madhu".to_owned());
     store.create(signal.into(), &prov()).unwrap();
 
-    let built = digest::build(&store, Some(&project), Depth::Standard, None).unwrap();
+    let built = digest::build(
+        &store,
+        Some(&project),
+        Depth::Standard,
+        None,
+        Surfaces::all(),
+    )
+    .unwrap();
     let detail = built.inbox[0].detail.as_deref().unwrap_or_default();
     assert!(detail.contains("Madhu"), "{detail}");
     assert!(detail.contains("today"), "{detail}");
@@ -699,4 +727,69 @@ fn superseded_and_no_change_do_not_describe_a_signal() {
             "the refusal has to list the ones that do work: {err}"
         );
     }
+}
+
+// --- Switched off (KEEL-341) ----------------------------------------------
+
+/// The flag hides **surfaces**, never data. v0.4.0 shipped filing, the nav
+/// item and the digest count without triage, so signals could go in and not
+/// come out — but the signals themselves are somebody's captured thinking, and
+/// hiding a screen must not amount to losing them.
+#[test]
+fn switching_the_inbox_off_hides_it_from_the_digest_and_keeps_the_signals() {
+    let (_d, mut store, project) = fixture();
+    file_signal(&mut store, &project, "this should work with codex");
+    file_signal(&mut store, &project, "search should look inside documents");
+
+    let off = digest::build(
+        &store,
+        Some(&project),
+        Depth::Standard,
+        None,
+        Surfaces::default(),
+    )
+    .unwrap();
+    assert!(off.inbox.is_empty(), "no section");
+    assert_eq!(off.project.as_ref().unwrap().inbox, 0, "no count either");
+    assert_eq!(off.project.as_ref().unwrap().inbox_oldest_days, None);
+    assert!(!off.to_prose().contains("Inbox"));
+    assert!(
+        !off.truncated.iter().any(|t| t.section == "inbox"),
+        "a hidden section is not a cut one — reporting it as truncated would \
+         advertise the thing being hidden"
+    );
+
+    // Still there, and reappearing intact is the property that makes the flag
+    // safe to leave off.
+    assert_eq!(store.untriaged_signals(&project).unwrap().0, 2);
+    let on = digest::build(
+        &store,
+        Some(&project),
+        Depth::Standard,
+        None,
+        Surfaces::all(),
+    )
+    .unwrap();
+    assert_eq!(on.inbox.len(), 2);
+    assert_eq!(on.project.as_ref().unwrap().inbox, 2);
+}
+
+/// Triage still works underneath. The flag is a surface decision taken by a
+/// caller, and burying it in the write path would mean a switched-off store
+/// silently behaving differently from a switched-on one at the level where
+/// data lives.
+#[test]
+fn the_flag_does_not_reach_the_write_path() {
+    let (_d, mut store, project) = fixture();
+    let signal = file_signal(&mut store, &project, "this should work with codex");
+
+    specline_core::work::triage(
+        &mut store,
+        &signal,
+        &TriageOutcome::SetDown {
+            reason: "Not now, and the argument stays findable either way.".to_owned(),
+        },
+        &prov(),
+    )
+    .expect("core takes no view on which surfaces a caller shows");
 }

@@ -445,6 +445,15 @@ export const api = {
       };
       /** The path of the running binary, for a machine with more than one. */
       executable?: string | null;
+      /**
+       * Which unfinished surfaces this daemon has switched on.
+       *
+       * Absent on a daemon older than the flag, which is every 0.4.0 install —
+       * and those *do* serve the Inbox, so an absent field reads as on. That
+       * is the honest default: hiding a screen whose endpoints still answer
+       * would be the interface lying about what the daemon can do.
+       */
+      surfaces?: { inbox?: boolean };
     }>("/api/health"),
 
   /**

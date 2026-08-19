@@ -78,6 +78,31 @@ fn specline(home: &Path, args: &[&str]) -> Run {
     specline_with_session(home, Some("ses_cli_verbs"), args)
 }
 
+/// The same, with the Inbox switched on.
+///
+/// Set on the child process rather than on this one: `std::env::set_var` is
+/// `unsafe` in edition 2024 and racy across parallel tests either way, and the
+/// thing under test is a subprocess, so its environment is ours to compose.
+/// Switched on explicitly so these tests keep saying which configuration they
+/// exercise rather than inheriting whatever the default happens to be.
+fn specline_with_inbox(home: &Path, args: &[&str]) -> Run {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_specline"));
+    command
+        .arg("--home")
+        .arg(home)
+        .args(args)
+        .env("SPECLINE_INBOX", "1")
+        .env("SPECLINE_SESSION", "ses_cli_verbs")
+        .env_remove("SPECLINE_DAEMON_URL")
+        .env_remove("SPECLINE_HOME");
+    let output = command.output().expect("run the specline binary");
+    Run {
+        ok: output.status.success(),
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+    }
+}
+
 /// A home holding the fixture corpus, plus one task of this test's own.
 ///
 /// The fixture rather than a hand-built store, because it is the corpus the CLI
@@ -547,7 +572,7 @@ fn doctor_says_which_build_this_is_where_embeddings_are_concerned() {
 fn a_signal_is_filed_with_only_the_thing_that_was_said() {
     let (home, _task) = seeded();
 
-    let out = specline(
+    let out = specline_with_inbox(
         home.path(),
         &[
             "--force",
@@ -572,7 +597,7 @@ fn a_signal_is_filed_with_only_the_thing_that_was_said() {
 fn a_signal_keeps_who_said_it_and_when() {
     let (home, _task) = seeded();
 
-    let out = specline(
+    let out = specline_with_inbox(
         home.path(),
         &[
             "--force",
@@ -610,7 +635,7 @@ fn a_signal_keeps_who_said_it_and_when() {
 fn a_signal_refuses_a_time_it_cannot_read_and_says_what_it_would_take() {
     let (home, _task) = seeded();
 
-    let out = specline(
+    let out = specline_with_inbox(
         home.path(),
         &[
             "--force",
@@ -634,7 +659,7 @@ fn a_signal_refuses_a_time_it_cannot_read_and_says_what_it_would_take() {
 fn a_signal_refuses_a_kind_that_is_not_one_and_lists_the_ones_that_are() {
     let (home, _task) = seeded();
 
-    let out = specline(
+    let out = specline_with_inbox(
         home.path(),
         &[
             "--force",
@@ -652,4 +677,44 @@ fn a_signal_refuses_a_kind_that_is_not_one_and_lists_the_ones_that_are() {
         out.contains("observation") && out.contains("competitor"),
         "the refusal should list the values that exist: {out}"
     );
+}
+
+/// Off by default, and the refusal has to name the variable.
+///
+/// Somebody who typed `specline signal` meant to file one. "Unknown command"
+/// or a bare "no" would send them looking for a build that has the feature,
+/// when what they need is one word (KEEL-341).
+#[test]
+fn filing_a_signal_is_refused_while_the_inbox_is_switched_off() {
+    let (home, _task) = seeded();
+
+    let out = specline(
+        home.path(),
+        &["--force", "signal", "--project", "harbour", "a thing said"],
+    )
+    .expect_failure("the Inbox is off by default");
+
+    assert!(out.contains("SPECLINE_INBOX"), "{out}");
+    assert!(
+        out.contains("loses nothing"),
+        "and it should say that switching it on is safe, or nobody will: {out}"
+    );
+}
+
+#[test]
+fn triaging_is_refused_while_the_inbox_is_switched_off() {
+    let (home, _task) = seeded();
+
+    let out = specline(
+        home.path(),
+        &[
+            "--force",
+            "triage",
+            "fbk_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "--set-down",
+            "no longer wanted",
+        ],
+    )
+    .expect_failure("the Inbox is off by default");
+    assert!(out.contains("SPECLINE_INBOX"), "{out}");
 }

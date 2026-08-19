@@ -407,12 +407,38 @@ fn estimate_tokens(text: &str) -> usize {
     text.len().div_ceil(4)
 }
 
+/// Which unfinished surfaces are switched on.
+///
+/// Passed in rather than looked up, because `specline-core` never reads the
+/// environment — that boundary is what makes the CLI, the daemon and any
+/// future surface cheap, and a config lookup buried in the digest would be the
+/// first crack in it. Resolving the flag is the caller's job; obeying it is
+/// this crate's.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Surfaces {
+    /// Whether the Inbox is shown at all.
+    ///
+    /// Off by default, which is the whole point: v0.4.0 shipped filing and the
+    /// nav item without triage, so signals could go in and not come out.
+    /// **This hides surfaces and never data** — signals already in the store
+    /// are untouched and reappear intact when it goes on.
+    pub inbox: bool,
+}
+
+impl Surfaces {
+    /// Everything on. For tests, and for a caller that has already decided.
+    pub const fn all() -> Self {
+        Surfaces { inbox: true }
+    }
+}
+
 /// Build the digest.
 pub fn build(
     store: &Store,
     project: Option<&EntityId>,
     depth: Depth,
     since: Option<chrono::DateTime<chrono::Utc>>,
+    surfaces: Surfaces,
 ) -> Result<Digest> {
     let limit = depth.section_limit();
 
@@ -442,7 +468,7 @@ pub fn build(
             let projects = store.list(&EntityQuery::default().of_type(EntityType::Project))?;
             for entity in &projects.items {
                 if let Entity::Project(p) = entity {
-                    digest.projects.push(project_line(store, p)?);
+                    digest.projects.push(project_line(store, p, surfaces)?);
                 }
             }
             digest.projects.sort_by(|a, b| {
@@ -482,7 +508,7 @@ pub fn build(
                     id: project_id.to_string(),
                 });
             };
-            let line = project_line(store, &p)?;
+            let line = project_line(store, &p, surfaces)?;
 
             digest.active = active_milestones(store, project_id, limit)?;
             let complete = complete_milestones(store, project_id)?;
@@ -533,7 +559,11 @@ pub fn build(
             // and the Inbox is the section most likely to be long — that is
             // the condition it exists to report — so it takes a small slice
             // and says how much it left. Oldest first comes from the store.
-            let inbox = store.inbox(project_id, INBOX_IN_DIGEST.min(limit))?;
+            let inbox = if surfaces.inbox {
+                store.inbox(project_id, INBOX_IN_DIGEST.min(limit))?
+            } else {
+                crate::Page::new(Vec::new(), 0)
+            };
             digest.inbox = inbox
                 .items
                 .iter()
@@ -648,7 +678,7 @@ fn trim_section(digest: &mut Digest, section: &str) {
     }
 }
 
-fn project_line(store: &Store, p: &crate::Project) -> Result<ProjectLine> {
+fn project_line(store: &Store, p: &crate::Project, surfaces: Surfaces) -> Result<ProjectLine> {
     // Counted by the database. This used to load up to two thousand full task
     // rows — every column of every one — and loop over them to produce two
     // integers, once per project, on the most-called tool in the surface. It
@@ -672,7 +702,11 @@ fn project_line(store: &Store, p: &crate::Project) -> Result<ProjectLine> {
     // condition KEEL-303 describes — so the digest carries its size and its
     // age rather than its contents, and `specline_search` fetches the rows
     // when somebody is actually going to triage them.
-    let (signals, oldest_signal) = store.untriaged_signals(&p.id)?;
+    let (signals, oldest_signal) = if surfaces.inbox {
+        store.untriaged_signals(&p.id)?
+    } else {
+        (0, None)
+    };
 
     // Which phases are in flight is derived, not filtered on a column. The
     // column used to say, and for a week it said Phase 9 — a phase that had

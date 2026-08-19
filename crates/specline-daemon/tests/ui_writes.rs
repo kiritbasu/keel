@@ -718,3 +718,112 @@ async fn the_inbox_reads_oldest_first_and_reports_its_total() {
     assert_eq!(cut["data"]["total"], 3);
     assert_eq!(cut["data"]["truncated"], true);
 }
+
+// --- Switched off (KEEL-341) ----------------------------------------------
+
+async fn daemon_without_the_inbox() -> (String, tempfile::TempDir) {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store =
+        specline_core::Store::open(specline_core::store_path(dir.path())).expect("open the store");
+    {
+        use specline_core::EntityStore;
+        store
+            .create(
+                specline_core::Project::new("harbour", "Harbour").into(),
+                &specline_core::Provenance::anonymous(specline_core::Actor::Claude),
+            )
+            .unwrap();
+    }
+    // The same token the helpers send, then the surfaces switched off. The
+    // token layer sits above the flag, so a request with no token is refused
+    // as unauthenticated before anything asks whether the Inbox is served.
+    let mut state = AppState::from_store_with_token(store, TOKEN);
+    state.surfaces = specline_core::digest::Surfaces::default();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, router(state)).await;
+    });
+    (format!("http://{addr}"), dir)
+}
+
+/// 404 rather than 403: as far as a caller is concerned the route does not
+/// exist in this configuration, and 403 would imply a permissions problem
+/// somebody could fix by authenticating.
+#[tokio::test]
+async fn a_switched_off_inbox_serves_neither_endpoint() {
+    let (base, _dir) = daemon_without_the_inbox().await;
+
+    let read = reqwest::get(format!("{base}/api/inbox?project=harbour"))
+        .await
+        .unwrap();
+    assert_eq!(read.status().as_u16(), 404);
+
+    let (status, body) = post(
+        &base,
+        "/api/signals",
+        json!({ "project": "harbour", "summary": "anything at all" }),
+    )
+    .await;
+    assert_eq!(status, 404, "{body}");
+    // The refusal has to say how to switch it on, or somebody reasonably
+    // concludes the build does not have the feature at all.
+    assert!(body.to_string().contains("SPECLINE_INBOX"), "{body}");
+}
+
+/// So the interface can hide the nav item rather than showing a screen whose
+/// every request 404s.
+#[tokio::test]
+async fn health_says_whether_the_inbox_is_served() {
+    let (off, _d1) = daemon_without_the_inbox().await;
+    let health: Value = reqwest::get(format!("{off}/api/health"))
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(health["surfaces"]["inbox"], false);
+
+    let (on, _d2) = daemon().await;
+    let health: Value = reqwest::get(format!("{on}/api/health"))
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(health["surfaces"]["inbox"], true);
+}
+
+/// Feedback predates this phase — two rows in the real store were written by
+/// earlier sessions — so creating one over MCP is deliberately not gated. Only
+/// the surfaces this phase added are.
+#[tokio::test]
+async fn switching_the_inbox_off_does_not_disable_feedback_itself() {
+    let (base, _dir) = daemon_without_the_inbox().await;
+
+    let response = reqwest::Client::new()
+        .post(format!("{base}/mcp"))
+        .header("content-type", "application/json")
+        .header("accept", "application/json, text/event-stream")
+        .json(&json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "specline_create",
+                "arguments": {
+                    "type": "feedback",
+                    "project": "harbour",
+                    "summary": "something somebody said, recorded the old way",
+                },
+            },
+        }))
+        .send()
+        .await
+        .unwrap();
+    let body = response.text().await.unwrap();
+    assert!(
+        body.contains("fbk_"),
+        "feedback is older than the Inbox and stays reachable: {body}"
+    );
+}

@@ -90,6 +90,15 @@ pub struct AppState {
     /// would mean a request could be judged against a token some other process
     /// had just written, which is the one thing the check must not depend on.
     token: Arc<String>,
+    /// Which unfinished surfaces this daemon serves.
+    ///
+    /// Resolved once at startup rather than per request, for the same reason
+    /// the token is: config the process was started with is a fact about the
+    /// process, and re-reading it mid-flight would let two requests in the
+    /// same second disagree about what this daemon is. It also makes the
+    /// switch testable without mutating the environment, which is `unsafe` in
+    /// edition 2024 and racy across parallel tests either way.
+    pub surfaces: specline_core::digest::Surfaces,
 }
 
 impl AppState {
@@ -188,6 +197,12 @@ impl AppState {
                     home.display()
                 )
             })?),
+            // One reader for the whole workspace, in `specline-mcp`, because
+            // `specline-core` never reads the environment and the digest and
+            // the endpoints have to agree about what this daemon serves. Read
+            // once here rather than per request: config the process started
+            // with is a fact about the process.
+            surfaces: specline_mcp::dispatch::surfaces(),
         };
 
         if embeddings {
@@ -321,6 +336,10 @@ impl AppState {
             projects: Arc::new(std::sync::atomic::AtomicI64::new(-1)),
             home: Arc::new(PathBuf::new()),
             token: Arc::new(token.to_owned()),
+            // On in tests. A test asserting a surface is switched off says so
+            // itself, which keeps the default here from quietly deciding what
+            // two dozen other tests are exercising.
+            surfaces: specline_core::digest::Surfaces::all(),
         }
     }
 

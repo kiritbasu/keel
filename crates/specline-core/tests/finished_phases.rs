@@ -15,7 +15,7 @@
 use specline_core::{
     Actor, Close, CloseReason, EntityId, EntityStore, Milestone, MilestoneStatus, Project,
     Provenance, Store, Task, close,
-    digest::{Depth, build},
+    digest::{Depth, Surfaces, build},
 };
 
 struct Fixture {
@@ -109,7 +109,14 @@ impl Fixture {
     }
 
     fn digest(&self) -> specline_core::digest::Digest {
-        build(&self.store, Some(&self.project), Depth::Standard, None).unwrap()
+        build(
+            &self.store,
+            Some(&self.project),
+            Depth::Standard,
+            None,
+            Surfaces::all(),
+        )
+        .unwrap()
     }
 }
 
@@ -209,7 +216,14 @@ fn cutting_the_section_reports_what_it_dropped() {
     }
 
     // `brief` carries three items per section, so five is two over.
-    let digest = build(&f.store, Some(&f.project), Depth::Brief, None).unwrap();
+    let digest = build(
+        &f.store,
+        Some(&f.project),
+        Depth::Brief,
+        None,
+        Surfaces::all(),
+    )
+    .unwrap();
     assert_eq!(digest.complete.len(), 3);
     let cut = digest
         .truncated
