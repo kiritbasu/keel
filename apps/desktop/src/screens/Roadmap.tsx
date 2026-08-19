@@ -16,7 +16,14 @@
 import { api, type Entity, type Page as PageOf } from "../lib/api";
 import { href } from "../lib/router";
 import { useAsync } from "../lib/useAsync";
-import { Badge, Empty, ErrorBox, Spinner, When, statusTone } from "../components/ui";
+import {
+  Badge,
+  Empty,
+  ErrorBox,
+  Spinner,
+  When,
+  statusTone,
+} from "../components/ui";
 import { Page, projectCrumbs } from "../components/Page";
 import type { ScreenProps } from "../App";
 
@@ -45,7 +52,9 @@ function byPlan(a: Entity, b: Entity): number {
   // Finally by name, so ties never fall back to insertion order. Without this
   // the four phases that shipped on the same day came back newest first, so the
   // roadmap read 3, 2, 1, 0.
-  return String(a.name).localeCompare(String(b.name), undefined, { numeric: true });
+  return String(a.name).localeCompare(String(b.name), undefined, {
+    numeric: true,
+  });
 }
 
 /**
@@ -65,7 +74,11 @@ function byShipped(a: Entity, b: Entity): number {
   return byPlan(a, b);
 }
 
-export function RoadmapScreen({ route, generation, milestoneNoun }: ScreenProps) {
+export function RoadmapScreen({
+  route,
+  generation,
+  milestoneNoun,
+}: ScreenProps) {
   const noun = milestoneNoun ?? "milestone";
   const plural = `${noun.toLowerCase()}s`;
   const project = route.project;
@@ -77,7 +90,10 @@ export function RoadmapScreen({ route, generation, milestoneNoun }: ScreenProps)
   if (loading && !data) return <Spinner />;
   if (error) {
     return (
-      <Page title="Roadmap" crumbs={project ? projectCrumbs(route, "Roadmap") : undefined}>
+      <Page
+        title="Roadmap"
+        crumbs={project ? projectCrumbs(route, "Roadmap") : undefined}
+      >
         <ErrorBox error={error} retry={reload} />
       </Page>
     );
@@ -85,13 +101,19 @@ export function RoadmapScreen({ route, generation, milestoneNoun }: ScreenProps)
 
   const all = data?.items ?? [];
   const phases = all.filter((m) => String(m.kind) !== "release").sort(byPlan);
-  const releases = all.filter((m) => String(m.kind) === "release").sort(byShipped);
+  const releases = all
+    .filter((m) => String(m.kind) === "release")
+    .sort(byShipped);
 
   return (
     <Page
       title="Roadmap"
       crumbs={project ? projectCrumbs(route, "Roadmap") : undefined}
-      meta={<span className="text-small text-ink-faint">{project ? project : "all projects"}</span>}
+      meta={
+        <span className="text-small text-ink-faint">
+          {project ? project : "all projects"}
+        </span>
+      }
     >
       {all.length === 0 ? (
         <Empty
@@ -100,7 +122,9 @@ export function RoadmapScreen({ route, generation, milestoneNoun }: ScreenProps)
         />
       ) : (
         <>
-          {phases.length > 0 ? <Strand items={phases} noun={noun} project={project} /> : null}
+          {phases.length > 0 ? (
+            <Strand items={phases} noun={noun} project={project} />
+          ) : null}
           {releases.length > 0 ? (
             <>
               <h2 className="mt-8 mb-3 font-medium">Released</h2>
@@ -114,7 +138,15 @@ export function RoadmapScreen({ route, generation, milestoneNoun }: ScreenProps)
 }
 
 /** One vertical run of milestone rows against a timeline rule. */
-function Strand({ items, noun, project }: { items: Entity[]; noun: string; project?: string }) {
+function Strand({
+  items,
+  noun,
+  project,
+}: {
+  items: Entity[];
+  noun: string;
+  project?: string;
+}) {
   return (
     <ol className="relative space-y-3 border-l border-border-subtle pl-6">
       {items.map((m) => (
@@ -124,7 +156,15 @@ function Strand({ items, noun, project }: { items: Entity[]; noun: string; proje
   );
 }
 
-function Row({ m, noun, project }: { m: Entity; noun: string; project?: string }) {
+function Row({
+  m,
+  noun,
+  project,
+}: {
+  m: Entity;
+  noun: string;
+  project?: string;
+}) {
   // `state`, not `status`. The column only holds what was declared — shipped,
   // cut, paused, or nothing at all — and what the phase is actually doing is
   // worked out from its tasks by the daemon (B-57). Reading `status` here is
@@ -143,7 +183,8 @@ function Row({ m, noun, project }: { m: Entity; noun: string; project?: string }
   // the reply.
   const counted = typeof m.tasks_total === "number";
   const total = counted ? (m.tasks_total as number) : 0;
-  const closed = typeof m.tasks_closed === "number" ? (m.tasks_closed as number) : 0;
+  const closed =
+    typeof m.tasks_closed === "number" ? (m.tasks_closed as number) : 0;
   const moved = m.last_activity as string | null;
 
   return (
@@ -189,7 +230,9 @@ function Row({ m, noun, project }: { m: Entity; noun: string; project?: string }
                     helper rendered as "-3d ago". Kept for a phase that
                     genuinely has one; it is no longer what the column falls
                     back to. */}
-                {date ? <When iso={new Date(date).toISOString()} prefix="due" /> : null}
+                {date ? (
+                  <When iso={new Date(date).toISOString()} prefix="due" />
+                ) : null}
                 {counted ? <Progress closed={closed} total={total} /> : null}
                 {moved ? <When iso={moved} prefix="moved" /> : null}
               </>
@@ -197,7 +240,9 @@ function Row({ m, noun, project }: { m: Entity; noun: string; project?: string }
           </span>
         </div>
         {m.summary ? (
-          <p className="selectable mt-1 text-small text-ink-muted">{String(m.summary)}</p>
+          <p className="selectable mt-1 text-small text-ink-muted">
+            {String(m.summary)}
+          </p>
         ) : null}
       </div>
     </li>
@@ -223,14 +268,23 @@ function Progress({ closed, total }: { closed: number; total: number }) {
   }
   const pct = Math.round((closed / total) * 100);
   return (
-    <span className="flex items-center gap-2">
-      <span aria-hidden className="h-1.5 w-16 overflow-hidden rounded-full bg-border-subtle">
-        <span className="block h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+    <span className="flex items-center gap-2 whitespace-nowrap">
+      <span
+        aria-hidden
+        className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-border-subtle"
+      >
+        <span
+          className="block h-full rounded-full bg-accent"
+          style={{ width: `${pct}%` }}
+        />
       </span>
       {/* The numbers, not the percentage. "29 / 35" says how much is left in the
           unit the board is counted in; "83%" needs the total to be useful and
           the total is the part somebody is about to act on. */}
-      <span className="tabular" title={`${pct}% of the tasks in this one are closed`}>
+      <span
+        className="tabular whitespace-nowrap"
+        title={`${pct}% of the tasks in this one are closed`}
+      >
         {closed} / {total}
       </span>
     </span>
