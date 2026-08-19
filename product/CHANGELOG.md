@@ -1,15 +1,21 @@
 # Specline — Changelog
 
-<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T12:59:15Z -->
+<!-- specline:generated project prj_01KZKMPVHJNCCQH3JQNAXJJ03M 2026-08-19T13:16:06Z -->
 > **Generated from the task rows and the event log. Do not edit — Specline is the source of truth.**
 
 What has finished. What is happening now is in the tracker beside this file.
 
 ---
 
-## Closed work (288)
+## Closed work (289)
 
 ### 2026-08-19
+
+- **KEEL-337** Cut 0.4.0 — the Releases screen, the roadmap that says where you are, and the Inbox — `done`
+
+  v0.4.0 is out on all three platforms, and it is the first release that exists as a row in Specline while it is happening rather than being reconstructed from git tag afterwards. Twenty-one commits went with it, including a fortnight of work that had never been pushed.
+
+  <sub>commit:50f9ebe · url:https://github.com/kiritbasu/specline/releases/tag/v0.4.0 · url:https://github.com/kiritbasu/specline/actions/runs/32255614156 · test:cargo test --workspace</sub>
 
 - **KEEL-336** Split the Roadmap: phases grouped by state, releases on a screen of their own — `done`
 
@@ -1324,6 +1330,11 @@ What has finished. What is happening now is in the tracker beside this file.
 
 | Date | Actor | Change |
 |---|---|---|
+| 2026-08-19 | claude | status in_progress → done |
+| 2026-08-19 | claude | evidence [] → (181 characters) |
+| 2026-08-19 | claude | close_reason none → done |
+| 2026-08-19 | claude | close_message none → (268 characters) |
+| 2026-08-19 | claude | created milestone “0.4.0 — the Releases screen, and a roadmap that says where you are” |
 | 2026-08-19 | claude | status todo → in_progress |
 | 2026-08-19 | claude | claimed_by none → ses_e1aa5ce8-c196-4c0e-8882-d4422009c9f4 |
 | 2026-08-19 | claude | claimed_at none → 2026-08-19T12:45:21.200311Z |
@@ -1519,11 +1530,6 @@ What has finished. What is happening now is in the tracker beside this file.
 | 2026-08-18 | claude | labels ["phase9","9b","storage"] → ["phase9","storage"] |
 | 2026-08-18 | claude | labels ["phase9","9b","storage"] → ["phase9","storage"] |
 | 2026-08-18 | claude | labels ["phase9","9b","storage"] → ["phase9","storage"] |
-| 2026-08-18 | claude | labels ["phase9","9b","storage","cli"] → ["phase9","storage","cli"] |
-| 2026-08-18 | claude | labels ["phase9","9b","storage","cli"] → ["phase9","storage","cli"] |
-| 2026-08-18 | claude | labels ["phase9","9c","testing"] → ["phase9","testing"] |
-| 2026-08-18 | claude | labels ["phase9","9c","tooling","storage"] → ["phase9","tooling","storage"] |
-| 2026-08-18 | claude | created task “A card shows the same word twice when a label repeats the kind” |
 
-*Showing the 200 most recent of 2458 changes. Use `specline_activity` for the rest.*
+*Showing the 200 most recent of 2463 changes. Use `specline_activity` for the rest.*
 
